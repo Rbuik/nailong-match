@@ -83,7 +83,7 @@ let score = 0, moves = 25, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
-let targetValue = 1000, currentProgress = 0;
+let targetValue = 1500, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [];
@@ -167,8 +167,9 @@ function spawnParticles(r, c, color) {
   }
 }
 
+// 加长寿命，让它彻底飘出棋盘
 function spawnText(r, c, text, color = '#ffd75c') {
-  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 1.5, dy: -3.5 });
+  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 2.0, dy: -4 });
 }
 
 function updateEffects() {
@@ -177,9 +178,11 @@ function updateEffects() {
     p.x += p.vx; p.y += p.vy; p.life -= 0.05;
     if (p.life <= 0) particles.splice(i, 1);
   }
+  // 飘字只要活着就继续往上飞
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
     const t = floatingTexts[i];
-    t.y += t.dy; t.life -= 0.015; 
+    t.y += t.dy; 
+    t.life -= 0.01; 
     if (t.life <= 0) floatingTexts.splice(i, 1);
   }
 }
@@ -419,11 +422,14 @@ canvas.addEventListener('pointerdown', async (e) => {
     moves--; movesEl.textContent = moves;
     await resolveBoard();
 
-    if (currentProgress >= targetValue) {
-      handleLevelWin();
+    // ===== 必须步数归零才结算 =====
+    if (moves <= 0) {
+      if (currentProgress >= targetValue) {
+        handleLevelWin(); // 步数用光且达标 -> 过关
+      } else {
+        endGame();       // 步数用光且没达标 -> 失败
+      }
       busy = false; return;
-    } else if (moves <= 0) {
-      endGame(); busy = false; return;
     }
 
     if (!hasPossibleMove()) {
@@ -436,7 +442,6 @@ canvas.addEventListener('pointerdown', async (e) => {
 });
 
 // ===================== 关卡与目标逻辑 =====================
-// 只保留分数目标
 function setupTarget() {
   targetValue = level * 1500;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
@@ -465,7 +470,7 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   document.getElementById('level-clear').style.display = 'none';
   level++;
   levelEl.textContent = level;
-  moves += 15; 
+  moves = 25; // 下一关重置满步数，给你充足的挑战空间
   movesEl.textContent = moves;
   
   levelStartScore = score;
