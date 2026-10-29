@@ -83,7 +83,7 @@ let score = 0, moves = 25, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
-let targetType = 'score', targetValue = 1000, currentProgress = 0;
+let targetValue = 1000, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [];
@@ -167,7 +167,6 @@ function spawnParticles(r, c, color) {
   }
 }
 
-// 加长飘字寿命，让它飘出屏幕
 function spawnText(r, c, text, color = '#ffd75c') {
   floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 1.5, dy: -3.5 });
 }
@@ -178,7 +177,6 @@ function updateEffects() {
     p.x += p.vx; p.y += p.vy; p.life -= 0.05;
     if (p.life <= 0) particles.splice(i, 1);
   }
-  // 飘字不受 1.0 的限制，只要 life > 0 就一直飘
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
     const t = floatingTexts[i];
     t.y += t.dy; t.life -= 0.015; 
@@ -299,7 +297,6 @@ async function resolveBoard() {
       if (board[r][c]) spawnParticles(r, c, FALLBACK_COLORS[board[r][c].type]);
     });
     
-    // 生成飘字特效
     spawnText(matchArray[0][0], matchArray[0][1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
 
     await new Promise(resolve => {
@@ -422,7 +419,6 @@ canvas.addEventListener('pointerdown', async (e) => {
     moves--; movesEl.textContent = moves;
     await resolveBoard();
 
-    // 完美的过关判定逻辑
     if (currentProgress >= targetValue) {
       handleLevelWin();
       busy = false; return;
@@ -440,20 +436,15 @@ canvas.addEventListener('pointerdown', async (e) => {
 });
 
 // ===================== 关卡与目标逻辑 =====================
+// 只保留分数目标
 function setupTarget() {
-  if (Math.random() > 0.5) {
-    targetType = 'score'; targetValue = level * 1000 + 500;
-    targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
-  } else {
-    targetType = 'collect'; targetValue = 10 + level * 5;
-    targetBar.textContent = `目标：消除任意 ${targetValue} 个方块`;
-  }
+  targetValue = level * 1500;
+  targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
   currentProgress = 0;
 }
 
 function updateTargetUI() {
-  if (targetType === 'score') targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
-  else targetBar.textContent = `目标：消除方块 ${currentProgress} / ${targetValue}`;
+  targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
 }
 
 function handleLevelWin() {
@@ -549,7 +540,6 @@ function endGame() {
   document.getElementById('game-over').style.display = 'flex';
 }
 
-// 绑定按钮
 document.getElementById('btn-start').addEventListener('click', startGame);
 document.getElementById('btn-restart').addEventListener('click', startGame);
 document.getElementById('btn-home').addEventListener('click', () => {
