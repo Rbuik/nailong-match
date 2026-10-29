@@ -80,6 +80,7 @@ function loadImages() {
 // ===================== 游戏状态 =====================
 let board = [];
 let score = 0, moves = 25, level = 1;
+let levelStartScore = 0; // 记录本关开始时的分数
 let busy = false, selected = null, isPlaying = false;
 
 let targetType = 'score', targetValue = 1000, currentProgress = 0;
@@ -403,7 +404,7 @@ canvas.addEventListener('pointerdown', async (e) => {
     moves--; movesEl.textContent = moves;
     await resolveBoard();
 
-    // ====== 过关判定 ======
+    // 过关判定
     if (currentProgress >= targetValue) {
       handleLevelWin();
       busy = false; return;
@@ -432,6 +433,7 @@ function setupTarget() {
     targetBar.textContent = `目标：消除任意 ${targetValue} 个方块`;
   }
   currentProgress = 0;
+  levelStartScore = score; // 记录进入本关时的分数
 }
 
 function updateTargetUI() {
@@ -439,25 +441,27 @@ function updateTargetUI() {
   else targetBar.textContent = `目标：消除方块 ${currentProgress} / ${targetValue}`;
 }
 
-// 过关展示弹窗
 function handleLevelWin() {
-  isPlaying = false; // 暂停操作
+  isPlaying = false;
   SFX.win();
   if (level >= highLevel) {
     highLevel = level + 1;
     localStorage.setItem('nailong_high_level', highLevel);
+    document.getElementById('menu-high-level').textContent = highLevel;
   }
-  document.getElementById('clear-score').textContent = score;
+  // 计算本关得分
+  const levelEarned = score - levelStartScore;
+  document.getElementById('clear-score').textContent = levelEarned;
   document.getElementById('clear-moves').textContent = moves;
-  document.getElementById('level-clear').style.display = 'flex'; // 显示过关弹窗
+  document.getElementById('level-clear').style.display = 'flex';
 }
 
-// 点击“进入下一关”
+// 进入下一关
 document.getElementById('btn-next-level').addEventListener('click', () => {
   document.getElementById('level-clear').style.display = 'none';
   level++;
   levelEl.textContent = level;
-  moves += 15; // 过关奖励步数
+  moves += 15; 
   movesEl.textContent = moves;
   
   setupTarget();
@@ -465,6 +469,13 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   isPlaying = true;
   busy = false;
   draw();
+});
+
+// 过关界面返回主页
+document.getElementById('btn-clear-home').addEventListener('click', () => {
+  document.getElementById('level-clear').style.display = 'none';
+  document.getElementById('main-menu').style.display = 'flex';
+  isPlaying = false;
 });
 
 // ===================== 道具功能 =====================
@@ -525,6 +536,7 @@ function endGame() {
   document.getElementById('game-over').style.display = 'flex';
 }
 
+// 按钮绑定
 document.getElementById('btn-start').addEventListener('click', startGame);
 document.getElementById('btn-restart').addEventListener('click', startGame);
 document.getElementById('btn-home').addEventListener('click', () => {
@@ -534,6 +546,7 @@ document.getElementById('btn-home').addEventListener('click', () => {
 });
 document.getElementById('btn-quit').addEventListener('click', () => {
   isPlaying = false;
+  document.getElementById('game-over').style.display = 'none';
   document.getElementById('main-menu').style.display = 'flex';
 });
 
