@@ -17,7 +17,7 @@
     </div>
     
     <!-- 目标提示栏 -->
-    <div class="target-bar" id="target-bar">目标：得分达到 1000 分</div>
+    <div class="target-bar" id="target-bar">目标：得分达到 1500 分</div>
 
     <!-- 道具栏 -->
     <div class="tools">
@@ -41,10 +41,14 @@
     <div class="overlay" id="main-menu">
       <h1 class="title">奶龙消消乐</h1>
       <p class="high-score-text">最高关卡：<b id="menu-high-level">1</b> | 最高分：<b id="menu-high-score">0</b></p>
-      <button class="btn-primary" id="btn-start">开始游戏</button>
+      
+      <!-- 继续游戏按钮（有存档时显示） -->
+      <button class="btn-primary" id="btn-continue" style="display: none;">继续游戏</button>
+      
+      <button class="btn-primary" id="btn-start">开始新游戏</button>
     </div>
 
-    <!-- 遮罩层：过关结算 (升级版) -->
+    <!-- 遮罩层：过关结算 -->
     <div class="overlay" id="level-clear" style="display: none;">
       <h2 class="title" style="background: linear-gradient(90deg,#5cff8f,#5c8fff);">关卡完成！</h2>
       <div class="result-box">
