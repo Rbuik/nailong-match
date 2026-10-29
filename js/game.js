@@ -1,7 +1,6 @@
 // ===================== 配置 =====================
 const COLS = 8, ROWS = 8;
-const COLORS = ['#ff5c5c', '#5cff8f', '#5c8fff', '#ffd75c', '#c85cff', '#5cffee'];
-const TYPES = COLORS.length;
+const TYPES = 6;
 const MAX_W = 480;
 
 // ===================== 自适应格子尺寸 =====================
@@ -16,6 +15,31 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 canvas.width = COLS * CELL;
 canvas.height = ROWS * CELL;
+
+// ===================== 图片资源 =====================
+const IMAGES = [];
+let imagesReady = false;
+
+function loadImages() {
+  let loaded = 0;
+  for (let i = 0; i < TYPES; i++) {
+    const img = new Image();
+    img.src = `./assets/${i}.png`;
+    img.onload = () => {
+      loaded++;
+      if (loaded === TYPES) {
+        imagesReady = true;
+        start();
+      }
+    };
+    img.onerror = () => {
+      console.error(`图片加载失败: ./assets/${i}.png`);
+      loaded++;
+      if (loaded === TYPES) { imagesReady = true; start(); }
+    };
+    IMAGES.push(img);
+  }
+}
 
 // ===================== 状态 =====================
 let board = [];
@@ -106,27 +130,24 @@ function roundRect(x, y, w, h, r) {
   ctx.closePath();
 }
 
-function drawCell(r, c, t, scale = 1, alpha = 1) {
-  const x = c * CELL, y = r * CELL;
-  const pad = 3, size = CELL - pad * 2;
+function drawBlock(px, py, t, size = CELL - 6, alpha = 1, scale = 1) {
+  if (!imagesReady || t === null || t === undefined) return;
   const s = size * scale;
-  const cx = x + CELL / 2, cy = y + CELL / 2;
-
+  const cx = px + CELL / 2;
+  const cy = py + CELL / 2;
   ctx.save();
   ctx.globalAlpha = alpha;
-  ctx.translate(cx, cy);
-  ctx.translate(-s / 2, -s / 2);
-  ctx.fillStyle = COLORS[t];
-  roundRect(0, 0, s, s, 10);
-  ctx.fill();
-  ctx.fillStyle = 'rgba(255,255,255,.25)';
-  roundRect(s * 0.1, s * 0.08, s * 0.8, s * 0.32, 6);
-  ctx.fill();
+  ctx.drawImage(IMAGES[t], cx - s / 2, cy - s / 2, s, s);
   ctx.restore();
+}
+
+function drawCell(r, c, t, scale = 1, alpha = 1) {
+  drawBlock(c * CELL, r * CELL, t, CELL - 6, alpha, scale);
 }
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!imagesReady) return;
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const t = board[r][c];
@@ -162,20 +183,13 @@ async function animateSwap(a, b, dur = 140) {
           if (board[r][c] !== null) drawCell(r, c, board[r][c]);
         }
       }
-      const drawMoving = (t, x0, y0, x1, y1) => {
-        if (t === null) return;
-        const x = x0 + (x1 - x0) * e;
-        const y = y0 + (y1 - y0) * e;
-        const pad = 3, s = CELL - pad * 2;
-        ctx.fillStyle = COLORS[t];
-        roundRect(x + pad, y + pad, s, s, 10);
-        ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,.25)';
-        roundRect(x + pad + s * 0.1, y + pad + s * 0.08, s * 0.8, s * 0.32, 6);
-        ctx.fill();
-      };
-      drawMoving(ta, ax, ay, bx, by);
-      drawMoving(tb, bx, by, ax, ay);
+
+      const x1 = ax + (bx - ax) * e;
+      const y1 = ay + (by - ay) * e;
+      const x2 = bx + (ax - bx) * e;
+      const y2 = by + (ay - by) * e;
+      drawBlock(x1, y1, ta);
+      drawBlock(x2, y2, tb);
 
       if (p < 1) requestAnimationFrame(frame);
       else resolve();
@@ -203,8 +217,7 @@ async function resolveBoard() {
         for (let r = 0; r < ROWS; r++) {
           for (let c = 0; c < COLS; c++) {
             if (board[r][c] === null) continue;
-            const isMatched = matched.has(`${r},${c}`);
-            if (isMatched) drawCell(r, c, board[r][c], 1 - p, 1 - p);
+            if (matched.has(`${r},${c}`)) drawCell(r, c, board[r][c], 1 - p, 1 - p);
             else drawCell(r, c, board[r][c]);
           }
         }
@@ -226,7 +239,7 @@ async function resolveBoard() {
         if (board[r][c] !== null) {
           if (write !== r) {
             board[write][c] = board[r][c];
-            fallFrom[`${write},${c}`] = { fromR: r, type: board[r][c] };
+            fallFrom[`${write},${c}`] = r;
             board[r][c] = null;
           }
           write--;
@@ -234,9 +247,8 @@ async function resolveBoard() {
       }
       let newCount = 0;
       for (let r = write; r >= 0; r--) {
-        const t = randType();
-        board[r][c] = t;
-        fallFrom[`${r},${c}`] = { fromR: -1 - newCount, type: t };
+        board[r][c] = randType();
+        fallFrom[`${r},${c}`] = -1 - newCount;
         newCount++;
       }
     }
@@ -252,19 +264,12 @@ async function resolveBoard() {
           for (let c = 0; c < COLS; c++) {
             const t = board[r][c];
             if (t === null) continue;
-            const info = fallFrom[`${r},${c}`];
-            if (info && info.fromR !== r) {
-              const fromY = info.fromR * CELL;
+            const fromR = fallFrom[`${r},${c}`];
+            if (fromR !== undefined && fromR !== r) {
+              const fromY = fromR * CELL;
               const toY = r * CELL;
               const y = fromY + (toY - fromY) * e;
-              const pad = 3, s = CELL - pad * 2;
-              const x = c * CELL;
-              ctx.fillStyle = COLORS[t];
-              roundRect(x + pad, y + pad, s, s, 10);
-              ctx.fill();
-              ctx.fillStyle = 'rgba(255,255,255,.25)';
-              roundRect(x + pad + s * 0.1, y + pad + s * 0.08, s * 0.8, s * 0.32, 6);
-              ctx.fill();
+              drawBlock(c * CELL, y, t);
             } else {
               drawCell(r, c, t);
             }
@@ -292,7 +297,7 @@ function cellFromEvent(e) {
 
 canvas.addEventListener('pointerdown', async (e) => {
   e.preventDefault();
-  if (busy || moves <= 0) return;
+  if (!imagesReady || busy || moves <= 0) return;
   const cell = cellFromEvent(e);
   if (!cell) return;
 
@@ -359,9 +364,13 @@ function start() {
   busy = false;
   scoreEl.textContent = 0;
   movesEl.textContent = 30;
+  const loading = document.getElementById('loading');
+  if (loading) loading.style.display = 'none';
   initBoard();
   draw();
 }
 
 document.getElementById('restart').addEventListener('click', start);
-start();
+
+// 先加载图片，加载完自动 start()
+loadImages();
