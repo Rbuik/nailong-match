@@ -80,7 +80,7 @@ function loadImages() {
 // ===================== 游戏状态 =====================
 let board = [];
 let score = 0, moves = 25, level = 1;
-let levelStartScore = 0; // 记录本关开始时的分数
+let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
 let targetType = 'score', targetValue = 1000, currentProgress = 0;
@@ -433,7 +433,7 @@ function setupTarget() {
     targetBar.textContent = `目标：消除任意 ${targetValue} 个方块`;
   }
   currentProgress = 0;
-  levelStartScore = score; // 记录进入本关时的分数
+  levelStartScore = score;
 }
 
 function updateTargetUI() {
@@ -449,14 +449,12 @@ function handleLevelWin() {
     localStorage.setItem('nailong_high_level', highLevel);
     document.getElementById('menu-high-level').textContent = highLevel;
   }
-  // 计算本关得分
   const levelEarned = score - levelStartScore;
   document.getElementById('clear-score').textContent = levelEarned;
   document.getElementById('clear-moves').textContent = moves;
   document.getElementById('level-clear').style.display = 'flex';
 }
 
-// 进入下一关
 document.getElementById('btn-next-level').addEventListener('click', () => {
   document.getElementById('level-clear').style.display = 'none';
   level++;
@@ -471,7 +469,6 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   draw();
 });
 
-// 过关界面返回主页
 document.getElementById('btn-clear-home').addEventListener('click', () => {
   document.getElementById('level-clear').style.display = 'none';
   document.getElementById('main-menu').style.display = 'flex';
@@ -536,7 +533,7 @@ function endGame() {
   document.getElementById('game-over').style.display = 'flex';
 }
 
-// 按钮绑定
+// 绑定按钮
 document.getElementById('btn-start').addEventListener('click', startGame);
 document.getElementById('btn-restart').addEventListener('click', startGame);
 document.getElementById('btn-home').addEventListener('click', () => {
@@ -558,4 +555,5 @@ window.addEventListener('resize', () => {
   draw();
 });
 
+// 加载图片
 loadImages();
