@@ -1,0 +1,33 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  height: 100%;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+body {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: #1e1e2e; color: #fff;
+  font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  gap: 12px;
+  padding: 12px;
+  touch-action: none;
+}
+.hud {
+  display: flex; gap: 20px; align-items: center;
+  font-size: 17px; user-select: none;
+}
+.hud b { color: #ffd75c; font-size: 19px; }
+.hud button {
+  padding: 7px 16px; border: none; border-radius: 8px;
+  background: #7c5cff; color: #fff; cursor: pointer;
+  font-size: 15px; transition: background .15s;
+}
+.hud button:hover { background: #6a4ae6; }
+.hud button:active { transform: scale(.96); }
+canvas {
+  border-radius: 14px; background: #2a2a3e;
+  box-shadow: 0 8px 32px rgba(0,0,0,.45);
+  touch-action: none;
+  display: block;
+}
