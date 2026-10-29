@@ -10,9 +10,19 @@
   <div class="game-container">
     <!-- 顶部信息栏 -->
     <div class="hud" id="hud">
-      <span>得分：<b id="score">0</b></span>
-      <span>步数：<b id="moves">30</b></span>
+      <div class="hud-item">关卡：<b id="level">1</b></div>
+      <div class="hud-item">步数：<b id="moves">25</b></div>
+      <div class="hud-item">得分：<b id="score">0</b></div>
       <button id="btn-quit">主页</button>
+    </div>
+    
+    <!-- 目标提示栏 -->
+    <div class="target-bar" id="target-bar">目标：得分达到 1000 分</div>
+
+    <!-- 道具栏 -->
+    <div class="tools">
+      <button id="btn-shuffle">🔄 洗牌 (3)</button>
+      <button id="btn-undo">↩️ 撤回 (3)</button>
     </div>
 
     <!-- 游戏画布 -->
@@ -22,16 +32,16 @@
     <!-- 遮罩层：主页 -->
     <div class="overlay" id="main-menu">
       <h1 class="title">奶龙消消乐</h1>
-      <p class="high-score-text">历史最高：<b id="menu-high-score">0</b> 分</p>
+      <p class="high-score-text">最高关卡：<b id="menu-high-level">1</b> | 最高分：<b id="menu-high-score">0</b></p>
       <button class="btn-primary" id="btn-start">开始游戏</button>
     </div>
 
     <!-- 遮罩层：结算 -->
     <div class="overlay" id="game-over" style="display: none;">
-      <h2 class="title">步数耗尽</h2>
+      <h2 class="title" id="over-title">步数耗尽</h2>
       <div class="result-box">
         <p>本局得分：<b id="final-score">0</b></p>
-        <p class="high-score-text">最高纪录：<b id="final-high-score">0</b></p>
+        <p>达到关卡：<b id="final-level">1</b></p>
       </div>
       <button class="btn-primary" id="btn-restart">再来一局</button>
       <button class="btn-secondary" id="btn-home">返回主页</button>
