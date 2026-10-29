@@ -1,7 +1,6 @@
 # 果冻消消乐 · Jelly Match
 
 一个用原生 HTML5 Canvas + JavaScript 写的三消小游戏，无任何依赖，打开就能玩。
-
 ![play](https://img.shields.io/badge/play-online-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![no-deps](https://img.shields.io/badge/dependencies-0-orange)
@@ -29,6 +28,7 @@
 - ✅ 开局保证无三连
 
 ## 项目结构
+
 ```text
 jelly-match/
 ├── css/
