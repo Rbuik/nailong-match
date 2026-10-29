@@ -19,7 +19,7 @@
     <!-- 目标提示栏 -->
     <div class="target-bar" id="target-bar">目标：得分达到 1000 分</div>
 
-    <!-- 道具栏 (美化版) -->
+    <!-- 道具栏 -->
     <div class="tools">
       <button id="btn-shuffle" class="tool-btn">
         <span class="icon">🔄</span>
@@ -44,14 +44,15 @@
       <button class="btn-primary" id="btn-start">开始游戏</button>
     </div>
 
-    <!-- 遮罩层：过关结算 -->
+    <!-- 遮罩层：过关结算 (升级版) -->
     <div class="overlay" id="level-clear" style="display: none;">
       <h2 class="title" style="background: linear-gradient(90deg,#5cff8f,#5c8fff);">关卡完成！</h2>
       <div class="result-box">
-        <p>当前得分：<b id="clear-score">0</b></p>
+        <p>本关得分：<b id="clear-score">0</b></p>
         <p>剩余步数：<b id="clear-moves">0</b></p>
       </div>
       <button class="btn-primary" id="btn-next-level">进入下一关</button>
+      <button class="btn-secondary" id="btn-clear-home">返回主页</button>
     </div>
 
     <!-- 遮罩层：游戏结束 -->
