@@ -12,6 +12,7 @@ body {
   gap: 12px;
   padding: 12px;
   touch-action: none;
+  position: relative;
 }
 .hud {
   display: flex; gap: 20px; align-items: center;
@@ -30,4 +31,11 @@ canvas {
   box-shadow: 0 8px 32px rgba(0,0,0,.45);
   touch-action: none;
   display: block;
+}
+#loading {
+  position: absolute;
+  color: #aaa;
+  font-size: 16px;
+  pointer-events: none;
+  user-select: none;
 }
