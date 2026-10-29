@@ -57,11 +57,63 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 canvas.width = COLS * CELL; canvas.height = ROWS * CELL;
 
-// ===================== 本地存储 =====================
+// ===================== 本地存储与进度存档 =====================
 let highScore = parseInt(localStorage.getItem('nailong_high_score') || '0', 10);
 let highLevel = parseInt(localStorage.getItem('nailong_high_level') || '1', 10);
 document.getElementById('menu-high-score').textContent = highScore;
 document.getElementById('menu-high-level').textContent = highLevel;
+
+// 检查是否有存档
+function checkSave() {
+  const saved = localStorage.getItem('nailong_save');
+  const btnContinue = document.getElementById('btn-continue');
+  if (saved) {
+    btnContinue.style.display = 'block';
+  } else {
+    btnContinue.style.display = 'none';
+  }
+}
+
+function saveGame() {
+  if (!isPlaying) return;
+  const state = {
+    board, score, moves, level, levelStartScore, currentProgress,
+    shuffleCount, undoCount, history
+  };
+  localStorage.setItem('nailong_save', JSON.stringify(state));
+}
+
+function loadGame() {
+  const saved = localStorage.getItem('nailong_save');
+  if (!saved) return false;
+  try {
+    const state = JSON.parse(saved);
+    board = state.board;
+    score = state.score;
+    moves = state.moves;
+    level = state.level;
+    levelStartScore = state.levelStartScore;
+    currentProgress = state.currentProgress;
+    shuffleCount = state.shuffleCount;
+    undoCount = state.undoCount;
+    history = state.history;
+
+    // 刷新 UI
+    scoreEl.textContent = score;
+    movesEl.textContent = moves;
+    levelEl.textContent = level;
+    shuffleCountEl.textContent = shuffleCount;
+    undoCountEl.textContent = undoCount;
+    if (shuffleCount === 0) btnShuffle.disabled = true;
+    if (undoCount === 0) btnUndo.disabled = true;
+    
+    setupTarget();
+    updateTargetUI();
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
 
 // ===================== 资源加载 =====================
 const IMAGES = []; let imagesReady = false;
@@ -86,7 +138,6 @@ let busy = false, selected = null, isPlaying = false;
 let targetValue = 1500, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
-
 let particles = [], floatingTexts = [];
 
 const scoreEl = document.getElementById('score');
@@ -215,7 +266,6 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
   ctx.restore();
 }
 
-// 独立的特效渲染
 function renderEffects() {
   particles.forEach(p => { 
     ctx.globalAlpha = p.life; 
@@ -224,7 +274,7 @@ function renderEffects() {
   });
   
   floatingTexts.forEach(t => {
-    const alpha = Math.max(0, Math.min(1, t.life)); // 渐隐控制
+    const alpha = Math.max(0, Math.min(1, t.life));
     ctx.globalAlpha = alpha; 
     ctx.fillStyle = t.color; 
     ctx.font = 'bold 20px sans-serif';
@@ -254,21 +304,15 @@ function drawAll() {
   renderEffects();
 }
 
-// 全局独立循环：只在特效存在时刷新
 function loop() {
   let needsRender = false;
   if (particles.length > 0 || floatingTexts.length > 0) {
     updateEffects();
     needsRender = true;
   }
-  
-  // 如果不忙，说明没有方块正在下落或消除，我们就全量重绘一下，保证特效飘动
   if (needsRender && !busy) {
     drawAll();
-  } else if (needsRender) {
-    // 如果正忙（比如正在下滑动画），动画里有自己调用的 renderEffects()，这里为了避免冲突不用重绘全屏
   }
-  
   requestAnimationFrame(loop);
 }
 
@@ -293,7 +337,7 @@ async function animateSwap(a, b, dur = 140) {
       drawBlock(ax + (bx - ax) * e, ay + (by - ay) * e, ta);
       drawBlock(bx + (ax - bx) * e, by + (ay - by) * e, tb);
       
-      renderEffects(); // 动画中也要画特效
+      renderEffects(); 
 
       if (p < 1) requestAnimationFrame(frame);
       else resolve();
@@ -346,7 +390,7 @@ async function resolveBoard() {
             else drawBlock(c * CELL, r * CELL, board[r][c]);
           }
         }
-        renderEffects(); // 绘制特效
+        renderEffects(); 
         if (p < 1) requestAnimationFrame(frame); else resolve();
       }
       requestAnimationFrame(frame);
@@ -389,7 +433,7 @@ async function resolveBoard() {
             } else { drawBlock(c * CELL, r * CELL, board[r][c]); }
           }
         }
-        renderEffects(); // 绘制特效
+        renderEffects(); 
         if (p < 1) requestAnimationFrame(frame); else { drawAll(); resolve(); }
       }
       requestAnimationFrame(frame);
@@ -435,6 +479,7 @@ canvas.addEventListener('pointerdown', async (e) => {
     await resolveBoard();
 
     if (moves <= 0) {
+      localStorage.removeItem('nailong_save'); // 游戏结束清空存档
       if (currentProgress >= targetValue) handleLevelWin(); 
       else endGame();       
       busy = false; return;
@@ -444,6 +489,7 @@ canvas.addEventListener('pointerdown', async (e) => {
       await sleep(200); initBoard(); drawAll();
     }
     busy = false;
+    saveGame(); // 每走一步自动存档
   } else {
     selected = cell; SFX.select(); drawAll();
   }
@@ -453,7 +499,6 @@ canvas.addEventListener('pointerdown', async (e) => {
 function setupTarget() {
   targetValue = level * 1500;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
-  currentProgress = 0;
 }
 
 function updateTargetUI() {
@@ -486,12 +531,15 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   initBoard();
   isPlaying = true;
   busy = false;
+  drawAll();
+  saveGame();
 });
 
 document.getElementById('btn-clear-home').addEventListener('click', () => {
   document.getElementById('level-clear').style.display = 'none';
   document.getElementById('main-menu').style.display = 'flex';
   isPlaying = false;
+  checkSave();
 });
 
 // ===================== 道具功能 =====================
@@ -501,6 +549,7 @@ btnShuffle.addEventListener('click', () => {
   shuffleCountEl.textContent = shuffleCount;
   if (shuffleCount === 0) btnShuffle.disabled = true;
   initBoard(); drawAll(); SFX.swap();
+  saveGame();
 });
 
 btnUndo.addEventListener('click', () => {
@@ -516,6 +565,7 @@ btnUndo.addEventListener('click', () => {
   movesEl.textContent = moves;
   selected = null;
   drawAll(); SFX.select();
+  saveGame();
 });
 
 // ===================== 主流程 =====================
@@ -525,7 +575,7 @@ function startGame() {
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('level-clear').style.display = 'none';
   
-  score = 0; moves = 25; level = 1; levelStartScore = 0;
+  score = 0; moves = 25; level = 1; levelStartScore = 0; currentProgress = 0;
   shuffleCount = 3; undoCount = 3;
   shuffleCountEl.textContent = 3; btnShuffle.disabled = false;
   undoCountEl.textContent = 3; btnUndo.disabled = false;
@@ -537,10 +587,29 @@ function startGame() {
   setupTarget();
   initBoard();
   drawAll();
+  saveGame();
+}
+
+function continueGame() {
+  initAudio();
+  if (loadGame()) {
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('level-clear').style.display = 'none';
+    isPlaying = true;
+    busy = false;
+    selected = null;
+    particles = []; floatingTexts = [];
+    drawAll();
+  } else {
+    alert("存档已损坏，将开始新游戏");
+    startGame();
+  }
 }
 
 function endGame() {
   isPlaying = false;
+  localStorage.removeItem('nailong_save'); 
   if (score > highScore) {
     highScore = score;
     localStorage.setItem('nailong_high_score', highScore);
@@ -553,16 +622,20 @@ function endGame() {
 }
 
 document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-continue').addEventListener('click', continueGame);
 document.getElementById('btn-restart').addEventListener('click', startGame);
 document.getElementById('btn-home').addEventListener('click', () => {
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('main-menu').style.display = 'flex';
   isPlaying = false;
+  checkSave();
 });
 document.getElementById('btn-quit').addEventListener('click', () => {
   isPlaying = false;
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('main-menu').style.display = 'flex';
+  saveGame();
+  checkSave();
 });
 
 window.addEventListener('resize', () => {
@@ -576,3 +649,4 @@ window.addEventListener('resize', () => {
 // 启动循环与加载
 loop();
 loadImages();
+checkSave(); // 页面加载时检查是否有存档
