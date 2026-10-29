@@ -7,13 +7,36 @@
   <link rel="stylesheet" href="./css/style.css">
 </head>
 <body>
-  <div class="hud">
-    <span>得分：<b id="score">0</b></span>
-    <span>步数：<b id="moves">30</b></span>
-    <button id="restart">重开</button>
+  <div class="game-container">
+    <!-- 顶部信息栏 -->
+    <div class="hud" id="hud">
+      <span>得分：<b id="score">0</b></span>
+      <span>步数：<b id="moves">30</b></span>
+      <button id="btn-quit">主页</button>
+    </div>
+
+    <!-- 游戏画布 -->
+    <canvas id="game"></canvas>
+    <div id="loading">加载中…</div>
+
+    <!-- 遮罩层：主页 -->
+    <div class="overlay" id="main-menu">
+      <h1 class="title">奶龙消消乐</h1>
+      <p class="high-score-text">历史最高：<b id="menu-high-score">0</b> 分</p>
+      <button class="btn-primary" id="btn-start">开始游戏</button>
+    </div>
+
+    <!-- 遮罩层：结算 -->
+    <div class="overlay" id="game-over" style="display: none;">
+      <h2 class="title">步数耗尽</h2>
+      <div class="result-box">
+        <p>本局得分：<b id="final-score">0</b></p>
+        <p class="high-score-text">最高纪录：<b id="final-high-score">0</b></p>
+      </div>
+      <button class="btn-primary" id="btn-restart">再来一局</button>
+      <button class="btn-secondary" id="btn-home">返回主页</button>
+    </div>
   </div>
-  <canvas id="game"></canvas>
-  <div id="loading">加载中…</div>
   <script src="./js/game.js"></script>
 </body>
 </html>
