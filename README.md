@@ -2,13 +2,13 @@
 
 一个用原生 HTML5 Canvas + JavaScript 写的三消小游戏，无任何依赖，打开就能玩。
 
-![玩法预览](https://img.shields.io/badge/play-online-brightgreen)
+![play](https://img.shields.io/badge/play-online-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![no-deps](https://img.shields.io/badge/dependencies-0-orange)
 
 ## 在线试玩
 
-👉 **https://你的用户名.github.io/jelly-match/**
+👉 **https://rbuik.github.io/jelly-match/**
 
 ## 玩法
 
@@ -27,3 +27,14 @@
 - ✅ 死局自动检测与洗牌
 - ✅ 手机自适应，支持触摸
 - ✅ 开局保证无三连
+
+## 项目结构
+'''text
+jelly-match/
+├── css/
+│ └── style.css # 样式与布局
+├── js/
+│ └── game.js # 游戏核心逻辑
+├── README.md
+└── index.html # 页面结构
+'''
