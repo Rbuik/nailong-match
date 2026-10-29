@@ -83,7 +83,9 @@ let score = 0, moves = 25, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
+// 目标系统
 let targetType = 'score', targetValue = 1000, currentProgress = 0;
+
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [];
@@ -286,7 +288,7 @@ async function resolveBoard() {
     const addedScore = matched.size * 10 * combo;
     score += addedScore;
     scoreEl.textContent = score;
-    currentProgress += addedScore;
+    currentProgress += addedScore; // 正确累加本关进度
     updateTargetUI();
     
     SFX.match(combo);
@@ -404,13 +406,13 @@ canvas.addEventListener('pointerdown', async (e) => {
     moves--; movesEl.textContent = moves;
     await resolveBoard();
 
-    // 过关判定
+    // ====== 关键判定逻辑 ======
     if (currentProgress >= targetValue) {
+      // 达标了，过关！
       handleLevelWin();
       busy = false; return;
-    }
-
-    if (moves <= 0) {
+    } else if (moves <= 0) {
+      // 没达标，且步数也用光了，游戏结束！
       endGame(); busy = false; return;
     }
 
@@ -432,8 +434,7 @@ function setupTarget() {
     targetType = 'collect'; targetValue = 10 + level * 5;
     targetBar.textContent = `目标：消除任意 ${targetValue} 个方块`;
   }
-  currentProgress = 0;
-  levelStartScore = score;
+  currentProgress = 0; // 重置本关进度
 }
 
 function updateTargetUI() {
@@ -462,6 +463,7 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   moves += 15; 
   movesEl.textContent = moves;
   
+  levelStartScore = score; // 记录下一关的起始分数
   setupTarget();
   initBoard();
   isPlaying = true;
@@ -506,7 +508,7 @@ function startGame() {
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('level-clear').style.display = 'none';
   
-  score = 0; moves = 25; level = 1; 
+  score = 0; moves = 25; level = 1; levelStartScore = 0;
   shuffleCount = 3; undoCount = 3;
   shuffleCountEl.textContent = 3; btnShuffle.disabled = false;
   undoCountEl.textContent = 3; btnUndo.disabled = false;
@@ -555,5 +557,4 @@ window.addEventListener('resize', () => {
   draw();
 });
 
-// 加载图片
 loadImages();
