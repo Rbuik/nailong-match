@@ -86,16 +86,107 @@ let busy = false, selected = null, isPlaying = false;
 let targetValue = 1500, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
+
+// ===================== 独立特效系统 =====================
 let particles = [], floatingTexts = [];
 
-const scoreEl = document.getElementById('score');
-const movesEl = document.getElementById('moves');
-const levelEl = document.getElementById('level');
-const targetBar = document.getElementById('target-bar');
-const btnShuffle = document.getElementById('btn-shuffle');
-const btnUndo = document.getElementById('btn-undo');
-const shuffleCountEl = document.getElementById('shuffle-count');
-const undoCountEl = document.getElementById('undo-count');
+function spawnParticles(r, c, color) {
+  const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
+  for (let i = 0; i < 6; i++) {
+    particles.push({ x: cx, y: cy, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 1, color: color || '#fff' });
+  }
+}
+
+function spawnText(r, c, text, color = '#ffd75c') {
+  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 1.5, dy: -2.5 });
+}
+
+// 独立于游戏主逻辑的持续渲染循环
+function effectLoop() {
+  if (particles.length > 0 || floatingTexts.length > 0) {
+    updateEffects();
+  }
+  drawAll();
+  requestAnimationFrame(effectLoop);
+}
+
+function updateEffects() {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy; p.life -= 0.05;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const t = floatingTexts[i];
+    t.y += t.dy; 
+    t.life -= 0.02; // 匀速消失
+    if (t.life <= 0) floatingTexts.splice(i, 1);
+  }
+}
+
+// ===================== 渲染 =====================
+function roundRect(x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+}
+
+function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
+  if (!block) return;
+  const s = size * scale, cx = px + CELL / 2, cy = py + CELL / 2;
+  ctx.save(); ctx.globalAlpha = alpha;
+
+  if (imagesReady && IMAGES[block.type] && IMAGES[block.type].complete && IMAGES[block.type].naturalWidth > 0) {
+    ctx.drawImage(IMAGES[block.type], cx - s / 2, cy - s / 2, s, s);
+  } else {
+    ctx.fillStyle = FALLBACK_COLORS[block.type];
+    roundRect(cx - s / 2, cy - s / 2, s, s, 10); ctx.fill();
+  }
+
+  if (block.special === BLOCK_BOMB) {
+    ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
+    ctx.beginPath(); ctx.arc(cx, cy, s * 0.3, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = `bold ${s*0.4}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('💣', cx, cy);
+  }
+  ctx.restore();
+}
+
+function drawAll() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  if (!imagesReady || !board.length) return;
+  
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (board[r][c]) drawBlock(c * CELL, r * CELL, board[r][c]);
+    }
+  }
+  if (selected) {
+    const { r, c } = selected;
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    roundRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4, 10); ctx.stroke();
+  }
+
+  particles.forEach(p => { 
+    ctx.globalAlpha = p.life; 
+    ctx.fillStyle = p.color; 
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); 
+  });
+  
+  floatingTexts.forEach(t => {
+    const alpha = Math.max(0, Math.min(1, t.life));
+    ctx.globalAlpha = alpha; 
+    ctx.fillStyle = t.color; 
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center'; 
+    ctx.strokeStyle = '#000'; 
+    ctx.lineWidth = 4;
+    ctx.strokeText(t.text, t.x, t.y); 
+    ctx.fillText(t.text, t.x, t.y);
+  });
+  ctx.globalAlpha = 1;
+}
 
 // ===================== 核心逻辑 =====================
 const randType = () => Math.floor(Math.random() * TYPES);
@@ -159,101 +250,6 @@ function hasPossibleMove() {
   return false;
 }
 
-// ===================== 特效 =====================
-function spawnParticles(r, c, color) {
-  const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
-  for (let i = 0; i < 6; i++) {
-    particles.push({ x: cx, y: cy, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 1, color: color || '#fff' });
-  }
-}
-
-// 修改：加入生命值渐变，保证彻底淡出
-function spawnText(r, c, text, color = '#ffd75c') {
-  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 1.5, dy: -2.5 });
-}
-
-function updateEffects() {
-  for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i];
-    p.x += p.vx; p.y += p.vy; p.life -= 0.05;
-    if (p.life <= 0) particles.splice(i, 1);
-  }
-  for (let i = floatingTexts.length - 1; i >= 0; i--) {
-    const t = floatingTexts[i];
-    t.y += t.dy; 
-    t.life -= 0.02; // 匀速减少生命
-    if (t.life <= 0) floatingTexts.splice(i, 1); // 彻底移除
-  }
-}
-
-// ===================== 渲染 =====================
-function roundRect(x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r);
-  ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r);
-  ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
-}
-
-function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
-  if (!block) return;
-  const s = size * scale, cx = px + CELL / 2, cy = py + CELL / 2;
-  ctx.save(); ctx.globalAlpha = alpha;
-
-  if (imagesReady && IMAGES[block.type] && IMAGES[block.type].complete && IMAGES[block.type].naturalWidth > 0) {
-    ctx.drawImage(IMAGES[block.type], cx - s / 2, cy - s / 2, s, s);
-  } else {
-    ctx.fillStyle = FALLBACK_COLORS[block.type];
-    roundRect(cx - s / 2, cy - s / 2, s, s, 10); ctx.fill();
-  }
-
-  if (block.special === BLOCK_BOMB) {
-    ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
-    ctx.beginPath(); ctx.arc(cx, cy, s * 0.3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = `bold ${s*0.4}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('💣', cx, cy);
-  }
-  ctx.restore();
-}
-
-function drawEffects() {
-  particles.forEach(p => { 
-    ctx.globalAlpha = p.life; 
-    ctx.fillStyle = p.color; 
-    ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); 
-  });
-  
-  floatingTexts.forEach(t => {
-    // 保证 alpha 在 0~1 之间，实现渐隐
-    const alpha = Math.max(0, Math.min(1, t.life));
-    ctx.globalAlpha = alpha; 
-    ctx.fillStyle = t.color; 
-    ctx.font = 'bold 20px sans-serif';
-    ctx.textAlign = 'center'; 
-    ctx.strokeStyle = '#000'; 
-    ctx.lineWidth = 4;
-    ctx.strokeText(t.text, t.x, t.y); 
-    ctx.fillText(t.text, t.x, t.y);
-  });
-  ctx.globalAlpha = 1;
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!imagesReady || !board.length) return;
-  
-  for (let r = 0; r < ROWS; r++) {
-    for (let c = 0; c < COLS; c++) {
-      if (board[r][c]) drawBlock(c * CELL, r * CELL, board[r][c]);
-    }
-  }
-  if (selected) {
-    const { r, c } = selected;
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
-    roundRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4, 10); ctx.stroke();
-  }
-  drawEffects();
-}
-
 // ===================== 动画与消除 =====================
 async function animateSwap(a, b, dur = 140) {
   const start = performance.now();
@@ -314,24 +310,8 @@ async function resolveBoard() {
     
     spawnText(matchArray[0][0], matchArray[0][1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
 
-    await new Promise(resolve => {
-      const start = performance.now(); const dur = 150;
-      function frame(now) {
-        const p = Math.min(1, (now - start) / dur);
-        updateEffects();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let r = 0; r < ROWS; r++) {
-          for (let c = 0; c < COLS; c++) {
-            if (!board[r][c]) continue;
-            if (matched.has(`${r},${c}`)) drawBlock(c * CELL, r * CELL, board[r][c], CELL - 6, 1 - p, 1 - p);
-            else drawBlock(c * CELL, r * CELL, board[r][c]);
-          }
-        }
-        drawEffects();
-        if (p < 1) requestAnimationFrame(frame); else resolve();
-      }
-      requestAnimationFrame(frame);
-    });
+    // 移除帧内部的绘制，交给底层主循环处理
+    await new Promise(resolve => setTimeout(resolve, 150));
 
     for (const key of matched) {
       const [r, c] = key.split(',').map(Number);
@@ -354,28 +334,7 @@ async function resolveBoard() {
       }
     }
 
-    await new Promise(resolve => {
-      const start = performance.now(); const dur = 180;
-      function frame(now) {
-        const p = Math.min(1, (now - start) / dur);
-        const e = 1 - Math.pow(1 - p, 3);
-        updateEffects();
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        for (let r = 0; r < ROWS; r++) {
-          for (let c = 0; c < COLS; c++) {
-            if (!board[r][c]) continue;
-            const fromR = fallFrom[`${r},${c}`];
-            if (fromR !== undefined && fromR !== r) {
-              const y = (fromR * CELL) + (r * CELL - fromR * CELL) * e;
-              drawBlock(c * CELL, y, board[r][c]);
-            } else { drawBlock(c * CELL, r * CELL, board[r][c]); }
-          }
-        }
-        drawEffects();
-        if (p < 1) requestAnimationFrame(frame); else { draw(); resolve(); }
-      }
-      requestAnimationFrame(frame);
-    });
+    await new Promise(resolve => setTimeout(resolve, 180));
   }
 }
 
@@ -395,8 +354,8 @@ canvas.addEventListener('pointerdown', async (e) => {
   const cell = cellFromEvent(e);
   if (!cell) return;
 
-  if (!selected) { selected = cell; SFX.select(); draw(); return; }
-  if (selected.r === cell.r && selected.c === cell.c) { selected = null; draw(); return; }
+  if (!selected) { selected = cell; SFX.select(); drawAll(); return; }
+  if (selected.r === cell.r && selected.c === cell.c) { selected = null; drawAll(); return; }
 
   if (Math.abs(selected.r - cell.r) + Math.abs(selected.c - cell.c) === 1) {
     const a = selected, b = cell;
@@ -410,28 +369,24 @@ canvas.addEventListener('pointerdown', async (e) => {
       await sleep(60); SFX.invalid();
       await animateSwap(a, b);
       [board[a.r][a.c], board[b.r][b.c]] = [board[b.r][b.c], board[a.r][a.c]];
-      busy = false; draw(); return;
+      busy = false; drawAll(); return;
     }
 
     moves--; movesEl.textContent = moves;
     await resolveBoard();
 
-    // ====== 必须步数归零才结算 ======
     if (moves <= 0) {
-      if (currentProgress >= targetValue) {
-        handleLevelWin(); 
-      } else {
-        endGame();       
-      }
+      if (currentProgress >= targetValue) handleLevelWin(); 
+      else endGame();       
       busy = false; return;
     }
 
     if (!hasPossibleMove()) {
-      await sleep(200); initBoard(); draw();
+      await sleep(200); initBoard(); drawAll();
     }
     busy = false;
   } else {
-    selected = cell; SFX.select(); draw();
+    selected = cell; SFX.select(); drawAll();
   }
 });
 
@@ -472,7 +427,6 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   initBoard();
   isPlaying = true;
   busy = false;
-  draw();
 });
 
 document.getElementById('btn-clear-home').addEventListener('click', () => {
@@ -487,7 +441,7 @@ btnShuffle.addEventListener('click', () => {
   shuffleCount--; 
   shuffleCountEl.textContent = shuffleCount;
   if (shuffleCount === 0) btnShuffle.disabled = true;
-  initBoard(); draw(); SFX.swap();
+  initBoard(); drawAll(); SFX.swap();
 });
 
 btnUndo.addEventListener('click', () => {
@@ -502,7 +456,7 @@ btnUndo.addEventListener('click', () => {
   scoreEl.textContent = score;
   movesEl.textContent = moves;
   selected = null;
-  draw(); SFX.select();
+  drawAll(); SFX.select();
 });
 
 // ===================== 主流程 =====================
@@ -523,7 +477,7 @@ function startGame() {
   particles = []; floatingTexts = [];
   setupTarget();
   initBoard();
-  draw();
+  drawAll();
 }
 
 function endGame() {
@@ -557,7 +511,8 @@ window.addEventListener('resize', () => {
   if (newCell === CELL) return;
   CELL = newCell;
   canvas.width = COLS * CELL; canvas.height = ROWS * CELL;
-  draw();
 });
 
+// 启动全局独立渲染循环
+effectLoop();
 loadImages();
