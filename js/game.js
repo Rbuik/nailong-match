@@ -3,50 +3,46 @@ const COLS = 8, ROWS = 8;
 const TYPES = 6;
 const MAX_W = 480;
 
-// ===================== 音效系统 (Web Audio) =====================
-const AudioContext = window.AudioContext || window.webkitAudioContext;
+// ===================== 音效系统 (全面适配移动端) =====================
 let audioCtx = null;
-
-// 初始化音频上下文（必须在用户第一次交互时触发）
 function initAudio() {
   if (!audioCtx) {
-    audioCtx = new AudioContext();
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) audioCtx = new AudioContext();
   }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
 }
 
-// 播放合成音效
 function playTone(freq, type, duration, volume = 0.1, delay = 0) {
-  if (!audioCtx) return;
-  const osc = audioCtx.createOscillator();
-  const gainNode = audioCtx.createGain();
-  
-  osc.type = type;
-  osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
-  
-  // 包络（淡入淡出，防止爆音）
-  gainNode.gain.setValueAtTime(0, audioCtx.currentTime + delay);
-  gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + delay + 0.02);
-  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + duration);
-  
-  osc.connect(gainNode);
-  gainNode.connect(audioCtx.destination);
-  
-  osc.start(audioCtx.currentTime + delay);
-  osc.stop(audioCtx.currentTime + delay + duration);
+  if (!audioCtx || audioCtx.state !== 'running') return;
+  try {
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime + delay);
+    gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + delay + 0.02);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + duration);
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    osc.start(audioCtx.currentTime + delay);
+    osc.stop(audioCtx.currentTime + delay + duration);
+  } catch (e) {}
 }
 
-// 预设音效
 const SFX = {
-  select: () => playTone(600, 'sine', 0.08, 0.1),             // 选中：短促
-  swap: () => playTone(400, 'triangle', 0.1, 0.1),            // 交换：轻微
-  invalid: () => playTone(200, 'sawtooth', 0.15, 0.05),       // 无效：低沉
-  match: (combo) => {                                         // 消除：连击音调变高
+  select: () => playTone(600, 'sine', 0.08, 0.15),
+  swap: () => playTone(400, 'triangle', 0.1, 0.15),
+  invalid: () => playTone(200, 'sawtooth', 0.15, 0.1),
+  match: (combo) => {
     const baseFreq = 500 + (combo - 1) * 150;
-    playTone(baseFreq, 'sine', 0.15, 0.1);
-    playTone(baseFreq * 1.5, 'sine', 0.15, 0.08, 0.05);       // 和弦叠加
+    playTone(baseFreq, 'sine', 0.15, 0.15);
+    playTone(baseFreq * 1.5, 'sine', 0.15, 0.1, 0.05);
+  },
+  gameOver: () => {
+    playTone(400, 'sine', 0.2, 0.2, 0);
+    playTone(300, 'sine', 0.2, 0.2, 0.2);
+    playTone(200, 'sine', 0.4, 0.2, 0.4);
   }
 };
 
@@ -63,6 +59,10 @@ const ctx = canvas.getContext('2d');
 canvas.width = COLS * CELL;
 canvas.height = ROWS * CELL;
 
+// ===================== 最高分本地存储 =====================
+let highScore = parseInt(localStorage.getItem('nailong_high_score') || '0', 10);
+document.getElementById('menu-high-score').textContent = highScore;
+
 // ===================== 图片资源 =====================
 const IMAGES = [];
 let imagesReady = false;
@@ -74,26 +74,24 @@ function loadImages() {
     img.src = `./assets/${i}.png`;
     img.onload = () => {
       loaded++;
-      if (loaded === TYPES) {
-        imagesReady = true;
-        start();
-      }
+      if (loaded === TYPES) { imagesReady = true; document.getElementById('loading').style.display = 'none'; }
     };
     img.onerror = () => {
       console.error(`图片加载失败: ./assets/${i}.png`);
       loaded++;
-      if (loaded === TYPES) { imagesReady = true; start(); }
+      if (loaded === TYPES) { imagesReady = true; document.getElementById('loading').style.display = 'none'; }
     };
     IMAGES.push(img);
   }
 }
 
-// ===================== 状态 =====================
+// ===================== 游戏状态 =====================
 let board = [];
 let score = 0;
 let moves = 30;
 let busy = false;
 let selected = null;
+let isPlaying = false;
 
 const scoreEl = document.getElementById('score');
 const movesEl = document.getElementById('moves');
@@ -194,7 +192,7 @@ function drawCell(r, c, t, scale = 1, alpha = 1) {
 
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!imagesReady) return;
+  if (!imagesReady || !board.length) return;
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const t = board[r][c];
@@ -254,8 +252,6 @@ async function resolveBoard() {
     combo++;
     score += matched.size * 10 * combo;
     scoreEl.textContent = score;
-
-    // 播放消除音效（音调随连击变高）
     SFX.match(combo);
 
     await new Promise(resolve => {
@@ -333,7 +329,7 @@ async function resolveBoard() {
   }
 }
 
-// ===================== 交互 =====================
+// ===================== 交互与流程控制 =====================
 function cellFromEvent(e) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -347,17 +343,15 @@ function cellFromEvent(e) {
 
 canvas.addEventListener('pointerdown', async (e) => {
   e.preventDefault();
-  if (!imagesReady || busy || moves <= 0) return;
+  if (!imagesReady || busy || !isPlaying || moves <= 0) return;
   
-  // 用户第一次点击时，初始化音频
   initAudio();
-  
   const cell = cellFromEvent(e);
   if (!cell) return;
 
   if (!selected) {
     selected = cell;
-    SFX.select(); // 播放选中音效
+    SFX.select();
     draw();
     return;
   }
@@ -372,15 +366,14 @@ canvas.addEventListener('pointerdown', async (e) => {
     const a = selected, b = cell;
     selected = null;
     busy = true;
-    
-    SFX.swap(); // 播放交换音效
+    SFX.swap();
 
     await animateSwap(a, b);
     swap(a, b);
 
     if (findMatches().size === 0) {
       await sleep(60);
-      SFX.invalid(); // 播放无效音效
+      SFX.invalid();
       await animateSwap(a, b);
       swap(a, b);
       busy = false;
@@ -391,6 +384,12 @@ canvas.addEventListener('pointerdown', async (e) => {
     moves--;
     movesEl.textContent = moves;
     await resolveBoard();
+
+    if (moves <= 0) {
+      endGame();
+      busy = false;
+      return;
+    }
 
     if (!hasPossibleMove()) {
       await sleep(200);
@@ -405,6 +404,58 @@ canvas.addEventListener('pointerdown', async (e) => {
   }
 });
 
+// ===================== 界面切换逻辑 =====================
+
+function updateHighScore() {
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('nailong_high_score', highScore.toString());
+    document.getElementById('menu-high-score').textContent = highScore;
+  }
+}
+
+function startGame() {
+  initAudio(); // 点击开始时唤醒声音
+  document.getElementById('main-menu').style.display = 'none';
+  document.getElementById('game-over').style.display = 'none';
+  
+  score = 0;
+  moves = 30;
+  selected = null;
+  busy = false;
+  isPlaying = true;
+  scoreEl.textContent = 0;
+  movesEl.textContent = 30;
+  
+  initBoard();
+  draw();
+}
+
+function endGame() {
+  isPlaying = false;
+  updateHighScore();
+  SFX.gameOver();
+  
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-high-score').textContent = highScore;
+  document.getElementById('game-over').style.display = 'flex';
+}
+
+function goHome() {
+  isPlaying = false;
+  updateHighScore();
+  document.getElementById('main-menu').style.display = 'flex';
+  document.getElementById('game-over').style.display = 'none';
+  // 清空棋盘视觉
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+}
+
+// 绑定按钮事件
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+document.getElementById('btn-home').addEventListener('click', goHome);
+document.getElementById('btn-quit').addEventListener('click', goHome);
+
 // ===================== 缩放重排 =====================
 window.addEventListener('resize', () => {
   const newCell = computeCell();
@@ -416,20 +467,4 @@ window.addEventListener('resize', () => {
 });
 
 // ===================== 启动 =====================
-function start() {
-  score = 0;
-  moves = 30;
-  selected = null;
-  busy = false;
-  scoreEl.textContent = 0;
-  movesEl.textContent = 30;
-  const loading = document.getElementById('loading');
-  if (loading) loading.style.display = 'none';
-  initBoard();
-  draw();
-}
-
-document.getElementById('restart').addEventListener('click', start);
-
-// 先加载图片，加载完自动 start()
 loadImages();
