@@ -29,7 +29,7 @@
 - ✅ 开局保证无三连
 
 ## 项目结构
-'''text
+```text
 jelly-match/
 ├── css/
 │ └── style.css # 样式与布局
@@ -37,4 +37,4 @@ jelly-match/
 │ └── game.js # 游戏核心逻辑
 ├── README.md
 └── index.html # 页面结构
-'''
+```
