@@ -19,10 +19,18 @@
     <!-- 目标提示栏 -->
     <div class="target-bar" id="target-bar">目标：得分达到 1000 分</div>
 
-    <!-- 道具栏 -->
+    <!-- 道具栏 (美化版) -->
     <div class="tools">
-      <button id="btn-shuffle">🔄 洗牌 (3)</button>
-      <button id="btn-undo">↩️ 撤回 (3)</button>
+      <button id="btn-shuffle" class="tool-btn">
+        <span class="icon">🔄</span>
+        <span class="text">洗牌</span>
+        <span class="badge" id="shuffle-count">3</span>
+      </button>
+      <button id="btn-undo" class="tool-btn">
+        <span class="icon">↩️</span>
+        <span class="text">撤回</span>
+        <span class="badge" id="undo-count">3</span>
+      </button>
     </div>
 
     <!-- 游戏画布 -->
@@ -36,9 +44,19 @@
       <button class="btn-primary" id="btn-start">开始游戏</button>
     </div>
 
-    <!-- 遮罩层：结算 -->
+    <!-- 遮罩层：过关结算 -->
+    <div class="overlay" id="level-clear" style="display: none;">
+      <h2 class="title" style="background: linear-gradient(90deg,#5cff8f,#5c8fff);">关卡完成！</h2>
+      <div class="result-box">
+        <p>当前得分：<b id="clear-score">0</b></p>
+        <p>剩余步数：<b id="clear-moves">0</b></p>
+      </div>
+      <button class="btn-primary" id="btn-next-level">进入下一关</button>
+    </div>
+
+    <!-- 遮罩层：游戏结束 -->
     <div class="overlay" id="game-over" style="display: none;">
-      <h2 class="title" id="over-title">步数耗尽</h2>
+      <h2 class="title" style="background: linear-gradient(90deg,#ff5c5c,#c85cff);">步数耗尽</h2>
       <div class="result-box">
         <p>本局得分：<b id="final-score">0</b></p>
         <p>达到关卡：<b id="final-level">1</b></p>
