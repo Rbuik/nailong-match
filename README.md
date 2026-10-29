@@ -7,7 +7,7 @@
 
 ## 在线试玩
 
-👉 **https://rbuik.github.io/jelly-match/**
+👉 **https://rbuik.github.io/Jelly-match/**
 
 ## 玩法
 
