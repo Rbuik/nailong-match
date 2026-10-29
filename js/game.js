@@ -83,9 +83,7 @@ let score = 0, moves = 25, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
-// 目标系统
 let targetType = 'score', targetValue = 1000, currentProgress = 0;
-
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [];
@@ -169,8 +167,9 @@ function spawnParticles(r, c, color) {
   }
 }
 
+// 加长飘字寿命，让它飘出屏幕
 function spawnText(r, c, text, color = '#ffd75c') {
-  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 1, dy: -2 });
+  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 1.5, dy: -3.5 });
 }
 
 function updateEffects() {
@@ -179,9 +178,10 @@ function updateEffects() {
     p.x += p.vx; p.y += p.vy; p.life -= 0.05;
     if (p.life <= 0) particles.splice(i, 1);
   }
+  // 飘字不受 1.0 的限制，只要 life > 0 就一直飘
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
     const t = floatingTexts[i];
-    t.y += t.dy; t.life -= 0.02;
+    t.y += t.dy; t.life -= 0.015; 
     if (t.life <= 0) floatingTexts.splice(i, 1);
   }
 }
@@ -231,11 +231,11 @@ function draw() {
   }
 
   particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); });
-  ctx.globalAlpha = 1;
-
+  
   floatingTexts.forEach(t => {
-    ctx.globalAlpha = t.life; ctx.fillStyle = t.color; ctx.font = 'bold 18px sans-serif';
-    ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.globalAlpha = t.life > 1 ? 1 : t.life; 
+    ctx.fillStyle = t.color; ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
     ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y);
   });
   ctx.globalAlpha = 1;
@@ -288,7 +288,7 @@ async function resolveBoard() {
     const addedScore = matched.size * 10 * combo;
     score += addedScore;
     scoreEl.textContent = score;
-    currentProgress += addedScore; // 正确累加本关进度
+    currentProgress += addedScore;
     updateTargetUI();
     
     SFX.match(combo);
@@ -298,6 +298,8 @@ async function resolveBoard() {
       const [r, c] = key.split(',').map(Number);
       if (board[r][c]) spawnParticles(r, c, FALLBACK_COLORS[board[r][c].type]);
     });
+    
+    // 生成飘字特效
     spawnText(matchArray[0][0], matchArray[0][1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
 
     await new Promise(resolve => {
@@ -314,8 +316,15 @@ async function resolveBoard() {
           }
         }
         particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); });
-        floatingTexts.forEach(t => { ctx.globalAlpha = t.life; ctx.fillStyle = t.color; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y); });
+        
+        floatingTexts.forEach(t => { 
+          ctx.globalAlpha = t.life > 1 ? 1 : t.life; 
+          ctx.fillStyle = t.color; ctx.font = 'bold 20px sans-serif'; 
+          ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; 
+          ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y); 
+        });
         ctx.globalAlpha = 1;
+        
         if (p < 1) requestAnimationFrame(frame); else resolve();
       }
       requestAnimationFrame(frame);
@@ -360,8 +369,15 @@ async function resolveBoard() {
           }
         }
         particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); });
-        floatingTexts.forEach(t => { ctx.globalAlpha = t.life; ctx.fillStyle = t.color; ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y); });
+        
+        floatingTexts.forEach(t => { 
+          ctx.globalAlpha = t.life > 1 ? 1 : t.life; 
+          ctx.fillStyle = t.color; ctx.font = 'bold 20px sans-serif'; 
+          ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; 
+          ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y); 
+        });
         ctx.globalAlpha = 1;
+        
         if (p < 1) requestAnimationFrame(frame); else { draw(); resolve(); }
       }
       requestAnimationFrame(frame);
@@ -406,13 +422,11 @@ canvas.addEventListener('pointerdown', async (e) => {
     moves--; movesEl.textContent = moves;
     await resolveBoard();
 
-    // ====== 关键判定逻辑 ======
+    // 完美的过关判定逻辑
     if (currentProgress >= targetValue) {
-      // 达标了，过关！
       handleLevelWin();
       busy = false; return;
     } else if (moves <= 0) {
-      // 没达标，且步数也用光了，游戏结束！
       endGame(); busy = false; return;
     }
 
@@ -434,7 +448,7 @@ function setupTarget() {
     targetType = 'collect'; targetValue = 10 + level * 5;
     targetBar.textContent = `目标：消除任意 ${targetValue} 个方块`;
   }
-  currentProgress = 0; // 重置本关进度
+  currentProgress = 0;
 }
 
 function updateTargetUI() {
@@ -463,7 +477,7 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   moves += 15; 
   movesEl.textContent = moves;
   
-  levelStartScore = score; // 记录下一关的起始分数
+  levelStartScore = score;
   setupTarget();
   initBoard();
   isPlaying = true;
