@@ -63,7 +63,6 @@ let highLevel = parseInt(localStorage.getItem('nailong_high_level') || '1', 10);
 document.getElementById('menu-high-score').textContent = highScore;
 document.getElementById('menu-high-level').textContent = highLevel;
 
-// 检查是否有存档
 function checkSave() {
   const saved = localStorage.getItem('nailong_save');
   const btnContinue = document.getElementById('btn-continue');
@@ -98,7 +97,6 @@ function loadGame() {
     undoCount = state.undoCount;
     history = state.history;
 
-    // 刷新 UI
     scoreEl.textContent = score;
     movesEl.textContent = moves;
     levelEl.textContent = level;
@@ -214,8 +212,8 @@ function hasPossibleMove() {
 // ===================== 特效 =====================
 function spawnParticles(r, c, color) {
   const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
-  for (let i = 0; i < 6; i++) {
-    particles.push({ x: cx, y: cy, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 1, color: color || '#fff' });
+  for (let i = 0; i < 4; i++) { // 减少粒子数量，减轻性能压力
+    particles.push({ x: cx, y: cy, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, life: 1, color: color || '#fff' });
   }
 }
 
@@ -270,7 +268,7 @@ function renderEffects() {
   particles.forEach(p => { 
     ctx.globalAlpha = p.life; 
     ctx.fillStyle = p.color; 
-    ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); 
+    ctx.beginPath(); ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2); ctx.fill(); 
   });
   
   floatingTexts.forEach(t => {
@@ -304,14 +302,11 @@ function drawAll() {
   renderEffects();
 }
 
+// 极致性能的飘字循环（仅在有飘字时激活）
 function loop() {
-  let needsRender = false;
-  if (particles.length > 0 || floatingTexts.length > 0) {
+  if (floatingTexts.length > 0 || particles.length > 0) {
     updateEffects();
-    needsRender = true;
-  }
-  if (needsRender && !busy) {
-    drawAll();
+    if (!busy) drawAll();
   }
   requestAnimationFrame(loop);
 }
@@ -479,7 +474,7 @@ canvas.addEventListener('pointerdown', async (e) => {
     await resolveBoard();
 
     if (moves <= 0) {
-      localStorage.removeItem('nailong_save'); // 游戏结束清空存档
+      localStorage.removeItem('nailong_save');
       if (currentProgress >= targetValue) handleLevelWin(); 
       else endGame();       
       busy = false; return;
@@ -489,7 +484,7 @@ canvas.addEventListener('pointerdown', async (e) => {
       await sleep(200); initBoard(); drawAll();
     }
     busy = false;
-    saveGame(); // 每走一步自动存档
+    saveGame();
   } else {
     selected = cell; SFX.select(); drawAll();
   }
@@ -640,13 +635,13 @@ document.getElementById('btn-quit').addEventListener('click', () => {
 
 window.addEventListener('resize', () => {
   const newCell = computeCell();
-  if (newCell === CELL) return;
-  CELL = newCell;
-  canvas.width = COLS * CELL; canvas.height = ROWS * CELL;
-  drawAll();
+  if (newCell !== CELL) {
+    CELL = newCell;
+    canvas.width = COLS * CELL; canvas.height = ROWS * CELL;
+    drawAll();
+  }
 });
 
-// 启动循环与加载
 loop();
 loadImages();
-checkSave(); // 页面加载时检查是否有存档
+checkSave();
