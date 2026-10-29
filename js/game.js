@@ -4,8 +4,7 @@ const TYPES = 6;
 const MAX_W = 480;
 const FALLBACK_COLORS = ['#ff5c5c', '#5cff8f', '#5c8fff', '#ffd75c', '#c85cff', '#5cffee'];
 
-// 特殊方块类型：0=普通，1=炸弹，2=彩虹
-const BLOCK_NORMAL = 0, BLOCK_BOMB = 1, BLOCK_RAINBOW = 2;
+const BLOCK_NORMAL = 0, BLOCK_BOMB = 1;
 
 // ===================== 音效系统 =====================
 let audioCtx = null;
@@ -79,18 +78,13 @@ function loadImages() {
 }
 
 // ===================== 游戏状态 =====================
-let board = []; // 二维数组，存放 { type: 0~5, special: 0~2 }
+let board = [];
 let score = 0, moves = 25, level = 1;
 let busy = false, selected = null, isPlaying = false;
 
-// 目标系统
 let targetType = 'score', targetValue = 1000, currentProgress = 0;
-// 道具次数
 let shuffleCount = 3, undoCount = 3;
-// 历史记录（用于撤回）
 let history = { board: null, score: 0, moves: 0 };
-
-// 特效系统
 let particles = [], floatingTexts = [];
 
 const scoreEl = document.getElementById('score');
@@ -99,6 +93,8 @@ const levelEl = document.getElementById('level');
 const targetBar = document.getElementById('target-bar');
 const btnShuffle = document.getElementById('btn-shuffle');
 const btnUndo = document.getElementById('btn-undo');
+const shuffleCountEl = document.getElementById('shuffle-count');
+const undoCountEl = document.getElementById('undo-count');
 
 // ===================== 核心逻辑 =====================
 const randType = () => Math.floor(Math.random() * TYPES);
@@ -121,7 +117,6 @@ function initBoard() {
 
 function findMatches() {
   const matched = new Set();
-  // 横向
   for (let r = 0; r < ROWS; r++) {
     let run = 1;
     for (let c = 1; c <= COLS; c++) {
@@ -133,7 +128,6 @@ function findMatches() {
       }
     }
   }
-  // 纵向
   for (let c = 0; c < COLS; c++) {
     let run = 1;
     for (let r = 1; r <= ROWS; r++) {
@@ -168,19 +162,12 @@ function hasPossibleMove() {
 function spawnParticles(r, c, color) {
   const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
   for (let i = 0; i < 6; i++) {
-    particles.push({
-      x: cx, y: cy,
-      vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10,
-      life: 1, color: color || '#fff'
-    });
+    particles.push({ x: cx, y: cy, vx: (Math.random() - 0.5) * 10, vy: (Math.random() - 0.5) * 10, life: 1, color: color || '#fff' });
   }
 }
 
 function spawnText(r, c, text, color = '#ffd75c') {
-  floatingTexts.push({
-    x: c * CELL + CELL / 2, y: r * CELL + CELL / 2,
-    text, color, life: 1, dy: -2
-  });
+  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 1, dy: -2 });
 }
 
 function updateEffects() {
@@ -209,7 +196,6 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
   const s = size * scale, cx = px + CELL / 2, cy = py + CELL / 2;
   ctx.save(); ctx.globalAlpha = alpha;
 
-  // 画底图
   if (imagesReady && IMAGES[block.type] && IMAGES[block.type].complete && IMAGES[block.type].naturalWidth > 0) {
     ctx.drawImage(IMAGES[block.type], cx - s / 2, cy - s / 2, s, s);
   } else {
@@ -217,17 +203,11 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
     roundRect(cx - s / 2, cy - s / 2, s, s, 10); ctx.fill();
   }
 
-  // 画特殊标记
   if (block.special === BLOCK_BOMB) {
     ctx.fillStyle = 'rgba(255, 100, 100, 0.8)';
     ctx.beginPath(); ctx.arc(cx, cy, s * 0.3, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = '#fff'; ctx.font = `bold ${s*0.4}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('💣', cx, cy);
-  } else if (block.special === BLOCK_RAINBOW) {
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
-    roundRect(cx - s/2, cy - s/2, s, s, 10); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = `bold ${s*0.5}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('🌈', cx, cy);
   }
   ctx.restore();
 }
@@ -247,25 +227,18 @@ function draw() {
     roundRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4, 10); ctx.stroke();
   }
 
-  // 渲染粒子
-  particles.forEach(p => {
-    ctx.globalAlpha = p.life;
-    ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill();
-  });
+  particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); });
   ctx.globalAlpha = 1;
 
-  // 渲染飘字
   floatingTexts.forEach(t => {
-    ctx.globalAlpha = t.life;
-    ctx.fillStyle = t.color; ctx.font = 'bold 18px sans-serif';
+    ctx.globalAlpha = t.life; ctx.fillStyle = t.color; ctx.font = 'bold 18px sans-serif';
     ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
     ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y);
   });
   ctx.globalAlpha = 1;
 }
 
-// ===================== 消除与特殊方块逻辑 =====================
+// ===================== 动画与消除 =====================
 async function animateSwap(a, b, dur = 140) {
   const start = performance.now();
   const ax = a.c * CELL, ay = a.r * CELL, bx = b.c * CELL, by = b.r * CELL;
@@ -300,28 +273,22 @@ async function resolveBoard() {
     if (matched.size === 0) break;
     combo++;
 
-    // 寻找并触发特殊方块，或生成特殊方块
-    let hasBomb = false;
     const matchArray = [...matched].map(k => k.split(',').map(Number));
     
-    // 简单的连消判定：如果有 4 个连在一起，生成炸弹
     if (matchArray.length >= 4) {
       const r = matchArray[0][0], c = matchArray[0][1];
-      board[r][c].special = BLOCK_BOMB; // 将第一个升级为炸弹
-      matched.delete(`${r},${c}`); // 不消除这个
+      board[r][c].special = BLOCK_BOMB;
+      matched.delete(`${r},${c}`);
       SFX.bomb();
     }
 
-    // 计算得分
     const addedScore = matched.size * 10 * combo;
     score += addedScore;
     scoreEl.textContent = score;
     currentProgress += addedScore;
     updateTargetUI();
     
-    // 触发音效、粒子和飘字
-    if (combo === 1) SFX.match(combo);
-    else SFX.match(combo);
+    SFX.match(combo);
     if (navigator.vibrate && combo > 1) navigator.vibrate(30);
 
     matched.forEach(key => {
@@ -330,7 +297,6 @@ async function resolveBoard() {
     });
     spawnText(matchArray[0][0], matchArray[0][1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
 
-    // 消除动画
     await new Promise(resolve => {
       const start = performance.now(); const dur = 150;
       function frame(now) {
@@ -357,7 +323,6 @@ async function resolveBoard() {
       board[r][c] = null;
     }
 
-    // 下落
     const fallFrom = {};
     for (let c = 0; c < COLS; c++) {
       let write = ROWS - 1;
@@ -374,7 +339,6 @@ async function resolveBoard() {
       }
     }
 
-    // 下落动画
     await new Promise(resolve => {
       const start = performance.now(); const dur = 180;
       function frame(now) {
@@ -418,20 +382,12 @@ canvas.addEventListener('pointerdown', async (e) => {
   const cell = cellFromEvent(e);
   if (!cell) return;
 
-  // 选中 & 取消选中
-  if (!selected) {
-    selected = cell; SFX.select(); draw(); return;
-  }
-  if (selected.r === cell.r && selected.c === cell.c) {
-    selected = null; draw(); return;
-  }
+  if (!selected) { selected = cell; SFX.select(); draw(); return; }
+  if (selected.r === cell.r && selected.c === cell.c) { selected = null; draw(); return; }
 
-  // 尝试交换
   if (Math.abs(selected.r - cell.r) + Math.abs(selected.c - cell.c) === 1) {
     const a = selected, b = cell;
     selected = null; busy = true; SFX.swap();
-
-    // 记录历史（撤回用）
     history = { board: JSON.parse(JSON.stringify(board)), score: score, moves: moves };
 
     await animateSwap(a, b);
@@ -447,6 +403,7 @@ canvas.addEventListener('pointerdown', async (e) => {
     moves--; movesEl.textContent = moves;
     await resolveBoard();
 
+    // ====== 过关判定 ======
     if (currentProgress >= targetValue) {
       handleLevelWin();
       busy = false; return;
@@ -465,56 +422,64 @@ canvas.addEventListener('pointerdown', async (e) => {
   }
 });
 
-// ===================== 目标与关卡控制 =====================
+// ===================== 关卡与目标逻辑 =====================
 function setupTarget() {
-  // 每关随机：要么是得分，要么是消除指定种类的奶龙
   if (Math.random() > 0.5) {
-    targetType = 'score';
-    targetValue = level * 1000;
+    targetType = 'score'; targetValue = level * 1000 + 500;
     targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
   } else {
-    targetType = 'collect';
-    targetValue = 10 + level * 5;
+    targetType = 'collect'; targetValue = 10 + level * 5;
     targetBar.textContent = `目标：消除任意 ${targetValue} 个方块`;
   }
   currentProgress = 0;
 }
 
 function updateTargetUI() {
-  if (targetType === 'score') {
-    targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
-  } else {
-    targetBar.textContent = `目标：消除方块 ${currentProgress} / ${targetValue}`;
-  }
+  if (targetType === 'score') targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
+  else targetBar.textContent = `目标：消除方块 ${currentProgress} / ${targetValue}`;
 }
 
+// 过关展示弹窗
 function handleLevelWin() {
+  isPlaying = false; // 暂停操作
   SFX.win();
   if (level >= highLevel) {
     highLevel = level + 1;
     localStorage.setItem('nailong_high_level', highLevel);
   }
-  alert(`🎉 恭喜过关！进入第 ${level + 1} 关`);
+  document.getElementById('clear-score').textContent = score;
+  document.getElementById('clear-moves').textContent = moves;
+  document.getElementById('level-clear').style.display = 'flex'; // 显示过关弹窗
+}
+
+// 点击“进入下一关”
+document.getElementById('btn-next-level').addEventListener('click', () => {
+  document.getElementById('level-clear').style.display = 'none';
   level++;
   levelEl.textContent = level;
   moves += 15; // 过关奖励步数
   movesEl.textContent = moves;
+  
   setupTarget();
   initBoard();
+  isPlaying = true;
+  busy = false;
   draw();
-}
+});
 
 // ===================== 道具功能 =====================
 btnShuffle.addEventListener('click', () => {
   if (shuffleCount <= 0 || busy || !isPlaying) return;
-  shuffleCount--; btnShuffle.textContent = `🔄 洗牌 (${shuffleCount})`;
+  shuffleCount--; 
+  shuffleCountEl.textContent = shuffleCount;
   if (shuffleCount === 0) btnShuffle.disabled = true;
   initBoard(); draw(); SFX.swap();
 });
 
 btnUndo.addEventListener('click', () => {
   if (undoCount <= 0 || busy || !isPlaying || !history.board) return;
-  undoCount--; btnUndo.textContent = `↩️ 撤回 (${undoCount})`;
+  undoCount--; 
+  undoCountEl.textContent = undoCount;
   if (undoCount === 0) btnUndo.disabled = true;
   
   board = history.board;
@@ -531,14 +496,11 @@ function startGame() {
   initAudio();
   document.getElementById('main-menu').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
+  document.getElementById('level-clear').style.display = 'none';
   
   score = 0; moves = 25; level = 1; 
   shuffleCount = 3; undoCount = 3;
-  btnShuffle.textContent = `🔄 洗牌 (3)`; btnShuffle.disabled = false;
-  btnUndo.textContent = `↩️ 撤回 (3)`; btnUndo.disabled = false;
+  shuffleCountEl.textContent = 3; btnShuffle.disabled = false;
+  undoCountEl.textContent = 3; btnUndo.disabled = false;
   
-  scoreEl.textContent = 0; movesEl.textContent = 25; levelEl.textContent = 1;
-  selected = null; busy = false; isPlaying = true;
-  
-  particles = []; floatingTexts = [];
-  setupTarget
+  scoreEl.textContent = 0; movesEl.textContent = 25; level
