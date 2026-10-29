@@ -18,11 +18,11 @@ canvas.width = COLS * CELL;
 canvas.height = ROWS * CELL;
 
 // ===================== 状态 =====================
-let board = [];          // board[r][c] = 颜色编号，null 表示空
+let board = [];
 let score = 0;
 let moves = 30;
-let busy = false;        // 动画/结算中，禁止操作
-let selected = null;     // 选中的格子 {r, c}
+let busy = false;
+let selected = null;
 
 const scoreEl = document.getElementById('score');
 const movesEl = document.getElementById('moves');
@@ -32,10 +32,8 @@ const randType = () => Math.floor(Math.random() * TYPES);
 const inBounds = (r, c) => r >= 0 && r < ROWS && c >= 0 && c < COLS;
 const sleep = ms => new Promise(res => setTimeout(res, ms));
 
-// 找出所有三连及以上，返回 Set("r,c")
 function findMatches() {
   const matched = new Set();
-  // 横向
   for (let r = 0; r < ROWS; r++) {
     let run = 1;
     for (let c = 1; c <= COLS; c++) {
@@ -47,7 +45,6 @@ function findMatches() {
       }
     }
   }
-  // 纵向
   for (let c = 0; c < COLS; c++) {
     let run = 1;
     for (let r = 1; r <= ROWS; r++) {
@@ -62,7 +59,6 @@ function findMatches() {
   return matched;
 }
 
-// 初始化棋盘，保证开局无三连
 function initBoard() {
   board = Array.from({ length: ROWS }, () => Array(COLS).fill(null));
   for (let r = 0; r < ROWS; r++) {
@@ -83,7 +79,6 @@ function swap(a, b) {
 
 const isAdjacent = (a, b) => Math.abs(a.r - b.r) + Math.abs(a.c - b.c) === 1;
 
-// 死局检测：是否存在任意一步可消除的交换
 function hasPossibleMove() {
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
@@ -124,7 +119,6 @@ function drawCell(r, c, t, scale = 1, alpha = 1) {
   ctx.fillStyle = COLORS[t];
   roundRect(0, 0, s, s, 10);
   ctx.fill();
-  // 高光
   ctx.fillStyle = 'rgba(255,255,255,.25)';
   roundRect(s * 0.1, s * 0.08, s * 0.8, s * 0.32, 6);
   ctx.fill();
@@ -149,8 +143,7 @@ function draw() {
   }
 }
 
-// ===================== 动画辅助 =====================
-// 交换动画：两个方块互换位置
+// ===================== 动画 =====================
 async function animateSwap(a, b, dur = 140) {
   const start = performance.now();
   const ax = a.c * CELL, ay = a.r * CELL;
@@ -160,17 +153,15 @@ async function animateSwap(a, b, dur = 140) {
   return new Promise(resolve => {
     function frame(now) {
       const p = Math.min(1, (now - start) / dur);
-      const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; // easeInOutQuad
+      const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 其他格子
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           if ((r === a.r && c === a.c) || (r === b.r && c === b.c)) continue;
           if (board[r][c] !== null) drawCell(r, c, board[r][c]);
         }
       }
-      // 两个移动的方块
       const drawMoving = (t, x0, y0, x1, y1) => {
         if (t === null) return;
         const x = x0 + (x1 - x0) * e;
@@ -203,11 +194,9 @@ async function resolveBoard() {
     score += matched.size * 10 * combo;
     scoreEl.textContent = score;
 
-    // 消除动画：缩小消失
     await new Promise(resolve => {
       const start = performance.now();
       const dur = 150;
-      const cells = [...matched].map(k => k.split(',').map(Number));
       function frame(now) {
         const p = Math.min(1, (now - start) / dur);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -225,14 +214,12 @@ async function resolveBoard() {
       requestAnimationFrame(frame);
     });
 
-    // 置空
     for (const key of matched) {
       const [r, c] = key.split(',').map(Number);
       board[r][c] = null;
     }
 
-    // 下落 + 顶部补充（记录每个格子的新旧位置，用于动画）
-    const fallFrom = {}; // "r,c" -> {fromR, type}
+    const fallFrom = {};
     for (let c = 0; c < COLS; c++) {
       let write = ROWS - 1;
       for (let r = ROWS - 1; r >= 0; r--) {
@@ -254,13 +241,12 @@ async function resolveBoard() {
       }
     }
 
-    // 下落动画
     await new Promise(resolve => {
       const start = performance.now();
       const dur = 180;
       function frame(now) {
         const p = Math.min(1, (now - start) / dur);
-        const e = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        const e = 1 - Math.pow(1 - p, 3);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         for (let r = 0; r < ROWS; r++) {
           for (let c = 0; c < COLS; c++) {
@@ -310,21 +296,18 @@ canvas.addEventListener('pointerdown', async (e) => {
   const cell = cellFromEvent(e);
   if (!cell) return;
 
-  // 没选中 → 选中
   if (!selected) {
     selected = cell;
     draw();
     return;
   }
 
-  // 点自己 → 取消
   if (selected.r === cell.r && selected.c === cell.c) {
     selected = null;
     draw();
     return;
   }
 
-  // 相邻 → 尝试交换
   if (isAdjacent(selected, cell)) {
     const a = selected, b = cell;
     selected = null;
@@ -334,7 +317,6 @@ canvas.addEventListener('pointerdown', async (e) => {
     swap(a, b);
 
     if (findMatches().size === 0) {
-      // 无效交换，换回
       await sleep(60);
       await animateSwap(a, b);
       swap(a, b);
@@ -347,7 +329,6 @@ canvas.addEventListener('pointerdown', async (e) => {
     movesEl.textContent = moves;
     await resolveBoard();
 
-    // 死局洗牌
     if (!hasPossibleMove()) {
       await sleep(200);
       initBoard();
@@ -355,13 +336,12 @@ canvas.addEventListener('pointerdown', async (e) => {
     }
     busy = false;
   } else {
-    // 点其他格子 → 改选
     selected = cell;
     draw();
   }
 });
 
-// ===================== 窗口缩放重排 =====================
+// ===================== 缩放重排 =====================
 window.addEventListener('resize', () => {
   const newCell = computeCell();
   if (newCell === CELL) return;
