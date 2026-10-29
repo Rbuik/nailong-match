@@ -3,6 +3,53 @@ const COLS = 8, ROWS = 8;
 const TYPES = 6;
 const MAX_W = 480;
 
+// ===================== 音效系统 (Web Audio) =====================
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx = null;
+
+// 初始化音频上下文（必须在用户第一次交互时触发）
+function initAudio() {
+  if (!audioCtx) {
+    audioCtx = new AudioContext();
+  }
+  if (audioCtx.state === 'suspended') {
+    audioCtx.resume();
+  }
+}
+
+// 播放合成音效
+function playTone(freq, type, duration, volume = 0.1, delay = 0) {
+  if (!audioCtx) return;
+  const osc = audioCtx.createOscillator();
+  const gainNode = audioCtx.createGain();
+  
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, audioCtx.currentTime + delay);
+  
+  // 包络（淡入淡出，防止爆音）
+  gainNode.gain.setValueAtTime(0, audioCtx.currentTime + delay);
+  gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + delay + 0.02);
+  gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + duration);
+  
+  osc.connect(gainNode);
+  gainNode.connect(audioCtx.destination);
+  
+  osc.start(audioCtx.currentTime + delay);
+  osc.stop(audioCtx.currentTime + delay + duration);
+}
+
+// 预设音效
+const SFX = {
+  select: () => playTone(600, 'sine', 0.08, 0.1),             // 选中：短促
+  swap: () => playTone(400, 'triangle', 0.1, 0.1),            // 交换：轻微
+  invalid: () => playTone(200, 'sawtooth', 0.15, 0.05),       // 无效：低沉
+  match: (combo) => {                                         // 消除：连击音调变高
+    const baseFreq = 500 + (combo - 1) * 150;
+    playTone(baseFreq, 'sine', 0.15, 0.1);
+    playTone(baseFreq * 1.5, 'sine', 0.15, 0.08, 0.05);       // 和弦叠加
+  }
+};
+
 // ===================== 自适应格子尺寸 =====================
 function computeCell() {
   const available = Math.min(window.innerWidth, MAX_W) - 24;
@@ -208,6 +255,9 @@ async function resolveBoard() {
     score += matched.size * 10 * combo;
     scoreEl.textContent = score;
 
+    // 播放消除音效（音调随连击变高）
+    SFX.match(combo);
+
     await new Promise(resolve => {
       const start = performance.now();
       const dur = 150;
@@ -298,11 +348,16 @@ function cellFromEvent(e) {
 canvas.addEventListener('pointerdown', async (e) => {
   e.preventDefault();
   if (!imagesReady || busy || moves <= 0) return;
+  
+  // 用户第一次点击时，初始化音频
+  initAudio();
+  
   const cell = cellFromEvent(e);
   if (!cell) return;
 
   if (!selected) {
     selected = cell;
+    SFX.select(); // 播放选中音效
     draw();
     return;
   }
@@ -317,12 +372,15 @@ canvas.addEventListener('pointerdown', async (e) => {
     const a = selected, b = cell;
     selected = null;
     busy = true;
+    
+    SFX.swap(); // 播放交换音效
 
     await animateSwap(a, b);
     swap(a, b);
 
     if (findMatches().size === 0) {
       await sleep(60);
+      SFX.invalid(); // 播放无效音效
       await animateSwap(a, b);
       swap(a, b);
       busy = false;
@@ -342,6 +400,7 @@ canvas.addEventListener('pointerdown', async (e) => {
     busy = false;
   } else {
     selected = cell;
+    SFX.select();
     draw();
   }
 });
