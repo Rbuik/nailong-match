@@ -503,4 +503,46 @@ function startGame() {
   shuffleCountEl.textContent = 3; btnShuffle.disabled = false;
   undoCountEl.textContent = 3; btnUndo.disabled = false;
   
-  scoreEl.textContent = 0; movesEl.textContent = 25; level
+  scoreEl.textContent = 0; movesEl.textContent = 25; levelEl.textContent = 1;
+  selected = null; busy = false; isPlaying = true;
+  
+  particles = []; floatingTexts = [];
+  setupTarget();
+  initBoard();
+  draw();
+}
+
+function endGame() {
+  isPlaying = false;
+  if (score > highScore) {
+    highScore = score;
+    localStorage.setItem('nailong_high_score', highScore);
+    document.getElementById('menu-high-score').textContent = highScore;
+  }
+  SFX.gameOver();
+  document.getElementById('final-score').textContent = score;
+  document.getElementById('final-level').textContent = level;
+  document.getElementById('game-over').style.display = 'flex';
+}
+
+document.getElementById('btn-start').addEventListener('click', startGame);
+document.getElementById('btn-restart').addEventListener('click', startGame);
+document.getElementById('btn-home').addEventListener('click', () => {
+  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('main-menu').style.display = 'flex';
+  isPlaying = false;
+});
+document.getElementById('btn-quit').addEventListener('click', () => {
+  isPlaying = false;
+  document.getElementById('main-menu').style.display = 'flex';
+});
+
+window.addEventListener('resize', () => {
+  const newCell = computeCell();
+  if (newCell === CELL) return;
+  CELL = newCell;
+  canvas.width = COLS * CELL; canvas.height = ROWS * CELL;
+  draw();
+});
+
+loadImages();
