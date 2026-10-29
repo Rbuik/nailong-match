@@ -167,9 +167,9 @@ function spawnParticles(r, c, color) {
   }
 }
 
-// 加长寿命，让它彻底飘出棋盘
+// 修改：加入生命值渐变，保证彻底淡出
 function spawnText(r, c, text, color = '#ffd75c') {
-  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 2.0, dy: -4 });
+  floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 1.5, dy: -2.5 });
 }
 
 function updateEffects() {
@@ -178,12 +178,11 @@ function updateEffects() {
     p.x += p.vx; p.y += p.vy; p.life -= 0.05;
     if (p.life <= 0) particles.splice(i, 1);
   }
-  // 飘字只要活着就继续往上飞
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
     const t = floatingTexts[i];
     t.y += t.dy; 
-    t.life -= 0.01; 
-    if (t.life <= 0) floatingTexts.splice(i, 1);
+    t.life -= 0.02; // 匀速减少生命
+    if (t.life <= 0) floatingTexts.splice(i, 1); // 彻底移除
   }
 }
 
@@ -216,6 +215,28 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
   ctx.restore();
 }
 
+function drawEffects() {
+  particles.forEach(p => { 
+    ctx.globalAlpha = p.life; 
+    ctx.fillStyle = p.color; 
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); 
+  });
+  
+  floatingTexts.forEach(t => {
+    // 保证 alpha 在 0~1 之间，实现渐隐
+    const alpha = Math.max(0, Math.min(1, t.life));
+    ctx.globalAlpha = alpha; 
+    ctx.fillStyle = t.color; 
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center'; 
+    ctx.strokeStyle = '#000'; 
+    ctx.lineWidth = 4;
+    ctx.strokeText(t.text, t.x, t.y); 
+    ctx.fillText(t.text, t.x, t.y);
+  });
+  ctx.globalAlpha = 1;
+}
+
 function draw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!imagesReady || !board.length) return;
@@ -230,16 +251,7 @@ function draw() {
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
     roundRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4, 10); ctx.stroke();
   }
-
-  particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); });
-  
-  floatingTexts.forEach(t => {
-    ctx.globalAlpha = t.life > 1 ? 1 : t.life; 
-    ctx.fillStyle = t.color; ctx.font = 'bold 20px sans-serif';
-    ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
-    ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y);
-  });
-  ctx.globalAlpha = 1;
+  drawEffects();
 }
 
 // ===================== 动画与消除 =====================
@@ -315,16 +327,7 @@ async function resolveBoard() {
             else drawBlock(c * CELL, r * CELL, board[r][c]);
           }
         }
-        particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); });
-        
-        floatingTexts.forEach(t => { 
-          ctx.globalAlpha = t.life > 1 ? 1 : t.life; 
-          ctx.fillStyle = t.color; ctx.font = 'bold 20px sans-serif'; 
-          ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; 
-          ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y); 
-        });
-        ctx.globalAlpha = 1;
-        
+        drawEffects();
         if (p < 1) requestAnimationFrame(frame); else resolve();
       }
       requestAnimationFrame(frame);
@@ -368,16 +371,7 @@ async function resolveBoard() {
             } else { drawBlock(c * CELL, r * CELL, board[r][c]); }
           }
         }
-        particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 4 * p.life, 0, Math.PI * 2); ctx.fill(); });
-        
-        floatingTexts.forEach(t => { 
-          ctx.globalAlpha = t.life > 1 ? 1 : t.life; 
-          ctx.fillStyle = t.color; ctx.font = 'bold 20px sans-serif'; 
-          ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4; 
-          ctx.strokeText(t.text, t.x, t.y); ctx.fillText(t.text, t.x, t.y); 
-        });
-        ctx.globalAlpha = 1;
-        
+        drawEffects();
         if (p < 1) requestAnimationFrame(frame); else { draw(); resolve(); }
       }
       requestAnimationFrame(frame);
@@ -422,12 +416,12 @@ canvas.addEventListener('pointerdown', async (e) => {
     moves--; movesEl.textContent = moves;
     await resolveBoard();
 
-    // ===== 必须步数归零才结算 =====
+    // ====== 必须步数归零才结算 ======
     if (moves <= 0) {
       if (currentProgress >= targetValue) {
-        handleLevelWin(); // 步数用光且达标 -> 过关
+        handleLevelWin(); 
       } else {
-        endGame();       // 步数用光且没达标 -> 失败
+        endGame();       
       }
       busy = false; return;
     }
@@ -470,7 +464,7 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   document.getElementById('level-clear').style.display = 'none';
   level++;
   levelEl.textContent = level;
-  moves = 25; // 下一关重置满步数，给你充足的挑战空间
+  moves = 25; 
   movesEl.textContent = moves;
   
   levelStartScore = score;
