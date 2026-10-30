@@ -109,7 +109,8 @@ function loadGame() {
     if (shuffleCount === 0) btnShuffle.disabled = true;
     if (undoCount === 0) btnUndo.disabled = true;
     
-    setupTarget(); updateTargetUI();
+    // 这里直接根据存下来的数据更新 UI
+    targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
     return true;
   } catch (e) { return false; }
 }
@@ -130,11 +131,11 @@ function loadImages() {
 
 // ===================== 游戏状态 =====================
 let board = [];
-let score = 0, moves = 20, level = 1;
+let score = 0, moves = 25, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
-let targetValue = 1500, currentProgress = 0;
+let targetValue = 1000, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [];
@@ -464,14 +465,10 @@ canvas.addEventListener('pointerdown', async (e) => {
   }
 });
 
-// ===================== 难度递增系统 =====================
+// ===================== 难度与目标逻辑 =====================
 function setupLevelDifficulty() {
-  // 步数：从第 1 关的 22 步，每关减少 1 步，最低不少于 15 步
-  moves = Math.max(15, 23 - level);
-  
-  // 分数目标：从第 1 关的 1000 分，每关增加 800 分
-  targetValue = 1000 + (level - 1) * 800;
-  
+  moves = 25; // 步数固定 25
+  targetValue = 1000 + (level - 1) * 100; // 第1关 1000，每关递增 100
   currentProgress = 0;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
 }
@@ -616,7 +613,6 @@ document.getElementById('btn-play').addEventListener('click', () => {
     particles = []; floatingTexts = [];
     drawAll();
   } else {
-    // 如果没有存档，直接开始第一关
     startGameAtLevel(1);
   }
 });
