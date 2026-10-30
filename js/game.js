@@ -79,8 +79,10 @@ function getMaxUnlockedLevel() {
 
 function checkSave() {
   const saved = localStorage.getItem('nailong_save');
-  const btnContinue = document.getElementById('btn-continue');
-  btnContinue.style.display = saved ? 'block' : 'none';
+  const btnPlay = document.getElementById('btn-play');
+  
+  // 有存档显示继续，没存档显示开始
+  btnPlay.textContent = saved ? "继续游戏" : "开始游戏";
 
   let currentLv = 1;
   if (saved) {
@@ -618,39 +620,40 @@ function startGameAtLevel(lv) {
   drawAll(); saveGame();
 }
 
-function continueGame() {
+// 统一的开始/继续逻辑
+document.getElementById('btn-play').addEventListener('click', () => {
   initAudio();
   if (loadGame()) {
+    // 有存档，继续游戏
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('level-clear').style.display = 'none';
     isPlaying = true; busy = false; selected = null;
     particles = []; floatingTexts = [];
     drawAll();
-  } else { alert("存档已损坏，将开始新游戏"); startGame(); }
-}
+  } else {
+    // 无存档，开始新游戏
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('level-clear').style.display = 'none';
+    resetGameState(1);
+    drawAll(); saveGame();
+  }
+});
 
-function endGame() {
-  isPlaying = false;
-  localStorage.removeItem('nailong_save'); 
-  
-  const levelEarned = score - levelStartScore;
-  saveLevelScore(level, levelEarned); 
+document.getElementById('btn-restart').addEventListener('click', () => {
+  initAudio();
+  document.getElementById('game-over').style.display = 'none';
+  resetGameState(1);
+  drawAll(); saveGame();
+});
 
-  SFX.gameOver();
-  document.getElementById('final-score').textContent = levelEarned;
-  document.getElementById('final-level').textContent = level;
-  document.getElementById('game-over').style.display = 'flex';
-}
-
-document.getElementById('btn-start').addEventListener('click', startGame);
-document.getElementById('btn-continue').addEventListener('click', continueGame);
-document.getElementById('btn-restart').addEventListener('click', startGame);
 document.getElementById('btn-home').addEventListener('click', () => {
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('main-menu').style.display = 'flex';
   isPlaying = false; checkSave();
 });
+
 document.getElementById('btn-quit').addEventListener('click', () => {
   isPlaying = false;
   document.getElementById('game-over').style.display = 'none';
