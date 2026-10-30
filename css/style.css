@@ -30,7 +30,6 @@ body { display: flex; align-items: center; justify-content: center; touch-action
   padding: 8px; border-radius: 8px; font-weight: bold;
 }
 
-/* --- 美化后的道具栏 --- */
 .tools {
   display: flex; gap: 15px; width: 100%; justify-content: flex-end; padding: 0 10px;
 }
@@ -86,7 +85,25 @@ canvas {
 .btn-primary, .btn-secondary {
   width: 180px; padding: 14px 0; border: none; border-radius: 30px;
   font-size: 17px; font-weight: bold; cursor: pointer; margin-bottom: 12px;
+  transition: transform 0.1s ease;
 }
 .btn-primary { background: linear-gradient(135deg, #7c5cff, #5c8fff); color: #fff; box-shadow: 0 4px 15px rgba(124,92,255,0.4); }
 .btn-secondary { background: transparent; color: #aaa; border: 2px solid #555; }
 .btn-primary:active, .btn-secondary:active { transform: scale(0.95); }
+
+/* 历史记录列表 */
+.history-list {
+  width: 85%; max-height: 55vh; overflow-y: auto;
+  background: rgba(0,0,0,0.3); border-radius: 12px;
+  padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px;
+}
+.history-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 12px 18px; background: rgba(255,255,255,0.1); border-radius: 8px;
+  cursor: pointer; transition: background 0.2s;
+}
+.history-item:hover { background: rgba(255,255,255,0.2); }
+.history-item span { font-size: 15px; }
+.history-item .score { color: #5cff8f; font-weight: bold; }
+.history-list::-webkit-scrollbar { width: 6px; }
+.history-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 3px; }
