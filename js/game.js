@@ -57,7 +57,7 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 canvas.width = COLS * CELL; canvas.height = ROWS * CELL;
 
-// ===================== 本地存储与进度管理 =====================
+// ===================== 本地存储与进度 =====================
 let levelHighScores = JSON.parse(localStorage.getItem('nailong_level_scores') || '{}');
 
 function saveLevelScore(lv, sc) {
@@ -70,9 +70,7 @@ function saveLevelScore(lv, sc) {
 function getMaxUnlockedLevel() {
   let max = 1;
   for (let i = 1; i <= MAX_LEVEL; i++) {
-    if (levelHighScores[i] > 0) {
-      max = Math.max(max, i + 1);
-    }
+    if (levelHighScores[i] > 0) max = Math.max(max, i + 1);
   }
   return Math.min(max, MAX_LEVEL);
 }
@@ -80,8 +78,6 @@ function getMaxUnlockedLevel() {
 function checkSave() {
   const saved = localStorage.getItem('nailong_save');
   const btnPlay = document.getElementById('btn-play');
-  
-  // 有存档显示继续，没存档显示开始
   btnPlay.textContent = saved ? "继续游戏" : "开始游戏";
 
   let currentLv = 1;
@@ -134,7 +130,7 @@ function loadImages() {
 
 // ===================== 游戏状态 =====================
 let board = [];
-let score = 0, moves = 25, level = 1;
+let score = 0, moves = 20, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
@@ -309,53 +305,43 @@ async function resolveBoard() {
     if (matched.size === 0) break;
     combo++;
     
-    // ===== 炸弹爆炸判定核心逻辑 =====
     let hasBombExploded = false;
     const matchedArray = [...matched];
     
     matchedArray.forEach(key => {
       const [r, c] = key.split(',').map(Number);
       const block = board[r][c];
-      // 如果这个被消除的方块是炸弹
       if (block && block.special === BLOCK_BOMB) {
         hasBombExploded = true;
-        // 遍历周围 3x3 范围
         for (let dr = -1; dr <= 1; dr++) {
           for (let dc = -1; dc <= 1; dc++) {
             const nr = r + dr, nc = c + dc;
             if (inBounds(nr, nc) && board[nr][nc]) {
-              matched.add(`${nr},${nc}`); // 把周围的方块强行加入要消除的列表
+              matched.add(`${nr},${nc}`); 
             }
           }
         }
       }
     });
     
-    // 如果有炸弹爆炸，播放爆炸音效和震动
     if (hasBombExploded) {
       SFX.bomb();
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
     }
-    // ==================================
 
-    // 重新提取真实要消除的数组（包含了被炸的方块）
     const finalMatchArray = [...matched].map(k => k.split(',').map(Number));
     
-    // 4连消生成炸弹逻辑
     if (finalMatchArray.length >= 4) {
       const r = finalMatchArray[0][0], c = finalMatchArray[0][1];
       board[r][c].special = BLOCK_BOMB;
       matched.delete(`${r},${c}`);
-      // 注意：这里为了避免直接消除生成的炸弹，将其移出消除队列。
-      // 但如果它本来就处于爆炸范围，这可能存在小冲突，不过不影响整体爽感。
     }
 
-    // 结算分数和 UI
     const addedScore = matched.size * 10 * combo;
     score += addedScore; scoreEl.textContent = score;
     currentProgress += addedScore; updateTargetUI();
     
-    if (!hasBombExploded) SFX.match(combo); // 如果没爆炸，播放普通连击音效
+    if (!hasBombExploded) SFX.match(combo); 
 
     matched.forEach(key => {
       const [r, c] = key.split(',').map(Number);
@@ -365,7 +351,6 @@ async function resolveBoard() {
     const textAnchor = finalMatchArray.length > 0 ? finalMatchArray[0] : [0, 0];
     spawnText(textAnchor[0], textAnchor[1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
 
-    // 消除动画
     await new Promise(resolve => {
       const start = performance.now(); const dur = 150;
       function frame(now) {
@@ -387,7 +372,6 @@ async function resolveBoard() {
       board[r][c] = null;
     }
 
-    // 下落逻辑
     const fallFrom = {};
     for (let c = 0; c < COLS; c++) {
       let write = ROWS - 1;
@@ -404,7 +388,6 @@ async function resolveBoard() {
       }
     }
 
-    // 下落动画
     await new Promise(resolve => {
       const start = performance.now(); const dur = 180;
       function frame(now) {
@@ -481,9 +464,15 @@ canvas.addEventListener('pointerdown', async (e) => {
   }
 });
 
-// ===================== 关卡与目标逻辑 =====================
-function setupTarget() {
-  targetValue = level * 1500;
+// ===================== 难度递增系统 =====================
+function setupLevelDifficulty() {
+  // 步数：从第 1 关的 22 步，每关减少 1 步，最低不少于 15 步
+  moves = Math.max(15, 23 - level);
+  
+  // 分数目标：从第 1 关的 1000 分，每关增加 800 分
+  targetValue = 1000 + (level - 1) * 800;
+  
+  currentProgress = 0;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
 }
 
@@ -517,9 +506,12 @@ document.getElementById('btn-next-level').addEventListener('click', () => {
   document.getElementById('level-clear').style.display = 'none';
   if (level < MAX_LEVEL) {
     level++; levelEl.textContent = level;
-    moves = 25; movesEl.textContent = moves;
     levelStartScore = score;
-    setupTarget(); initBoard();
+    
+    setupLevelDifficulty();
+    movesEl.textContent = moves;
+    
+    initBoard();
     isPlaying = true; busy = false;
     drawAll(); saveGame();
   }
@@ -549,11 +541,10 @@ btnUndo.addEventListener('click', () => {
   selected = null; drawAll(); SFX.select(); saveGame();
 });
 
-// ===================== 历史记录面板逻辑 =====================
+// ===================== 历史记录面板 =====================
 function renderHistoryList() {
   const listEl = document.getElementById('history-list');
   listEl.innerHTML = '';
-  
   const maxUnlocked = getMaxUnlockedLevel();
 
   for (let i = 1; i <= MAX_LEVEL; i++) {
@@ -567,11 +558,9 @@ function renderHistoryList() {
       div.innerHTML = `<span>第 ${i} 关</span><span class="score">${hs} 分</span>`;
       div.addEventListener('click', () => startGameAtLevel(i));
     } else {
-      div.style.opacity = '0.5';
-      div.style.cursor = 'not-allowed';
+      div.style.opacity = '0.5'; div.style.cursor = 'not-allowed';
       div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">-</span>`;
     }
-    
     listEl.appendChild(div);
   }
 }
@@ -591,23 +580,19 @@ document.getElementById('btn-history-back').addEventListener('click', () => {
 // ===================== 主流程 =====================
 function resetGameState(targetLv) {
   level = targetLv;
-  score = 0; moves = 25; levelStartScore = 0; currentProgress = 0;
+  score = 0; levelStartScore = 0;
   shuffleCount = 3; undoCount = 3;
   shuffleCountEl.textContent = 3; btnShuffle.disabled = false;
   undoCountEl.textContent = 3; btnUndo.disabled = false;
-  scoreEl.textContent = 0; movesEl.textContent = 25; levelEl.textContent = level;
+  scoreEl.textContent = 0; levelEl.textContent = level;
+  
   selected = null; busy = false; isPlaying = true;
   particles = []; floatingTexts = [];
-  setupTarget(); initBoard();
-}
-
-function startGame() { 
-  initAudio();
-  document.getElementById('main-menu').style.display = 'none';
-  document.getElementById('game-over').style.display = 'none';
-  document.getElementById('level-clear').style.display = 'none';
-  resetGameState(1);
-  drawAll(); saveGame();
+  
+  setupLevelDifficulty();
+  movesEl.textContent = moves;
+  
+  initBoard();
 }
 
 function startGameAtLevel(lv) { 
@@ -620,11 +605,10 @@ function startGameAtLevel(lv) {
   drawAll(); saveGame();
 }
 
-// 统一的开始/继续逻辑
+// 统一的开始/继续
 document.getElementById('btn-play').addEventListener('click', () => {
   initAudio();
   if (loadGame()) {
-    // 有存档，继续游戏
     document.getElementById('main-menu').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('level-clear').style.display = 'none';
@@ -632,28 +616,30 @@ document.getElementById('btn-play').addEventListener('click', () => {
     particles = []; floatingTexts = [];
     drawAll();
   } else {
-    // 无存档，开始新游戏
-    document.getElementById('main-menu').style.display = 'none';
-    document.getElementById('game-over').style.display = 'none';
-    document.getElementById('level-clear').style.display = 'none';
-    resetGameState(1);
-    drawAll(); saveGame();
+    // 如果没有存档，直接开始第一关
+    startGameAtLevel(1);
   }
 });
 
-document.getElementById('btn-restart').addEventListener('click', () => {
-  initAudio();
-  document.getElementById('game-over').style.display = 'none';
-  resetGameState(1);
-  drawAll(); saveGame();
-});
+function endGame() {
+  isPlaying = false;
+  localStorage.removeItem('nailong_save'); 
+  
+  const levelEarned = score - levelStartScore;
+  saveLevelScore(level, levelEarned); 
 
+  SFX.gameOver();
+  document.getElementById('final-score').textContent = levelEarned;
+  document.getElementById('final-level').textContent = level;
+  document.getElementById('game-over').style.display = 'flex';
+}
+
+document.getElementById('btn-restart').addEventListener('click', () => startGameAtLevel(level));
 document.getElementById('btn-home').addEventListener('click', () => {
   document.getElementById('game-over').style.display = 'none';
   document.getElementById('main-menu').style.display = 'flex';
   isPlaying = false; checkSave();
 });
-
 document.getElementById('btn-quit').addEventListener('click', () => {
   isPlaying = false;
   document.getElementById('game-over').style.display = 'none';
