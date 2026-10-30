@@ -2,7 +2,7 @@
 const COLS = 8, ROWS = 8;
 const TYPES = 6;
 const MAX_W = 480;
-const MAX_LEVEL = 20; // 最高 20 关
+const MAX_LEVEL = 20;
 const FALLBACK_COLORS = ['#ff5c5c', '#5cff8f', '#5c8fff', '#ffd75c', '#c85cff', '#5cffee'];
 const BLOCK_NORMAL = 0, BLOCK_BOMB = 1;
 
@@ -78,15 +78,19 @@ function getMaxUnlockedLevel() {
 function checkSave() {
   const saved = localStorage.getItem('nailong_save');
   const btnPlay = document.getElementById('btn-play');
-  btnPlay.textContent = saved ? "继续游戏" : "开始游戏";
+  if (btnPlay) {
+    btnPlay.textContent = saved ? "继续游戏" : "开始游戏";
+  }
 
   let currentLv = 1;
   if (saved) {
     try { currentLv = JSON.parse(saved).level || 1; } catch(e) {}
   }
   
-  document.getElementById('menu-current-level').textContent = currentLv;
-  document.getElementById('menu-current-high').textContent = levelHighScores[currentLv] || 0;
+  const menuLv = document.getElementById('menu-current-level');
+  const menuHigh = document.getElementById('menu-current-high');
+  if (menuLv) menuLv.textContent = currentLv;
+  if (menuHigh) menuHigh.textContent = levelHighScores[currentLv] || 0;
 }
 
 function saveGame() {
@@ -109,7 +113,7 @@ function loadGame() {
     if (shuffleCount === 0) btnShuffle.disabled = true;
     if (undoCount === 0) btnUndo.disabled = true;
     
-    // 这里直接根据存下来的数据更新 UI
+    targetValue = 1000 + (level - 1) * 100;
     targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
     return true;
   } catch (e) { return false; }
@@ -123,8 +127,15 @@ function loadImages() {
     const img = new Image();
     img.crossOrigin = "Anonymous";
     img.src = `./assets/${i}.png?v=${new Date().getTime()}`;
-    img.onload = () => { loaded++; if (loaded === TYPES) { imagesReady = true; document.getElementById('loading').style.display = 'none'; } };
-    img.onerror = () => { console.error(`图片加载失败: ./assets/${i}.png`); loaded++; if (loaded === TYPES) { imagesReady = true; document.getElementById('loading').style.display = 'none'; } };
+    img.onload = () => { 
+      loaded++; 
+      if (loaded === TYPES) { imagesReady = true; const l = document.getElementById('loading'); if(l) l.style.display = 'none'; } 
+    };
+    img.onerror = () => { 
+      console.error(`图片加载失败: ./assets/${i}.png`); 
+      loaded++; 
+      if (loaded === TYPES) { imagesReady = true; const l = document.getElementById('loading'); if(l) l.style.display = 'none'; } 
+    };
     IMAGES.push(img);
   }
 }
@@ -465,10 +476,10 @@ canvas.addEventListener('pointerdown', async (e) => {
   }
 });
 
-// ===================== 难度与目标逻辑 =====================
+// ===================== 难度与关卡逻辑 =====================
 function setupLevelDifficulty() {
   moves = 25; // 步数固定 25
-  targetValue = 1000 + (level - 1) * 100; // 第1关 1000，每关递增 100
+  targetValue = 1000 + (level - 1) * 100; // 第一关 1000分，每关加 100 分
   currentProgress = 0;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
 }
@@ -484,41 +495,49 @@ function handleLevelWin() {
   const levelEarned = score - levelStartScore;
   saveLevelScore(level, levelEarned); 
 
-  document.getElementById('clear-score').textContent = levelEarned;
-  document.getElementById('clear-moves').textContent = moves;
+  const clearScoreEl = document.getElementById('clear-score');
+  const clearMovesEl = document.getElementById('clear-moves');
+  if(clearScoreEl) clearScoreEl.textContent = levelEarned;
+  if(clearMovesEl) clearMovesEl.textContent = moves;
   
   const nextBtn = document.getElementById('btn-next-level');
+  const titleEl = document.querySelector('#level-clear .title');
   if (level >= MAX_LEVEL) {
-    document.querySelector('#level-clear .title').textContent = "🎉 恭喜全通关！";
-    nextBtn.style.display = 'none';
+    if(titleEl) titleEl.textContent = "🎉 恭喜全通关！";
+    if(nextBtn) nextBtn.style.display = 'none';
   } else {
-    document.querySelector('#level-clear .title').textContent = "关卡完成！";
-    nextBtn.style.display = 'block';
+    if(titleEl) titleEl.textContent = "关卡完成！";
+    if(nextBtn) nextBtn.style.display = 'block';
   }
   
   document.getElementById('level-clear').style.display = 'flex';
 }
 
-document.getElementById('btn-next-level').addEventListener('click', () => {
-  document.getElementById('level-clear').style.display = 'none';
-  if (level < MAX_LEVEL) {
-    level++; levelEl.textContent = level;
-    levelStartScore = score;
-    
-    setupLevelDifficulty();
-    movesEl.textContent = moves;
-    
-    initBoard();
-    isPlaying = true; busy = false;
-    drawAll(); saveGame();
-  }
-});
+// 下一关
+const btnNextLevel = document.getElementById('btn-next-level');
+if(btnNextLevel) {
+  btnNextLevel.addEventListener('click', () => {
+    document.getElementById('level-clear').style.display = 'none';
+    if (level < MAX_LEVEL) {
+      level++; levelEl.textContent = level;
+      levelStartScore = score;
+      setupLevelDifficulty();
+      movesEl.textContent = moves;
+      initBoard();
+      isPlaying = true; busy = false;
+      drawAll(); saveGame();
+    }
+  });
+}
 
-document.getElementById('btn-clear-home').addEventListener('click', () => {
-  document.getElementById('level-clear').style.display = 'none';
-  document.getElementById('main-menu').style.display = 'flex';
-  isPlaying = false; checkSave();
-});
+const btnClearHome = document.getElementById('btn-clear-home');
+if(btnClearHome) {
+  btnClearHome.addEventListener('click', () => {
+    document.getElementById('level-clear').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'flex';
+    isPlaying = false; checkSave();
+  });
+}
 
 // ===================== 道具功能 =====================
 btnShuffle.addEventListener('click', () => {
@@ -538,10 +557,12 @@ btnUndo.addEventListener('click', () => {
   selected = null; drawAll(); SFX.select(); saveGame();
 });
 
-// ===================== 历史记录面板 =====================
+// ===================== 历史记录 =====================
 function renderHistoryList() {
   const listEl = document.getElementById('history-list');
+  if (!listEl) return;
   listEl.innerHTML = '';
+  
   const maxUnlocked = getMaxUnlockedLevel();
 
   for (let i = 1; i <= MAX_LEVEL; i++) {
@@ -555,24 +576,31 @@ function renderHistoryList() {
       div.innerHTML = `<span>第 ${i} 关</span><span class="score">${hs} 分</span>`;
       div.addEventListener('click', () => startGameAtLevel(i));
     } else {
-      div.style.opacity = '0.5'; div.style.cursor = 'not-allowed';
+      div.style.opacity = '0.5';
+      div.style.cursor = 'not-allowed';
       div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">-</span>`;
     }
     listEl.appendChild(div);
   }
 }
 
-document.getElementById('btn-history').addEventListener('click', () => {
-  renderHistoryList();
-  document.getElementById('main-menu').style.display = 'none';
-  document.getElementById('history-menu').style.display = 'flex';
-});
+const btnHistory = document.getElementById('btn-history');
+if(btnHistory) {
+  btnHistory.addEventListener('click', () => {
+    renderHistoryList();
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('history-menu').style.display = 'flex';
+  });
+}
 
-document.getElementById('btn-history-back').addEventListener('click', () => {
-  document.getElementById('history-menu').style.display = 'none';
-  document.getElementById('main-menu').style.display = 'flex';
-  checkSave();
-});
+const btnHistoryBack = document.getElementById('btn-history-back');
+if(btnHistoryBack) {
+  btnHistoryBack.addEventListener('click', () => {
+    document.getElementById('history-menu').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'flex';
+    checkSave();
+  });
+}
 
 // ===================== 主流程 =====================
 function resetGameState(targetLv) {
@@ -588,7 +616,6 @@ function resetGameState(targetLv) {
   
   setupLevelDifficulty();
   movesEl.textContent = moves;
-  
   initBoard();
 }
 
@@ -603,19 +630,22 @@ function startGameAtLevel(lv) {
 }
 
 // 统一的开始/继续
-document.getElementById('btn-play').addEventListener('click', () => {
-  initAudio();
-  if (loadGame()) {
-    document.getElementById('main-menu').style.display = 'none';
-    document.getElementById('game-over').style.display = 'none';
-    document.getElementById('level-clear').style.display = 'none';
-    isPlaying = true; busy = false; selected = null;
-    particles = []; floatingTexts = [];
-    drawAll();
-  } else {
-    startGameAtLevel(1);
-  }
-});
+const btnPlay = document.getElementById('btn-play');
+if(btnPlay) {
+  btnPlay.addEventListener('click', () => {
+    initAudio();
+    if (loadGame()) {
+      document.getElementById('main-menu').style.display = 'none';
+      document.getElementById('game-over').style.display = 'none';
+      document.getElementById('level-clear').style.display = 'none';
+      isPlaying = true; busy = false; selected = null;
+      particles = []; floatingTexts = [];
+      drawAll();
+    } else {
+      startGameAtLevel(1);
+    }
+  });
+}
 
 function endGame() {
   isPlaying = false;
@@ -630,18 +660,27 @@ function endGame() {
   document.getElementById('game-over').style.display = 'flex';
 }
 
-document.getElementById('btn-restart').addEventListener('click', () => startGameAtLevel(level));
-document.getElementById('btn-home').addEventListener('click', () => {
-  document.getElementById('game-over').style.display = 'none';
-  document.getElementById('main-menu').style.display = 'flex';
-  isPlaying = false; checkSave();
-});
-document.getElementById('btn-quit').addEventListener('click', () => {
-  isPlaying = false;
-  document.getElementById('game-over').style.display = 'none';
-  document.getElementById('main-menu').style.display = 'flex';
-  saveGame(); checkSave();
-});
+const btnRestart = document.getElementById('btn-restart');
+if(btnRestart) btnRestart.addEventListener('click', () => startGameAtLevel(level));
+
+const btnHome = document.getElementById('btn-home');
+if(btnHome) {
+  btnHome.addEventListener('click', () => {
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'flex';
+    isPlaying = false; checkSave();
+  });
+}
+
+const btnQuit = document.getElementById('btn-quit');
+if(btnQuit) {
+  btnQuit.addEventListener('click', () => {
+    isPlaying = false;
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'flex';
+    saveGame(); checkSave();
+  });
+}
 
 window.addEventListener('resize', () => {
   const newCell = computeCell();
