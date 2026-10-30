@@ -8,7 +8,6 @@
 </head>
 <body>
   <div class="game-container">
-    <!-- 顶部信息栏 -->
     <div class="hud" id="hud">
       <div class="hud-item">关卡：<b id="level">1</b></div>
       <div class="hud-item">步数：<b id="moves">25</b></div>
@@ -16,50 +15,39 @@
       <button id="btn-quit">主页</button>
     </div>
     
-    <!-- 目标提示栏 -->
-    <div class="target-bar" id="target-bar">目标：得分达到 1500 分</div>
+    <div class="target-bar" id="target-bar">目标：得分达到 1000 分</div>
 
-    <!-- 道具栏 -->
     <div class="tools">
       <button id="btn-shuffle" class="tool-btn">
-        <span class="icon">🔄</span>
-        <span class="text">洗牌</span>
-        <span class="badge" id="shuffle-count">3</span>
+        <span class="icon">🔄</span><span class="text">洗牌</span><span class="badge" id="shuffle-count">3</span>
       </button>
       <button id="btn-undo" class="tool-btn">
-        <span class="icon">↩️</span>
-        <span class="text">撤回</span>
-        <span class="badge" id="undo-count">3</span>
+        <span class="icon">↩️</span><span class="text">撤回</span><span class="badge" id="undo-count">3</span>
       </button>
     </div>
 
-    <!-- 游戏画布 -->
     <canvas id="game"></canvas>
     <div id="loading">加载中…</div>
 
-    <!-- 遮罩层：主页 -->
+    <!-- 主页 -->
     <div class="overlay" id="main-menu">
       <h1 class="title">奶龙消消乐</h1>
-      
       <div class="result-box" style="margin-bottom: 20px;">
         <p style="justify-content: center; gap: 10px;">当前进度：第 <b id="menu-current-level">1</b> 关</p>
         <p style="justify-content: center; gap: 10px;">本关最高分：<b id="menu-current-high">0</b></p>
       </div>
-
-      <button class="btn-primary" id="btn-continue" style="display: block; margin-bottom: 15px;">开始游戏</button>
+      <button class="btn-primary" id="btn-play" style="margin-bottom: 15px;">开始游戏</button>
       <button class="btn-secondary" id="btn-history">🏆 历史关卡记录</button>
     </div>
 
-    <!-- 遮罩层：历史记录 -->
+    <!-- 历史记录 -->
     <div class="overlay" id="history-menu" style="display: none;">
       <h2 class="title" style="background: linear-gradient(90deg,#ffd75c,#ff5c5c);">历史记录</h2>
-      <div class="history-list" id="history-list">
-        <!-- 动态生成 20 关记录 -->
-      </div>
+      <div class="history-list" id="history-list"></div>
       <button class="btn-secondary" id="btn-history-back" style="margin-top: 15px;">返回主页</button>
     </div>
 
-    <!-- 遮罩层：过关结算 -->
+    <!-- 过关 -->
     <div class="overlay" id="level-clear" style="display: none;">
       <h2 class="title" style="background: linear-gradient(90deg,#5cff8f,#5c8fff);">关卡完成！</h2>
       <div class="result-box">
@@ -70,7 +58,7 @@
       <button class="btn-secondary" id="btn-clear-home">返回主页</button>
     </div>
 
-    <!-- 遮罩层：游戏结束 -->
+    <!-- 失败 -->
     <div class="overlay" id="game-over" style="display: none;">
       <h2 class="title" style="background: linear-gradient(90deg,#ff5c5c,#c85cff);">步数耗尽</h2>
       <div class="result-box">
