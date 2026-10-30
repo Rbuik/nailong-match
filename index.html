@@ -40,12 +40,24 @@
     <!-- 遮罩层：主页 -->
     <div class="overlay" id="main-menu">
       <h1 class="title">奶龙消消乐</h1>
-      <p class="high-score-text">最高关卡：<b id="menu-high-level">1</b> | 最高分：<b id="menu-high-score">0</b></p>
       
-      <!-- 继续游戏按钮（有存档时显示） -->
+      <div class="result-box" style="margin-bottom: 20px;">
+        <p style="justify-content: center; gap: 10px;">当前进度：第 <b id="menu-current-level">1</b> 关</p>
+        <p style="justify-content: center; gap: 10px;">本关最高分：<b id="menu-current-high">0</b></p>
+      </div>
+
       <button class="btn-primary" id="btn-continue" style="display: none;">继续游戏</button>
-      
       <button class="btn-primary" id="btn-start">开始新游戏</button>
+      <button class="btn-secondary" id="btn-history">🏆 历史关卡记录</button>
+    </div>
+
+    <!-- 遮罩层：历史记录 -->
+    <div class="overlay" id="history-menu" style="display: none;">
+      <h2 class="title" style="background: linear-gradient(90deg,#ffd75c,#ff5c5c);">历史记录</h2>
+      <div class="history-list" id="history-list">
+        <!-- 动态生成 20 关记录 -->
+      </div>
+      <button class="btn-secondary" id="btn-history-back" style="margin-top: 15px;">返回主页</button>
     </div>
 
     <!-- 遮罩层：过关结算 -->
