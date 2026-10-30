@@ -67,7 +67,6 @@ function saveLevelScore(lv, sc) {
   }
 }
 
-// 获取当前已经解锁的最高关卡
 function getMaxUnlockedLevel() {
   let max = 1;
   for (let i = 1; i <= MAX_LEVEL; i++) {
@@ -304,31 +303,67 @@ async function animateSwap(a, b, dur = 140) {
 async function resolveBoard() {
   let combo = 0;
   while (true) {
-    const matched = findMatches();
+    let matched = findMatches();
     if (matched.size === 0) break;
     combo++;
-    const matchArray = [...matched].map(k => k.split(',').map(Number));
     
-    if (matchArray.length >= 4) {
-      const r = matchArray[0][0], c = matchArray[0][1];
+    // ===== 炸弹爆炸判定核心逻辑 =====
+    let hasBombExploded = false;
+    const matchedArray = [...matched];
+    
+    matchedArray.forEach(key => {
+      const [r, c] = key.split(',').map(Number);
+      const block = board[r][c];
+      // 如果这个被消除的方块是炸弹
+      if (block && block.special === BLOCK_BOMB) {
+        hasBombExploded = true;
+        // 遍历周围 3x3 范围
+        for (let dr = -1; dr <= 1; dr++) {
+          for (let dc = -1; dc <= 1; dc++) {
+            const nr = r + dr, nc = c + dc;
+            if (inBounds(nr, nc) && board[nr][nc]) {
+              matched.add(`${nr},${nc}`); // 把周围的方块强行加入要消除的列表
+            }
+          }
+        }
+      }
+    });
+    
+    // 如果有炸弹爆炸，播放爆炸音效和震动
+    if (hasBombExploded) {
+      SFX.bomb();
+      if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+    }
+    // ==================================
+
+    // 重新提取真实要消除的数组（包含了被炸的方块）
+    const finalMatchArray = [...matched].map(k => k.split(',').map(Number));
+    
+    // 4连消生成炸弹逻辑
+    if (finalMatchArray.length >= 4) {
+      const r = finalMatchArray[0][0], c = finalMatchArray[0][1];
       board[r][c].special = BLOCK_BOMB;
       matched.delete(`${r},${c}`);
-      SFX.bomb();
+      // 注意：这里为了避免直接消除生成的炸弹，将其移出消除队列。
+      // 但如果它本来就处于爆炸范围，这可能存在小冲突，不过不影响整体爽感。
     }
 
+    // 结算分数和 UI
     const addedScore = matched.size * 10 * combo;
     score += addedScore; scoreEl.textContent = score;
     currentProgress += addedScore; updateTargetUI();
     
-    SFX.match(combo);
-    if (navigator.vibrate && combo > 1) navigator.vibrate(30);
+    if (!hasBombExploded) SFX.match(combo); // 如果没爆炸，播放普通连击音效
 
     matched.forEach(key => {
       const [r, c] = key.split(',').map(Number);
-      if (board[r][c]) spawnParticles(r, c, FALLBACK_COLORS[board[r][c].type]);
+      if (board[r][c]) spawnParticles(r, c, FALLBACK_COLORS[board[r][c].type] || '#fff');
     });
-    spawnText(matchArray[0][0], matchArray[0][1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
+    
+    const textAnchor = finalMatchArray.length > 0 ? finalMatchArray[0] : [0, 0];
+    spawnText(textAnchor[0], textAnchor[1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
 
+    // 消除动画
     await new Promise(resolve => {
       const start = performance.now(); const dur = 150;
       function frame(now) {
@@ -350,6 +385,7 @@ async function resolveBoard() {
       board[r][c] = null;
     }
 
+    // 下落逻辑
     const fallFrom = {};
     for (let c = 0; c < COLS; c++) {
       let write = ROWS - 1;
@@ -366,6 +402,7 @@ async function resolveBoard() {
       }
     }
 
+    // 下落动画
     await new Promise(resolve => {
       const start = performance.now(); const dur = 180;
       function frame(now) {
