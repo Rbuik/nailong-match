@@ -347,7 +347,7 @@ function drawAll() {
   if (!imagesReady || !board.length) return;
   for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c]) drawBlock(c * CELL, r * CELL, board[r][c]);
   if (selected) {
-    const { r, c } = selected; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+    const { r, c } = selected; ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
     roundRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4, 10); ctx.stroke();
   }
   renderEffects();
