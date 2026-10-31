@@ -113,7 +113,7 @@ function loadGame() {
     if (shuffleCount === 0) btnShuffle.disabled = true;
     if (undoCount === 0) btnUndo.disabled = true;
     
-    targetValue = 1000 + (level - 1) * 100;
+    targetValue = 1500 + (level - 1) * 100;
     targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
     return true;
   } catch (e) { return false; }
@@ -161,7 +161,7 @@ let score = 0, moves = 25, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
-let targetValue = 1000, currentProgress = 0;
+let targetValue = 1500, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [];
@@ -515,16 +515,13 @@ async function resolveBoard() {
 
     if (finalMatchArray.length >= 4) {
       // 找一个非炸弹的位置生成新炸弹
-      let placed = false;
       for (const [r, c] of finalMatchArray) {
         if (board[r][c] && board[r][c].special !== BLOCK_BOMB) {
           board[r][c].special = BLOCK_BOMB;
           matched.delete(`${r},${c}`);
-          placed = true;
           break;
         }
       }
-      // 如果全是炸弹，就跳过生成
     }
 
     // ---------- 4. 计分 ----------
@@ -660,7 +657,7 @@ canvas.addEventListener('pointerdown', async (e) => {
 // ===================== 难度与关卡逻辑 =====================
 function setupLevelDifficulty() {
   moves = 25;
-  targetValue = 1000 + (level - 1) * 100;
+  targetValue = 1500 + (level - 1) * 100;   // 第一关 1500，每关 +100
   currentProgress = 0;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
 }
@@ -862,6 +859,69 @@ if(btnQuit) {
   });
 }
 
+// ===================== 注销 =====================
+const btnLogout = document.getElementById('btn-logout');
+const logoutConfirm = document.getElementById('logout-confirm');
+const btnLogoutYes = document.getElementById('btn-logout-yes');
+const btnLogoutNo = document.getElementById('btn-logout-no');
+
+if (btnLogout) {
+  btnLogout.addEventListener('click', () => {
+    logoutConfirm.style.display = 'flex';
+  });
+}
+
+if (btnLogoutNo) {
+  btnLogoutNo.addEventListener('click', () => {
+    logoutConfirm.style.display = 'none';
+  });
+}
+
+if (btnLogoutYes) {
+  btnLogoutYes.addEventListener('click', () => {
+    // 清除所有本地数据
+    localStorage.removeItem('nailong_save');
+    localStorage.removeItem('nailong_level_scores');
+    levelHighScores = {};
+
+    // 重置内存状态
+    isPlaying = false;
+    busy = false;
+    selected = null;
+    particles = [];
+    floatingTexts = [];
+    level = 1;
+    score = 0;
+    levelStartScore = 0;
+    moves = 25;
+    currentProgress = 0;
+    shuffleCount = 3;
+    undoCount = 3;
+    history = { board: null, score: 0, moves: 0 };
+
+    // 隐藏所有弹窗，回到主页
+    logoutConfirm.style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('level-clear').style.display = 'none';
+    document.getElementById('history-menu').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'flex';
+
+    // 刷新 HUD 和主页显示
+    levelEl.textContent = 1;
+    scoreEl.textContent = 0;
+    movesEl.textContent = 25;
+    shuffleCountEl.textContent = 3;
+    undoCountEl.textContent = 3;
+    btnShuffle.disabled = false;
+    btnUndo.disabled = false;
+    targetBar.textContent = '目标：得分达到 1500 分';
+
+    checkSave();
+    drawAll();
+  });
+}
+
+// ===================== 窗口尺寸 =====================
 window.addEventListener('resize', () => {
   const newCell = computeCell();
   if (newCell !== CELL) {
