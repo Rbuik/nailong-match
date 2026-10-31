@@ -69,8 +69,8 @@ npx serve .
 - 适配策略：根据窗口宽度动态计算格子尺寸，resize 时自动重绘。
 
 ## 📄 License
-Copyright (c) 2026 Rbuik。保留所有权利（All Rights Reserved）。
-本项目仅供个人学习、娱乐，以及分享给朋友游玩使用。
+Copyright (c) 2026 Rbuik。保留所有权利（All Rights Reserved）。<br>
+本项目仅供个人学习、娱乐，以及分享给朋友游玩使用。<br>
 未经作者明确书面许可，禁止以下行为：
 - ❌ 商业用途（包括但不限于售卖、付费分发、广告变现）
 - ❌ 二次发布或重新上传到其他平台
