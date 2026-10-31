@@ -134,7 +134,6 @@ function loadImages() {
   };
   for (let i = 0; i < TYPES; i++) {
     const img = new Image();
-    // 同源图片不需要 crossOrigin，去掉可避免某些 CDN 下的静默失败
     img.onload = () => {
       console.log(`图片加载成功: ./assets/${i}.jpg`);
       finish();
@@ -143,9 +142,18 @@ function loadImages() {
       console.error(`图片加载失败: ./assets/${i}.jpg（将回退为彩色方块）`);
       finish();
     };
-    img.src = `./assets/${i}.jpg?v=20261031a`;
+    img.src = `./assets/${i}.jpg`;
     IMAGES.push(img);
   }
+  // 最多等 5 秒，超时直接开始
+  setTimeout(() => {
+    if (!imagesReady) {
+      imagesReady = true;
+      const l = document.getElementById('loading');
+      if (l) l.style.display = 'none';
+      drawAll();
+    }
+  }, 5000);
 }
 
 // ===================== 游戏状态 =====================
@@ -258,18 +266,18 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
 
-  // ---------- 1. 底部投影（让方块"浮"起来） ----------
+  // 1. 底部投影
   ctx.save();
   ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
   ctx.shadowBlur = s * 0.12;
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = s * 0.06;
   roundRect(x, y, s, s, radius);
-  ctx.fillStyle = '#000'; // 只用来投射阴影，本身会被下面覆盖
+  ctx.fillStyle = '#000';
   ctx.fill();
   ctx.restore();
 
-  // ---------- 2. 图片 / 回退色（圆角裁剪） ----------
+  // 2. 图片 / 回退色（圆角裁剪）
   ctx.save();
   roundRect(x, y, s, s, radius);
   ctx.clip();
@@ -281,30 +289,18 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
     ctx.fillRect(x, y, s, s);
   }
 
-  // 2.1 顶部高光（左上到右下的白色渐变，模拟光照）
+  // 2.1 顶部高光渐变
   const hl = ctx.createLinearGradient(x, y, x, y + s);
   hl.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
   hl.addColorStop(0.35, 'rgba(255, 255, 255, 0.12)');
   hl.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
-  hl.addColorStop(1, 'rgba(0, 0, 0, 0.18)'); // 底部压暗
+  hl.addColorStop(1, 'rgba(0, 0, 0, 0.18)');
   ctx.fillStyle = hl;
   ctx.fillRect(x, y, s, s);
 
-  // 2.2 左上角椭圆反光（玻璃质感）
-  const gloss = ctx.createRadialGradient(
-    x + s * 0.28, y + s * 0.22, 0,
-    x + s * 0.28, y + s * 0.22, s * 0.45
-  );
-  gloss.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
-  gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
-  ctx.fillStyle = gloss;
-  ctx.beginPath();
-  ctx.ellipse(x + s * 0.28, y + s * 0.22, s * 0.32, s * 0.22, -0.5, 0, Math.PI * 2);
-  ctx.fill();
-
   ctx.restore(); // 解除裁剪
 
-  // ---------- 3. 内侧描边（增强边缘轮廓） ----------
+  // 3. 内侧亮描边
   ctx.save();
   roundRect(x + 1, y + 1, s - 2, s - 2, Math.max(3, radius - 1));
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
@@ -312,7 +308,7 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
   ctx.stroke();
   ctx.restore();
 
-  // ---------- 4. 外侧暗描边（和背景分离） ----------
+  // 4. 外侧暗描边
   ctx.save();
   roundRect(x, y, s, s, radius);
   ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
@@ -320,7 +316,7 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
   ctx.stroke();
   ctx.restore();
 
-  // ---------- 5. 炸弹标记（不在裁剪内，完整显示） ----------
+  // 5. 炸弹标记
   if (block.special === BLOCK_BOMB) {
     ctx.fillStyle = 'rgba(255, 100, 100, 0.85)';
     ctx.beginPath();
@@ -557,8 +553,8 @@ canvas.addEventListener('pointerdown', async (e) => {
 
 // ===================== 难度与关卡逻辑 =====================
 function setupLevelDifficulty() {
-  moves = 25; // 步数固定 25
-  targetValue = 1000 + (level - 1) * 100; // 第一关 1000分，每关加 100 分
+  moves = 25;
+  targetValue = 1000 + (level - 1) * 100;
   currentProgress = 0;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
 }
@@ -592,7 +588,6 @@ function handleLevelWin() {
   document.getElementById('level-clear').style.display = 'flex';
 }
 
-// 下一关
 const btnNextLevel = document.getElementById('btn-next-level');
 if(btnNextLevel) {
   btnNextLevel.addEventListener('click', () => {
