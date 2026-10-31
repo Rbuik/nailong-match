@@ -384,17 +384,8 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
     ctx.fillText('💣', cx, cy);
   }
 
-  // 6. 金币方块：金色光环 + 🎉 emoji
+  // 6. 金币方块：🎉 emoji
   if (block.special === BLOCK_COIN) {
-    const grad = ctx.createRadialGradient(cx, cy, s * 0.1, cx, cy, s * 0.5);
-    grad.addColorStop(0, 'rgba(255, 215, 0, 0.85)');
-    grad.addColorStop(0.6, 'rgba(255, 200, 0, 0.35)');
-    grad.addColorStop(1, 'rgba(255, 180, 0, 0)');
-    ctx.fillStyle = grad;
-    ctx.beginPath();
-    ctx.arc(cx, cy, s * 0.5, 0, Math.PI * 2);
-    ctx.fill();
-
     ctx.font = `${s * 0.7}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
