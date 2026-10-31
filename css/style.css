@@ -140,3 +140,21 @@ canvas {
 .history-item .score { color: #1a8f4a; font-weight: bold; }
 .history-list::-webkit-scrollbar { width: 6px; }
 .history-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+
+/* 注销按钮：固定在主页右下角 */
+#main-menu #btn-logout {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  padding: 8px 16px;
+  border: 1px solid rgba(255, 92, 92, 0.35);
+  border-radius: 10px;
+  background: rgba(255, 92, 92, 0.08);
+  color: #c0392b;
+  font-size: 13px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+#main-menu #btn-logout:hover { background: rgba(255, 92, 92, 0.16); }
+#main-menu #btn-logout:active { transform: scale(0.94); }
