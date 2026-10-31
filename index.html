@@ -16,7 +16,7 @@
       <button id="btn-quit">主页</button>
     </div>
     
-    <div class="target-bar" id="target-bar">目标：得分达到 1000 分</div>
+    <div class="target-bar" id="target-bar">目标：得分达到 1500 分</div>
 
     <div class="tools">
       <button id="btn-shuffle" class="tool-btn">
@@ -42,6 +42,7 @@
       </div>
       <button class="btn-primary" id="btn-play" style="margin-bottom: 15px;">开始游戏</button>
       <button class="btn-secondary" id="btn-history">🏆 历史关卡记录</button>
+      <button id="btn-logout">注销</button>
     </div>
 
     <!-- 历史记录 -->
@@ -71,6 +72,20 @@
       </div>
       <button class="btn-primary" id="btn-restart">重新挑战</button>
       <button class="btn-secondary" id="btn-home">返回主页</button>
+    </div>
+
+    <!-- 注销确认 -->
+    <div class="overlay" id="logout-confirm" style="display: none;">
+      <h2 class="title" style="background: linear-gradient(90deg,#ff5c5c,#c85cff);">注销</h2>
+      <p style="font-size: 16px; color: #333; margin-bottom: 25px; text-align: center;">
+        是否清除所有数据，从头开始？
+      </p>
+      <div style="display: flex; gap: 16px;">
+        <button class="btn-primary" id="btn-logout-yes"
+          style="width: 130px; background: linear-gradient(135deg, #3ecf7a, #1a8f4a); box-shadow: 0 4px 15px rgba(62,207,122,0.4);">是</button>
+        <button class="btn-primary" id="btn-logout-no"
+          style="width: 130px; background: linear-gradient(135deg, #ff5c5c, #c85cff); box-shadow: 0 4px 15px rgba(255,92,92,0.4);">否</button>
+      </div>
     </div>
   </div>
   <script>
