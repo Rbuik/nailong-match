@@ -3,7 +3,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
-  background: #f5f5f7;
+  background: radial-gradient(circle at 50% 30%, #fafafa, #e2e2ea 70%);
   font-family: system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
   color: #222;
 }
@@ -11,7 +11,14 @@ body { display: flex; align-items: center; justify-content: center; touch-action
 
 .game-container {
   position: relative; display: flex; flex-direction: column; align-items: center;
-  gap: 10px; padding: 10px; width: 100%; max-width: 500px;
+  gap: 10px; padding: 16px; width: 100%; max-width: 500px;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.05),
+    0 10px 30px rgba(0, 0, 0, 0.12),
+    0 30px 60px rgba(0, 0, 0, 0.10),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
 }
 
 .hud {
@@ -21,7 +28,7 @@ body { display: flex; align-items: center; justify-content: center; touch-action
 .hud-item b { color: #d4880a; font-size: 18px; }
 .hud button {
   padding: 5px 12px; border: none; border-radius: 8px;
-  background: #e0e0e6; color: #333; cursor: pointer; font-size: 13px;
+  background: #e8e8ef; color: #333; cursor: pointer; font-size: 13px;
 }
 
 .target-bar {
@@ -52,9 +59,14 @@ body { display: flex; align-items: center; justify-content: center; touch-action
 }
 
 canvas {
-  border-radius: 14px; background: #ffffff;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-  touch-action: none; display: block;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow:
+    0 2px 4px rgba(0, 0, 0, 0.06),
+    0 8px 20px rgba(0, 0, 0, 0.12),
+    0 20px 40px rgba(0, 0, 0, 0.10);
+  touch-action: none;
+  display: block;
 }
 
 #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888; pointer-events: none; z-index: 5; }
@@ -63,7 +75,7 @@ canvas {
   position: absolute; top: 0; left: 0; width: 100%; height: 100%;
   background: rgba(245, 245, 247, 0.96); backdrop-filter: blur(5px);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  border-radius: 14px; z-index: 10;
+  border-radius: 24px; z-index: 10;
 }
 
 .title {
@@ -91,7 +103,6 @@ canvas {
 .btn-secondary { background: transparent; color: #666; border: 2px solid #ccc; }
 .btn-primary:active, .btn-secondary:active { transform: scale(0.95); }
 
-/* 历史记录列表 */
 .history-list {
   width: 85%; max-height: 55vh; overflow-y: auto;
   background: rgba(0,0,0,0.04); border-radius: 12px;
