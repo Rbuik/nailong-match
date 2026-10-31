@@ -753,8 +753,12 @@ function renderHistoryList() {
     } else {
       div.style.opacity = '0.55';
       div.style.cursor = 'not-allowed';
-      const scoreText = hs > 0 ? `${hs} 分 / ${need}` : '未解锁';
-      div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">${scoreText}</span>`;
+      if (hs > 0) {
+        // 没通关但有得分：标红
+        div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score fail">${hs} 分 / ${need}</span>`;
+      } else {
+        div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">未解锁</span>`;
+      }
     }
     listEl.appendChild(div);
   }
@@ -862,23 +866,44 @@ if(btnQuit) {
 // ===================== 注销 =====================
 const btnLogout = document.getElementById('btn-logout');
 const logoutConfirm = document.getElementById('logout-confirm');
+const logoutConfirm2 = document.getElementById('logout-confirm2');
 const btnLogoutYes = document.getElementById('btn-logout-yes');
 const btnLogoutNo = document.getElementById('btn-logout-no');
+const btnLogoutYes2 = document.getElementById('btn-logout-yes2');
+const btnLogoutNo2 = document.getElementById('btn-logout-no2');
 
+// 主页“注销” → 第一次确认
 if (btnLogout) {
   btnLogout.addEventListener('click', () => {
     logoutConfirm.style.display = 'flex';
   });
 }
 
+// 第一次确认“否” → 关闭
 if (btnLogoutNo) {
   btnLogoutNo.addEventListener('click', () => {
     logoutConfirm.style.display = 'none';
   });
 }
 
+// 第一次确认“是” → 弹第二次确认
 if (btnLogoutYes) {
   btnLogoutYes.addEventListener('click', () => {
+    logoutConfirm.style.display = 'none';
+    logoutConfirm2.style.display = 'flex';
+  });
+}
+
+// 第二次确认“取消” → 关闭
+if (btnLogoutNo2) {
+  btnLogoutNo2.addEventListener('click', () => {
+    logoutConfirm2.style.display = 'none';
+  });
+}
+
+// 第二次确认“确定” → 真正清除数据
+if (btnLogoutYes2) {
+  btnLogoutYes2.addEventListener('click', () => {
     // 清除所有本地数据
     localStorage.removeItem('nailong_save');
     localStorage.removeItem('nailong_level_scores');
@@ -901,6 +926,7 @@ if (btnLogoutYes) {
     history = { board: null, score: 0, moves: 0 };
 
     // 隐藏所有弹窗，回到主页
+    logoutConfirm2.style.display = 'none';
     logoutConfirm.style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('level-clear').style.display = 'none';
