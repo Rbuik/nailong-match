@@ -70,7 +70,9 @@ function saveLevelScore(lv, sc) {
 function getMaxUnlockedLevel() {
   let max = 1;
   for (let i = 1; i <= MAX_LEVEL; i++) {
-    if (levelHighScores[i] > 0) max = Math.max(max, i + 1);
+    const hs = levelHighScores[i] || 0;
+    const need = 2200 + (i - 1) * 200;   // 该关目标分
+    if (hs >= need) max = Math.max(max, i + 1);
   }
   return Math.min(max, MAX_LEVEL);
 }
@@ -740,6 +742,7 @@ function renderHistoryList() {
   for (let i = 1; i <= MAX_LEVEL; i++) {
     const hs = levelHighScores[i] || 0;
     const isUnlocked = i <= maxUnlocked;
+    const need = 2200 + (i - 1) * 200;
 
     const div = document.createElement('div');
     div.className = 'history-item';
@@ -748,9 +751,10 @@ function renderHistoryList() {
       div.innerHTML = `<span>第 ${i} 关</span><span class="score">${hs} 分</span>`;
       div.addEventListener('click', () => startGameAtLevel(i));
     } else {
-      div.style.opacity = '0.5';
+      div.style.opacity = '0.55';
       div.style.cursor = 'not-allowed';
-      div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">-</span>`;
+      const scoreText = hs > 0 ? `${hs} 分 / ${need}` : '未解锁';
+      div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">${scoreText}</span>`;
     }
     listEl.appendChild(div);
   }
@@ -825,7 +829,7 @@ function endGame() {
   localStorage.removeItem('nailong_save');
 
   const levelEarned = score - levelStartScore;
-  // 未通关：不保存最高分，不解锁下一关
+  saveLevelScore(level, levelEarned);   // 没通关也记录得分
 
   SFX.gameOver();
   document.getElementById('final-score').textContent = levelEarned;
