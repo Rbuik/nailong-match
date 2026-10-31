@@ -252,16 +252,90 @@ function roundRect(x, y, w, h, r) {
 function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
   if (!block) return;
   const s = size * scale, cx = px + CELL / 2, cy = py + CELL / 2;
-  ctx.save(); ctx.globalAlpha = alpha;
+  const x = cx - s / 2, y = cy - s / 2;
+  const radius = Math.max(4, s * 0.18);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // ---------- 1. 底部投影（让方块"浮"起来） ----------
+  ctx.save();
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = s * 0.12;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = s * 0.06;
+  roundRect(x, y, s, s, radius);
+  ctx.fillStyle = '#000'; // 只用来投射阴影，本身会被下面覆盖
+  ctx.fill();
+  ctx.restore();
+
+  // ---------- 2. 图片 / 回退色（圆角裁剪） ----------
+  ctx.save();
+  roundRect(x, y, s, s, radius);
+  ctx.clip();
+
   if (imagesReady && IMAGES[block.type] && IMAGES[block.type].complete && IMAGES[block.type].naturalWidth > 0) {
-    ctx.drawImage(IMAGES[block.type], cx - s / 2, cy - s / 2, s, s);
+    ctx.drawImage(IMAGES[block.type], x, y, s, s);
   } else {
-    ctx.fillStyle = FALLBACK_COLORS[block.type]; roundRect(cx - s / 2, cy - s / 2, s, s, 10); ctx.fill();
+    ctx.fillStyle = FALLBACK_COLORS[block.type];
+    ctx.fillRect(x, y, s, s);
   }
+
+  // 2.1 顶部高光（左上到右下的白色渐变，模拟光照）
+  const hl = ctx.createLinearGradient(x, y, x, y + s);
+  hl.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+  hl.addColorStop(0.35, 'rgba(255, 255, 255, 0.12)');
+  hl.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+  hl.addColorStop(1, 'rgba(0, 0, 0, 0.18)'); // 底部压暗
+  ctx.fillStyle = hl;
+  ctx.fillRect(x, y, s, s);
+
+  // 2.2 左上角椭圆反光（玻璃质感）
+  const gloss = ctx.createRadialGradient(
+    x + s * 0.28, y + s * 0.22, 0,
+    x + s * 0.28, y + s * 0.22, s * 0.45
+  );
+  gloss.addColorStop(0, 'rgba(255, 255, 255, 0.55)');
+  gloss.addColorStop(1, 'rgba(255, 255, 255, 0)');
+  ctx.fillStyle = gloss;
+  ctx.beginPath();
+  ctx.ellipse(x + s * 0.28, y + s * 0.22, s * 0.32, s * 0.22, -0.5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore(); // 解除裁剪
+
+  // ---------- 3. 内侧描边（增强边缘轮廓） ----------
+  ctx.save();
+  roundRect(x + 1, y + 1, s - 2, s - 2, Math.max(3, radius - 1));
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  // ---------- 4. 外侧暗描边（和背景分离） ----------
+  ctx.save();
+  roundRect(x, y, s, s, radius);
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  // ---------- 5. 炸弹标记（不在裁剪内，完整显示） ----------
   if (block.special === BLOCK_BOMB) {
-    ctx.fillStyle = 'rgba(255, 100, 100, 0.8)'; ctx.beginPath(); ctx.arc(cx, cy, s * 0.3, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#fff'; ctx.font = `bold ${s*0.4}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('💣', cx, cy);
+    ctx.fillStyle = 'rgba(255, 100, 100, 0.85)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = `bold ${s * 0.4}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('💣', cx, cy);
   }
+
+  ctx.restore();
+}
+
   ctx.restore();
 }
 
