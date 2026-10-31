@@ -336,9 +336,6 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
   ctx.restore();
 }
 
-  ctx.restore();
-}
-
 function renderEffects() {
   particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2); ctx.fill(); });
   floatingTexts.forEach(t => {
