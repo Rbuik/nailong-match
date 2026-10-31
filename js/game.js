@@ -4,7 +4,7 @@ const TYPES = 6;
 const MAX_W = 480;
 const MAX_LEVEL = 20;
 const FALLBACK_COLORS = ['#ff5c5c', '#5cff8f', '#5c8fff', '#ffd75c', '#c85cff', '#5cffee'];
-const BLOCK_NORMAL = 0, BLOCK_BOMB = 1;
+const BLOCK_NORMAL = 0, BLOCK_BOMB = 1, BLOCK_COLOR = 2;
 
 // ===================== 音效系统 =====================
 let audioCtx = null;
@@ -41,7 +41,12 @@ const SFX = {
     playTone(baseFreq, 'sine', 0.15, 0.15);
     playTone(baseFreq * 1.5, 'sine', 0.15, 0.1, 0.05);
   },
-  bomb: () => { playTone(150, 'sawtooth', 0.4, 0.2); playTone(100, 'sawtooth', 0.4, 0.2, 0.1); },
+  // 炸弹音效柔化：低频正弦 + 三角波短冲击，不再用尖锐锯齿波
+  bomb: () => {
+    playTone(90, 'sine', 0.5, 0.22);
+    playTone(60, 'sine', 0.6, 0.18, 0.05);
+    playTone(180, 'triangle', 0.25, 0.12, 0.02);
+  },
   win: () => { playTone(500, 'sine', 0.15, 0.25, 0); playTone(600, 'sine', 0.15, 0.25, 0.15); playTone(800, 'sine', 0.3, 0.25, 0.3); },
   gameOver: () => { playTone(400, 'sine', 0.25, 0.25, 0); playTone(300, 'sine', 0.25, 0.25, 0.25); playTone(200, 'sine', 0.5, 0.25, 0.5); }
 };
@@ -71,7 +76,7 @@ function getMaxUnlockedLevel() {
   let max = 1;
   for (let i = 1; i <= MAX_LEVEL; i++) {
     const hs = levelHighScores[i] || 0;
-    const need = 2200 + (i - 1) * 200;   // 该关目标分
+    const need = 2200 + (i - 1) * 200;
     if (hs >= need) max = Math.max(max, i + 1);
   }
   return Math.min(max, MAX_LEVEL);
@@ -166,7 +171,8 @@ let busy = false, selected = null, isPlaying = false;
 let targetValue = 2200, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
-let particles = [], floatingTexts = [];
+let particles = [], floatingTexts = [], shockwaves = [];
+let lastSwap = null;   // 记录本步交换的两个位置，用于炸弹/彩色方块优先生成在移动的方块上
 
 const scoreEl = document.getElementById('score');
 const movesEl = document.getElementById('moves');
@@ -248,29 +254,36 @@ function spawnParticles(r, c, color) {
   }
 }
 
-// 炸弹爆炸特效：一圈冲击波 + 中心白色闪光
+// 炸弹爆炸特效：冲击波环 + 大量火花 + 中心闪光
 function spawnExplosion(r, c) {
   const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
-  for (let i = 0; i < 18; i++) {
-    const angle = (Math.PI * 2 / 18) * i;
-    const speed = 4 + Math.random() * 5;
+
+  // 冲击波环
+  shockwaves.push({ x: cx, y: cy, radius: CELL * 0.3, maxRadius: CELL * 2.2, life: 1, color: '#ffd75c' });
+  shockwaves.push({ x: cx, y: cy, radius: CELL * 0.2, maxRadius: CELL * 1.8, life: 1, color: '#ff5c5c' });
+
+  // 外圈火花
+  for (let i = 0; i < 28; i++) {
+    const angle = (Math.PI * 2 / 28) * i + Math.random() * 0.2;
+    const speed = 5 + Math.random() * 7;
     particles.push({
       x: cx, y: cy,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
-      life: 1.2,
-      color: i % 2 === 0 ? '#ff5c5c' : '#ffd75c',
-      size: 4 + Math.random() * 3
+      life: 1.4,
+      color: i % 3 === 0 ? '#fff' : (i % 3 === 1 ? '#ffd75c' : '#ff5c5c'),
+      size: 5 + Math.random() * 4
     });
   }
-  for (let i = 0; i < 10; i++) {
+  // 中心白色闪光
+  for (let i = 0; i < 16; i++) {
     particles.push({
       x: cx, y: cy,
-      vx: (Math.random() - 0.5) * 7,
-      vy: (Math.random() - 0.5) * 7,
-      life: 0.8,
+      vx: (Math.random() - 0.5) * 9,
+      vy: (Math.random() - 0.5) * 9,
+      life: 0.9,
       color: '#ffffff',
-      size: 2 + Math.random() * 3
+      size: 4 + Math.random() * 5
     });
   }
 }
@@ -289,6 +302,12 @@ function updateEffects() {
   }
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
     const t = floatingTexts[i]; t.y += t.dy; t.life -= 0.015; if (t.life <= 0) floatingTexts.splice(i, 1);
+  }
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const s = shockwaves[i];
+    s.radius += (s.maxRadius - s.radius) * 0.12;
+    s.life -= 0.05;
+    if (s.life <= 0) shockwaves.splice(i, 1);
   }
 }
 
@@ -370,10 +389,40 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
     ctx.fillText('💣', cx, cy);
   }
 
+  // 6. 彩色方块：彩虹光环 + 中心光点
+  if (block.special === BLOCK_COLOR) {
+    const grad = ctx.createLinearGradient(cx - s/2, cy - s/2, cx + s/2, cy + s/2);
+    grad.addColorStop(0, '#ff5c5c');
+    grad.addColorStop(0.2, '#ffd75c');
+    grad.addColorStop(0.4, '#5cff8f');
+    grad.addColorStop(0.6, '#5c8fff');
+    grad.addColorStop(0.8, '#c85cff');
+    grad.addColorStop(1, '#ff5c5c');
+    ctx.strokeStyle = grad;
+    ctx.lineWidth = s * 0.12;
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.42, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.9)';
+    ctx.beginPath();
+    ctx.arc(cx, cy, s * 0.15, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
   ctx.restore();
 }
 
 function renderEffects() {
+  // 冲击波环
+  shockwaves.forEach(s => {
+    ctx.globalAlpha = Math.max(0, s.life) * 0.6;
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 4 * s.life;
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+
   particles.forEach(p => {
     ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
     ctx.fillStyle = p.color;
@@ -392,7 +441,6 @@ function renderEffects() {
 function drawAll() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // 圆角裁剪整个棋盘，避免方块溢出四角
   const R = 12;
   ctx.save();
   roundRect(0, 0, canvas.width, canvas.height, R);
@@ -417,7 +465,7 @@ function drawAll() {
 }
 
 function loop() {
-  if (floatingTexts.length > 0 || particles.length > 0) {
+  if (floatingTexts.length > 0 || particles.length > 0 || shockwaves.length > 0) {
     updateEffects();
     if (!busy) drawAll();
   }
@@ -449,6 +497,9 @@ async function animateSwap(a, b, dur = 140) {
 }
 
 async function resolveBoard() {
+  const swapForThisMove = lastSwap;
+  lastSwap = null;
+
   let combo = 0;
   while (true) {
     let matched = findMatches();
@@ -478,7 +529,6 @@ async function resolveBoard() {
       hasBombExploded = true;
       bombPositions.push(key);
 
-      // 炸毁周围一圈（含自身）
       for (let dr = -1; dr <= 1; dr++) {
         for (let dc = -1; dc <= 1; dc++) {
           const nr = r + dr, nc = c + dc;
@@ -486,7 +536,6 @@ async function resolveBoard() {
             const k = `${nr},${nc}`;
             if (!matched.has(k)) {
               matched.add(k);
-              // 如果炸到另一个炸弹，加入队列连锁
               if (board[nr][nc].special === BLOCK_BOMB && !bombQueue.includes(k) && !bombPositions.includes(k)) {
                 bombQueue.push(k);
               }
@@ -499,23 +548,23 @@ async function resolveBoard() {
     if (hasBombExploded) {
       SFX.bomb();
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
-      // 每个炸弹位置生成爆炸特效
       bombPositions.forEach(key => {
         const [r, c] = key.split(',').map(Number);
         spawnExplosion(r, c);
       });
     }
 
-    // ---------- 3. 4 连消生成炸弹（优先在移动的方块上） ----------
+    // ---------- 3. 4 连生成炸弹（不生成在彩色方块上） ----------
     const finalMatchArray = [...matched].map(k => k.split(',').map(Number));
 
-    if (!hasBombExploded && finalMatchArray.length >= 4) {
+    if (!hasBombExploded && finalMatchArray.length === 4) {
       let bombPlaced = false;
 
+      // 优先在玩家本步交换的方块上生成炸弹
       if (swapForThisMove) {
         for (const pos of [swapForThisMove.a, swapForThisMove.b]) {
           const key = `${pos.r},${pos.c}`;
-          if (matched.has(key) && board[pos.r][pos.c] && board[pos.r][pos.c].special !== BLOCK_BOMB) {
+          if (matched.has(key) && board[pos.r][pos.c] && board[pos.r][pos.c].special === BLOCK_NORMAL) {
             board[pos.r][pos.c].special = BLOCK_BOMB;
             matched.delete(key);
             bombPlaced = true;
@@ -526,10 +575,38 @@ async function resolveBoard() {
 
       if (!bombPlaced) {
         for (const [r, c] of finalMatchArray) {
-          if (board[r][c] && board[r][c].special !== BLOCK_BOMB) {
+          if (board[r][c] && board[r][c].special === BLOCK_NORMAL) {
             board[r][c].special = BLOCK_BOMB;
             matched.delete(`${r},${c}`);
             bombPlaced = true;
+            break;
+          }
+        }
+      }
+    }
+
+    // ---------- 3.5 5 连生成彩色方块（优先在移动的方块上） ----------
+    if (!hasBombExploded && finalMatchArray.length >= 5) {
+      let colorPlaced = false;
+
+      if (swapForThisMove) {
+        for (const pos of [swapForThisMove.a, swapForThisMove.b]) {
+          const key = `${pos.r},${pos.c}`;
+          if (matched.has(key) && board[pos.r][pos.c] && board[pos.r][pos.c].special === BLOCK_NORMAL) {
+            board[pos.r][pos.c].special = BLOCK_COLOR;
+            matched.delete(key);
+            colorPlaced = true;
+            break;
+          }
+        }
+      }
+
+      if (!colorPlaced) {
+        for (const [r, c] of finalMatchArray) {
+          if (board[r][c] && board[r][c].special === BLOCK_NORMAL) {
+            board[r][c].special = BLOCK_COLOR;
+            matched.delete(`${r},${c}`);
+            colorPlaced = true;
             break;
           }
         }
@@ -612,6 +689,105 @@ async function resolveBoard() {
   }
 }
 
+// ===================== 彩色方块：引爆所有炸弹 =====================
+async function triggerColorBlock(r, c) {
+  if (busy || !isPlaying) return;
+  busy = true;
+  initAudio();
+
+  // 彩色方块自身消除
+  board[r][c] = null;
+
+  // 收集所有炸弹
+  const bombs = [];
+  for (let rr = 0; rr < ROWS; rr++) {
+    for (let cc = 0; cc < COLS; cc++) {
+      if (board[rr][cc] && board[rr][cc].special === BLOCK_BOMB) {
+        bombs.push({ r: rr, c: cc });
+      }
+    }
+  }
+
+  // 逐个引爆
+  let totalDestroyed = 1;
+  bombs.forEach(({ r: br, c: bc }) => {
+    if (!board[br][bc]) return;
+    spawnExplosion(br, bc);
+    for (let dr = -1; dr <= 1; dr++) {
+      for (let dc = -1; dc <= 1; dc++) {
+        const nr = br + dr, nc = bc + dc;
+        if (inBounds(nr, nc) && board[nr][nc]) {
+          board[nr][nc] = null;
+          totalDestroyed++;
+        }
+      }
+    }
+  });
+
+  if (bombs.length > 0) {
+    SFX.bomb();
+    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+  }
+
+  // 计分
+  const addedScore = totalDestroyed * 20;
+  score += addedScore; scoreEl.textContent = score;
+  currentProgress += addedScore; updateTargetUI();
+  spawnText(r, c, `+${addedScore}`, '#ffd75c');
+
+  drawAll();
+  await sleep(250);
+
+  // 下落 + 补充
+  const fallFrom = {};
+  for (let cc = 0; cc < COLS; cc++) {
+    let write = ROWS - 1;
+    for (let rr = ROWS - 1; rr >= 0; rr--) {
+      if (board[rr][cc]) {
+        if (write !== rr) { board[write][cc] = board[rr][cc]; fallFrom[`${write},${cc}`] = rr; board[rr][cc] = null; }
+        write--;
+      }
+    }
+    let newCount = 0;
+    for (let rr = write; rr >= 0; rr--) {
+      board[rr][cc] = { type: randType(), special: BLOCK_NORMAL };
+      fallFrom[`${rr},${cc}`] = -1 - newCount; newCount++;
+    }
+  }
+
+  await new Promise(resolve => {
+    const start = performance.now(); const dur = 180;
+    function frame(now) {
+      const p = Math.min(1, (now - start) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let rr = 0; rr < ROWS; rr++) for (let cc = 0; cc < COLS; cc++) {
+        if (!board[rr][cc]) continue;
+        const fromR = fallFrom[`${rr},${cc}`];
+        if (fromR !== undefined && fromR !== rr) {
+          const y = (fromR * CELL) + (rr * CELL - fromR * CELL) * e;
+          drawBlock(cc * CELL, y, board[rr][cc]);
+        } else { drawBlock(cc * CELL, rr * CELL, board[rr][cc]); }
+      }
+      renderEffects();
+      if (p < 1) requestAnimationFrame(frame); else { drawAll(); resolve(); }
+    }
+    requestAnimationFrame(frame);
+  });
+
+  // 再走一次连锁消除
+  await resolveBoard();
+
+  busy = false;
+  saveGame();
+
+  if (moves <= 0) {
+    localStorage.removeItem('nailong_save');
+    if (currentProgress >= targetValue) handleLevelWin();
+    else endGame();
+  }
+}
+
 // ===================== 交互 =====================
 function cellFromEvent(e) {
   const rect = canvas.getBoundingClientRect();
@@ -627,6 +803,13 @@ canvas.addEventListener('pointerdown', async (e) => {
   initAudio();
   const cell = cellFromEvent(e);
   if (!cell) return;
+
+  // 点击彩色方块 → 引爆所有炸弹
+  const clickedBlock = board[cell.r]?.[cell.c];
+  if (clickedBlock && clickedBlock.special === BLOCK_COLOR) {
+    await triggerColorBlock(cell.r, cell.c);
+    return;
+  }
 
   if (!selected) { selected = cell; SFX.select(); drawAll(); return; }
   if (selected.r === cell.r && selected.c === cell.c) { selected = null; drawAll(); return; }
@@ -647,9 +830,28 @@ canvas.addEventListener('pointerdown', async (e) => {
     }
 
     moves--; movesEl.textContent = moves;
+
+    // 记录本步交换的位置，供炸弹/彩色方块优先生成
+    lastSwap = { a: { r: a.r, c: a.c }, b: { r: b.r, c: b.c } };
+
     await resolveBoard();
 
     if (moves <= 0) {
+      // 步数用完：如果棋盘上还有彩色方块，系统自动触发
+      let colorBlock = null;
+      for (let rr = 0; rr < ROWS && !colorBlock; rr++) {
+        for (let cc = 0; cc < COLS; cc++) {
+          if (board[rr][cc] && board[rr][cc].special === BLOCK_COLOR) {
+            colorBlock = { r: rr, c: cc };
+            break;
+          }
+        }
+      }
+      if (colorBlock) {
+        await triggerColorBlock(colorBlock.r, colorBlock.c);
+        return;
+      }
+
       localStorage.removeItem('nailong_save');
       if (currentProgress >= targetValue) handleLevelWin();
       else endGame();
@@ -669,7 +871,7 @@ canvas.addEventListener('pointerdown', async (e) => {
 // ===================== 难度与关卡逻辑 =====================
 function setupLevelDifficulty() {
   moves = 25;
-  targetValue = 2200 + (level - 1) * 200;   // 第一关 2200，每关 +200
+  targetValue = 2200 + (level - 1) * 200;
   currentProgress = 0;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
 }
@@ -684,7 +886,7 @@ function handleLevelWin() {
   SFX.win();
 
   const levelEarned = score - levelStartScore;
-  saveLevelScore(level, levelEarned);   // 只有通关才保存最高分，解锁下一关
+  saveLevelScore(level, levelEarned);
 
   const clearScoreEl = document.getElementById('clear-score');
   const clearMovesEl = document.getElementById('clear-moves');
@@ -770,7 +972,6 @@ function renderHistoryList() {
       div.style.opacity = '0.55';
       div.style.cursor = 'not-allowed';
       if (hs > 0) {
-        // 没通关但有得分：标红
         div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score fail">${hs} 分 / ${need}</span>`;
       } else {
         div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">未解锁</span>`;
@@ -808,7 +1009,8 @@ function resetGameState(targetLv) {
   scoreEl.textContent = 0; levelEl.textContent = level;
 
   selected = null; busy = false; isPlaying = true;
-  particles = []; floatingTexts = [];
+  particles = []; floatingTexts = []; shockwaves = [];
+  lastSwap = null;
 
   setupLevelDifficulty();
   movesEl.textContent = moves;
@@ -835,7 +1037,7 @@ if(btnPlay) {
       document.getElementById('game-over').style.display = 'none';
       document.getElementById('level-clear').style.display = 'none';
       isPlaying = true; busy = false; selected = null;
-      particles = []; floatingTexts = [];
+      particles = []; floatingTexts = []; shockwaves = [];
       drawAll();
     } else {
       startGameAtLevel(1);
@@ -849,7 +1051,7 @@ function endGame() {
   localStorage.removeItem('nailong_save');
 
   const levelEarned = score - levelStartScore;
-  saveLevelScore(level, levelEarned);   // 没通关也记录得分
+  saveLevelScore(level, levelEarned);
 
   SFX.gameOver();
   document.getElementById('final-score').textContent = levelEarned;
@@ -888,21 +1090,18 @@ const btnLogoutNo = document.getElementById('btn-logout-no');
 const btnLogoutYes2 = document.getElementById('btn-logout-yes2');
 const btnLogoutNo2 = document.getElementById('btn-logout-no2');
 
-// 主页“注销” → 第一次确认
 if (btnLogout) {
   btnLogout.addEventListener('click', () => {
     logoutConfirm.style.display = 'flex';
   });
 }
 
-// 第一次确认“否” → 关闭
 if (btnLogoutNo) {
   btnLogoutNo.addEventListener('click', () => {
     logoutConfirm.style.display = 'none';
   });
 }
 
-// 第一次确认“是” → 弹第二次确认
 if (btnLogoutYes) {
   btnLogoutYes.addEventListener('click', () => {
     logoutConfirm.style.display = 'none';
@@ -910,27 +1109,25 @@ if (btnLogoutYes) {
   });
 }
 
-// 第二次确认“取消” → 关闭
 if (btnLogoutNo2) {
   btnLogoutNo2.addEventListener('click', () => {
     logoutConfirm2.style.display = 'none';
   });
 }
 
-// 第二次确认“确定” → 真正清除数据
 if (btnLogoutYes2) {
   btnLogoutYes2.addEventListener('click', () => {
-    // 清除所有本地数据
     localStorage.removeItem('nailong_save');
     localStorage.removeItem('nailong_level_scores');
     levelHighScores = {};
 
-    // 重置内存状态
     isPlaying = false;
     busy = false;
     selected = null;
     particles = [];
     floatingTexts = [];
+    shockwaves = [];
+    lastSwap = null;
     board = [];
     level = 1;
     score = 0;
@@ -941,7 +1138,6 @@ if (btnLogoutYes2) {
     undoCount = 3;
     history = { board: null, score: 0, moves: 0 };
 
-    // 隐藏所有弹窗，回到主页
     logoutConfirm2.style.display = 'none';
     logoutConfirm.style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
@@ -949,7 +1145,6 @@ if (btnLogoutYes2) {
     document.getElementById('history-menu').style.display = 'none';
     document.getElementById('main-menu').style.display = 'flex';
 
-    // 刷新 HUD 和主页显示
     levelEl.textContent = 1;
     scoreEl.textContent = 0;
     movesEl.textContent = 25;
