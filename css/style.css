@@ -11,7 +11,7 @@ body { display: flex; align-items: center; justify-content: center; touch-action
 
 .game-container {
   position: relative; display: flex; flex-direction: column; align-items: center;
-  gap: 10px; padding: 16px; width: 100%; max-width: 500px;
+  gap: 14px; padding: 20px 24px; width: 100%; max-width: 620px;
   background: #ffffff;
   border-radius: 24px;
   box-shadow:
@@ -19,6 +19,28 @@ body { display: flex; align-items: center; justify-content: center; touch-action
     0 10px 30px rgba(0, 0, 0, 0.12),
     0 30px 60px rgba(0, 0, 0, 0.10),
     inset 0 1px 0 rgba(255, 255, 255, 0.9);
+}
+
+/* 棋盘：宽边 + 强阴影 + 圆角（只保留这一处 canvas 定义） */
+canvas {
+  border-radius: 24px;
+  background: #ffffff;
+  padding: 18px;
+  box-sizing: content-box;
+  max-width: 100%;
+  height: auto;
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.08),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.04),
+    0 4px 8px rgba(0, 0, 0, 0.12),
+    0 12px 28px rgba(0, 0, 0, 0.22),
+    0 30px 60px rgba(0, 0, 0, 0.20),
+    0 60px 120px rgba(0, 0, 0, 0.16);
+  touch-action: none;
+  display: block;
+}
+@media (min-width: 600px) {
+  canvas { padding: 22px; }
 }
 
 .hud {
@@ -56,26 +78,6 @@ body { display: flex; align-items: center; justify-content: center; touch-action
   background: #ff5c5c; color: #fff; font-size: 12px;
   padding: 2px 7px; border-radius: 10px; margin-left: 4px;
   box-shadow: inset 0 1px 3px rgba(0,0,0,0.3);
-}
-
-/* 棋盘：宽边 + 强阴影 + 圆角 */
-canvas {
-  border-radius: 24px;
-  background: #ffffff;
-  padding: 14px;
-  box-sizing: content-box;
-  box-shadow:
-    inset 0 2px 6px rgba(0, 0, 0, 0.08),
-    inset 0 0 0 1px rgba(0, 0, 0, 0.04),
-    0 4px 8px rgba(0, 0, 0, 0.12),
-    0 12px 28px rgba(0, 0, 0, 0.22),
-    0 30px 60px rgba(0, 0, 0, 0.20),
-    0 60px 120px rgba(0, 0, 0, 0.16);
-  touch-action: none;
-  display: block;
-}
-@media (min-width: 600px) {
-  canvas { padding: 20px; }
 }
 
 #loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #888; pointer-events: none; z-index: 5; }
