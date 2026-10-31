@@ -344,13 +344,29 @@ function renderEffects() {
 
 function drawAll() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  if (!imagesReady || !board.length) return;
-  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (board[r][c]) drawBlock(c * CELL, r * CELL, board[r][c]);
+
+  // 圆角裁剪整个棋盘，避免方块溢出四角
+  const R = 20;
+  ctx.save();
+  roundRect(0, 0, canvas.width, canvas.height, R);
+  ctx.clip();
+
+  if (!imagesReady || !board.length) { ctx.restore(); return; }
+
+  for (let r = 0; r < ROWS; r++)
+    for (let c = 0; c < COLS; c++)
+      if (board[r][c]) drawBlock(c * CELL, r * CELL, board[r][c]);
+
   if (selected) {
-    const { r, c } = selected; ctx.strokeStyle = '#333'; ctx.lineWidth = 3;
-    roundRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4, 10); ctx.stroke();
+    const { r, c } = selected;
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 3;
+    roundRect(c * CELL + 2, r * CELL + 2, CELL - 4, CELL - 4, 10);
+    ctx.stroke();
   }
+
   renderEffects();
+  ctx.restore();
 }
 
 function loop() {
