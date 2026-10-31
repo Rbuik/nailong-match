@@ -27,8 +27,11 @@
       </button>
     </div>
 
-    <canvas id="game"></canvas>
-    <div id="loading">加载中…</div>
+    <!-- 棋盘包裹层：padding/阴影/圆角都在这里，canvas 本身尺寸稳定 -->
+    <div class="board-wrap">
+      <canvas id="game"></canvas>
+      <div id="loading">加载中…</div>
+    </div>
 
     <!-- 主页 -->
     <div class="overlay" id="main-menu">
