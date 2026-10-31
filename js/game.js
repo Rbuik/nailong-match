@@ -113,7 +113,7 @@ function loadGame() {
     if (shuffleCount === 0) btnShuffle.disabled = true;
     if (undoCount === 0) btnUndo.disabled = true;
     
-    targetValue = 1500 + (level - 1) * 100;
+    targetValue = 2500 + (level - 1) * 200;
     targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
     return true;
   } catch (e) { return false; }
@@ -161,7 +161,7 @@ let score = 0, moves = 25, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
-let targetValue = 1500, currentProgress = 0;
+let targetValue = 2500, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [];
@@ -453,20 +453,14 @@ async function resolveBoard() {
     if (matched.size === 0) break;
     combo++;
 
-    // ---------- 1. 检查匹配位置周围 8 格是否有炸弹，有就加入引爆队列 ----------
+    // ---------- 1. 只有炸弹自己被消除（在 matched 里）才引爆 ----------
     let bombQueue = [];
     const matchedSnapshot = [...matched];
 
     matchedSnapshot.forEach(key => {
       const [r, c] = key.split(',').map(Number);
-      for (let dr = -1; dr <= 1; dr++) {
-        for (let dc = -1; dc <= 1; dc++) {
-          const nr = r + dr, nc = c + dc;
-          if (inBounds(nr, nc) && board[nr][nc] && board[nr][nc].special === BLOCK_BOMB) {
-            const k = `${nr},${nc}`;
-            if (!bombQueue.includes(k)) bombQueue.push(k);
-          }
-        }
+      if (board[r][c] && board[r][c].special === BLOCK_BOMB) {
+        bombQueue.push(key);
       }
     });
 
@@ -510,10 +504,10 @@ async function resolveBoard() {
       });
     }
 
-    // ---------- 3. 4 连消生成炸弹 ----------
+    // ---------- 3. 4 连消生成炸弹（炸弹引爆时不生成） ----------
     const finalMatchArray = [...matched].map(k => k.split(',').map(Number));
 
-    if (finalMatchArray.length >= 4) {
+    if (!hasBombExploded && finalMatchArray.length >= 4) {
       // 找一个非炸弹的位置生成新炸弹
       for (const [r, c] of finalMatchArray) {
         if (board[r][c] && board[r][c].special !== BLOCK_BOMB) {
@@ -657,7 +651,7 @@ canvas.addEventListener('pointerdown', async (e) => {
 // ===================== 难度与关卡逻辑 =====================
 function setupLevelDifficulty() {
   moves = 25;
-  targetValue = 1500 + (level - 1) * 100;   // 第一关 1500，每关 +100
+  targetValue = 2500 + (level - 1) * 200;   // 第一关 2500，每关 +200
   currentProgress = 0;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
 }
@@ -890,6 +884,7 @@ if (btnLogoutYes) {
     selected = null;
     particles = [];
     floatingTexts = [];
+    board = [];
     level = 1;
     score = 0;
     levelStartScore = 0;
@@ -914,7 +909,7 @@ if (btnLogoutYes) {
     undoCountEl.textContent = 3;
     btnShuffle.disabled = false;
     btnUndo.disabled = false;
-    targetBar.textContent = '目标：得分达到 1500 分';
+    targetBar.textContent = '目标：得分达到 2500 分';
 
     checkSave();
     drawAll();
