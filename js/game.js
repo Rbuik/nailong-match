@@ -506,16 +506,32 @@ async function resolveBoard() {
       });
     }
 
-    // ---------- 3. 4 连消生成炸弹（炸弹引爆时不生成） ----------
+    // ---------- 3. 4 连消生成炸弹（优先在移动的方块上） ----------
     const finalMatchArray = [...matched].map(k => k.split(',').map(Number));
 
     if (!hasBombExploded && finalMatchArray.length >= 4) {
-      // 找一个非炸弹的位置生成新炸弹
-      for (const [r, c] of finalMatchArray) {
-        if (board[r][c] && board[r][c].special !== BLOCK_BOMB) {
-          board[r][c].special = BLOCK_BOMB;
-          matched.delete(`${r},${c}`);
-          break;
+      let bombPlaced = false;
+
+      if (swapForThisMove) {
+        for (const pos of [swapForThisMove.a, swapForThisMove.b]) {
+          const key = `${pos.r},${pos.c}`;
+          if (matched.has(key) && board[pos.r][pos.c] && board[pos.r][pos.c].special !== BLOCK_BOMB) {
+            board[pos.r][pos.c].special = BLOCK_BOMB;
+            matched.delete(key);
+            bombPlaced = true;
+            break;
+          }
+        }
+      }
+
+      if (!bombPlaced) {
+        for (const [r, c] of finalMatchArray) {
+          if (board[r][c] && board[r][c].special !== BLOCK_BOMB) {
+            board[r][c].special = BLOCK_BOMB;
+            matched.delete(`${r},${c}`);
+            bombPlaced = true;
+            break;
+          }
         }
       }
     }
