@@ -41,7 +41,6 @@ const SFX = {
     playTone(baseFreq, 'sine', 0.15, 0.15);
     playTone(baseFreq * 1.5, 'sine', 0.15, 0.1, 0.05);
   },
-  // 炸弹音效柔化：低频正弦 + 三角波短冲击
   bomb: () => {
     playTone(90, 'sine', 0.5, 0.22);
     playTone(60, 'sine', 0.6, 0.18, 0.05);
@@ -254,7 +253,6 @@ function spawnParticles(r, c, color) {
   }
 }
 
-// 炸弹爆炸特效：冲击波环 + 大量火花 + 中心闪光
 function spawnExplosion(r, c) {
   const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
 
@@ -386,9 +384,8 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
     ctx.fillText('💣', cx, cy);
   }
 
-  // 6. 金币方块：金色光环 + 🪙 emoji
+  // 6. 金币方块：金色光环 + 🎉 emoji
   if (block.special === BLOCK_COIN) {
-    // 金色径向光晕
     const grad = ctx.createRadialGradient(cx, cy, s * 0.1, cx, cy, s * 0.5);
     grad.addColorStop(0, 'rgba(255, 215, 0, 0.85)');
     grad.addColorStop(0.6, 'rgba(255, 200, 0, 0.35)');
@@ -398,11 +395,10 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
     ctx.arc(cx, cy, s * 0.5, 0, Math.PI * 2);
     ctx.fill();
 
-    // 金币 emoji
     ctx.font = `${s * 0.7}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('🪙', cx, cy);
+    ctx.fillText('🎉', cx, cy);
   }
 
   ctx.restore();
@@ -521,7 +517,6 @@ async function resolveBoard() {
       if (block.special === BLOCK_BOMB) {
         bombQueue.push(key);
       } else if (block.special === BLOCK_COIN) {
-        // 金币被消除：全场所有炸弹加入引爆队列
         for (let rr = 0; rr < ROWS; rr++) {
           for (let cc = 0; cc < COLS; cc++) {
             if (board[rr][cc] && board[rr][cc].special === BLOCK_BOMB) {
@@ -628,9 +623,18 @@ async function resolveBoard() {
       }
     }
 
-    // ---------- 4. 计分（金币被消掉时本轮得分翻倍） ----------
-    let addedScore = matched.size * 10 * combo;
-    if (coinTriggered) addedScore *= 2;   // 金币参与：炸弹的两倍
+    // ---------- 4. 计分：金币固定 200，普通方块/炸弹 10×连击 ----------
+    let addedScore = 0;
+    matched.forEach(key => {
+      const [r, c] = key.split(',').map(Number);
+      const block = board[r][c];
+      if (!block) return;
+      if (block.special === BLOCK_COIN) {
+        addedScore += 200;
+      } else {
+        addedScore += 10 * combo;
+      }
+    });
 
     score += addedScore; scoreEl.textContent = score;
     currentProgress += addedScore; updateTargetUI();
@@ -706,7 +710,7 @@ async function resolveBoard() {
   }
 }
 
-// ===================== 金币方块：点击引爆全场炸弹 =====================
+// ===================== 金币方块：系统自动触发引爆 =====================
 async function triggerCoinBlock(r, c) {
   if (busy || !isPlaying) return;
   busy = true;
@@ -746,8 +750,8 @@ async function triggerCoinBlock(r, c) {
     if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
   }
 
-  // 计分：金币引爆得分翻倍
-  const addedScore = totalDestroyed * 20 * 2;
+  // 计分：金币自身 200 分，被炸掉的每个方块 10 分
+  const addedScore = 200 + (totalDestroyed - 1) * 10;
   score += addedScore; scoreEl.textContent = score;
   currentProgress += addedScore; updateTargetUI();
   spawnText(r, c, `+${addedScore}`, '#ffd700');
@@ -980,7 +984,6 @@ function renderHistoryList() {
     } else {
       div.style.cursor = 'not-allowed';
       if (hs > 0) {
-        // 没通关但有得分：标红，不降透明度
         div.innerHTML = `<span style="opacity:0.55">🔒 第 ${i} 关</span><span class="score fail">${hs} 分 / ${need}</span>`;
       } else {
         div.style.opacity = '0.55';
