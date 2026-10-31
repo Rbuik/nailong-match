@@ -64,7 +64,7 @@ nailong-match/
 ## 🔧 自定义方块图片
 
 将你喜欢的图片命名为 0.jpg ~ 5.jpg，放入 assets/ 目录即可（代码默认加载 .jpg）。图片建议为正方形（如 128×128）。若图片加载失败，游戏会自动回退为彩色圆角方块，不影响游玩。<br>
-如需使用 PNG，可把 js/game.js 里 img.src = \./assets/${i}.jpg`改成.png`。
+> 如需使用 PNG，可把 `js/game.js` 中的图片路径 `.jpg` 改成 `.png`。
 
 ## 🛠️ 技术要点
 
