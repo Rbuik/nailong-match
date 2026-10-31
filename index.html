@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>奶龙消消乐</title>
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="./css/style.css?v=20261031a">
+  <link rel="stylesheet" href="./css/style.css" id="main-css">
 </head>
 <body>
   <div class="game-container">
@@ -70,6 +70,14 @@
       <button class="btn-secondary" id="btn-home">返回主页</button>
     </div>
   </div>
-  <script src="./js/game.js?v=20261031b"></script>
+  <script>
+    // CSS 带时间戳，避免缓存
+    document.getElementById('main-css').href = './css/style.css?v=' + Date.now();
+
+    // 动态加载 game.js，每次打开都拿最新
+    const s = document.createElement('script');
+    s.src = './js/game.js?v=' + Date.now();
+    document.body.appendChild(s);
+  </script>
 </body>
 </html>
