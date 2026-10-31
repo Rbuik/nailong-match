@@ -74,7 +74,7 @@
       <button class="btn-secondary" id="btn-home">返回主页</button>
     </div>
 
-    <!-- 注销确认 -->
+    <!-- 注销第一次确认 -->
     <div class="overlay" id="logout-confirm" style="display: none;">
       <h2 class="title" style="background: linear-gradient(90deg,#ff5c5c,#c85cff);">注销</h2>
       <p style="font-size: 16px; color: #333; margin-bottom: 25px; text-align: center;">
@@ -85,6 +85,20 @@
           style="width: 130px; background: linear-gradient(135deg, #3ecf7a, #1a8f4a); box-shadow: 0 4px 15px rgba(62,207,122,0.4);">是</button>
         <button class="btn-primary" id="btn-logout-no"
           style="width: 130px; background: linear-gradient(135deg, #ff5c5c, #ff5c5c); box-shadow: 0 4px 15px rgba(255,92,92,0.4);">否</button>
+      </div>
+    </div>
+
+    <!-- 注销第二次确认 -->
+    <div class="overlay" id="logout-confirm2" style="display: none;">
+      <h2 class="title" style="background: linear-gradient(90deg,#ff5c5c,#c85cff);">再次确认</h2>
+      <p style="font-size: 16px; color: #333; margin-bottom: 25px; text-align: center;">
+        确定要清除所有数据吗？此操作不可恢复！
+      </p>
+      <div style="display: flex; gap: 16px;">
+        <button class="btn-primary" id="btn-logout-yes2"
+          style="width: 130px; background: linear-gradient(135deg, #3ecf7a, #1a8f4a); box-shadow: 0 4px 15px rgba(62,207,122,0.4);">确定</button>
+        <button class="btn-primary" id="btn-logout-no2"
+          style="width: 130px; background: linear-gradient(135deg, #ff5c5c, #ff5c5c); box-shadow: 0 4px 15px rgba(255,92,92,0.4);">取消</button>
       </div>
     </div>
   </div>
