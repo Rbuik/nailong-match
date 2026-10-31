@@ -4,7 +4,7 @@ const TYPES = 6;
 const MAX_W = 480;
 const MAX_LEVEL = 20;
 const FALLBACK_COLORS = ['#ff5c5c', '#5cff8f', '#5c8fff', '#ffd75c', '#c85cff', '#5cffee'];
-const BLOCK_NORMAL = 0, BLOCK_BOMB = 1, BLOCK_COLOR = 2;
+const BLOCK_NORMAL = 0, BLOCK_BOMB = 1, BLOCK_COIN = 2;
 
 // ===================== 音效系统 =====================
 let audioCtx = null;
@@ -41,7 +41,7 @@ const SFX = {
     playTone(baseFreq, 'sine', 0.15, 0.15);
     playTone(baseFreq * 1.5, 'sine', 0.15, 0.1, 0.05);
   },
-  // 炸弹音效柔化：低频正弦 + 三角波短冲击，不再用尖锐锯齿波
+  // 炸弹音效柔化：低频正弦 + 三角波短冲击
   bomb: () => {
     playTone(90, 'sine', 0.5, 0.22);
     playTone(60, 'sine', 0.6, 0.18, 0.05);
@@ -172,7 +172,7 @@ let targetValue = 2200, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [], shockwaves = [];
-let lastSwap = null;   // 记录本步交换的两个位置，用于炸弹/彩色方块优先生成在移动的方块上
+let lastSwap = null;
 
 const scoreEl = document.getElementById('score');
 const movesEl = document.getElementById('moves');
@@ -258,11 +258,9 @@ function spawnParticles(r, c, color) {
 function spawnExplosion(r, c) {
   const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
 
-  // 冲击波环
   shockwaves.push({ x: cx, y: cy, radius: CELL * 0.3, maxRadius: CELL * 2.2, life: 1, color: '#ffd75c' });
   shockwaves.push({ x: cx, y: cy, radius: CELL * 0.2, maxRadius: CELL * 1.8, life: 1, color: '#ff5c5c' });
 
-  // 外圈火花
   for (let i = 0; i < 28; i++) {
     const angle = (Math.PI * 2 / 28) * i + Math.random() * 0.2;
     const speed = 5 + Math.random() * 7;
@@ -275,7 +273,6 @@ function spawnExplosion(r, c) {
       size: 5 + Math.random() * 4
     });
   }
-  // 中心白色闪光
   for (let i = 0; i < 16; i++) {
     particles.push({
       x: cx, y: cy,
@@ -389,31 +386,29 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
     ctx.fillText('💣', cx, cy);
   }
 
-  // 6. 彩色方块：彩虹光环 + 中心光点
-  if (block.special === BLOCK_COLOR) {
-    const grad = ctx.createLinearGradient(cx - s/2, cy - s/2, cx + s/2, cy + s/2);
-    grad.addColorStop(0, '#ff5c5c');
-    grad.addColorStop(0.2, '#ffd75c');
-    grad.addColorStop(0.4, '#5cff8f');
-    grad.addColorStop(0.6, '#5c8fff');
-    grad.addColorStop(0.8, '#c85cff');
-    grad.addColorStop(1, '#ff5c5c');
-    ctx.strokeStyle = grad;
-    ctx.lineWidth = s * 0.12;
+  // 6. 金币方块：金色光环 + 🪙 emoji
+  if (block.special === BLOCK_COIN) {
+    // 金色径向光晕
+    const grad = ctx.createRadialGradient(cx, cy, s * 0.1, cx, cy, s * 0.5);
+    grad.addColorStop(0, 'rgba(255, 215, 0, 0.85)');
+    grad.addColorStop(0.6, 'rgba(255, 200, 0, 0.35)');
+    grad.addColorStop(1, 'rgba(255, 180, 0, 0)');
+    ctx.fillStyle = grad;
     ctx.beginPath();
-    ctx.arc(cx, cy, s * 0.42, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,0.9)';
-    ctx.beginPath();
-    ctx.arc(cx, cy, s * 0.15, 0, Math.PI * 2);
+    ctx.arc(cx, cy, s * 0.5, 0, Math.PI * 2);
     ctx.fill();
+
+    // 金币 emoji
+    ctx.font = `${s * 0.7}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🪙', cx, cy);
   }
 
   ctx.restore();
 }
 
 function renderEffects() {
-  // 冲击波环
   shockwaves.forEach(s => {
     ctx.globalAlpha = Math.max(0, s.life) * 0.6;
     ctx.strokeStyle = s.color;
@@ -506,14 +501,35 @@ async function resolveBoard() {
     if (matched.size === 0) break;
     combo++;
 
-    // ---------- 1. 只有炸弹自己被消除（在 matched 里）才引爆 ----------
-    let bombQueue = [];
+    // ---------- 0. 金币被消除 → 引爆全场所有炸弹 ----------
+    let coinTriggered = false;
     const matchedSnapshot = [...matched];
-
     matchedSnapshot.forEach(key => {
       const [r, c] = key.split(',').map(Number);
-      if (board[r][c] && board[r][c].special === BLOCK_BOMB) {
+      if (board[r][c] && board[r][c].special === BLOCK_COIN) {
+        coinTriggered = true;
+      }
+    });
+
+    // ---------- 1. 收集要引爆的炸弹 ----------
+    let bombQueue = [];
+    matchedSnapshot.forEach(key => {
+      const [r, c] = key.split(',').map(Number);
+      const block = board[r][c];
+      if (!block) return;
+
+      if (block.special === BLOCK_BOMB) {
         bombQueue.push(key);
+      } else if (block.special === BLOCK_COIN) {
+        // 金币被消除：全场所有炸弹加入引爆队列
+        for (let rr = 0; rr < ROWS; rr++) {
+          for (let cc = 0; cc < COLS; cc++) {
+            if (board[rr][cc] && board[rr][cc].special === BLOCK_BOMB) {
+              const k = `${rr},${cc}`;
+              if (!bombQueue.includes(k)) bombQueue.push(k);
+            }
+          }
+        }
       }
     });
 
@@ -554,13 +570,12 @@ async function resolveBoard() {
       });
     }
 
-    // ---------- 3. 4 连生成炸弹（不生成在彩色方块上） ----------
+    // ---------- 3. 4 连生成炸弹（不生成在金币/炸弹上） ----------
     const finalMatchArray = [...matched].map(k => k.split(',').map(Number));
 
     if (!hasBombExploded && finalMatchArray.length === 4) {
       let bombPlaced = false;
 
-      // 优先在玩家本步交换的方块上生成炸弹
       if (swapForThisMove) {
         for (const pos of [swapForThisMove.a, swapForThisMove.b]) {
           const key = `${pos.r},${pos.c}`;
@@ -585,36 +600,38 @@ async function resolveBoard() {
       }
     }
 
-    // ---------- 3.5 5 连生成彩色方块（优先在移动的方块上） ----------
+    // ---------- 3.5 5 连生成金币方块（优先在移动的方块上） ----------
     if (!hasBombExploded && finalMatchArray.length >= 5) {
-      let colorPlaced = false;
+      let coinPlaced = false;
 
       if (swapForThisMove) {
         for (const pos of [swapForThisMove.a, swapForThisMove.b]) {
           const key = `${pos.r},${pos.c}`;
           if (matched.has(key) && board[pos.r][pos.c] && board[pos.r][pos.c].special === BLOCK_NORMAL) {
-            board[pos.r][pos.c].special = BLOCK_COLOR;
+            board[pos.r][pos.c].special = BLOCK_COIN;
             matched.delete(key);
-            colorPlaced = true;
+            coinPlaced = true;
             break;
           }
         }
       }
 
-      if (!colorPlaced) {
+      if (!coinPlaced) {
         for (const [r, c] of finalMatchArray) {
           if (board[r][c] && board[r][c].special === BLOCK_NORMAL) {
-            board[r][c].special = BLOCK_COLOR;
+            board[r][c].special = BLOCK_COIN;
             matched.delete(`${r},${c}`);
-            colorPlaced = true;
+            coinPlaced = true;
             break;
           }
         }
       }
     }
 
-    // ---------- 4. 计分 ----------
-    const addedScore = matched.size * 10 * combo;
+    // ---------- 4. 计分（金币被消掉时本轮得分翻倍） ----------
+    let addedScore = matched.size * 10 * combo;
+    if (coinTriggered) addedScore *= 2;   // 金币参与：炸弹的两倍
+
     score += addedScore; scoreEl.textContent = score;
     currentProgress += addedScore; updateTargetUI();
 
@@ -626,7 +643,7 @@ async function resolveBoard() {
     });
 
     const textAnchor = finalMatchArray.length > 0 ? finalMatchArray[0] : [0, 0];
-    spawnText(textAnchor[0], textAnchor[1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
+    spawnText(textAnchor[0], textAnchor[1], `+${addedScore}`, coinTriggered ? '#ffd700' : (combo > 1 ? '#ff5c5c' : '#ffd75c'));
 
     // ---------- 5. 消除动画 ----------
     await new Promise(resolve => {
@@ -689,13 +706,13 @@ async function resolveBoard() {
   }
 }
 
-// ===================== 彩色方块：引爆所有炸弹 =====================
-async function triggerColorBlock(r, c) {
+// ===================== 金币方块：点击引爆全场炸弹 =====================
+async function triggerCoinBlock(r, c) {
   if (busy || !isPlaying) return;
   busy = true;
   initAudio();
 
-  // 彩色方块自身消除
+  // 金币自身消除
   board[r][c] = null;
 
   // 收集所有炸弹
@@ -729,11 +746,11 @@ async function triggerColorBlock(r, c) {
     if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
   }
 
-  // 计分
-  const addedScore = totalDestroyed * 20;
+  // 计分：金币引爆得分翻倍
+  const addedScore = totalDestroyed * 20 * 2;
   score += addedScore; scoreEl.textContent = score;
   currentProgress += addedScore; updateTargetUI();
-  spawnText(r, c, `+${addedScore}`, '#ffd75c');
+  spawnText(r, c, `+${addedScore}`, '#ffd700');
 
   drawAll();
   await sleep(250);
@@ -804,13 +821,6 @@ canvas.addEventListener('pointerdown', async (e) => {
   const cell = cellFromEvent(e);
   if (!cell) return;
 
-  // 点击彩色方块 → 引爆所有炸弹
-  const clickedBlock = board[cell.r]?.[cell.c];
-  if (clickedBlock && clickedBlock.special === BLOCK_COLOR) {
-    await triggerColorBlock(cell.r, cell.c);
-    return;
-  }
-
   if (!selected) { selected = cell; SFX.select(); drawAll(); return; }
   if (selected.r === cell.r && selected.c === cell.c) { selected = null; drawAll(); return; }
 
@@ -831,24 +841,23 @@ canvas.addEventListener('pointerdown', async (e) => {
 
     moves--; movesEl.textContent = moves;
 
-    // 记录本步交换的位置，供炸弹/彩色方块优先生成
     lastSwap = { a: { r: a.r, c: a.c }, b: { r: b.r, c: b.c } };
 
     await resolveBoard();
 
     if (moves <= 0) {
-      // 步数用完：如果棋盘上还有彩色方块，系统自动触发
-      let colorBlock = null;
-      for (let rr = 0; rr < ROWS && !colorBlock; rr++) {
+      // 步数用完：如果棋盘上还有金币方块，系统自动触发
+      let coinBlock = null;
+      for (let rr = 0; rr < ROWS && !coinBlock; rr++) {
         for (let cc = 0; cc < COLS; cc++) {
-          if (board[rr][cc] && board[rr][cc].special === BLOCK_COLOR) {
-            colorBlock = { r: rr, c: cc };
+          if (board[rr][cc] && board[rr][cc].special === BLOCK_COIN) {
+            coinBlock = { r: rr, c: cc };
             break;
           }
         }
       }
-      if (colorBlock) {
-        await triggerColorBlock(colorBlock.r, colorBlock.c);
+      if (coinBlock) {
+        await triggerCoinBlock(coinBlock.r, coinBlock.c);
         return;
       }
 
@@ -969,11 +978,12 @@ function renderHistoryList() {
       div.innerHTML = `<span>第 ${i} 关</span><span class="score">${hs} 分</span>`;
       div.addEventListener('click', () => startGameAtLevel(i));
     } else {
-      div.style.opacity = '0.55';
       div.style.cursor = 'not-allowed';
       if (hs > 0) {
-        div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score fail">${hs} 分 / ${need}</span>`;
+        // 没通关但有得分：标红，不降透明度
+        div.innerHTML = `<span style="opacity:0.55">🔒 第 ${i} 关</span><span class="score fail">${hs} 分 / ${need}</span>`;
       } else {
+        div.style.opacity = '0.55';
         div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">未解锁</span>`;
       }
     }
@@ -1027,7 +1037,6 @@ function startGameAtLevel(lv) {
   drawAll(); saveGame();
 }
 
-// 统一的开始/继续
 const btnPlay = document.getElementById('btn-play');
 if(btnPlay) {
   btnPlay.addEventListener('click', () => {
