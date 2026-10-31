@@ -138,8 +138,8 @@ canvas {
 .history-item:hover { background: #fff; }
 .history-item span { font-size: 15px; color: #333; }
 .history-item .score { color: #1a8f4a; font-weight: bold; }
-/* 未通关分数标红 */
-.history-item .score.fail { color: #e53935; }
+/* 未通关分数标红（!important 防止被 .score 的绿色覆盖） */
+.history-item .score.fail { color: #e53935 !important; }
 .history-list::-webkit-scrollbar { width: 6px; }
 .history-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
 
