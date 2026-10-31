@@ -984,7 +984,7 @@ function renderHistoryList() {
     } else {
       div.style.cursor = 'not-allowed';
       if (hs > 0) {
-        div.innerHTML = `<span style="opacity:0.55">🔒 第 ${i} 关</span><span class="score fail">${hs} 分 / ${need}</span>`;
+        div.innerHTML = `<span style="opacity:0.55">🔒 第 ${i} 关</span><span style="color:#e53935 !important;font-weight:bold;font-size:15px;">${hs} 分 / ${need}</span>`;
       } else {
         div.style.opacity = '0.55';
         div.innerHTML = `<span>🔒 第 ${i} 关</span><span class="score">未解锁</span>`;
