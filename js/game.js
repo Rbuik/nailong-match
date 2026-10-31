@@ -126,16 +126,38 @@ function loadImages() {
   for (let i = 0; i < TYPES; i++) {
     const img = new Image();
     img.crossOrigin = "Anonymous";
-    img.src = `./assets/${i}.png?v=${new Date().getTime()}`;
-    img.onload = () => { 
-      loaded++; 
-      if (loaded === TYPES) { imagesReady = true; const l = document.getElementById('loading'); if(l) l.style.display = 'none'; } 
+
+    // 先试 png，失败再试 jpg
+    const exts = ['png', 'jpg', 'jpeg'];
+    let extIndex = 0;
+    const tryLoad = () => {
+      if (extIndex >= exts.length) {
+        // 全部失败，跳过
+        loaded++;
+        if (loaded === TYPES) {
+          imagesReady = true;
+          const l = document.getElementById('loading');
+          if (l) l.style.display = 'none';
+        }
+        return;
+      }
+      img.src = `./assets/${i}.${exts[extIndex]}?v=${new Date().getTime()}`;
+      extIndex++;
     };
-    img.onerror = () => { 
-      console.error(`图片加载失败: ./assets/${i}.png`); 
-      loaded++; 
-      if (loaded === TYPES) { imagesReady = true; const l = document.getElementById('loading'); if(l) l.style.display = 'none'; } 
+
+    img.onload = () => {
+      loaded++;
+      if (loaded === TYPES) {
+        imagesReady = true;
+        const l = document.getElementById('loading');
+        if (l) l.style.display = 'none';
+      }
     };
+    img.onerror = () => {
+      tryLoad();  // 换下一个扩展名重试
+    };
+
+    tryLoad();
     IMAGES.push(img);
   }
 }
