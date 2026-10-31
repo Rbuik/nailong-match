@@ -37,12 +37,12 @@
 ```text
 nailong-match/
 ├── assets/
-│   ├── 0.png       # 方块图案
-│   ├── 1.png
-│   ├── 2.png
-│   ├── 3.png
-│   ├── 4.png
-│   └── 5.png
+│   ├── 0.jpg       # 方块图案
+│   ├── 1.jpg
+│   ├── 2.jpg
+│   ├── 3.jpg
+│   ├── 4.jpg
+│   └── 5.jpg
 ├── css/
 │   └── style.css   # 样式与布局 (包含主页、遮罩层、UI)
 ├── js/
