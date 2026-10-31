@@ -235,15 +235,55 @@ function hasPossibleMove() {
 function spawnParticles(r, c, color) {
   const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
   for (let i = 0; i < 4; i++) {
-    particles.push({ x: cx, y: cy, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, life: 1, color: color || '#fff' });
+    particles.push({
+      x: cx, y: cy,
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 0.5) * 8,
+      life: 1,
+      color: color || '#fff',
+      size: 3
+    });
   }
 }
+
+// 炸弹爆炸特效：一圈冲击波 + 中心白色闪光
+function spawnExplosion(r, c) {
+  const cx = c * CELL + CELL / 2, cy = r * CELL + CELL / 2;
+  for (let i = 0; i < 18; i++) {
+    const angle = (Math.PI * 2 / 18) * i;
+    const speed = 4 + Math.random() * 5;
+    particles.push({
+      x: cx, y: cy,
+      vx: Math.cos(angle) * speed,
+      vy: Math.sin(angle) * speed,
+      life: 1.2,
+      color: i % 2 === 0 ? '#ff5c5c' : '#ffd75c',
+      size: 4 + Math.random() * 3
+    });
+  }
+  for (let i = 0; i < 10; i++) {
+    particles.push({
+      x: cx, y: cy,
+      vx: (Math.random() - 0.5) * 7,
+      vy: (Math.random() - 0.5) * 7,
+      life: 0.8,
+      color: '#ffffff',
+      size: 2 + Math.random() * 3
+    });
+  }
+}
+
 function spawnText(r, c, text, color = '#ffd75c') {
   floatingTexts.push({ x: c * CELL + CELL / 2, y: r * CELL + CELL / 2, text, color, life: 2.0, dy: -3 });
 }
+
 function updateEffects() {
   for (let i = particles.length - 1; i >= 0; i--) {
-    const p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= 0.05; if (p.life <= 0) particles.splice(i, 1);
+    const p = particles[i];
+    p.x += p.vx; p.y += p.vy;
+    p.vx *= 0.96; p.vy *= 0.96;
+    p.life -= 0.04;
+    if (p.life <= 0) particles.splice(i, 1);
   }
   for (let i = floatingTexts.length - 1; i >= 0; i--) {
     const t = floatingTexts[i]; t.y += t.dy; t.life -= 0.015; if (t.life <= 0) floatingTexts.splice(i, 1);
@@ -332,7 +372,13 @@ function drawBlock(px, py, block, size = CELL - 6, alpha = 1, scale = 1) {
 }
 
 function renderEffects() {
-  particles.forEach(p => { ctx.globalAlpha = p.life; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, 3 * p.life, 0, Math.PI * 2); ctx.fill(); });
+  particles.forEach(p => {
+    ctx.globalAlpha = Math.max(0, Math.min(1, p.life));
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, (p.size || 3) * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  });
   floatingTexts.forEach(t => {
     const alpha = Math.max(0, Math.min(1, t.life));
     ctx.globalAlpha = alpha; ctx.fillStyle = t.color; ctx.font = 'bold 20px sans-serif'; ctx.textAlign = 'center'; ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
@@ -345,7 +391,7 @@ function drawAll() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // 圆角裁剪整个棋盘，避免方块溢出四角
-  const R = 24;
+  const R = 12;
   ctx.save();
   roundRect(0, 0, canvas.width, canvas.height, R);
   ctx.clip();
@@ -406,53 +452,97 @@ async function resolveBoard() {
     let matched = findMatches();
     if (matched.size === 0) break;
     combo++;
-    
-    let hasBombExploded = false;
-    const matchedArray = [...matched];
-    
-    matchedArray.forEach(key => {
+
+    // ---------- 1. 检查匹配位置周围 8 格是否有炸弹，有就加入引爆队列 ----------
+    let bombQueue = [];
+    const matchedSnapshot = [...matched];
+
+    matchedSnapshot.forEach(key => {
       const [r, c] = key.split(',').map(Number);
-      const block = board[r][c];
-      if (block && block.special === BLOCK_BOMB) {
-        hasBombExploded = true;
-        for (let dr = -1; dr <= 1; dr++) {
-          for (let dc = -1; dc <= 1; dc++) {
-            const nr = r + dr, nc = c + dc;
-            if (inBounds(nr, nc) && board[nr][nc]) {
-              matched.add(`${nr},${nc}`); 
-            }
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr, nc = c + dc;
+          if (inBounds(nr, nc) && board[nr][nc] && board[nr][nc].special === BLOCK_BOMB) {
+            const k = `${nr},${nc}`;
+            if (!bombQueue.includes(k)) bombQueue.push(k);
           }
         }
       }
     });
-    
+
+    // ---------- 2. 连锁引爆所有炸弹 ----------
+    let hasBombExploded = false;
+    const bombPositions = [];
+
+    while (bombQueue.length > 0) {
+      const key = bombQueue.shift();
+      const [r, c] = key.split(',').map(Number);
+      if (!board[r][c]) continue;
+
+      hasBombExploded = true;
+      bombPositions.push(key);
+
+      // 炸毁周围一圈（含自身）
+      for (let dr = -1; dr <= 1; dr++) {
+        for (let dc = -1; dc <= 1; dc++) {
+          const nr = r + dr, nc = c + dc;
+          if (inBounds(nr, nc) && board[nr][nc]) {
+            const k = `${nr},${nc}`;
+            if (!matched.has(k)) {
+              matched.add(k);
+              // 如果炸到另一个炸弹，加入队列连锁
+              if (board[nr][nc].special === BLOCK_BOMB && !bombQueue.includes(k) && !bombPositions.includes(k)) {
+                bombQueue.push(k);
+              }
+            }
+          }
+        }
+      }
+    }
+
     if (hasBombExploded) {
       SFX.bomb();
       if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+      // 每个炸弹位置生成爆炸特效
+      bombPositions.forEach(key => {
+        const [r, c] = key.split(',').map(Number);
+        spawnExplosion(r, c);
+      });
     }
 
+    // ---------- 3. 4 连消生成炸弹 ----------
     const finalMatchArray = [...matched].map(k => k.split(',').map(Number));
-    
+
     if (finalMatchArray.length >= 4) {
-      const r = finalMatchArray[0][0], c = finalMatchArray[0][1];
-      board[r][c].special = BLOCK_BOMB;
-      matched.delete(`${r},${c}`);
+      // 找一个非炸弹的位置生成新炸弹
+      let placed = false;
+      for (const [r, c] of finalMatchArray) {
+        if (board[r][c] && board[r][c].special !== BLOCK_BOMB) {
+          board[r][c].special = BLOCK_BOMB;
+          matched.delete(`${r},${c}`);
+          placed = true;
+          break;
+        }
+      }
+      // 如果全是炸弹，就跳过生成
     }
 
+    // ---------- 4. 计分 ----------
     const addedScore = matched.size * 10 * combo;
     score += addedScore; scoreEl.textContent = score;
     currentProgress += addedScore; updateTargetUI();
-    
-    if (!hasBombExploded) SFX.match(combo); 
+
+    if (!hasBombExploded) SFX.match(combo);
 
     matched.forEach(key => {
       const [r, c] = key.split(',').map(Number);
       if (board[r][c]) spawnParticles(r, c, FALLBACK_COLORS[board[r][c].type] || '#fff');
     });
-    
+
     const textAnchor = finalMatchArray.length > 0 ? finalMatchArray[0] : [0, 0];
     spawnText(textAnchor[0], textAnchor[1], `+${addedScore}`, combo > 1 ? '#ff5c5c' : '#ffd75c');
 
+    // ---------- 5. 消除动画 ----------
     await new Promise(resolve => {
       const start = performance.now(); const dur = 150;
       function frame(now) {
@@ -463,7 +553,7 @@ async function resolveBoard() {
           if (matched.has(`${r},${c}`)) drawBlock(c * CELL, r * CELL, board[r][c], CELL - 6, 1 - p, 1 - p);
           else drawBlock(c * CELL, r * CELL, board[r][c]);
         }
-        renderEffects(); 
+        renderEffects();
         if (p < 1) requestAnimationFrame(frame); else resolve();
       }
       requestAnimationFrame(frame);
@@ -474,6 +564,7 @@ async function resolveBoard() {
       board[r][c] = null;
     }
 
+    // ---------- 6. 下落 + 补充 ----------
     const fallFrom = {};
     for (let c = 0; c < COLS; c++) {
       let write = ROWS - 1;
@@ -504,7 +595,7 @@ async function resolveBoard() {
             drawBlock(c * CELL, y, board[r][c]);
           } else { drawBlock(c * CELL, r * CELL, board[r][c]); }
         }
-        renderEffects(); 
+        renderEffects();
         if (p < 1) requestAnimationFrame(frame); else { drawAll(); resolve(); }
       }
       requestAnimationFrame(frame);
@@ -551,8 +642,8 @@ canvas.addEventListener('pointerdown', async (e) => {
 
     if (moves <= 0) {
       localStorage.removeItem('nailong_save');
-      if (currentProgress >= targetValue) handleLevelWin(); 
-      else endGame();       
+      if (currentProgress >= targetValue) handleLevelWin();
+      else endGame();
       busy = false; return;
     }
 
@@ -581,15 +672,15 @@ function updateTargetUI() {
 function handleLevelWin() {
   isPlaying = false;
   SFX.win();
-  
+
   const levelEarned = score - levelStartScore;
-  saveLevelScore(level, levelEarned); 
+  saveLevelScore(level, levelEarned);
 
   const clearScoreEl = document.getElementById('clear-score');
   const clearMovesEl = document.getElementById('clear-moves');
   if(clearScoreEl) clearScoreEl.textContent = levelEarned;
   if(clearMovesEl) clearMovesEl.textContent = moves;
-  
+
   const nextBtn = document.getElementById('btn-next-level');
   const titleEl = document.querySelector('#level-clear .title');
   if (level >= MAX_LEVEL) {
@@ -599,7 +690,7 @@ function handleLevelWin() {
     if(titleEl) titleEl.textContent = "关卡完成！";
     if(nextBtn) nextBtn.style.display = 'block';
   }
-  
+
   document.getElementById('level-clear').style.display = 'flex';
 }
 
@@ -640,7 +731,7 @@ btnUndo.addEventListener('click', () => {
   if (undoCount <= 0 || busy || !isPlaying || !history.board) return;
   undoCount--; undoCountEl.textContent = undoCount;
   if (undoCount === 0) btnUndo.disabled = true;
-  
+
   board = history.board; score = history.score; moves = history.moves;
   scoreEl.textContent = score; movesEl.textContent = moves;
   selected = null; drawAll(); SFX.select(); saveGame();
@@ -651,16 +742,16 @@ function renderHistoryList() {
   const listEl = document.getElementById('history-list');
   if (!listEl) return;
   listEl.innerHTML = '';
-  
+
   const maxUnlocked = getMaxUnlockedLevel();
 
   for (let i = 1; i <= MAX_LEVEL; i++) {
     const hs = levelHighScores[i] || 0;
     const isUnlocked = i <= maxUnlocked;
-    
+
     const div = document.createElement('div');
     div.className = 'history-item';
-    
+
     if (isUnlocked) {
       div.innerHTML = `<span>第 ${i} 关</span><span class="score">${hs} 分</span>`;
       div.addEventListener('click', () => startGameAtLevel(i));
@@ -699,16 +790,16 @@ function resetGameState(targetLv) {
   shuffleCountEl.textContent = 3; btnShuffle.disabled = false;
   undoCountEl.textContent = 3; btnUndo.disabled = false;
   scoreEl.textContent = 0; levelEl.textContent = level;
-  
+
   selected = null; busy = false; isPlaying = true;
   particles = []; floatingTexts = [];
-  
+
   setupLevelDifficulty();
   movesEl.textContent = moves;
   initBoard();
 }
 
-function startGameAtLevel(lv) { 
+function startGameAtLevel(lv) {
   initAudio();
   document.getElementById('main-menu').style.display = 'none';
   document.getElementById('history-menu').style.display = 'none';
@@ -738,10 +829,10 @@ if(btnPlay) {
 
 function endGame() {
   isPlaying = false;
-  localStorage.removeItem('nailong_save'); 
-  
+  localStorage.removeItem('nailong_save');
+
   const levelEarned = score - levelStartScore;
-  saveLevelScore(level, levelEarned); 
+  saveLevelScore(level, levelEarned);
 
   SFX.gameOver();
   document.getElementById('final-score').textContent = levelEarned;
