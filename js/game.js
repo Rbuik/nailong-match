@@ -119,45 +119,31 @@ function loadGame() {
   } catch (e) { return false; }
 }
 
-// ===================== 资源加载 =====================
+// ===================== 资源加载（只用 jpg） =====================
 const IMAGES = []; let imagesReady = false;
 function loadImages() {
   let loaded = 0;
+  const finish = () => {
+    loaded++;
+    if (loaded === TYPES) {
+      imagesReady = true;
+      const l = document.getElementById('loading');
+      if (l) l.style.display = 'none';
+      drawAll();
+    }
+  };
   for (let i = 0; i < TYPES; i++) {
     const img = new Image();
-    img.crossOrigin = "Anonymous";
-
-    // 先试 png，失败再试 jpg
-    const exts = ['png', 'jpg', 'jpeg'];
-    let extIndex = 0;
-    const tryLoad = () => {
-      if (extIndex >= exts.length) {
-        // 全部失败，跳过
-        loaded++;
-        if (loaded === TYPES) {
-          imagesReady = true;
-          const l = document.getElementById('loading');
-          if (l) l.style.display = 'none';
-        }
-        return;
-      }
-      img.src = `./assets/${i}.${exts[extIndex]}?v=${new Date().getTime()}`;
-      extIndex++;
-    };
-
+    // 同源图片不需要 crossOrigin，去掉可避免某些 CDN 下的静默失败
     img.onload = () => {
-      loaded++;
-      if (loaded === TYPES) {
-        imagesReady = true;
-        const l = document.getElementById('loading');
-        if (l) l.style.display = 'none';
-      }
+      console.log(`图片加载成功: ./assets/${i}.jpg`);
+      finish();
     };
     img.onerror = () => {
-      tryLoad();  // 换下一个扩展名重试
+      console.error(`图片加载失败: ./assets/${i}.jpg（将回退为彩色方块）`);
+      finish();
     };
-
-    tryLoad();
+    img.src = `./assets/${i}.jpg?v=20261031a`;
     IMAGES.push(img);
   }
 }
