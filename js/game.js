@@ -42,8 +42,8 @@ const SFX = {
     playTone(baseFreq * 1.5, 'sine', 0.15, 0.1, 0.05);
   },
   bomb: () => { playTone(150, 'sawtooth', 0.4, 0.2); playTone(100, 'sawtooth', 0.4, 0.2, 0.1); },
-  win: () => { playTone(500, 'sine', 0.1, 0.15, 0); playTone(600, 'sine', 0.1, 0.15, 0.1); playTone(800, 'sine', 0.2, 0.15, 0.2); },
-  gameOver: () => { playTone(400, 'sine', 0.2, 0.2, 0); playTone(300, 'sine', 0.2, 0.2, 0.2); playTone(200, 'sine', 0.4, 0.2, 0.4); }
+  win: () => { playTone(500, 'sine', 0.15, 0.25, 0); playTone(600, 'sine', 0.15, 0.25, 0.15); playTone(800, 'sine', 0.3, 0.25, 0.3); },
+  gameOver: () => { playTone(400, 'sine', 0.25, 0.25, 0); playTone(300, 'sine', 0.25, 0.25, 0.25); playTone(200, 'sine', 0.5, 0.25, 0.5); }
 };
 
 // ===================== 自适应 =====================
@@ -113,7 +113,7 @@ function loadGame() {
     if (shuffleCount === 0) btnShuffle.disabled = true;
     if (undoCount === 0) btnUndo.disabled = true;
     
-    targetValue = 2500 + (level - 1) * 200;
+    targetValue = 2200 + (level - 1) * 200;
     targetBar.textContent = `目标：得分 ${currentProgress} / ${targetValue}`;
     return true;
   } catch (e) { return false; }
@@ -161,7 +161,7 @@ let score = 0, moves = 25, level = 1;
 let levelStartScore = 0;
 let busy = false, selected = null, isPlaying = false;
 
-let targetValue = 2500, currentProgress = 0;
+let targetValue = 2200, currentProgress = 0;
 let shuffleCount = 3, undoCount = 3;
 let history = { board: null, score: 0, moves: 0 };
 let particles = [], floatingTexts = [];
@@ -651,7 +651,7 @@ canvas.addEventListener('pointerdown', async (e) => {
 // ===================== 难度与关卡逻辑 =====================
 function setupLevelDifficulty() {
   moves = 25;
-  targetValue = 2500 + (level - 1) * 200;   // 第一关 2500，每关 +200
+  targetValue = 2200 + (level - 1) * 200;   // 第一关 2200，每关 +200
   currentProgress = 0;
   targetBar.textContent = `目标：得分达到 ${targetValue} 分`;
 }
@@ -662,10 +662,11 @@ function updateTargetUI() {
 
 function handleLevelWin() {
   isPlaying = false;
+  initAudio();
   SFX.win();
 
   const levelEarned = score - levelStartScore;
-  saveLevelScore(level, levelEarned);
+  saveLevelScore(level, levelEarned);   // 只有通关才保存最高分，解锁下一关
 
   const clearScoreEl = document.getElementById('clear-score');
   const clearMovesEl = document.getElementById('clear-moves');
@@ -820,10 +821,11 @@ if(btnPlay) {
 
 function endGame() {
   isPlaying = false;
+  initAudio();
   localStorage.removeItem('nailong_save');
 
   const levelEarned = score - levelStartScore;
-  saveLevelScore(level, levelEarned);
+  // 未通关：不保存最高分，不解锁下一关
 
   SFX.gameOver();
   document.getElementById('final-score').textContent = levelEarned;
@@ -909,7 +911,7 @@ if (btnLogoutYes) {
     undoCountEl.textContent = 3;
     btnShuffle.disabled = false;
     btnUndo.disabled = false;
-    targetBar.textContent = '目标：得分达到 2500 分';
+    targetBar.textContent = '目标：得分达到 2200 分';
 
     checkSave();
     drawAll();
