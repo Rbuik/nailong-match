@@ -138,6 +138,8 @@ canvas {
 .history-item:hover { background: #fff; }
 .history-item span { font-size: 15px; color: #333; }
 .history-item .score { color: #1a8f4a; font-weight: bold; }
+/* 未通关分数标红 */
+.history-item .score.fail { color: #e53935; }
 .history-list::-webkit-scrollbar { width: 6px; }
 .history-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
 
@@ -160,5 +162,7 @@ canvas {
 #main-menu #btn-logout:active { transform: scale(0.94); }
 
 /* 注销确认弹窗：左右并排按钮 */
-#logout-confirm > div { display: flex; gap: 16px; }
-#logout-confirm .btn-primary { width: 130px; margin-bottom: 0; }
+#logout-confirm > div,
+#logout-confirm2 > div { display: flex; gap: 16px; }
+#logout-confirm .btn-primary,
+#logout-confirm2 .btn-primary { width: 130px; margin-bottom: 0; }
