@@ -145,7 +145,6 @@ function loadImages() {
     img.src = `./assets/${i}.jpg`;
     IMAGES.push(img);
   }
-  // 最多等 5 秒，超时直接开始
   setTimeout(() => {
     if (!imagesReady) {
       imagesReady = true;
@@ -346,7 +345,7 @@ function drawAll() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // 圆角裁剪整个棋盘，避免方块溢出四角
-  const R = 20;
+  const R = 24;
   ctx.save();
   roundRect(0, 0, canvas.width, canvas.height, R);
   ctx.clip();
