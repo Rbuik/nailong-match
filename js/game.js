@@ -451,6 +451,14 @@
     ctx.restore();
   }
 
+  // 果冻层：任何一帧绘制都必须先铺这一层，
+  // 否则动画帧漏画会让果冻在每一步的动画期间消失一下（看起来就是“一闪一闪”）
+  function drawJellyLayer() {
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) drawJelly(r, c);
+    }
+  }
+
   // 果冻格上的方块缩放系数（留出果冻边）
   const JELLY_BLOCK_SCALE = 0.76;
 
@@ -465,9 +473,9 @@
     const shake = FX.getShakeOffset();
     ctx.translate(shake.x, shake.y);
 
+    drawJellyLayer();
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        drawJelly(r, c);
         if (S.board[r] && S.board[r][c]) {
           drawBlock(c * CELL, r * CELL, S.board[r][c], jellyAt(r, c) ? { scale: JELLY_BLOCK_SCALE } : null);
         }
@@ -537,9 +545,9 @@
     ctx.clip();
     const shake = FX.getShakeOffset();
     ctx.translate(shake.x, shake.y);
+    drawJellyLayer();
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        drawJelly(r, c);
         if (S.board[r] && S.board[r][c]) {
           let o = custom ? custom(r, c, S.board[r][c]) : null;
           if (jellyAt(r, c)) {
@@ -580,12 +588,20 @@
       ctx.save();
       roundRect(0, 0, canvas.width, canvas.height, 12);
       ctx.clip();
+      const shake = FX.getShakeOffset();
+      ctx.translate(shake.x, shake.y);
+      drawJellyLayer(); // 交换动画也要铺果冻层，否则果冻会闪
       for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
         if ((r === a.r && c === a.c) || (r === b.r && c === b.c)) continue;
-        if (S.board[r][c]) drawBlock(c * CELL, r * CELL, S.board[r][c]);
+        if (S.board[r][c]) {
+          drawBlock(c * CELL, r * CELL, S.board[r][c], jellyAt(r, c) ? { scale: JELLY_BLOCK_SCALE } : null);
+        }
       }
-      drawBlock(ax + (bx - ax) * e, ay + (by - ay) * e, ta);
-      drawBlock(bx + (ax - bx) * e, by + (ay - by) * e, tb);
+      // 移动中的两块按出发格 → 目标格的果冻缩放平滑过渡，避免中途跳变
+      const aScale = jellyAt(a.r, a.c) ? JELLY_BLOCK_SCALE : 1;
+      const bScale = jellyAt(b.r, b.c) ? JELLY_BLOCK_SCALE : 1;
+      drawBlock(ax + (bx - ax) * e, ay + (by - ay) * e, ta, { scale: aScale + (bScale - aScale) * e });
+      drawBlock(bx + (ax - bx) * e, by + (ay - by) * e, tb, { scale: bScale + (aScale - bScale) * e });
       FX.render(ctx);
       ctx.restore();
     });
@@ -620,9 +636,9 @@
       ctx.clip();
       const shake = FX.getShakeOffset();
       ctx.translate(shake.x, shake.y);
+      drawJellyLayer();
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          drawJelly(r, c);
           if (!S.board[r][c]) continue;
           const fromR = fallFrom[kOf(r, c)];
           const opts = jellyAt(r, c) ? { scale: JELLY_BLOCK_SCALE } : null;

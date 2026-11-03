@@ -287,14 +287,6 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   background: #b5651d;
 }
 
-.mascot-name {
-  margin-top: 4px;
-  font-size: 11px;
-  font-weight: 800;
-  color: #b8860b;
-  letter-spacing: 1px;
-}
-
 @keyframes blink {
   0%, 92%, 100% { transform: scaleY(1); }
   95% { transform: scaleY(0.1); }
@@ -395,7 +387,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   padding-bottom: 92px;
 }
 
-#main-menu .mascot { margin-bottom: 0; }
+#main-menu .mascot { margin-bottom: 6px; }
 #main-menu .title { font-size: 26px; margin-bottom: 8px; }
 #main-menu .result-box { padding: 10px 20px; margin-bottom: 8px; width: 86%; }
 #main-menu .result-box p { font-size: 14px; margin: 4px 0; }
