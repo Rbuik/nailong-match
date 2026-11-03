@@ -584,6 +584,40 @@
 
   function easeOutCubic(p) { return 1 - Math.pow(1 - p, 3); }
 
+  // 结算面板：数字从 0 滚到目标分值
+  // 用 setInterval 而不是 rAF —— 切后台 / 无头环境时 rAF 会停，数字就会卡住不动
+  function countUp(el, to, dur, onDone) {
+    if (!el) return;
+    const target = Math.max(0, Math.round(to));
+    dur = dur || 720;
+    const start = performance.now();
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearInterval(timer);
+      el.textContent = target;
+      if (onDone) onDone();
+    };
+    el.textContent = '0';
+    const timer = setInterval(() => {
+      if (settled) return;
+      const p = Math.min(1, (performance.now() - start) / dur);
+      el.textContent = Math.round(easeOutCubic(p) * target);
+      if (p >= 1) finish();
+    }, 16);
+  }
+
+  // 结算面板：星星逐颗弹出（与桌面预览同款节奏）
+  function popStars(starEls, stars, delay) {
+    const list = [];
+    for (let i = 0; i < starEls.length; i++) list.push(starEls[i]);
+    list.forEach((el) => el.classList.remove('on'));
+    for (let i = 0; i < list.length && i < stars; i++) {
+      setTimeout(() => list[i].classList.add('on'), (delay || 0) + i * 190);
+    }
+  }
+
   async function animateSwap(a, b) {
     const ax = a.c * CELL, ay = a.r * CELL;
     const bx = b.c * CELL, by = b.r * CELL;
@@ -1301,34 +1335,43 @@
     Tasks.report('play', 1);
     Tasks.report('score', S.score);
 
-    AudioManager.playSFX('star', { stars });
+    // 星星音效稍等一下，和逐颗弹出对齐
+    setTimeout(() => AudioManager.playSFX('star', { stars }), 180);
     updateHUD();
 
     const box = $('level-clear');
     if (box) {
-      $('clear-score').textContent = S.score;
+      const starEls = $('clear-stars').children;
+      // 先把上一局的星星和分数复位，等面板出现后再播动画（隐藏状态下 class 变化不会有动画）
+      for (let i = 0; i < starEls.length; i++) starEls[i].classList.remove('on');
+      $('clear-score').textContent = '0';
       $('clear-high').textContent = Store.getLevelRecord(S.level).score;
       $('clear-moves').textContent = S.timerOn ? Math.round(S.timeLeft) + 's' : S.moves;
       $('clear-coins').textContent = '+' + coins;
-      $('clear-new-record').style.display = rec.isNewScore ? 'inline-flex' : 'none';
-
-      const starEls = $('clear-stars').children;
-      for (let i = 0; i < starEls.length; i++) {
-        starEls[i].classList.toggle('on', i < stars);
-      }
+      // 「新纪录」等分数滚完再亮，别提前剧透
+      $('clear-new-record').style.display = 'none';
       // 每日挑战没有"下一关"
       const nxt = $('btn-next-level');
       if (nxt) nxt.style.display = S.daily ? 'none' : 'inline-block';
       box.style.display = 'flex';
+
+      // 等面板真正显示出来再起动画（setTimeout 比 rAF 稳，后台标签页也照常跑）
+      setTimeout(() => {
+        countUp($('clear-score'), S.score, 720, () => {
+          if (rec.isNewScore) $('clear-new-record').style.display = 'inline-flex';
+        });
+        popStars(starEls, stars, 240);
+      }, 30);
     }
 
     // 毕业面板（§10）
     if (S.levelDef.final) {
       const total = Object.keys(Store.getProgress()).reduce((s, k) => s + (Store.getProgress()[k].score || 0), 0);
-      $('complete-total-score').textContent = total;
+      $('complete-total-score').textContent = '0';
       setTimeout(() => {
         if (box) box.style.display = 'none';
         $('game-complete').style.display = 'flex';
+        countUp($('complete-total-score'), total, 900);
       }, 1400);
     }
     // 本关已结算：清掉局内存档，避免主页还显示「继续游戏」
@@ -1430,12 +1473,13 @@
 
     const box = $('game-over');
     if (box) {
-      $('final-score').textContent = S.score;
+      $('final-score').textContent = '0';
       $('final-high').textContent = Store.getLevelRecord(S.level).score;
       $('final-level').textContent = S.daily ? '每日挑战' : S.level;
       $('final-coins').textContent = '+' + coins;
       $('game-over-title').textContent = passed ? '目标达成' : '步数耗尽';
       box.style.display = 'flex';
+      setTimeout(() => countUp($('final-score'), S.score, 720), 30);
     }
     Store.clearRun();
   }

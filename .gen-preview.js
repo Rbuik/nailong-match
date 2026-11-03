@@ -158,32 +158,70 @@ const script = `
   var panels = ['level-clear', 'game-over', 'game-complete'];
   var starEls = document.querySelectorAll('#clear-stars span');
 
+  // 与游戏内 game.js 同款：数字从 0 滚到目标值
+  function easeOutCubic(p) { return 1 - Math.pow(1 - p, 3); }
+  function countUp(el, to, dur, onDone) {
+    if (!el) return;
+    var target = Math.max(0, Math.round(to));
+    dur = dur || 720;
+    var start = performance.now();
+    var settled = false;
+    var finish = function () {
+      if (settled) return;
+      settled = true;
+      clearInterval(timer);
+      el.textContent = target;
+      if (onDone) onDone();
+    };
+    el.textContent = '0';
+    var timer = setInterval(function () {
+      if (settled) return;
+      var p = Math.min(1, (performance.now() - start) / dur);
+      el.textContent = Math.round(easeOutCubic(p) * target);
+      if (p >= 1) finish();
+    }, 16);
+  }
+
+  // 与游戏内同款：星星先全灭，再逐颗弹出
+  function popStars(stars, delay) {
+    starEls.forEach(function (el) { el.classList.remove('on'); });
+    for (var i = 0; i < starEls.length && i < stars; i++) {
+      (function (i) {
+        setTimeout(function () { starEls[i].classList.add('on'); }, (delay || 0) + i * 190);
+      })(i);
+    }
+  }
+
+  var timers = [];
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+  function later(fn, ms) { timers.push(setTimeout(fn, ms)); }
+
   function render(key) {
+    clearTimers();
     var d = STATES[key];
     panels.forEach(function (id) {
       document.getElementById(id).style.display = (id === d.panel) ? 'flex' : 'none';
     });
 
     if (d.panel === 'level-clear') {
-      // 先清掉 on 再逐颗点亮，保证动画重放
-      starEls.forEach(function (el) { el.classList.remove('on'); });
-      document.getElementById('clear-score').textContent = d.score;
       document.getElementById('clear-high').textContent = d.high;
       document.getElementById('clear-moves').textContent = d.moves;
       document.getElementById('clear-coins').textContent = '+' + d.coins;
-      document.getElementById('clear-new-record').style.display = d.record ? 'inline-flex' : 'none';
-      setTimeout(function () {
-        starEls.forEach(function (el, i) {
-          if (i < d.stars) setTimeout(function () { el.classList.add('on'); }, 60 + i * 130);
+      // 「新纪录」等分数滚完再亮，和游戏内一致
+      document.getElementById('clear-new-record').style.display = 'none';
+      later(function () {
+        countUp(document.getElementById('clear-score'), d.score, 720, function () {
+          if (d.record) document.getElementById('clear-new-record').style.display = 'inline-flex';
         });
+        popStars(d.stars, 240);
       }, 30);
     } else if (d.panel === 'game-over') {
-      document.getElementById('final-score').textContent = d.score;
       document.getElementById('final-high').textContent = d.high;
       document.getElementById('final-level').textContent = d.level;
       document.getElementById('final-coins').textContent = '+' + d.coins;
+      later(function () { countUp(document.getElementById('final-score'), d.score, 720); }, 30);
     } else {
-      document.getElementById('complete-total-score').textContent = d.total;
+      later(function () { countUp(document.getElementById('complete-total-score'), d.total, 900); }, 30);
     }
   }
 
