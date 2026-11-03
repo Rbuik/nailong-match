@@ -2,10 +2,10 @@
   "version": 2,
   "maxMainLevel": 20,
   "themes": {
-    "grass": { "name": "草地", "bg": "#e8f7ea", "grid": "#d3ecd6" },
-    "ocean": { "name": "海洋", "bg": "#e6f2fb", "grid": "#cfe6f5" },
-    "star":  { "name": "星空", "bg": "#ece9f8", "grid": "#ddd7f2" },
-    "candy": { "name": "糖果", "bg": "#fdeef4", "grid": "#f7d8e6" }
+    "grass": { "name": "草地", "bg": "#ffffff", "grid": "#f0f0f0" },
+    "ocean": { "name": "海洋", "bg": "#ffffff", "grid": "#f0f0f0" },
+    "star":  { "name": "星空", "bg": "#ffffff", "grid": "#f0f0f0" },
+    "candy": { "name": "糖果", "bg": "#ffffff", "grid": "#f0f0f0" }
   },
   "levels": [
     { "id": 1,  "theme": "grass", "moves": 28, "goal": { "type": "score",   "target": 1000 }, "stars": [1000, 1500, 2000] },

@@ -22,10 +22,10 @@
   const LEVELS_FALLBACK = {
     version: 2, maxMainLevel: 20,
     themes: {
-      grass: { name: '草地', bg: '#e8f7ea', grid: '#d3ecd6' },
-      ocean: { name: '海洋', bg: '#e6f2fb', grid: '#cfe6f5' },
-      star: { name: '星空', bg: '#ece9f8', grid: '#ddd7f2' },
-      candy: { name: '糖果', bg: '#fdeef4', grid: '#f7d8e6' }
+      grass: { name: '草地', bg: '#ffffff', grid: '#f0f0f0' },
+      ocean: { name: '海洋', bg: '#ffffff', grid: '#f0f0f0' },
+      star: { name: '星空', bg: '#ffffff', grid: '#f0f0f0' },
+      candy: { name: '糖果', bg: '#ffffff', grid: '#f0f0f0' }
     },
     levels: [
       { id: 1, theme: 'grass', moves: 28, goal: { type: 'score', target: 1000 }, stars: [1000, 1500, 2000] },
@@ -291,19 +291,30 @@
     const pulse = 0.55 + 0.45 * Math.sin(t / 420);
 
     if (type === T.LINE_H || type === T.LINE_V) {
+      // 十字架外观：横向线消横向长臂，纵向线消纵向长臂，白底描边更醒目
+      const horiz = type === T.LINE_H;
+      const th = Math.max(4, s * 0.18);           // 臂厚
+      const longA = s * 0.08, longB = s * 0.92;   // 长臂范围
+      const shortA = s * 0.36, shortB = s * 0.64; // 短臂范围
+      const drawBar = (x0, y0, x1, y1) => {
+        roundRect(x0, y0, x1 - x0, y1 - y0, (y1 - y0) / 2);
+        ctx.fill();
+        ctx.stroke();
+      };
       ctx.save();
-      ctx.globalAlpha = 0.85 * pulse;
-      ctx.strokeStyle = '#5c8fff';
-      ctx.lineWidth = Math.max(2, s * 0.1);
-      ctx.beginPath();
-      if (type === T.LINE_H) {
-        ctx.moveTo(x + s * 0.12, cy);
-        ctx.lineTo(x + s * 0.88, cy);
+      ctx.globalAlpha = 0.5 + 0.5 * pulse;
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#2f6bff';
+      ctx.lineWidth = Math.max(1.5, s * 0.045);
+      ctx.shadowColor = 'rgba(47, 107, 255, 0.6)';
+      ctx.shadowBlur = s * 0.12;
+      if (horiz) {
+        drawBar(x + longA, cy - th / 2, x + longB, cy + th / 2);          // 横长臂
+        drawBar(cx - th / 2, y + shortA, cx + th / 2, y + shortB);        // 纵短臂
       } else {
-        ctx.moveTo(cx, y + s * 0.12);
-        ctx.lineTo(cx, y + s * 0.88);
+        drawBar(cx - th / 2, y + longA, cx + th / 2, y + longB);          // 纵长臂
+        drawBar(x + shortA, cy - th / 2, x + shortB, cy + th / 2);        // 横短臂
       }
-      ctx.stroke();
       ctx.restore();
     } else if (type === T.BOMB) {
       ctx.save();
@@ -613,16 +624,17 @@
     if (S.combo >= 4) Tasks.report('combo4', 1);
   }
 
+  // 倍数/连击显示：棋盘中央横幅（#center-banner）
   function updateComboBar() {
-    const bar = $('combo-bar');
-    if (!bar) return;
+    const banner = $('center-banner');
+    if (!banner) return;
     const now = performance.now();
+    const txt = $('center-banner-text');
     if (S.combo >= 2 && now < S.comboUntil) {
-      bar.classList.add('show');
-      bar.dataset.n = String(Math.min(S.combo, 5));
-      $('combo-text').textContent = 'x' + S.combo + '  ' + comboMult(S.combo) + '倍';
+      txt.textContent = 'x' + S.combo + ' 连击 · ' + comboMult(S.combo) + ' 倍';
+      banner.classList.add('show', 'type-combo');
     } else {
-      bar.classList.remove('show');
+      banner.classList.remove('show');
     }
   }
 
@@ -1001,7 +1013,7 @@
   }
 
   function applyTheme(themeName) {
-    const themes = (S.data.themes || {})[themeName] || { bg: '#f4f4f4', grid: '#e6e6e6' };
+    const themes = (S.data.themes || {})[themeName] || { bg: '#ffffff', grid: '#f0f0f0' };
     document.body.dataset.theme = themeName || 'grass';
     document.documentElement.style.setProperty('--board-bg', themes.bg);
     document.documentElement.style.setProperty('--board-grid', themes.grid);
@@ -1105,7 +1117,17 @@
   function updateTargetBar() {
     const bar = $('target-bar');
     if (!bar || !S.goal) return;
-    bar.textContent = Goals.barText(S.goal);
+    if (S.goal.type === 'collect') {
+      // 收集模式：显示对应棋子的准确图案（assets/{type}.jpg），不用颜色区分
+      const parts = Object.keys(S.goal.target || {}).map((c) => {
+        const cur = Math.min(S.goal.byColor[c] || 0, S.goal.target[c]);
+        return '<span class="goal-chip"><img class="goal-icon" src="./assets/' + c + '.jpg" alt="图案' + c + '">' +
+          cur + '/' + S.goal.target[c] + '</span>';
+      }).join('');
+      bar.innerHTML = '目标：收集 ' + parts;
+    } else {
+      bar.textContent = Goals.barText(S.goal);
+    }
     bar.style.color = Goals.isComplete(S.goal) ? '#1a8f4a' : '#7c5cff';
   }
 
@@ -1255,7 +1277,8 @@
   // ==================== 面板 ====================
   function hideAllOverlays() {
     ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
-      'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu',
+      'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
+      'logout-confirm', 'logout-confirm2',
       'level-clear', 'game-over', 'game-complete'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -1266,7 +1289,7 @@
   // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
   const MENU_PANELS = ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
-    'tasks-menu', 'shop-menu', 'history-menu'];
+    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -1345,6 +1368,31 @@
     });
   }
 
+  // 背包：展示买到的道具
+  function renderBackpack() {
+    const list = $('backpack-list');
+    if (!list) return;
+    const wallet = Store.getWallet();
+    list.innerHTML = '';
+    const owned = Tasks.SHOP.filter((item) => (wallet.items[item.key] || 0) > 0);
+    if (!owned.length) {
+      const empty = document.createElement('div');
+      empty.className = 'm-empty';
+      empty.textContent = '背包空空如也，去商店看看吧～';
+      list.appendChild(empty);
+      return;
+    }
+    owned.forEach((item) => {
+      const row = document.createElement('div');
+      row.className = 'shop-row';
+      row.innerHTML =
+        '<span class="shop-icon">' + item.icon + '</span>' +
+        '<div class="shop-info"><b>' + item.name + '</b><small>' + item.desc + '</small></div>' +
+        '<span class="shop-own">x' + wallet.items[item.key] + '</span>';
+      list.appendChild(row);
+    });
+  }
+
   // 关卡记录：点任意一关 → 回主页，并把主页当前关卡切到这一关
   function selectMenuLevel(lv) {
     S.menuLevel = Math.max(1, Math.min(lv, maxMainLevel()));
@@ -1370,11 +1418,20 @@
       const row = document.createElement('div');
       row.className = 'history-item' + (locked ? ' locked' : '');
       if (i === (S.menuLevel || 0)) row.classList.add('current');
-      const starStr = '★★★'.slice(0, rec.stars) + '☆☆☆'.slice(0, 3 - rec.stars);
+      const starStr = '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
+        '<span class="star-off">' + '⭐'.repeat(3 - rec.stars) + '</span>';
       row.innerHTML =
         '<span>第 ' + i + ' 关' + (locked ? ' <small class="lock-tag">未解锁</small>' : '') + '</span>' +
         '<span class="hv">' + starStr + ' <b>' + rec.score + '</b></span>';
-      row.addEventListener('click', () => selectMenuLevel(i));
+      row.addEventListener('click', () => {
+        // 未解锁的关卡不能跳转
+        if (locked) {
+          toast('第 ' + i + ' 关还未解锁，先通过第 ' + (i - 1) + ' 关吧');
+          AudioManager.playSFX('invalid');
+          return;
+        }
+        selectMenuLevel(i);
+      });
       list.appendChild(row);
     }
   }
@@ -1482,12 +1539,42 @@
       const d = Tasks.getDailyChallenge();
       startLevel(9999, { def: d, seed: d.seed, daily: true });
     });
+    // 注销：两步确认弹窗（是/确认 = 红色，否/取消 = 绿色）
     const logout = $('btn-logout');
     if (logout) logout.addEventListener('click', () => {
-      if (!confirm('清除所有进度？此操作不可恢复。')) return;
+      $('logout-confirm').style.display = 'flex';
+    });
+    const logoutYes = $('btn-logout-yes');
+    if (logoutYes) logoutYes.addEventListener('click', () => {
+      $('logout-confirm').style.display = 'none';
+      $('logout-confirm2').style.display = 'flex';
+    });
+    const logoutNo = $('btn-logout-no');
+    if (logoutNo) logoutNo.addEventListener('click', () => {
+      $('logout-confirm').style.display = 'none';
+    });
+    const logoutConfirm = $('btn-logout-confirm');
+    if (logoutConfirm) logoutConfirm.addEventListener('click', () => {
       Store.wipeAll();
       location.reload();
     });
+    const logoutCancel = $('btn-logout-cancel');
+    if (logoutCancel) logoutCancel.addEventListener('click', () => {
+      $('logout-confirm2').style.display = 'none';
+    });
+
+    // 背包（主页 + 游戏界面）
+    const packBtns = ['btn-backpack-home', 'btn-backpack-game'];
+    packBtns.forEach((id) => {
+      const b = $(id);
+      if (!b) return;
+      b.addEventListener('click', () => {
+        renderBackpack();
+        showOverlay('backpack-menu');
+      });
+    });
+    const closePack = $('btn-close-backpack');
+    if (closePack) closePack.addEventListener('click', () => $('backpack-menu').style.display = 'none');
 
     // 结算
     const next = $('btn-next-level');

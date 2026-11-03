@@ -21,12 +21,11 @@
 
   <div class="target-bar" id="target-bar">目标：得分 0 / 1000</div>
 
-  <div class="combo-bar" id="combo-bar">
-    <span id="combo-text">x2</span>
-  </div>
-
   <div class="tools">
     <div class="preview-strip" id="preview-strip" title="即将掉落"></div>
+    <button id="btn-backpack-game" class="music-btn" title="背包">
+      <span class="icon">🎒</span>
+    </button>
     <button id="btn-music-game" class="tool-btn music-btn music-btn-main" title="音乐开关">
       <span class="icon">🎵</span>
     </button>
@@ -49,8 +48,13 @@
   <!-- 主页 -->
   <div class="overlay" id="main-menu">
     <div class="top-right-group">
-      <button id="btn-custom-music" class="music-btn" title="设置"><span class="icon">⚙️</span></button>
-      <button id="btn-music-home" class="music-btn music-btn-main" title="音乐开关"><span class="icon">🎵</span></button>
+      <div class="top-right-row">
+        <button id="btn-custom-music" class="music-btn" title="设置"><span class="icon">⚙️</span></button>
+        <button id="btn-music-home" class="music-btn music-btn-main" title="音乐开关"><span class="icon">🎵</span></button>
+      </div>
+      <div class="top-right-row">
+        <button id="btn-backpack-home" class="music-btn" title="背包"><span class="icon">🎒</span></button>
+      </div>
     </div>
 
     <div class="mascot" aria-hidden="true">
@@ -209,6 +213,34 @@
     <p class="history-hint">点任意一关即可回到主页并切换到该关</p>
     <div class="history-list" id="history-list"></div>
     <button class="btn-secondary" id="btn-history-back">返回</button>
+  </div>
+
+  <!-- 背包 -->
+  <div class="overlay" id="backpack-menu" style="display:none;">
+    <h2 class="title small">🎒 背包</h2>
+    <p class="history-hint">这里存放你在商店购买的道具</p>
+    <div class="shop-list" id="backpack-list"></div>
+    <button class="btn-secondary" id="btn-close-backpack">关闭</button>
+  </div>
+
+  <!-- 注销确认（第一步） -->
+  <div class="overlay confirm-overlay" id="logout-confirm" style="display:none;">
+    <h2 class="title small">注销</h2>
+    <p class="confirm-text">是否注销并从头开始？</p>
+    <div>
+      <button class="btn-primary btn-danger" id="btn-logout-yes">是</button>
+      <button class="btn-primary btn-success" id="btn-logout-no">否</button>
+    </div>
+  </div>
+
+  <!-- 注销确认（第二步） -->
+  <div class="overlay confirm-overlay" id="logout-confirm2" style="display:none;">
+    <h2 class="title small">注销</h2>
+    <p class="confirm-text">确定注销吗？此过程不可逆</p>
+    <div>
+      <button class="btn-primary btn-danger" id="btn-logout-confirm">确认</button>
+      <button class="btn-primary btn-success" id="btn-logout-cancel">取消</button>
+    </div>
   </div>
 
   <!-- 过关 -->
