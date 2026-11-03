@@ -446,7 +446,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 #main-menu .btn-secondary { padding: 12px 0; font-size: 16px; margin-bottom: 8px; }
 #main-menu .menu-col { gap: 7px; margin-bottom: 0; }
 
-/* 主页提示条：购物商店按钮和注销之间，左侧 ✕ 可关闭（关闭后不再出现） */
+/* 主页提示条：购物商店按钮和注销之间，左侧 ✕ 可关闭（叉掉后仍占位，布局不跳） */
 .load-tip {
   display: flex;
   align-items: center;
@@ -454,6 +454,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   gap: 7px;
   margin-top: 9px;
   max-width: 86%;
+  min-height: 17px;      /* 固定高度：隐藏时也不塌陷，下面的按钮位置不变 */
   font-size: 11px;
   color: #98a0b3;
   line-height: 1.4;
@@ -499,6 +500,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 
 /* 后台字号：统一一套，比主页各档大一号（主页 14/17 → 后台 16/18） */
+.admin-sec-title { font-size: 14px; }   /* 板块标题「🌐 全网 / 📱 本机」比主页标题大一号 */
 .admin-sec .result-box p { font-size: 16px; margin: 7px 0; }
 .admin-sec .result-box b { font-size: 18px; text-align: right; max-width: 70%; line-height: 1.35; word-break: break-word; }
 

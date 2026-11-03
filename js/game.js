@@ -1659,9 +1659,11 @@
     const el = $(id);
     if (el) el.style.display = 'flex';
     // 每次回到主页，加载提示条都重新出现（叉掉只对本次有效）
+    // 用 visibility 而不是 display：叉掉后仍占着那一行的高度，
+    // 下面的「注销」等按钮位置不会往上跳
     if (id === 'main-menu') {
       const tip = $('load-tip');
-      if (tip) tip.style.display = '';
+      if (tip) tip.style.visibility = '';
     }
     setView(MENU_PANELS.indexOf(id) >= 0 ? 'menu' : 'game');
   }
@@ -2261,7 +2263,8 @@
     if (loadTip) {
       const tipX = $('btn-dismiss-tip');
       if (tipX) tipX.addEventListener('click', () => {
-        loadTip.style.display = 'none';
+        // 只隐藏，不改变布局（保持占位，按钮不会位移）
+        loadTip.style.visibility = 'hidden';
       });
     }
     // 「回到主页」统一判定：主页在前台且没有任何面板挡着 → 提示条重新出现
@@ -2277,7 +2280,7 @@
           const d = p.style.display;
           if (d && d !== 'none') return;              // 还有面板开着
         }
-        loadTip.style.display = '';
+        loadTip.style.visibility = '';
       };
       const obs = new MutationObserver(sync);
       const targets = document.querySelectorAll('.overlay');

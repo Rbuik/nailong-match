@@ -20,6 +20,7 @@
   let currentUrl = '';          // 当前播放的 url
   let selected = new Set();     // 多选集合（url）
   let renameTarget = null;      // { url }
+  let renameBackTo = '';        // 改名后要跳回的面板（导入流程用）
   let openRow = null;           // 当前左滑打开的行
 
   // ==================== 存储 ====================
@@ -465,8 +466,9 @@
   }
 
   // ==================== 重命名 ====================
-  function openRename(item) {
+  function openRename(item, backTo) {
     renameTarget = item;
+    renameBackTo = backTo || '';
     const inp = $('input-rename');
     if (inp) inp.value = item.name;
     show('rename-menu');
@@ -490,29 +492,206 @@
     renameTarget = null;
     toast('已重命名为「' + name + '」');
     renderAll();
+    // 导入流程改名后，直接带到音乐库，让用户看到刚入库的歌
+    const back = renameBackTo;
+    renameBackTo = '';
+    if (back) {
+      hideSiblings();
+      show(back);
+    }
   }
 
   // ==================== 导入 ====================
-  function saveImport() {
-    const inp = $('input-custom-bgm');
-    const url = ((inp && inp.value) || '').trim();
-    if (!url) {
-      toast('请填写音频直链');
-      return;
+  // 支持三种输入：
+  //   1) 以 .mp3 / .m4a 结尾的音频直链（原样入库）
+  //   2) 网易云音乐歌曲链接（song?id=数字）
+  //   3) QQ 音乐歌曲链接（songDetail/歌曲mid）
+  // 原理：歌曲页链接本身不是音频，交给公共解析接口换成 MP3 音频流地址（接口侧已转码成 mp3），
+  //      再当作普通音频入库；网页本身没法转码（没有服务器、CDN 也不给跨域读流），
+  //      但存的是 MP3 播放地址，播放体验和直链一致。
+  const LINK_URL_APIS = {
+    netease: [
+      (id) => 'https://api.qijieya.cn/meting/?server=netease&type=url&id=' + id,
+      (id) => 'https://api.injahow.cn/meting/?server=netease&type=url&id=' + id,
+      (id) => 'https://music.163.com/song/media/outer/url?id=' + id + '.mp3'
+    ],
+    tencent: [
+      (mid) => 'https://api.qijieya.cn/meting/?server=tencent&type=url&id=' + mid,
+      (mid) => 'https://api.injahow.cn/meting/?server=tencent&type=url&id=' + mid
+    ]
+  };
+  const LINK_NAME_APIS = {
+    netease: (id) => 'https://api.qijieya.cn/meting/?server=netease&type=name&id=' + id,
+    tencent: (mid) => 'https://api.qijieya.cn/meting/?server=tencent&type=name&id=' + mid
+  };
+
+  let importing = false;
+
+  // 判断是不是 QQ音乐 / 网易云 的歌曲页链接
+  function parseMusicLink(raw) {
+    const s = String(raw || '').trim();
+    if (!/^https?:\/\//i.test(s)) return null;
+
+    // 网易云：music.163.com/song?id=123 / y.music.163.com/m/song?id=123 / #/song?id=123
+    if (/music\.163\.com|163cn\.tv/i.test(s)) {
+      let id = '';
+      const q = /[?&#]id=(\d+)/i.exec(s);
+      if (q) id = q[1];
+      if (!id) {
+        const p = /\/song\/(\d+)/i.exec(s);
+        if (p) id = p[1];
+      }
+      return { source: 'netease', id: id, label: '网易云音乐' };
     }
-    if (!/^https?:\/\//i.test(url)) {
-      toast('请填写以 http(s) 开头的链接');
-      return;
+
+    // QQ音乐：y.qq.com/n/ryqq/songDetail/0039MnYb0qxYhV / playsong.html?songmid=xxx
+    if (/y\.qq\.com|qq\.com\/n\/ryqq/i.test(s)) {
+      let mid = '';
+      const a = /songDetail\/([0-9A-Za-z]+)/i.exec(s);
+      if (a) mid = a[1];
+      if (!mid) {
+        const b = /[?&#]songmid=([0-9A-Za-z]+)/i.exec(s);
+        if (b) mid = b[1];
+      }
+      if (!mid) {
+        const c = /[?&#]mid=([0-9A-Za-z]+)/i.exec(s);
+        if (c) mid = c[1];
+      }
+      return { source: 'tencent', id: mid, label: 'QQ音乐' };
     }
-    const item = { url: url, name: nameFromUrl(url) };
+    return null;
+  }
+
+  function fetchText(url, timeoutMs) {
+    return new Promise((resolve) => {
+      let done = false;
+      const timer = setTimeout(() => {
+        if (!done) { done = true; resolve(''); }
+      }, timeoutMs || 8000);
+      fetch(url)
+        .then((r) => (r.ok ? r.text() : ''))
+        .then((txt) => {
+          if (done) return;
+          done = true;
+          clearTimeout(timer);
+          resolve((txt || '').trim());
+        })
+        .catch(() => {
+          if (!done) { done = true; clearTimeout(timer); resolve(''); }
+        });
+    });
+  }
+
+  // 试着真正加载音频，能解出时长才算可用（302 到 404 的链接会触发 error）
+  function probeAudio(url, timeoutMs) {
+    return new Promise((resolve) => {
+      const a = new Audio();
+      let done = false;
+      const finish = (ok) => {
+        if (done) return;
+        done = true;
+        try { a.pause(); a.removeAttribute('src'); } catch (e) { /* ignore */ }
+        resolve(ok);
+      };
+      a.preload = 'metadata';
+      a.addEventListener('loadedmetadata', () => finish(isFinite(a.duration) && a.duration > 0));
+      a.addEventListener('error', () => finish(false));
+      a.src = url;
+      setTimeout(() => finish(false), timeoutMs || 9000);
+    });
+  }
+
+  async function resolveSongName(link) {
+    const fn = LINK_NAME_APIS[link.source];
+    if (!fn || !link.id) return '';
+    const txt = await fetchText(fn(link.id), 6000);
+    // 正常返回纯歌名；报错时是 JSON/HTML
+    if (!txt || txt.length > 60 || /^[{<]/.test(txt)) return '';
+    return txt;
+  }
+
+  async function resolveSongUrl(link) {
+    const list = LINK_URL_APIS[link.source] || [];
+    for (let i = 0; i < list.length; i++) {
+      const url = list[i](link.id);
+      // 逐个验证，能用就返回（多个接口互为备份）
+      const ok = await probeAudio(url, 9000);
+      if (ok) return url;
+    }
+    return '';
+  }
+
+  function setImportBusy(on) {
+    const btn = $('btn-save-bgm');
+    if (!btn) return;
+    if (on) {
+      if (!btn.dataset.idleLabel) btn.dataset.idleLabel = btn.textContent;
+      btn.textContent = '解析中…';
+      btn.disabled = true;
+    } else {
+      btn.textContent = btn.dataset.idleLabel || '保存并播放';
+      btn.disabled = false;
+    }
+  }
+
+  // 入库（历史导入 + 音乐库共用同一份数据）→ 播放 → 需要时弹重命名
+  function addAndPlay(item, askRename) {
     rememberHistory(item);
     const pl = getPlaylist();
-    if (!pl.some((x) => x.url === url)) {
+    if (!pl.some((x) => x.url === item.url)) {
       pl.push(item);
       savePlaylist(pl);
     }
     playItem(item);
     renderAll();
+    if (askRename) {
+      hideSiblings();
+      setTimeout(() => openRename(item, 'music-library-menu'), 200);
+    }
+  }
+
+  async function saveImport() {
+    if (importing) return;
+    const inp = $('input-custom-bgm');
+    const raw = ((inp && inp.value) || '').trim();
+    if (!raw) {
+      toast('请填写音频直链或歌曲链接');
+      return;
+    }
+    if (!/^https?:\/\//i.test(raw)) {
+      toast('请填写以 http(s) 开头的链接');
+      return;
+    }
+
+    const link = parseMusicLink(raw);
+    if (!link) {
+      // 普通音频直链：保持原来的行为
+      addAndPlay({ url: raw, name: nameFromUrl(raw) }, false);
+      return;
+    }
+    if (!link.id) {
+      toast('请打开' + link.label + '歌曲页面，复制地址栏里的完整链接');
+      return;
+    }
+
+    importing = true;
+    setImportBusy(true);
+    toast('正在解析' + link.label + '链接…');
+    try {
+      const name = await resolveSongName(link);
+      const url = await resolveSongUrl(link);
+      if (!url) {
+        toast('解析失败（可能是会员/版权受限歌曲），请换一首或改用 .mp3 直链');
+        return;
+      }
+      const fallback = link.source === 'netease' ? '网易云音乐歌曲' : 'QQ音乐歌曲';
+      addAndPlay({ url: url, name: name || fallback }, true);
+    } catch (e) {
+      toast('解析失败，请稍后重试或改用 .mp3 直链');
+    } finally {
+      importing = false;
+      setImportBusy(false);
+    }
   }
 
   // ==================== 面板切换 ====================
@@ -620,7 +799,7 @@
     on('btn-save-bgm', saveImport);
 
     on('btn-save-rename', commitRename);
-    on('btn-cancel-rename', () => { hide('rename-menu'); renameTarget = null; });
+    on('btn-cancel-rename', () => { hide('rename-menu'); renameTarget = null; renameBackTo = ''; });
 
     on('btn-mode-seq', () => setMode('seq'));
     on('btn-mode-shuf', () => setMode('shuf'));
@@ -658,7 +837,7 @@
     if (renameInput) {
       renameInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') commitRename();
-        if (e.key === 'Escape') { hide('rename-menu'); renameTarget = null; }
+        if (e.key === 'Escape') { hide('rename-menu'); renameTarget = null; renameBackTo = ''; }
       });
     }
 
@@ -667,7 +846,7 @@
       ov.addEventListener('click', (e) => {
         if (e.target !== ov) return;
         if (['main-menu', 'level-clear', 'game-over', 'game-complete'].indexOf(ov.id) >= 0) return;
-        if (ov.id === 'rename-menu') renameTarget = null;
+        if (ov.id === 'rename-menu') { renameTarget = null; renameBackTo = ''; }
         ov.style.display = 'none';
       });
     });
