@@ -482,13 +482,15 @@
   function show(id) {
     const el = $(id);
     if (el) el.style.display = 'flex';
+    // 音乐相关面板都叠在主页之上，容器保持“主页高度”
+    document.body.dataset.view = 'menu';
   }
   function hide(id) {
     const el = $(id);
     if (el) el.style.display = 'none';
   }
   function hideSiblings() {
-    ['settings-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu', 'music-library-menu']
+    ['settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu', 'music-library-menu']
       .forEach(hide);
   }
 

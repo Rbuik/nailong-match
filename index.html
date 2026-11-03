@@ -88,6 +88,16 @@
   <!-- 设置 -->
   <div class="overlay" id="settings-menu" style="display:none;">
     <h2 class="title small">设置</h2>
+    <button class="btn-primary" id="btn-goto-volume">🎵 调节音量</button>
+    <button class="btn-primary" id="btn-goto-playlist">📋 播放列表</button>
+    <button class="btn-primary" id="btn-goto-import">📂 导入音频</button>
+    <button class="btn-secondary" id="btn-reset-bgm">恢复默认音乐</button>
+    <button class="btn-secondary" id="btn-close-settings">关闭</button>
+  </div>
+
+  <!-- 音量调节 -->
+  <div class="overlay" id="volume-menu" style="display:none;">
+    <h2 class="title small">音量调节</h2>
     <div class="result-box" style="width:88%;">
       <p style="display:flex;justify-content:space-between;font-size:14px;">
         <span>背景音乐</span><b id="bgm-volume-val">50%</b>
@@ -98,11 +108,8 @@
       </p>
       <input type="range" id="sfx-volume" min="0" max="1" step="0.01" value="0.5" style="width:100%;">
     </div>
-    <button class="btn-primary" id="btn-goto-playlist">📋 播放列表</button>
-    <button class="btn-primary" id="btn-goto-import">📂 导入音频</button>
-    <button class="btn-secondary" id="btn-save-volume">保存音量</button>
-    <button class="btn-secondary" id="btn-reset-bgm">恢复默认音乐</button>
-    <button class="btn-secondary" id="btn-close-settings">关闭</button>
+    <button class="btn-primary" id="btn-save-volume">保存音量</button>
+    <button class="btn-secondary" id="btn-back-settings">返回</button>
   </div>
 
   <!-- 导入音频 -->

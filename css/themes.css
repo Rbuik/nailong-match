@@ -372,6 +372,24 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   margin-bottom: 4px;
 }
 
+/* 主页内容较高，压缩纵向间距，保证一屏放得下；
+   底部留出 60px 专给右下角的“注销”，任何屏高都不会压到“商店” */
+#main-menu {
+  justify-content: flex-start;
+  justify-content: safe center;
+  padding-top: 18px;
+  padding-bottom: 92px;
+}
+
+#main-menu .mascot { margin-bottom: 0; }
+#main-menu .title { font-size: 26px; margin-bottom: 8px; }
+#main-menu .result-box { padding: 12px 20px; margin-bottom: 12px; width: 86%; }
+#main-menu .result-box p { font-size: 14px; margin: 5px 0; }
+#main-menu .result-box b { font-size: 17px; }
+#main-menu .btn-primary,
+#main-menu .btn-secondary { padding: 12px 0; font-size: 16px; margin-bottom: 8px; }
+#main-menu .menu-col { gap: 7px; margin-bottom: 0; }
+
 .btn-mini.wide {
   width: 100%;
   padding: 13px 0;
@@ -385,6 +403,8 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   border-radius: 30px;
   border: 2px solid #e6e6ef;
 }
+
+#main-menu .btn-mini.wide { padding: 10px 0; font-size: 14px; }
 
 .btn-mini.wide:active { background: #f6f6fb; }
 

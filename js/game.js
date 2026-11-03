@@ -1254,17 +1254,28 @@
 
   // ==================== 面板 ====================
   function hideAllOverlays() {
-    ['main-menu', 'settings-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
+    ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu',
       'level-clear', 'game-over', 'game-complete'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
     });
+    setView('game');
+  }
+
+  // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
+  const MENU_PANELS = ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu',
+    'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
+    'tasks-menu', 'shop-menu', 'history-menu'];
+
+  function setView(view) {
+    document.body.dataset.view = view;
   }
 
   function showOverlay(id) {
     const el = $(id);
     if (el) el.style.display = 'flex';
+    setView(MENU_PANELS.indexOf(id) >= 0 ? 'menu' : 'game');
   }
 
   function renderTasks() {
@@ -1545,6 +1556,18 @@
     });
     const closeSettings = $('btn-close-settings');
     if (closeSettings) closeSettings.addEventListener('click', () => $('settings-menu').style.display = 'none');
+
+    const volBtn = $('btn-goto-volume');
+    if (volBtn) volBtn.addEventListener('click', () => {
+      $('settings-menu').style.display = 'none';
+      syncVolumeUI();
+      showOverlay('volume-menu');
+    });
+    const backVol = $('btn-back-settings');
+    if (backVol) backVol.addEventListener('click', () => {
+      $('volume-menu').style.display = 'none';
+      showOverlay('settings-menu');
+    });
 
     const bgm = $('bgm-volume');
     const sfx = $('sfx-volume');
