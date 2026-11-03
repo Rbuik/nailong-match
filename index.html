@@ -368,7 +368,9 @@
   <div class="overlay" id="game-over" style="display:none;">
     <h2 class="title small" id="game-over-title">步数耗尽</h2>
     <div class="result-box">
-      <p><span>本局得分</span><b id="final-score">0</b></p>
+      <p><span>本局得分</span><span style="display:flex;align-items:center;">
+        <span id="final-new-record" class="new-record-badge" style="display:none;">新纪录</span>
+        <b id="final-score">0</b></span></p>
       <p><span>历史最高</span><b id="final-high">0</b></p>
       <p><span>达到关卡</span><b id="final-level">1</b></p>
       <p><span>金币奖励</span><b id="final-coins">+0</b></p>

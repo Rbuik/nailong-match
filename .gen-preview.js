@@ -72,7 +72,8 @@ const bodyHtml = `
       <button data-state="clear3" class="on">三星通关</button>
       <button data-state="clear2">二星通关</button>
       <button data-state="clear1">一星通关</button>
-      <button data-state="over">步数耗尽</button>
+      <button data-state="over">目标达成</button>
+      <button data-state="over2">步数耗尽</button>
       <button data-state="complete">全通关毕业</button>
     </div>
   </div>
@@ -110,7 +111,9 @@ const bodyHtml = `
       <div class="overlay" id="game-over" style="display:none;">
         <h2 class="title small" id="game-over-title">步数耗尽</h2>
         <div class="result-box">
-          <p><span>本局得分</span><b id="final-score">0</b></p>
+          <p><span>本局得分</span><span style="display:flex;align-items:center;">
+            <span id="final-new-record" class="new-record-badge" style="display:none;">新纪录</span>
+            <b id="final-score">0</b></span></p>
           <p><span>历史最高</span><b id="final-high">0</b></p>
           <p><span>达到关卡</span><b id="final-level">1</b></p>
           <p><span>金币奖励</span><b id="final-coins">+0</b></p>
@@ -152,7 +155,8 @@ const script = `
     clear3:   { panel: 'level-clear', stars: 3, score: 2680, high: 2680, moves: 9, coins: 26, record: true },
     clear2:   { panel: 'level-clear', stars: 2, score: 1840, high: 2450, moves: 6, coins: 18, record: false },
     clear1:   { panel: 'level-clear', stars: 1, score: 1060, high: 2450, moves: 2, coins: 10, record: false },
-    over:     { panel: 'game-over',   score: 940, high: 2450, level: 5, coins: 3 },
+    over:     { panel: 'game-over',   score: 2940, high: 2940, level: 5, coins: 3, record: true },
+    over2:    { panel: 'game-over',   score: 940, high: 2450, level: 5, coins: 3, record: false },
     complete: { panel: 'game-complete', total: 48620 }
   };
   var panels = ['level-clear', 'game-over', 'game-complete'];
@@ -219,7 +223,12 @@ const script = `
       document.getElementById('final-high').textContent = d.high;
       document.getElementById('final-level').textContent = d.level;
       document.getElementById('final-coins').textContent = '+' + d.coins;
-      later(function () { countUp(document.getElementById('final-score'), d.score, 720); }, 30);
+      document.getElementById('final-new-record').style.display = 'none';
+      later(function () {
+        countUp(document.getElementById('final-score'), d.score, 720, function () {
+          if (d.record) document.getElementById('final-new-record').style.display = 'inline-flex';
+        });
+      }, 30);
     } else {
       later(function () { countUp(document.getElementById('complete-total-score'), d.total, 900); }, 30);
     }

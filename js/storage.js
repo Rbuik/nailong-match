@@ -14,6 +14,7 @@
     wallet: NS + ':wallet',       // { coins, items:{} }
     tasks: NS + ':tasks',         // { date, list:[], signDay, signDate }
     settings: NS + ':settings',   // { music, bgm, sfx, theme }
+    daily: NS + ':daily',         // 每日挑战当天最佳 { date, best, times }
     save: NS + ':save'            // 当前局
   };
 
@@ -78,6 +79,27 @@
     all[id] = { score: Math.max(cur.score, score), stars: Math.max(cur.stars, stars) };
     write(K.progress, all);
     return { isNewScore, isNewStars };
+  }
+
+  // ---------- 每日挑战：当天最佳分（首次完成也算新纪录） ----------
+  function dailyKey() {
+    const d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+
+  function getDailyRecord() {
+    const rec = read(K.daily, null);
+    if (!rec || rec.date !== dailyKey()) return { date: dailyKey(), best: 0, times: 0 };
+    return { date: rec.date, best: rec.best || 0, times: rec.times || 0 };
+  }
+
+  // 返回记录后的最佳分和是否刷新
+  function recordDaily(score) {
+    const cur = getDailyRecord();
+    const isNewScore = score > cur.best;
+    const next = { date: cur.date, best: Math.max(cur.best, score), times: cur.times + 1 };
+    write(K.daily, next);
+    return { isNewScore, best: next.best, times: next.times };
   }
 
   // 玩过标记：只记「这关动过手」，不影响分数与星级（用于主页按钮区分「没玩过 / 玩过没通关」）
@@ -240,7 +262,7 @@
 
   global.Store = {
     K, VERSION, SIGN_REWARDS,
-    getProgress, getLevelRecord, recordLevel, totalStars, maxUnlockedLevel,
+    getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
     getTaskState, setTaskState, signIn, canSignIn, todayKey, dayIndex,

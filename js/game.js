@@ -1350,8 +1350,9 @@
       ? S.timeLeft / (S.levelDef.goal.time || 1)
       : (S.moves / (S.levelDef.moves || 1));
     const stars = Goals.stars(S.levelDef, S.score, remainRatio);
+    // 每日挑战也留一个「当天最佳」的纪录，第一次完成同样算新纪录
     const rec = S.daily
-      ? { isNewScore: false, isNewStars: false }
+      ? Store.recordDaily(S.score)
       : Store.recordLevel(S.level, S.score, stars);
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
@@ -1372,7 +1373,9 @@
       // 先把上一局的星星和分数复位，等面板出现后再播动画（隐藏状态下 class 变化不会有动画）
       for (let i = 0; i < starEls.length; i++) starEls[i].classList.remove('on');
       $('clear-score').textContent = '0';
-      $('clear-high').textContent = Store.getLevelRecord(S.level).score;
+      $('clear-high').textContent = S.daily
+        ? Store.getDailyRecord().best
+        : Store.getLevelRecord(S.level).score;
       $('clear-moves').textContent = S.timerOn ? Math.round(S.timeLeft) + 's' : S.moves;
       $('clear-coins').textContent = '+' + coins;
       // 「新纪录」等分数滚完再亮，别提前剧透
@@ -1487,7 +1490,11 @@
     const remainRatio = S.timerOn ? S.timeLeft / (S.levelDef.goal.time || 1) : S.moves / (S.levelDef.moves || 1);
     const passed = Goals.isComplete(S.goal);
     const stars = passed ? Goals.stars(S.levelDef, S.score, remainRatio) : 0;
-    if (passed && !S.daily) Store.recordLevel(S.level, S.score, stars);
+    // 步数/时间耗尽但目标已达成也走这里，同样要判新纪录
+    let rec = { isNewScore: false };
+    if (passed) {
+      rec = S.daily ? Store.recordDaily(S.score) : Store.recordLevel(S.level, S.score, stars);
+    }
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
     const coins = passed ? Math.max(10, Math.floor(S.score / 100)) : Math.floor(S.score / 300);
@@ -1501,12 +1508,20 @@
     const box = $('game-over');
     if (box) {
       $('final-score').textContent = '0';
-      $('final-high').textContent = Store.getLevelRecord(S.level).score;
+      $('final-high').textContent = S.daily
+        ? Store.getDailyRecord().best
+        : Store.getLevelRecord(S.level).score;
       $('final-level').textContent = S.daily ? '每日挑战' : S.level;
       $('final-coins').textContent = '+' + coins;
       $('game-over-title').textContent = passed ? '目标达成' : '步数耗尽';
+      $('final-new-record').style.display = 'none';
       box.style.display = 'flex';
-      setTimeout(() => countUp($('final-score'), S.score, 720), 30);
+      // 新纪录等分数滚完再亮
+      setTimeout(() => {
+        countUp($('final-score'), S.score, 720, () => {
+          if (rec.isNewScore) $('final-new-record').style.display = 'inline-flex';
+        });
+      }, 30);
     }
     Store.clearRun();
   }
