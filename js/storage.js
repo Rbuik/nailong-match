@@ -270,8 +270,9 @@
   }
 
   function wipeAll() {
-    Object.values(K).forEach((k) => {
-      try { localStorage.removeItem(k); } catch (e) {}
+    Object.keys(K).forEach((key) => {
+      if (key === 'visits') return; // 打开次数是后台统计，不随注销清空（后台有「计数清零」）
+      try { localStorage.removeItem(K[key]); } catch (e) {}
     });
     ['nailong_save', 'nailong_level_scores', 'nailong_music_history', 'nailong_playlist',
       NS + ':musicHistory', NS + ':playlist', NS + ':playMode']

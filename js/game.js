@@ -1590,6 +1590,11 @@
   function showOverlay(id) {
     const el = $(id);
     if (el) el.style.display = 'flex';
+    // 每次回到主页，加载提示条都重新出现（叉掉只对本次有效）
+    if (id === 'main-menu') {
+      const tip = $('load-tip');
+      if (tip) tip.style.display = '';
+    }
     setView(MENU_PANELS.indexOf(id) >= 0 ? 'menu' : 'game');
   }
 
@@ -2100,16 +2105,35 @@
       toast('打开次数已清零');
     });
 
-    // 主页提示条：点左侧 ✕ 关闭，之后不再出现
+    // 主页提示条：点左侧 ✕ 只是本次隐藏，下次进主页会再出现
     const loadTip = $('load-tip');
     if (loadTip) {
-      if (Store.getSettings().loadTipOff) loadTip.style.display = 'none';
       const tipX = $('btn-dismiss-tip');
       if (tipX) tipX.addEventListener('click', () => {
         loadTip.style.display = 'none';
-        Store.setSettings({ loadTipOff: true });
       });
     }
+    // 「回到主页」统一判定：主页在前台且没有任何面板挡着 → 提示条重新出现
+    (function watchBackToMenu() {
+      const mm = $('main-menu');
+      if (!loadTip || !mm || typeof MutationObserver !== 'function' || !document.querySelectorAll) return;
+      const sync = () => {
+        if (mm.style.display === 'none') return;      // 不在主页（在关卡里）
+        const panels = document.querySelectorAll('.overlay');
+        for (let i = 0; i < panels.length; i++) {
+          const p = panels[i];
+          if (p === mm) continue;
+          const d = p.style.display;
+          if (d && d !== 'none') return;              // 还有面板开着
+        }
+        loadTip.style.display = '';
+      };
+      const obs = new MutationObserver(sync);
+      const targets = document.querySelectorAll('.overlay');
+      for (let i = 0; i < targets.length; i++) {
+        obs.observe(targets[i], { attributes: true, attributeFilter: ['style'] });
+      }
+    })();
 
     // 背包（主页 + 游戏界面）
     const packBtns = ['btn-backpack-home', 'btn-backpack-game'];
