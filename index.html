@@ -91,7 +91,26 @@
       <button class="btn-mini wide" id="btn-goto-shop">🛒 购物商店</button>
     </div>
 
+    <div class="load-tip" id="load-tip">
+      <button class="load-tip-x" id="btn-dismiss-tip" aria-label="关闭提示">✕</button>
+      <span>如遇方块没有加载出来请耐心等待</span>
+    </div>
+
     <button id="btn-logout">注销</button>
+  </div>
+
+  <!-- 后台（隐藏入口：同时按住奶龙图案 + 注销键 3 秒） -->
+  <div class="overlay" id="admin-menu" style="display:none;">
+    <h2 class="title small">🔧 后台</h2>
+    <div class="result-box" style="width:86%;">
+      <p><span>🔗 链接打开次数</span><b id="admin-visits">0</b></p>
+      <p><span>🕐 首次打开</span><b id="admin-first" style="font-size:13px;">—</b></p>
+      <p><span>🕑 最近打开</span><b id="admin-last" style="font-size:13px;">—</b></p>
+      <p><span>📱 设备</span><b id="admin-device" style="font-size:12px;">—</b></p>
+      <p><span>🎮 游戏进度</span><b id="admin-progress" style="font-size:13px;">—</b></p>
+    </div>
+    <button class="btn-secondary" id="btn-admin-reset">计数清零</button>
+    <button class="btn-primary" id="btn-admin-close">关闭</button>
   </div>
 
   <!-- 玩法规则 -->
@@ -404,6 +423,7 @@
 <script src="./js/goals.js"></script>
 <script src="./js/tasks.js"></script>
 <script src="./js/input.js"></script>
+<script src="./js/builtin-music.js"></script>
 <script src="./js/music.js"></script>
 <script src="./js/game.js"></script>
 </body>

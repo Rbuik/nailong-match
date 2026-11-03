@@ -60,10 +60,27 @@
       .filter((x) => !!x.url);
   }
 
-  function getHistory() { return norm(read(K.history, [])); }
+  function getHistory() {
+    // 内置音乐不走 localStorage，从历史里排除避免重复
+    return norm(read(K.history, [])).filter((x) => !isBuiltin(x.url));
+  }
   function saveHistory(l) { write(K.history, l); }
   function getPlaylist() { return norm(read(K.playlist, [])); }
   function savePlaylist(l) { write(K.playlist, l); }
+
+  // ==================== 内置音乐（builtin-music.js 里写死，不可删除） ====================
+  function getBuiltin() {
+    const list = (typeof window !== 'undefined' && Array.isArray(window.BUILTIN_MUSIC))
+      ? window.BUILTIN_MUSIC
+      : [];
+    return list
+      .filter((x) => x && x.url)
+      .map((x) => ({ url: x.url, name: x.name || nameFromUrl(x.url), locked: true }));
+  }
+
+  function isBuiltin(url) {
+    return getBuiltin().some((x) => x.url === url);
+  }
 
   function getMode() {
     const o = read(K.mode, null);
@@ -77,6 +94,7 @@
   }
 
   function rememberHistory(item) {
+    if (isBuiltin(item.url)) return; // 内置音乐固定在列表顶部，不重复入库
     const h = getHistory();
     if (!h.some((x) => x.url === item.url)) {
       h.unshift(item);
@@ -188,7 +206,9 @@
   };
 
   function itemsOf(source) {
-    return source === 'playlist' ? getPlaylist() : getHistory();
+    if (source === 'playlist') return getPlaylist();
+    // 音乐库/历史导入：内置音乐固定排在最上面
+    return getBuiltin().concat(getHistory());
   }
 
   function closeOpenRow() {
@@ -219,16 +239,20 @@
       return;
     }
 
-    const actW = cfg.actions.length * ACTION_W;
-
     list.forEach((item) => {
       const wrap = document.createElement('div');
       wrap.className = 'm-item-wrap';
 
+      // 内置音乐：音乐库/历史里只保留「添加」；播放列表里保留「删除」（只是移出列表，不是删歌）
+      const rowActs = item.locked
+        ? cfg.actions.filter((a) => a.act === 'add' || (source === 'playlist' && a.act === 'del'))
+        : cfg.actions;
+      const rowActW = rowActs.length * ACTION_W;
+
       // 左滑操作区
       const acts = document.createElement('div');
       acts.className = 'm-actions';
-      cfg.actions.forEach((a) => {
+      rowActs.forEach((a) => {
         const b = document.createElement('button');
         b.className = 'm-action ' + a.cls;
         b.textContent = a.label;
@@ -246,10 +270,10 @@
       if (item.url === currentUrl) row.classList.add('active');
       if (selected.has(item.url)) row.classList.add('selected');
       row.innerHTML =
-        '<span class="m-name">🎵 ' + esc(item.name) + '</span>' +
+        '<span class="m-name">🎵 ' + (item.locked ? '🔒 ' : '') + esc(item.name) + '</span>' +
         '<span class="m-tail">' + (item.url === currentUrl ? '▶ 播放中' : '') + '</span>';
 
-      bindRowGesture(row, item, source, actW);
+      bindRowGesture(row, item, source, rowActW);
 
       wrap.appendChild(acts);
       wrap.appendChild(row);
@@ -377,6 +401,10 @@
       return;
     }
     if (act === 'del') {
+      if (item.locked) {
+        toast('内置音乐不可删除');
+        return;
+      }
       if (source === 'playlist') removeFromPlaylist([item.url]);
       else deleteFromHistory([item.url]);
     }
@@ -413,12 +441,19 @@
   }
 
   function deleteFromHistory(urls) {
-    const set = new Set(urls);
+    // 内置音乐永远保留
+    const del = urls.filter((u) => !isBuiltin(u));
+    if (!del.length) {
+      toast('内置音乐不可删除');
+      clearSelection();
+      return;
+    }
+    const set = new Set(del);
     saveHistory(getHistory().filter((x) => !set.has(x.url)));
     savePlaylist(getPlaylist().filter((x) => !set.has(x.url)));
     if (set.has(currentUrl)) stopCustom();
     clearSelection();
-    toast('已删除 ' + urls.length + ' 条记录');
+    toast('已删除 ' + del.length + ' 条记录' + (del.length < urls.length ? '（内置音乐不可删除）' : ''));
     renderAll();
   }
 

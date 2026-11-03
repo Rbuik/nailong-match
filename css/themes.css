@@ -446,6 +446,38 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 #main-menu .btn-secondary { padding: 12px 0; font-size: 16px; margin-bottom: 8px; }
 #main-menu .menu-col { gap: 7px; margin-bottom: 0; }
 
+/* 主页提示条：购物商店按钮和注销之间，左侧 ✕ 可关闭（关闭后不再出现） */
+.load-tip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 9px;
+  max-width: 86%;
+  font-size: 11px;
+  color: #98a0b3;
+  line-height: 1.4;
+}
+
+.load-tip .load-tip-x {
+  flex: 0 0 auto;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1.5px solid #c9cede;
+  background: #ffffff;
+  color: #8b91a4;
+  font-size: 10px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.load-tip .load-tip-x:active { transform: scale(0.88); }
+
 .btn-mini.wide {
   width: 100%;
   padding: 13px 0;

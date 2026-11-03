@@ -15,6 +15,7 @@
     tasks: NS + ':tasks',         // { date, list:[], signDay, signDate }
     settings: NS + ':settings',   // { music, bgm, sfx, theme }
     daily: NS + ':daily',         // 每日挑战当天最佳 { date, best, times }
+    visits: NS + ':visits',       // 链接打开次数 { count, first, last }
     save: NS + ':save'            // 当前局
   };
 
@@ -236,6 +237,25 @@
     return s;
   }
 
+  // ---------- 链接打开次数（每载入一次页面 +1，供隐藏后台查看） ----------
+  function getVisits() {
+    return read(K.visits, { count: 0, first: 0, last: 0 });
+  }
+
+  function recordVisit() {
+    const now = Date.now();
+    const v = getVisits();
+    v.count += 1;
+    if (!v.first) v.first = now;
+    v.last = now;
+    write(K.visits, v);
+    return v;
+  }
+
+  function resetVisits() {
+    write(K.visits, { count: 0, first: 0, last: 0 });
+  }
+
   // ---------- 当前局存档 ----------
   function saveRun(state) {
     write(K.save, state);
@@ -266,7 +286,7 @@
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
     getTaskState, setTaskState, signIn, canSignIn, todayKey, dayIndex,
-    getSettings, setSettings,
+    getSettings, setSettings, getVisits, recordVisit, resetVisits,
     saveRun, loadRun, clearRun, wipeAll
   };
 })(window);

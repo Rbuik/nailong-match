@@ -126,30 +126,29 @@
 
   function loadImages() {
     let loaded = 0;
-    let types = (S.levelDef && S.levelDef.colors) || 6;
+    const settle = () => {
+      imagesReady = true;
+      const l = $('loading');
+      if (l) l.style.display = 'none';
+      drawStatic();
+    };
     for (let i = 0; i < 6; i++) {
       const img = new Image();
+      img.decoding = 'async';
       const done = () => {
         loaded++;
-        if (loaded >= 6) {
-          imagesReady = true;
-          const l = $('loading');
-          if (l) l.style.display = 'none';
-          drawStatic();
-        }
+        // 每张图到位就重绘一次：即使其它图还没到，先到的也能显示
+        drawStatic();
+        if (loaded >= 6) settle();
       };
       img.onload = done;
       img.onerror = done;
       img.src = './assets/' + i + '.jpg';
       IMAGES[i] = img;
     }
+    // 兜底：网络极慢也不让「加载中」卡死（方块会先用颜色占位，图到了再补上）
     setTimeout(() => {
-      if (!imagesReady) {
-        imagesReady = true;
-        const l = $('loading');
-        if (l) l.style.display = 'none';
-        drawStatic();
-      }
+      if (!imagesReady) settle();
     }, 4000);
   }
 
@@ -1582,7 +1581,7 @@
   // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
   const MENU_PANELS = ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
-    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu'];
+    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu', 'admin-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -2037,6 +2036,81 @@
       $('logout-confirm2').style.display = 'none';
     });
 
+    // ==================== 隐藏后台：同时按住奶龙图案 + 注销键 3 秒 ====================
+    const adminMascot = (typeof document.querySelector === 'function')
+      ? document.querySelector('#main-menu .mascot') : null;
+    const adminLogout = $('btn-logout');
+    if (adminMascot && adminLogout) {
+      let holds = 0;
+      let holdTimer = null;
+      let suppressLogout = false;
+      const fmtTime = (t) => {
+        if (!t) return '—';
+        const d = new Date(t);
+        const p = (n) => (n < 10 ? '0' + n : n);
+        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
+          p(d.getHours()) + ':' + p(d.getMinutes());
+      };
+      const openAdmin = () => {
+        holdTimer = null;
+        holds = 0;
+        suppressLogout = true; // 松手时不要误触「注销」确认框
+        const v = Store.getVisits();
+        $('admin-visits').textContent = v.count;
+        $('admin-first').textContent = fmtTime(v.first);
+        $('admin-last').textContent = fmtTime(v.last);
+        $('admin-device').textContent = (screen.width || '?') + '×' + (screen.height || '?') +
+          ' @' + (window.devicePixelRatio || 1) + 'x';
+        $('admin-progress').textContent = '第 ' + Store.maxUnlockedLevel(maxMainLevel()) + ' 关 · ' +
+          Store.totalStars() + ' 星 · ' + Store.getWallet().coins + ' 金币';
+        AudioManager.playSFX('select');
+        showOverlay('admin-menu');
+      };
+      const press = () => {
+        holds++;
+        if (holds >= 2 && !holdTimer) holdTimer = setTimeout(openAdmin, 3000);
+      };
+      const release = () => {
+        holds = Math.max(0, holds - 1);
+        if (holds < 2 && holdTimer) { clearTimeout(holdTimer); holdTimer = null; }
+      };
+      [adminMascot, adminLogout].forEach((el) => {
+        el.addEventListener('pointerdown', press);
+        el.addEventListener('pointerup', release);
+        el.addEventListener('pointercancel', release);
+        el.addEventListener('pointerleave', release);
+      });
+      adminLogout.addEventListener('click', (e) => {
+        if (suppressLogout) {
+          e.stopImmediatePropagation();
+          suppressLogout = false;
+        }
+      }, true);
+    }
+    const adminClose = $('btn-admin-close');
+    if (adminClose) adminClose.addEventListener('click', () => {
+      $('admin-menu').style.display = 'none';
+    });
+    const adminReset = $('btn-admin-reset');
+    if (adminReset) adminReset.addEventListener('click', () => {
+      Store.resetVisits();
+      $('admin-visits').textContent = '0';
+      $('admin-first').textContent = '—';
+      $('admin-last').textContent = '—';
+      toast('打开次数已清零');
+    });
+
+    // 主页提示条：点左侧 ✕ 关闭，之后不再出现
+    const loadTip = $('load-tip');
+    if (loadTip) {
+      if (Store.getSettings().loadTipOff) loadTip.style.display = 'none';
+      const tipX = $('btn-dismiss-tip');
+      if (tipX) tipX.addEventListener('click', () => {
+        loadTip.style.display = 'none';
+        Store.setSettings({ loadTipOff: true });
+      });
+    }
+
     // 背包（主页 + 游戏界面）
     const packBtns = ['btn-backpack-home', 'btn-backpack-game'];
     packBtns.forEach((id) => {
@@ -2291,6 +2365,7 @@
     }
 
     const settings = Store.getSettings();
+    Store.recordVisit(); // 链接打开次数：每载入一次 +1（隐藏后台查看）
     AudioManager.init(settings);
     AudioManager.musicOn = settings.music !== false;
     ['btn-music-home', 'btn-music-game'].forEach((id) => {
