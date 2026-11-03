@@ -330,6 +330,53 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   transform: translate(-50%, 0);
 }
 
+/* 提示条不换行：未解锁提示等短句始终一行显示 */
+#toast { white-space: nowrap; max-width: 94%; }
+
+/* ================= 玩法规则 ================= */
+.rules-btn {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 20;
+}
+
+.rules-box {
+  width: 92%;
+  max-height: 58vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  text-align: left;
+  background: rgba(0, 0, 0, 0.035);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+  box-sizing: border-box;
+}
+
+.rules-box::-webkit-scrollbar { width: 6px; }
+.rules-box::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
+
+.rule-sec { margin-bottom: 14px; }
+.rule-sec:last-child { margin-bottom: 4px; }
+
+.rule-sec h3 {
+  font-size: 15px;
+  color: #4b3f8f;
+  margin-bottom: 6px;
+  font-weight: 800;
+}
+
+.rule-sec p {
+  font-size: 13px;
+  line-height: 1.65;
+  color: #444;
+  margin: 3px 0;
+}
+
+.rule-sec b { color: #222; }
+
 /* ================= 主页竖排菜单 ================= */
 .menu-col {
   display: flex;
@@ -392,8 +439,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .history-item.locked { opacity: 0.62; }
 
-.history-item .hv { font-size: 13px; color: #999; white-space: nowrap; }
-.history-item .hv b { color: #1a8f4a; font-size: 15px; margin-left: 4px; }
+.history-item .h-score { color: #1a8f4a; font-size: 15px; font-weight: 700; }
 .history-item .lock-tag { font-size: 10px; color: #bbb; }
 
 /* ================= 音乐：导入 / 列表 ================= */

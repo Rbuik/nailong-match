@@ -337,20 +337,23 @@
       ctx.fillText('💣', cx, cy);
       ctx.restore();
     } else if (type === T.RAINBOW) {
+      // 纯 emoji 呈现：手机端 canvas 上渐变容易糊成一片，彩虹 emoji 最直观
       ctx.save();
-      ctx.globalAlpha = 0.95;
-      const g = ctx.createLinearGradient(x, y, x + s, y + s);
-      g.addColorStop(0, 'rgba(255,92,92,' + pulse + ')');
-      g.addColorStop(0.5, 'rgba(92,255,143,' + pulse + ')');
-      g.addColorStop(1, 'rgba(92,143,255,' + pulse + ')');
-      ctx.fillStyle = g;
-      roundRect(x + s * 0.12, y + s * 0.12, s * 0.76, s * 0.76, s * 0.2);
+      ctx.globalAlpha = 0.55 + 0.45 * pulse;
+      ctx.fillStyle = '#ffffff';
+      ctx.strokeStyle = '#c85cff';
+      ctx.lineWidth = Math.max(2, s * 0.055);
+      ctx.shadowColor = 'rgba(200, 92, 255, 0.75)';
+      ctx.shadowBlur = s * 0.16;
+      roundRect(x + s * 0.06, y + s * 0.06, s * 0.88, s * 0.88, s * 0.22);
       ctx.fill();
-      ctx.font = (s * 0.55) + 'px sans-serif';
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.globalAlpha = 1;
+      ctx.font = (s * 0.74) + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.globalAlpha = 1;
-      ctx.fillText('🌈', cx, cy);
+      ctx.fillText('🌈', cx, cy + s * 0.02);
       ctx.restore();
     }
   }
@@ -624,16 +627,24 @@
     if (S.combo >= 4) Tasks.report('combo4', 1);
   }
 
-  // 倍数/连击显示：棋盘中央横幅（#center-banner）
+  // 倍数/连击显示：棋盘中央横幅（#center-banner），每次连击升级重放弹出动画
+  let shownCombo = 0;
   function updateComboBar() {
     const banner = $('center-banner');
     if (!banner) return;
     const now = performance.now();
     const txt = $('center-banner-text');
     if (S.combo >= 2 && now < S.comboUntil) {
-      txt.textContent = 'x' + S.combo + ' 连击 · ' + comboMult(S.combo) + ' 倍';
-      banner.classList.add('show', 'type-combo');
-    } else {
+      if (S.combo !== shownCombo) {
+        shownCombo = S.combo;
+        if (txt) txt.textContent = 'x' + S.combo + ' 连击 · ' + comboMult(S.combo) + ' 倍';
+        // 重新触发缩放弹出动画
+        banner.classList.remove('show');
+        void banner.offsetWidth;
+        banner.classList.add('show', 'type-combo');
+      }
+    } else if (shownCombo !== 0) {
+      shownCombo = 0;
       banner.classList.remove('show');
     }
   }
@@ -1278,7 +1289,7 @@
   function hideAllOverlays() {
     ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
-      'logout-confirm', 'logout-confirm2',
+      'rules-menu', 'logout-confirm', 'logout-confirm2',
       'level-clear', 'game-over', 'game-complete'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -1289,7 +1300,7 @@
   // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
   const MENU_PANELS = ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
-    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu'];
+    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -1353,7 +1364,7 @@
         '<span class="shop-icon">' + item.icon + '</span>' +
         '<div class="shop-info"><b>' + item.name + '</b><small>' + item.desc + '</small></div>' +
         '<span class="shop-own">持有 ' + (wallet.items[item.key] || 0) + '</span>' +
-        '<button class="shop-buy" ' + (wallet.coins < item.price ? 'disabled' : '') + '>' + item.price + ' 金币</button>';
+        '<button class="shop-buy" ' + (wallet.coins < item.price ? 'disabled' : '') + '>🪙 ' + item.price + '</button>';
       row.querySelector('.shop-buy').addEventListener('click', () => {
         const res = Tasks.buy(item.key);
         if (!res.ok) {
@@ -1368,10 +1379,85 @@
     });
   }
 
-  // 背包：展示买到的道具
+  // 背包：展示买到的道具，并可在局内直接使用
+  const ITEM_ACTION = {
+    extraMoves: '使用',
+    shuffle: '使用',
+    undo: '使用',
+    startBomb: '放置',
+    rainbow: '使用'
+  };
+
+  // 道具只在局内可用（结算后 / 未开局都不行）
+  function canUseItems() {
+    return !!S.playing && !S.busy;
+  }
+
+  function useBackpackItem(key) {
+    if (!canUseItems()) {
+      toast('先开始一局游戏，道具在局内使用');
+      return false;
+    }
+    const wallet = Store.getWallet();
+    if ((wallet.items[key] || 0) <= 0) {
+      toast('道具数量不足');
+      return false;
+    }
+
+    // 先扣道具再刷新数值，避免徽章把刚用掉的那 1 个也算进总数
+    Store.useItem(key);
+
+    if (key === 'extraMoves') {
+      if (S.timerOn) {
+        S.timeLeft += 10;
+        toast('时间 +10 秒');
+      } else {
+        S.moves += 3;
+        toast('步数 +3');
+      }
+      updateHUD();
+      checkMovesWarning();
+    } else if (key === 'shuffle') {
+      S.shuffleLeft += 1;
+      updateHUD();
+      toast('洗牌 +1 次');
+    } else if (key === 'undo') {
+      S.undoLeft += 1;
+      updateHUD();
+      toast('撤回 +1 次');
+    } else if (key === 'startBomb' || key === 'rainbow') {
+      // 随机挑一个普通格变成炸弹 / 彩虹
+      const spots = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!S.board[r][c] || S.board[r][c].special) continue;
+          spots.push([r, c]);
+        }
+      }
+      if (!spots.length) {
+        toast('棋盘上没有可放置的位置');
+        return false;
+      }
+      const spot = spots[randInt(spots.length)];
+      S.board[spot[0]][spot[1]].special = key === 'startBomb' ? T.BOMB : T.RAINBOW;
+      drawStatic();
+      AudioManager.playSFX('bomb');
+      toast(key === 'startBomb' ? '已在随机位置放了一颗炸弹' : '已把一块变成彩虹');
+    }
+
+    renderBackpack();
+    return true;
+  }
+
   function renderBackpack() {
     const list = $('backpack-list');
     if (!list) return;
+    const hint = $('backpack-hint');
+    if (hint) {
+      hint.textContent = canUseItems()
+        ? '点「使用」立即对本局生效'
+        : '道具在游戏中使用；开始一局后即可点「使用」';
+    }
     const wallet = Store.getWallet();
     list.innerHTML = '';
     const owned = Tasks.SHOP.filter((item) => (wallet.items[item.key] || 0) > 0);
@@ -1389,6 +1475,12 @@
         '<span class="shop-icon">' + item.icon + '</span>' +
         '<div class="shop-info"><b>' + item.name + '</b><small>' + item.desc + '</small></div>' +
         '<span class="shop-own">x' + wallet.items[item.key] + '</span>';
+      const useBtn = document.createElement('button');
+      useBtn.className = 'shop-buy';
+      useBtn.textContent = ITEM_ACTION[item.key] || '使用';
+      useBtn.disabled = !canUseItems();
+      useBtn.addEventListener('click', () => useBackpackItem(item.key));
+      row.appendChild(useBtn);
       list.appendChild(row);
     });
   }
@@ -1418,15 +1510,17 @@
       const row = document.createElement('div');
       row.className = 'history-item' + (locked ? ' locked' : '');
       if (i === (S.menuLevel || 0)) row.classList.add('current');
+      // 三列等宽左对齐：关卡名 | 星星（固定宽） | 分数（固定宽）
       const starStr = '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
         '<span class="star-off">' + '⭐'.repeat(3 - rec.stars) + '</span>';
       row.innerHTML =
-        '<span>第 ' + i + ' 关' + (locked ? ' <small class="lock-tag">未解锁</small>' : '') + '</span>' +
-        '<span class="hv">' + starStr + ' <b>' + rec.score + '</b></span>';
+        '<span class="h-name">第 ' + i + ' 关' + (locked ? ' <small class="lock-tag">未解锁</small>' : '') + '</span>' +
+        '<span class="h-stars">' + starStr + '</span>' +
+        '<span class="h-score">' + rec.score + '</span>';
       row.addEventListener('click', () => {
         // 未解锁的关卡不能跳转
         if (locked) {
-          toast('第 ' + i + ' 关还未解锁，先通过第 ' + (i - 1) + ' 关吧');
+          toast('第 ' + i + ' 关未解锁（需先过第 ' + (i - 1) + ' 关）');
           AudioManager.playSFX('invalid');
           return;
         }
@@ -1514,14 +1608,21 @@
     if (play) play.addEventListener('click', () => {
       AudioManager.init(Store.getSettings());
       AudioManager.unlock();
-      const run = Store.loadRun();
-      // 只有存档正好在主页显示的这一关才续玩，否则从这一关重开
-      if (run && run.level === S.menuLevel && !run.daily && loadRun()) return;
+      const rec = Store.getLevelRecord(S.menuLevel || 1);
+      const cleared = !!(rec && rec.stars >= 1);
+      // 已通关的关卡点「重新开始」永远是重开；未通关才允许续玩存档
+      if (!cleared) {
+        const run = Store.loadRun();
+        if (run && run.level === S.menuLevel && !run.daily && loadRun()) return;
+      }
       startLevel(S.menuLevel || 1);
     });
-    const restart = $('btn-restart-level');
-    if (restart) restart.addEventListener('click', () => {
-      startLevel(S.menuLevel || 1);
+    const rulesBtn = $('btn-rules');
+    if (rulesBtn) rulesBtn.addEventListener('click', () => showOverlay('rules-menu'));
+    const rulesClose = $('btn-close-rules');
+    if (rulesClose) rulesClose.addEventListener('click', () => {
+      $('rules-menu').style.display = 'none';
+      showOverlay('main-menu');
     });
     const hist = $('btn-history');
     if (hist) hist.addEventListener('click', () => {
@@ -1766,9 +1867,9 @@
 
     const play = $('btn-play');
     if (play) {
-      const run = Store.loadRun();
-      const canResume = !!(run && run.level === S.menuLevel && !run.daily);
-      play.textContent = canResume ? '继续游戏' : '开始游戏';
+      const cleared = !!(prog[S.menuLevel] && prog[S.menuLevel].stars >= 1);
+      // 已通关 → 只有「重新开始」；没玩过 / 玩过没通关 → 「开始游戏」
+      play.textContent = cleared ? '🔄 重新开始' : '🎮 开始游戏';
     }
   }
 

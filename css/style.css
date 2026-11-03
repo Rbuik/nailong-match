@@ -93,11 +93,14 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .btn-primary:active, .btn-secondary:active { transform: scale(0.95); }
 
 .history-list { width: 85%; max-height: 55vh; overflow-y: auto; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
-.history-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 18px; background: rgba(255,255,255,0.9); border-radius: 8px; cursor: pointer; transition: background 0.2s; border: 1px solid rgba(0,0,0,0.06); }
+/* 三列等宽左对齐，整列看下去是齐的 */
+.history-item { display: grid; grid-template-columns: 1fr 76px 76px; column-gap: 6px; align-items: center; padding: 12px 16px; background: rgba(255,255,255,0.9); border-radius: 8px; cursor: pointer; transition: background 0.2s; border: 1px solid rgba(0,0,0,0.06); }
 .history-item:hover { background: #fff; }
 .history-item span { font-size: 15px; }
-.history-item .score { color: #1a8f4a; font-weight: bold; }
-.history-item .score.fail { color: #c0392b !important; }
+.history-item .h-name { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history-item .h-stars { text-align: left; white-space: nowrap; }
+.history-item .h-score { text-align: left; color: #1a8f4a; font-weight: bold; font-variant-numeric: tabular-nums; }
+.history-item .h-score.fail { color: #c0392b !important; }
 .history-list::-webkit-scrollbar { width: 6px; }
 .history-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
 
@@ -200,6 +203,18 @@ input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
 #center-banner.type-combo { background: linear-gradient(135deg, rgba(255, 159, 67, 0.95), rgba(255, 92, 92, 0.95)); }
 #center-banner.type-bomb { background: linear-gradient(135deg, rgba(255, 92, 92, 0.95), rgba(200, 92, 255, 0.95)); }
 #center-banner.type-rainbow { background: linear-gradient(135deg, rgba(92, 255, 143, 0.95), rgba(92, 143, 255, 0.95)); }
+
+/* 连击横幅内的文字弹出动画（每次连击升级重放） */
+#center-banner.show #center-banner-text {
+  display: inline-block;
+  animation: combo-pop 0.34s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes combo-pop {
+  0% { transform: scale(0.5); opacity: 0.3; }
+  60% { transform: scale(1.12); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
 
 /* ================= 毕业结算面板专属样式 ================= */
 #game-complete {

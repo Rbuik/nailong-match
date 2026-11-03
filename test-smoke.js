@@ -23,7 +23,6 @@ function makeEl(id) {
     childNodes: [],
     firstChild: null,
     value: '0.5',
-    innerHTML: '',
     textContent: '',
     width: 320,
     height: 320,
@@ -38,6 +37,12 @@ function makeEl(id) {
     closest() { return null; }
   };
   Object.defineProperty(el, 'lastElementChild', { get() { return this.children[this.children.length - 1] || null; } });
+  let html = '';
+  Object.defineProperty(el, 'innerHTML', {
+    get() { return html; },
+    // 真实 DOM 里 innerHTML 赋值会清空子节点，桩也照做
+    set(v) { html = v; this.children.length = 0; this.childNodes.length = 0; }
+  });
   return el;
 }
 
@@ -147,7 +152,7 @@ function check(name, ok) {
   const lockedRow = rows[4]; // 第 5 关
   lockedRow.dispatch('click');
   check('点击未解锁关卡不跳转（记录页未关闭）', $('history-menu').style.display === 'flex');
-  check('未解锁提示 toast', $('toast').textContent.includes('还未解锁'));
+  check('未解锁提示 toast', $('toast').textContent.includes('未解锁'));
   // 已解锁的第 1 关可以点
   rows[0].dispatch('click');
   check('点击已解锁关卡回到主页', $('main-menu').style.display === 'flex');
@@ -187,6 +192,62 @@ function check(name, ok) {
 
   // 6. 中央倍数横幅元素存在
   check('中央横幅存在（倍数显示）', !!getEl('center-banner') && !!getEl('center-banner-text'));
+
+  // 7. 道具使用：局内点「使用」立即生效
+  sandbox.Store.addItem('extraMoves', 1);
+  sandbox.Store.addItem('shuffle', 1);
+  sandbox.Store.addItem('startBomb', 1);
+  const movesBefore = Number($('moves').textContent);
+  $('btn-backpack-game').dispatch('click'); // 游戏界面背包
+  let packRows2 = $('backpack-list').children;
+  check('背包按拥有道具渲染 3 行', packRows2.length === 3);
+  const useBtns = packRows2.map((r) => r.children[r.children.length - 1]);
+  check('局内使用按钮可点', useBtns.every((b) => b && b.disabled === false));
+
+  useBtns[0].dispatch('click'); // +3 步
+  check('使用「+3 步」生效', Number($('moves').textContent) === movesBefore + 3);
+  check('「+3 步」消耗 1 个', (sandbox.Store.getWallet().items.extraMoves || 0) === 0);
+
+  const shuffleBefore = Number($('shuffle-count').textContent);
+  packRows2 = $('backpack-list').children; // 使用后重渲染
+  packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 洗牌 +1（转入本局）
+  check('使用「洗牌」转入本局次数', (sandbox.Store.getWallet().items.shuffle || 0) === 0);
+  check('洗牌徽章总数不变（本局+背包）', Number($('shuffle-count').textContent) === shuffleBefore);
+
+  packRows2 = $('backpack-list').children;
+  packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置）
+  check('使用「炸弹」放置成功', $('toast').textContent.includes('炸弹'));
+  check('「炸弹」消耗 1 个', (sandbox.Store.getWallet().items.startBomb || 0) === 0);
+  $('btn-close-backpack').dispatch('click');
+
+  // 8. 未开局时道具不可用
+  $('btn-quit').dispatch('click'); // 回主页（停止本局）
+  sandbox.Store.addItem('rainbow', 1);
+  $('btn-backpack-home').dispatch('click');
+  const homeRows = $('backpack-list').children;
+  const homeBtn = homeRows[0].children[homeRows[0].children.length - 1];
+  check('未开局时使用按钮禁用', homeBtn.disabled === true);
+  homeBtn.dispatch('click');
+  check('未开局点击不消耗道具', (sandbox.Store.getWallet().items.rainbow || 0) === 1);
+  check('未开局有引导提示', $('toast').textContent.includes('局内使用'));
+
+  // 9. 玩法规则面板
+  $('btn-close-backpack').dispatch('click');
+  $('btn-rules').dispatch('click');
+  check('规则面板打开', $('rules-menu').style.display === 'flex');
+  const htmlSrc = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('3 星阈值'));
+  check('规则含 5 种模式', ['得分', '收集', '清除果冻', '限时得分', '极限步数'].every((s) => htmlSrc.includes(s)));
+  $('btn-close-rules').dispatch('click');
+  check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
+
+  // 10. 主页主按钮文案：已通关 → 重新开始；未通关 → 开始游戏
+  $('btn-history').dispatch('click');
+  $('history-list').children[2].dispatch('click'); // 第 3 关：有解锁但无记录
+  check('未通关显示「开始游戏」', $('btn-play').textContent.includes('开始游戏'));
+  $('btn-history').dispatch('click');
+  $('history-list').children[0].dispatch('click'); // 第 1 关：3 星
+  check('已通关显示「重新开始」', $('btn-play').textContent.includes('重新开始'));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
