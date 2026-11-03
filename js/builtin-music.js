@@ -11,5 +11,6 @@
 // 支持的格式：mp3 / m4a / aac / ogg / wav / flac（取决于设备浏览器）
 
 window.BUILTIN_MUSIC = [
+  { name: '奶龙奶龙', url: './assets/music/nailong-nailong.m4a' },
   // { name: '示例歌曲', url: './assets/music/demo.mp3' },
 ];
