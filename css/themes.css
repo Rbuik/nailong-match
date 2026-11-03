@@ -498,7 +498,9 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   margin-bottom: 0;
 }
 
-.admin-sec .result-box p { font-size: 14px; }
+/* 后台字号：统一一套，比主页各档大一号（主页 14/17 → 后台 16/18） */
+.admin-sec .result-box p { font-size: 16px; margin: 7px 0; }
+.admin-sec .result-box b { font-size: 18px; text-align: right; max-width: 70%; line-height: 1.35; word-break: break-word; }
 
 .btn-mini.wide {
   width: 100%;

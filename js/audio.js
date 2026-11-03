@@ -221,21 +221,61 @@
     },
 
     // ---------- 自定义 BGM ----------
-    // opts: { loop: boolean, onEnded: function }  —— 供播放列表驱动下一首
+    // 曲目池：同一个 URL 复用同一个 <audio> 并提前 preload，
+    // 切歌时直接 play → 不留空档（换歌、循环都秒跟）
+    _pool: null,
+    poolFor(url) {
+      if (!this._pool) this._pool = {};
+      let a = this._pool[url];
+      if (!a) {
+        a = new Audio();
+        a.preload = 'auto';
+        a.src = url;
+        try { a.load(); } catch (e) {}
+        this._pool[url] = a;
+      }
+      return a;
+    },
+    // 后台预加载（最多 12 首，避免占内存）
+    preloadCustom(urls) {
+      if (!Array.isArray(urls)) return;
+      urls.filter(Boolean).slice(0, 12).forEach((u) => {
+        try { this.poolFor(u); } catch (e) {}
+      });
+    },
+
+    // opts: { loop: boolean, onEnded: function, restart: boolean }
     playCustom(url, onFail, opts) {
       opts = opts || {};
       this.stopBGM();
-      if (this._custom) {
-        this._custom.pause();
-        this._custom.onended = null;
-        this._custom.onerror = null;
-        this._custom = null;
-      }
+
+      const prevUrl = this._customUrl;
+      const prev = this._custom;
       this._customUrl = url;
       this._failing = false;
-      if (!url) return;
 
-      const audio = new Audio(url);
+      if (!url) {
+        if (prev) { prev.onended = null; prev.onerror = null; prev.pause(); }
+        this._custom = null;
+        return;
+      }
+
+      let audio = null;
+      try { audio = this.poolFor(url); } catch (e) {}
+      if (!audio) {
+        if (onFail) onFail();
+        return;
+      }
+
+      // 换歌：旧曲只暂停，留在池里（下次切回来仍然是秒开）
+      if (prev && prev !== audio) {
+        prev.onended = null;
+        prev.onerror = null;
+        prev.pause();
+      }
+
+      const sameTrack = prevUrl === url && prev === audio && !audio.ended;
+      audio.preload = 'auto';
       audio.volume = this.bgmVol;
       audio.loop = opts.loop !== false && !opts.onEnded;
       audio.onerror = () => {
@@ -245,14 +285,18 @@
         if (onFail) onFail();
         else console.warn('[Audio] 自定义音频加载失败:', url);
       };
-      if (opts.onEnded) {
-        audio.onended = () => {
-          if (audio.loop) return;
-          opts.onEnded();
-        };
-      }
+      audio.onended = opts.onEnded ? () => { if (!audio.loop) opts.onEnded(); } : null;
+
       this._custom = audio;
-      if (this.musicOn) audio.play().catch(() => {});
+
+      // 同一首只改播放模式时不要重头播；其余情况从头开始
+      if (!sameTrack || opts.restart) {
+        try { audio.currentTime = 0; } catch (e) {}
+      }
+      if (this.musicOn) {
+        const p = audio.play();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      }
     },
 
     // 播放列表用：切歌时只换 url，不重置音量

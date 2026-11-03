@@ -72,15 +72,21 @@
     return getProgress()[id] || { score: 0, stars: 0 };
   }
 
-  // 只在更好时写入；返回 { isNewScore, isNewStars }
+  // 记录本关最高分与星级；没通关的成绩也记分（只记分不加星）
+  // 返回 { isNewScore, isNewStars, first }：第一次玩这关也算新纪录
   function recordLevel(id, score, stars) {
     const all = getProgress();
     const cur = all[id] || { score: 0, stars: 0 };
-    const isNewScore = score > cur.score;
-    const isNewStars = stars > cur.stars;
-    all[id] = { score: Math.max(cur.score, score), stars: Math.max(cur.stars, stars) };
+    const first = !cur.recorded;              // 这关从未记过任何成绩
+    const isNewScore = first || score > (cur.score || 0);
+    const isNewStars = stars > (cur.stars || 0);
+    all[id] = Object.assign({}, cur, {
+      score: Math.max(cur.score || 0, score),
+      stars: Math.max(cur.stars || 0, stars),
+      recorded: true
+    });
     write(K.progress, all);
-    return { isNewScore, isNewStars };
+    return { isNewScore, isNewStars, first };
   }
 
   // ---------- 每日挑战：当天最佳分（首次完成也算新纪录） ----------
@@ -95,13 +101,14 @@
     return { date: rec.date, best: rec.best || 0, times: rec.times || 0 };
   }
 
-  // 返回记录后的最佳分和是否刷新
+  // 返回记录后的最佳分和是否刷新（当天第一次完成同样算新纪录）
   function recordDaily(score) {
     const cur = getDailyRecord();
-    const isNewScore = score > cur.best;
-    const next = { date: cur.date, best: Math.max(cur.best, score), times: cur.times + 1 };
+    const first = !cur.times;
+    const isNewScore = first || score > cur.best;
+    const next = { date: cur.date, best: first ? score : Math.max(cur.best, score), times: cur.times + 1 };
     write(K.daily, next);
-    return { isNewScore, best: next.best, times: next.times };
+    return { isNewScore, best: next.best, times: next.times, first };
   }
 
   // 玩过标记：只记「这关动过手」，不影响分数与星级（用于主页按钮区分「没玩过 / 玩过没通关」）
@@ -239,6 +246,9 @@
   }
 
   // ---------- 链接打开次数（每载入一次页面 +1，供隐藏后台查看） ----------
+  // 统计起点：2026-10-29 00:00:00（本地时间），此前的打开不计入
+  const COUNT_START = new Date(2026, 9, 29, 0, 0, 0).getTime();
+
   function getVisits() {
     return read(K.visits, { count: 0, first: 0, last: 0 });
   }
@@ -246,6 +256,7 @@
   function recordVisit() {
     const now = Date.now();
     const v = getVisits();
+    if (now < COUNT_START) return v;   // 起点之前不算
     v.count += 1;
     if (!v.first) v.first = now;
     v.last = now;
@@ -300,6 +311,7 @@
     getWallet, addCoins, spendCoins, addItem, useItem,
     getTaskState, setTaskState, signIn, canSignIn, todayKey, dayIndex,
     getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet,
+    COUNT_START,
     saveRun, loadRun, clearRun, wipeAll
   };
 })(window);

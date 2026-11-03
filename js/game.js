@@ -751,7 +751,7 @@
 
       // 生成特殊块：从待消除集合里剔除该格
       if (plan && S.board[plan.r][plan.c] && S.board[plan.r][plan.c].special === T.NORMAL) {
-        S.board[plan.r][plan.c].special = plan.type;
+        markSpecial(plan.r, plan.c, plan.type);
         matched.delete(kOf(plan.r, plan.c));
         if (plan.type === T.RAINBOW) {
           FX.text(plan.c * CELL + CELL / 2, plan.r * CELL + CELL / 2, '生成彩虹 🌈', '#c85cff', 16);
@@ -868,6 +868,62 @@
   async function detonateAt(r, c) {
     const expanded = Specials.expandClears(S.board, ROWS, COLS, new Set([kOf(r, c)]), {});
     await resolveClear(expanded.cells, expanded.boomPoints);
+  }
+
+  // ==================== 特殊块的生成顺序 ====================
+  // 每个特殊块生成时发一个递增编号（跟着方块一起下落/存档），
+  // 步数或时间耗尽时按这个顺序依次引爆。
+  function nextSpecSeq() {
+    S.specSeq = (S.specSeq || 0) + 1;
+    return S.specSeq;
+  }
+
+  function markSpecial(r, c, type) {
+    const b = S.board[r] && S.board[r][c];
+    if (!b) return;
+    b.special = type;
+    b.seq = nextSpecSeq();
+  }
+
+  function collectSpecials() {
+    const list = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const b = S.board[r][c];
+        if (b && b.special && b.special !== T.NORMAL) {
+          list.push({ r, c, seq: b.seq || 0, special: b.special });
+        }
+      }
+    }
+    return list;
+  }
+
+  function specialName(t) {
+    if (t === T.RAINBOW) return '彩虹';
+    if (t === T.BOMB) return '炸弹';
+    return '十字线';
+  }
+
+  // 棋盘上剩下的特殊块：按生成先后一个个引爆，返回是否因此达成了关卡目标
+  async function detonateBoardSpecials() {
+    const all = collectSpecials();
+    if (!all.length) return false;
+    toast('棋盘上还有 ' + all.length + ' 个特殊块，按生成顺序依次引爆');
+    await sleep(420);
+
+    for (let guard = 0; guard < 40; guard++) {
+      const list = collectSpecials();
+      if (!list.length) break;
+      // 编号小的先生成、先引爆；编号相同（老存档）按行列顺序兜底
+      list.sort((a, b) => (a.seq - b.seq) || (a.r - b.r) || (a.c - b.c));
+      const t = list[0];
+      FX.text(t.c * CELL + CELL / 2, t.r * CELL + CELL / 2 - CELL * 0.4,
+        specialName(t.special) + '触发', '#ffb03a', 15);
+      await detonateAt(t.r, t.c);
+      if (S.goal && Goals.isComplete(S.goal)) return true;
+      await sleep(260);
+    }
+    return false;
   }
 
   function SpecsL(runs) {
@@ -1165,6 +1221,7 @@
     S.clearedCount = 0;
     S.undoLeft = 3;
     S.shuffleLeft = 3;
+    S.specSeq = 0;
 
     applyTheme(S.levelDef.theme);
     initBoard();
@@ -1172,7 +1229,7 @@
     // 道具：开局炸弹（§7）
     if (opts.startBomb) {
       const r = randInt(ROWS), c = randInt(COLS);
-      S.board[r][c].special = T.BOMB;
+      markSpecial(r, c, T.BOMB);
     }
 
     $('level').textContent = S.daily ? '每日挑战' : S.level;
@@ -1444,7 +1501,7 @@
 
       const spot = spots[randInt(spots.length)];
       Store.useItem(key);
-      S.board[spot[0]][spot[1]].special = key === 'startBomb' ? T.BOMB : T.RAINBOW;
+      markSpecial(spot[0], spot[1], key === 'startBomb' ? T.BOMB : T.RAINBOW);
       renderBackpack();
       drawStatic();
       toast(key === 'startBomb' ? '自动放置炸弹并引爆 💣' : '自动使用彩虹 🌈');
@@ -1466,6 +1523,18 @@
     rescuing = true;
     S.busy = true;
     Input.setEnabled(false);
+
+    // 1) 棋盘上剩下的特殊块（十字线 / 炸弹 / 彩虹）：按生成先后依次生效
+    const won = await detonateBoardSpecials();
+    if (won && S.playing) {
+      S.busy = false;
+      rescuing = false;
+      await sleep(200);
+      levelWin();
+      return;
+    }
+
+    // 2) 背包里剩下的道具（+3 步 / 炸弹 / 彩虹）继续救场
     const saved = await autoUseLeftoverItems();
     S.busy = false;
     rescuing = false;
@@ -1489,11 +1558,10 @@
     const remainRatio = S.timerOn ? S.timeLeft / (S.levelDef.goal.time || 1) : S.moves / (S.levelDef.moves || 1);
     const passed = Goals.isComplete(S.goal);
     const stars = passed ? Goals.stars(S.levelDef, S.score, remainRatio) : 0;
-    // 步数/时间耗尽但目标已达成也走这里，同样要判新纪录
-    let rec = { isNewScore: false };
-    if (passed) {
-      rec = S.daily ? Store.recordDaily(S.score) : Store.recordLevel(S.level, S.score, stars);
-    }
+    // 没通关也记本关最高分（只记分不加星）；第一次玩这关同样算「新纪录」
+    const rec = S.daily
+      ? Store.recordDaily(S.score)
+      : Store.recordLevel(S.level, S.score, stars);
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
     const coins = passed ? Math.max(10, Math.floor(S.score / 100)) : Math.floor(S.score / 300);
@@ -1725,7 +1793,7 @@
         return false;
       }
       const spot = spots[randInt(spots.length)];
-      S.board[spot[0]][spot[1]].special = key === 'startBomb' ? T.BOMB : T.RAINBOW;
+      markSpecial(spot[0], spot[1], key === 'startBomb' ? T.BOMB : T.RAINBOW);
       drawStatic();
       AudioManager.playSFX('bomb');
       toast(key === 'startBomb' ? '已在随机位置放了一颗炸弹' : '已把一块变成彩虹');
@@ -1860,15 +1928,26 @@
   const GEO_API = 'https://ipwho.is/?lang=zh-CN';
 
   // 打开页面就 +1，结果缓存下来，离线时显示上次的数字
+  // 顺带保证「全网 ≥ 本机」：公共计数器没有 set 接口，落后时只能多打几下补上
   function bumpGlobalHits() {
     if (typeof fetch !== 'function') return;
-    fetch(HITS_API, { cache: 'no-store' })
+    const local = Store.getVisits().count;
+    const hit = () => fetch(HITS_API, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (j && typeof j.value === 'number') Store.patchNet({ globalHits: j.value });
-        renderAdmin();
-      })
-      .catch(() => {});
+      .then((j) => (j && typeof j.value === 'number' ? j.value : null));
+
+    hit().then(async (v) => {
+      if (v == null) return;
+      let cur = v;
+      let guard = 0;
+      while (cur < local && guard++ < 30) {
+        const n = await hit();
+        if (n == null) break;
+        cur = Math.max(cur, n);
+      }
+      Store.patchNet({ globalHits: Math.max(cur, local) });
+      renderAdmin();
+    }).catch(() => {});
   }
 
   // 城市级定位：7 天内复用缓存，避免每次联网
@@ -1887,16 +1966,18 @@
       .catch(() => null);
   }
 
+  let androidVer = '';
   function describeDevice() {
     const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
     const ios = /OS (\d+)[._](\d+)/.exec(ua);
-    if (/iPhone/.test(ua)) return 'iPhone' + (ios ? '（iOS ' + ios[1] + '.' + ios[2] + '）' : '');
-    if (/iPad/.test(ua)) return 'iPad' + (ios ? '（iOS ' + ios[1] + '.' + ios[2] + '）' : '');
+    if (/iPhone/.test(ua)) return 'iPhone' + (ios ? '(iOS ' + ios[1] + '.' + ios[2] + ')' : '');
+    if (/iPad/.test(ua)) return 'iPad' + (ios ? '(iOS ' + ios[1] + '.' + ios[2] + ')' : '');
     const and = /Android\s([\d.]+)[^;]*;\s*([^;)]+?)(?:\s+Build|\))/.exec(ua);
     if (and) {
+      androidVer = and[1] || '';
       let model = (and[2] || '').replace(/\s+/g, ' ').trim();
       if (!model || model.length < 2 || /^(K|wv)$/i.test(model)) model = '安卓手机';
-      return model + '（Android ' + and[1] + '）';
+      return model + (androidVer ? '(Android ' + androidVer + ')' : '');
     }
     if (/Windows NT 10/.test(ua)) return 'Windows 10/11 电脑';
     if (/Macintosh/.test(ua)) return 'Mac 电脑';
@@ -1911,7 +1992,8 @@
     d.getHighEntropyValues(['model']).then((h) => {
       if (!h || !h.model) return;
       const el = $('admin-device');
-      if (el) el.textContent = h.model + '（Android）';
+      const suffix = androidVer ? '(Android ' + androidVer + ')' : '(Android)';
+      if (el) el.textContent = h.model + suffix;
     }).catch(() => {});
   }
 
@@ -1928,17 +2010,18 @@
   function renderAdmin() {
     if (!$('admin-menu')) return;
     const net = Store.getNet();
-    // 全网
+    const localCount = Store.getVisits().count;
+    // 全网 ≥ 本机：计数器只增不减，落后时取本机数兜底，绝不显示比本机还小
     const g = net.globalHits;
-    $('admin-global').textContent = (typeof g === 'number' && g > 0) ? String(g) : '—';
+    const globalShown = typeof g === 'number' && g > 0 ? Math.max(g, localCount) : Math.max(0, localCount);
+    $('admin-global').textContent = globalShown > 0 ? String(globalShown) : '—';
     // 本机
-    $('admin-visits').textContent = Store.getVisits().count;
+    $('admin-visits').textContent = localCount;
     $('admin-device').textContent = describeDevice();
     const geo = net.geo;
-    const loc = geo ? [geo.country, geo.region, geo.city].filter(Boolean).join(' ') : '';
+    // 地址：中国-四川省-成都
+    const loc = geo ? [geo.country, geo.region, geo.city].filter(Boolean).join('-') : '';
     $('admin-loc').textContent = loc || '—';
-    $('admin-progress').textContent = '第 ' + Store.maxUnlockedLevel(maxMainLevel()) +
-      ' 关（共 ' + maxMainLevel() + ' 关）';
     $('admin-stars').textContent = Store.totalStars();
     $('admin-score').textContent = totalBestScore();
   }
@@ -2502,4 +2585,14 @@
   } else {
     boot();
   }
+
+  // 调试 / 自动化测试钩子（不影响正常玩法）
+  window.__nl_test = {
+    start: startLevel,
+    state: () => S,
+    win: levelWin,
+    end: endGame,
+    outOfResource: handleOutOfResource,
+    collectSpecials: collectSpecials
+  };
 })();

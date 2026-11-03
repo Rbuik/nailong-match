@@ -127,8 +127,10 @@
     const loop = getMode() === 'loop';
     AudioManager.playCustom(item.url, onFail, {
       loop: loop,
-      onEnded: loop ? null : () => nextTrack()
+      onEnded: loop ? null : () => nextTrack(),
+      restart: true
     });
+    warmCache();
 
     toast('正在播放：' + item.name);
     renderAll();
@@ -696,6 +698,16 @@
     }
   }
 
+  // 预加载曲目：把播放列表 / 音乐库 / 内置曲目先灌进 <audio> 池，
+  // 之后切歌不用等加载，直接出声（换歌、循环都不留空档）
+  function warmCache() {
+    if (!AudioManager.preloadCustom) return;
+    const urls = getPlaylist().map((x) => x.url)
+      .concat(getBuiltin().map((x) => x.url))
+      .concat(getHistory().map((x) => x.url));
+    AudioManager.preloadCustom(urls);
+  }
+
   function init() {
     bind();
     // 兼容 v1 的 key（老用户数据不丢）
@@ -704,10 +716,11 @@
     const legacyP = read('nailong_playlist', null);
     if (legacyP && !read(K.playlist, null)) write(K.playlist, norm(legacyP));
     renderAll();
+    warmCache();
   }
 
   global.Music = {
-    init, renderAll, restore, playItem, nextTrack, stopCustom,
+    init, renderAll, restore, playItem, nextTrack, stopCustom, warmCache,
     getHistory, getPlaylist, getMode, setMode, openPlaylist
   };
 })(window);
