@@ -1786,18 +1786,24 @@
     if (!list) return;
     const cur = list.querySelector('.history-item.current');
     if (!cur) return;
+    // 用 rect 算「条目在滚动内容里的位置」：offsetTop 是相对 #history-menu 的，
+    // 会把标题等面板高度算进来，导致滚动位置算偏（滑到最底/最顶）
+    const listRect = list.getBoundingClientRect();
+    const curRect = cur.getBoundingClientRect();
+    const curTop = curRect.top - listRect.top + list.scrollTop;
     const max = Math.max(0, list.scrollHeight - list.clientHeight);
-    const target = cur.offsetTop - (list.clientHeight - cur.offsetHeight) / 2;
+    // 让当前关卡垂直居中
+    const target = curTop - (list.clientHeight - cur.offsetHeight) / 2;
     const top = Math.max(0, Math.min(target, max));
-    list.scrollTop = 0;
-    if (top <= 0) return; // 已经贴顶，不需要滑
+    const from = list.scrollTop;
+    if (Math.abs(top - from) < 1) return; // 已经到位，不用滑
     // 自己补间，兼容不支持平滑滚动 / 虚拟时钟的环境
     const dur = 320;
     const t0 = performance.now();
     const step = () => {
       const p = Math.min(1, (performance.now() - t0) / dur);
       const e = 1 - Math.pow(1 - p, 3);
-      list.scrollTop = top * e;
+      list.scrollTop = from + (top - from) * e;
       if (p < 1) setTimeout(step, 16);
     };
     setTimeout(step, 40);
