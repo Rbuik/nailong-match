@@ -397,8 +397,8 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 #main-menu .mascot { margin-bottom: 0; }
 #main-menu .title { font-size: 26px; margin-bottom: 8px; }
-#main-menu .result-box { padding: 12px 20px; margin-bottom: 12px; width: 86%; }
-#main-menu .result-box p { font-size: 14px; margin: 5px 0; }
+#main-menu .result-box { padding: 10px 20px; margin-bottom: 8px; width: 86%; }
+#main-menu .result-box p { font-size: 14px; margin: 4px 0; }
 #main-menu .result-box b { font-size: 17px; }
 #main-menu .btn-primary,
 #main-menu .btn-secondary { padding: 12px 0; font-size: 16px; margin-bottom: 8px; }
@@ -441,6 +441,56 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .history-item .h-score { color: #1a8f4a; font-size: 15px; font-weight: 700; }
 .history-item .lock-tag { font-size: 10px; color: #bbb; }
+
+/* ================= 主页上一关 / 下一关 ================= */
+.level-nav-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 86%;
+  margin: 0 0 8px;
+}
+
+.nav-arrow {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 2px solid #e6e6ef;
+  background: #fff;
+  color: #6c5ce7;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.nav-arrow:active { transform: scale(0.9); background: #f4f2ff; }
+.nav-arrow:disabled { opacity: 0.32; cursor: not-allowed; transform: none; }
+
+.level-now {
+  font-size: 14px;
+  color: #666;
+  font-weight: 700;
+  min-width: 86px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.level-now b { color: #6c5ce7; font-size: 17px; }
+
+/* ================= 暂停 ================= */
+.pause-hint {
+  font-size: 13px;
+  color: #888;
+  margin-bottom: 20px;
+  text-align: center;
+}
 
 /* ================= 音乐：导入 / 列表 ================= */
 .input-row {

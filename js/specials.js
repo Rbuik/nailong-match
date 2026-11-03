@@ -169,9 +169,9 @@
       if (rr >= 0 && rr < R && cc >= 0 && cc < C) out.add(key(rr, cc));
     };
 
-    if (type === TYPE.LINE_H) {
+    if (type === TYPE.LINE_H || type === TYPE.LINE_V) {
+      // 十字架：横向 + 纵向同时清（整行 + 整列）
       for (let cc = 0; cc < C; cc++) add(r, cc);
-    } else if (type === TYPE.LINE_V) {
       for (let rr = 0; rr < R; rr++) add(rr, c);
     } else if (type === TYPE.BOMB) {
       for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) add(r + dr, c + dc);

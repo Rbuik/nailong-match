@@ -148,8 +148,8 @@ function check(name, ok) {
   $('btn-history').dispatch('click');
   check('关卡记录打开', $('history-menu').style.display === 'flex');
   const rows = $('history-list').children;
-  check('关卡记录渲染 20 行', rows.length === 20);
-  const lockedRow = rows[4]; // 第 5 关
+  check('关卡记录只列出已解锁 + 1 个未解锁（共 3 行）', rows.length === 3);
+  const lockedRow = rows[2]; // 第 3 关（唯一显示的未解锁关）
   lockedRow.dispatch('click');
   check('点击未解锁关卡不跳转（记录页未关闭）', $('history-menu').style.display === 'flex');
   check('未解锁提示 toast', $('toast').textContent.includes('未解锁'));
@@ -212,7 +212,7 @@ function check(name, ok) {
   packRows2 = $('backpack-list').children; // 使用后重渲染
   packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 洗牌 +1（转入本局）
   check('使用「洗牌」转入本局次数', (sandbox.Store.getWallet().items.shuffle || 0) === 0);
-  check('洗牌徽章总数不变（本局+背包）', Number($('shuffle-count').textContent) === shuffleBefore);
+  check('洗牌徽章 +1（只算本局次数）', Number($('shuffle-count').textContent) === shuffleBefore + 1);
 
   packRows2 = $('backpack-list').children;
   packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置）
@@ -220,8 +220,11 @@ function check(name, ok) {
   check('「炸弹」消耗 1 个', (sandbox.Store.getWallet().items.startBomb || 0) === 0);
   $('btn-close-backpack').dispatch('click');
 
-  // 8. 未开局时道具不可用
-  $('btn-quit').dispatch('click'); // 回主页（停止本局）
+  // 8. 未开局时道具不可用（先暂停 → 回主页，主页应显示「继续游戏」）
+  $('btn-pause').dispatch('click');
+  check('暂停面板打开', $('pause-menu').style.display === 'flex');
+  $('btn-pause-home').dispatch('click');
+  check('暂停后回主页显示「继续游戏」', $('btn-play').textContent.includes('继续游戏'));
   sandbox.Store.addItem('rainbow', 1);
   $('btn-backpack-home').dispatch('click');
   const homeRows = $('backpack-list').children;
@@ -236,7 +239,8 @@ function check(name, ok) {
   $('btn-rules').dispatch('click');
   check('规则面板打开', $('rules-menu').style.display === 'flex');
   const htmlSrc = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-  check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('3 星阈值'));
+  check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
+  check('规则说明十字架横竖都清', htmlSrc.includes('整行 + 整列一起清'));
   check('规则含 5 种模式', ['得分', '收集', '清除果冻', '限时得分', '极限步数'].every((s) => htmlSrc.includes(s)));
   $('btn-close-rules').dispatch('click');
   check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
@@ -248,6 +252,31 @@ function check(name, ok) {
   $('btn-history').dispatch('click');
   $('history-list').children[0].dispatch('click'); // 第 1 关：3 星
   check('已通关显示「重新开始」', $('btn-play').textContent.includes('重新开始'));
+
+  // 11. 洗牌次数用完后必须玩家自己补（不再自动扣背包）
+  $('btn-play').dispatch('click');
+  await sleep(30);
+  const walletShuffle = sandbox.Store.getWallet().items.shuffle || 0;
+  for (let i = 0; i < 4; i++) $('btn-shuffle').dispatch('click');
+  check('洗牌用完后提示去背包补充', $('toast').textContent.includes('用完了'));
+  check('洗牌不再自动扣背包', (sandbox.Store.getWallet().items.shuffle || 0) === walletShuffle);
+
+  // 12. 十字线消：整行 + 整列一起清
+  const Sp = sandbox.Specials;
+  const bd = [];
+  for (let r = 0; r < 8; r++) {
+    bd[r] = [];
+    for (let c = 0; c < 8; c++) bd[r][c] = { type: (r + c) % 3, special: 0 };
+  }
+  bd[3][4].special = Sp.TYPE.LINE_H;
+  const exp = Sp.expandClears(bd, 8, 8, new Set(['3,4']), {});
+  let rowOk = true, colOk = true;
+  for (let c = 0; c < 8; c++) if (!exp.cells.has('3,' + c)) rowOk = false;
+  for (let r = 0; r < 8; r++) if (!exp.cells.has(r + ',4')) colOk = false;
+  check('十字线消清整行 + 整列', rowOk && colOk);
+
+  // 13. 主页上一关 / 下一关
+  check('主页有关卡翻页按钮', !!getEl('btn-prev-level') && !!getEl('btn-next-level-menu') && !!getEl('menu-level-label'));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

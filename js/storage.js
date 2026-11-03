@@ -80,6 +80,20 @@
     return { isNewScore, isNewStars };
   }
 
+  // 玩过标记：只记「这关动过手」，不影响分数与星级（用于主页按钮区分「没玩过 / 玩过没通关」）
+  function markPlayed(id) {
+    const all = getProgress();
+    const cur = all[id] || { score: 0, stars: 0 };
+    cur.played = true;
+    all[id] = cur;
+    write(K.progress, all);
+  }
+
+  function hasPlayed(id) {
+    const rec = getProgress()[id];
+    return !!(rec && rec.played);
+  }
+
   function totalStars() {
     const all = getProgress();
     return Object.keys(all).reduce((s, k) => s + (all[k].stars || 0), 0);
@@ -227,6 +241,7 @@
   global.Store = {
     K, VERSION, SIGN_REWARDS,
     getProgress, getLevelRecord, recordLevel, totalStars, maxUnlockedLevel,
+    markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
     getTaskState, setTaskState, signIn, canSignIn, todayKey, dayIndex,
     getSettings, setSettings,

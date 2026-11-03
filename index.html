@@ -16,7 +16,7 @@
     <div class="hud-item">得分：<b id="score">0</b></div>
     <div class="hud-item hud-mini">🪙 <b id="coins">0</b></div>
     <div class="hud-item hud-mini">⭐ <b id="stars">0</b></div>
-    <button id="btn-quit">主页</button>
+    <button id="btn-pause" title="暂停">⏸</button>
   </div>
 
   <div class="target-bar" id="target-bar">目标：得分 0 / 1000</div>
@@ -70,11 +70,17 @@
     </div>
 
     <h1 class="title">奶龙消消乐</h1>
-    <div class="result-box" style="margin-bottom:18px;">
-      <p><span>当前进度</span><b id="menu-current-level">1</b></p>
-      <p><span>本关最高分</span><b id="menu-current-high">0</b></p>
-      <p><span>总星星</span><b id="menu-total-stars">0</b></p>
+    <div class="result-box">
+      <p><span>📍 当前进度</span><b id="menu-current-level">1</b></p>
+      <p><span>📈 本关最高分</span><b id="menu-current-high">0</b></p>
+      <p><span>⭐ 总星星</span><b id="menu-total-stars">0</b></p>
       <p><span>🪙 金币</span><b id="menu-coins">0</b></p>
+    </div>
+
+    <div class="level-nav-row">
+      <button class="nav-arrow" id="btn-prev-level" title="上一关">◀</button>
+      <span class="level-now">第 <b id="menu-level-label">1</b> 关</span>
+      <button class="nav-arrow" id="btn-next-level-menu" title="下一关">▶</button>
     </div>
 
     <button class="btn-primary" id="btn-play">🎮 开始游戏</button>
@@ -101,7 +107,7 @@
 
       <section class="rule-sec">
         <h3>✨ 特殊块怎么来</h3>
-        <p><b>十字线消</b>：4 个同图案连成一条线 → 生成线消块，消除时清掉整行或整列（白色十字架图案，长臂指向要清的方向）。</p>
+        <p><b>十字线消</b>：4 个同图案连成一条线 → 生成白色十字架块，消除时<b>整行 + 整列一起清</b>（横竖都清）。</p>
         <p><b>彩虹 🌈</b>：5 个同图案连成一条线 → 生成彩虹块，和任意方块交换，会消掉全盘同图案的方块。</p>
         <p><b>炸弹 💣</b>：清除果冻关里有概率生成，或从背包使用「开局炸弹」道具放置。爆炸清除周围 3×3 范围。</p>
       </section>
@@ -129,11 +135,17 @@
 
       <section class="rule-sec">
         <h3>⭐ 星级评价怎么算</h3>
-        <p>每关都有三个分数阈值（1 星 / 2 星 / 3 星），过关即保底 1 星：</p>
-        <p>· <b>1 星</b>：完成关卡目标<br>
-          · <b>2 星</b>：得分 ≥ 2 星阈值，或剩余步数 ≥ 30%<br>
-          · <b>3 星</b>：得分 ≥ 3 星阈值，或剩余步数 ≥ 60%</p>
-        <p>限时关按剩余时间比例计算。星级只记录历史最好成绩。</p>
+        <p>先说「阈值」：就是每关事先定好的两条<b>分数线</b>——「2 星线」和「3 星线」，跟考试里的「80 分线 / 95 分线」是一个意思。达到线就多一颗星。</p>
+        <p>每关开始前，这两条线是固定的，写在关卡里（比如第 1 关是 1000 / 1500 / 2000，第一个数就是过关线，后两个是 2 星线、3 星线）。</p>
+        <p>· <b>1 星</b>：完成关卡目标就保底 1 星<br>
+          · <b>2 星</b>：得分达到 2 星线，<b>或者</b>过关时还剩 30% 以上步数<br>
+          · <b>3 星</b>：得分达到 3 星线，<b>或者</b>过关时还剩 60% 以上步数</p>
+        <p>换句话说：<b>分数够了给星，步数省得多也给星，哪边更划算算哪边</b>——两条路任意满足一条就行。</p>
+        <p>举例：第 1 关 28 步、星线 1000 / 1500 / 2000。<br>
+          · 用 15 步打完（剩 13 步 = 46%）→ 够 2 星的 30%，拿 2 星<br>
+          · 用 11 步打完（剩 17 步 = 61%）→ 够 3 星的 60%，直接 3 星<br>
+          · 就算分数只有 1100，只要步数剩够 60%，也是 3 星</p>
+        <p>限时关按剩余时间比例算。星星只记录历史最好成绩，重打不会掉星。</p>
       </section>
 
       <section class="rule-sec">
@@ -149,7 +161,8 @@
           · <b>撤回</b>：回退上一步<br>
           · <b>开局炸弹</b>：随机位置放一颗炸弹<br>
           · <b>彩虹</b>：随机把一块变成彩虹</p>
-        <p>道具买完进背包（主页音乐键下方 / 游戏界面音乐键左边的 🎒）。<b>局内点「使用」立即生效</b>，洗牌和撤回每局各送 3 次，用完后会自动从背包补充。</p>
+        <p>道具买完进背包（主页音乐键下方 / 游戏界面音乐键左边的 🎒）。<b>局内点「使用」才会生效，全部由你自己决定用不用</b>。</p>
+        <p>洗牌和撤回每局各送 3 次，但<b>用完后不会自动补</b>——想继续用，得自己在背包里点「洗牌 / 撤回」道具的「使用」按钮把次数加进本局。</p>
       </section>
 
       <section class="rule-sec">
@@ -279,7 +292,7 @@
 
   <!-- 商店 -->
   <div class="overlay" id="shop-menu" style="display:none;">
-    <h2 class="title small">商店 · 🪙 <span id="shop-coins">0</span></h2>
+    <h2 class="title small">商店 · 💰 <span id="shop-coins">0</span></h2>
     <div class="shop-list" id="shop-list"></div>
     <button class="btn-secondary" id="btn-close-shop">关闭</button>
   </div>
@@ -298,6 +311,15 @@
     <p class="history-hint" id="backpack-hint">道具在游戏中使用，点「使用」立即生效</p>
     <div class="shop-list" id="backpack-list"></div>
     <button class="btn-secondary" id="btn-close-backpack">关闭</button>
+  </div>
+
+  <!-- 暂停 -->
+  <div class="overlay" id="pause-menu" style="display:none;">
+    <h2 class="title small">已暂停</h2>
+    <p class="pause-hint" id="pause-hint"></p>
+    <button class="btn-primary" id="btn-resume">🕹️ 继续游戏</button>
+    <button class="btn-secondary" id="btn-pause-restart">🔄 重新开始本关</button>
+    <button class="btn-secondary" id="btn-pause-home">🏠 返回主页</button>
   </div>
 
   <!-- 注销确认（第一步） -->

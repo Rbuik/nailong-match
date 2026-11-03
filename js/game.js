@@ -69,6 +69,7 @@
     lastClearAt: 0,
     comboUntil: 0,
     playing: false,
+    paused: false,
     busy: false,
     selected: null,
     dragTo: null,
@@ -291,30 +292,24 @@
     const pulse = 0.55 + 0.45 * Math.sin(t / 420);
 
     if (type === T.LINE_H || type === T.LINE_V) {
-      // 十字架外观：横向线消横向长臂，纵向线消纵向长臂，白底描边更醒目
-      const horiz = type === T.LINE_H;
-      const th = Math.max(4, s * 0.18);           // 臂厚
-      const longA = s * 0.08, longB = s * 0.92;   // 长臂范围
-      const shortA = s * 0.36, shortB = s * 0.64; // 短臂范围
+      // 十字架外观：纯白十字 + 深色描边 + 蓝色外发光，横竖都清所以做成对称四臂
+      const th = Math.max(5, s * 0.26);            // 臂厚
+      const longA = s * 0.06, longB = s * 0.94;    // 长臂范围
       const drawBar = (x0, y0, x1, y1) => {
         roundRect(x0, y0, x1 - x0, y1 - y0, (y1 - y0) / 2);
         ctx.fill();
         ctx.stroke();
       };
       ctx.save();
-      ctx.globalAlpha = 0.5 + 0.5 * pulse;
+      ctx.globalAlpha = 0.9 + 0.1 * pulse;
       ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#2f6bff';
-      ctx.lineWidth = Math.max(1.5, s * 0.045);
-      ctx.shadowColor = 'rgba(47, 107, 255, 0.6)';
-      ctx.shadowBlur = s * 0.12;
-      if (horiz) {
-        drawBar(x + longA, cy - th / 2, x + longB, cy + th / 2);          // 横长臂
-        drawBar(cx - th / 2, y + shortA, cx + th / 2, y + shortB);        // 纵短臂
-      } else {
-        drawBar(cx - th / 2, y + longA, cx + th / 2, y + longB);          // 纵长臂
-        drawBar(x + shortA, cy - th / 2, x + shortB, cy + th / 2);        // 横短臂
-      }
+      ctx.strokeStyle = 'rgba(20, 40, 90, 0.85)';
+      ctx.lineWidth = Math.max(2, s * 0.055);
+      ctx.shadowColor = 'rgba(47, 107, 255, 0.85)';
+      ctx.shadowBlur = s * 0.18 * pulse;
+      // 横臂（整行）+ 竖臂（整列）
+      drawBar(x + longA, cy - th / 2, x + longB, cy + th / 2);
+      drawBar(cx - th / 2, y + longA, cx + th / 2, y + longB);
       ctx.restore();
     } else if (type === T.BOMB) {
       ctx.save();
@@ -416,20 +411,48 @@
     ctx.restore();
   }
 
+  function jellyAt(r, c) {
+    return !!(S.jelly[r] && S.jelly[r][c]);
+  }
+
+  // 果冻格：整格蓝色底 + 白色斜纹 + 粗蓝边；
+  // 上面压着的方块会缩小一圈，让果冻完整露出来（原来方块几乎盖满，完全看不出果冻）
   function drawJelly(r, c) {
-    if (!S.jelly[r] || !S.jelly[r][c]) return;
-    const pad = CELL * 0.14;
+    if (!jellyAt(r, c)) return;
+    const x = c * CELL, y = r * CELL;
+    const pad = 1.5;
+    const w = CELL - pad * 2;
     ctx.save();
-    ctx.globalAlpha = 0.55;
-    ctx.fillStyle = '#7cd6ff';
-    roundRect(c * CELL + pad, r * CELL + pad, CELL - pad * 2, CELL - pad * 2, 8);
+    const g = ctx.createLinearGradient(x, y, x + CELL, y + CELL);
+    g.addColorStop(0, '#d9f3ff');
+    g.addColorStop(1, '#4fc1ee');
+    ctx.fillStyle = g;
+    roundRect(x + pad, y + pad, w, w, 10);
     ctx.fill();
-    ctx.globalAlpha = 0.9;
-    ctx.strokeStyle = '#3aa8e0';
-    ctx.lineWidth = 2;
+
+    ctx.save();
+    roundRect(x + pad, y + pad, w, w, 10);
+    ctx.clip();
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 4;
+    for (let i = -CELL; i < CELL * 2; i += 11) {
+      ctx.beginPath();
+      ctx.moveTo(x + i, y - 2);
+      ctx.lineTo(x + i + CELL, y + CELL + 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+
+    ctx.strokeStyle = '#1e88e5';
+    ctx.lineWidth = 3.5;
+    roundRect(x + pad, y + pad, w, w, 10);
     ctx.stroke();
     ctx.restore();
   }
+
+  // 果冻格上的方块缩放系数（留出果冻边）
+  const JELLY_BLOCK_SCALE = 0.76;
 
   // 静态重绘（无动画）
   function drawStatic() {
@@ -445,7 +468,9 @@
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         drawJelly(r, c);
-        if (S.board[r] && S.board[r][c]) drawBlock(c * CELL, r * CELL, S.board[r][c]);
+        if (S.board[r] && S.board[r][c]) {
+          drawBlock(c * CELL, r * CELL, S.board[r][c], jellyAt(r, c) ? { scale: JELLY_BLOCK_SCALE } : null);
+        }
       }
     }
 
@@ -516,7 +541,11 @@
       for (let c = 0; c < COLS; c++) {
         drawJelly(r, c);
         if (S.board[r] && S.board[r][c]) {
-          const o = custom ? custom(r, c, S.board[r][c]) : null;
+          let o = custom ? custom(r, c, S.board[r][c]) : null;
+          if (jellyAt(r, c)) {
+            o = Object.assign({}, o || {});
+            o.scale = (o.scale == null ? 1 : o.scale) * JELLY_BLOCK_SCALE;
+          }
           drawBlock(c * CELL, r * CELL, S.board[r][c], o);
         }
       }
@@ -596,11 +625,12 @@
           drawJelly(r, c);
           if (!S.board[r][c]) continue;
           const fromR = fallFrom[kOf(r, c)];
+          const opts = jellyAt(r, c) ? { scale: JELLY_BLOCK_SCALE } : null;
           if (fromR !== undefined && fromR !== r) {
             const y = (fromR * CELL) + (r * CELL - fromR * CELL) * e;
-            drawBlock(c * CELL, y, S.board[r][c]);
+            drawBlock(c * CELL, y, S.board[r][c], opts);
           } else {
-            drawBlock(c * CELL, r * CELL, S.board[r][c]);
+            drawBlock(c * CELL, r * CELL, S.board[r][c], opts);
           }
         }
       }
@@ -820,7 +850,7 @@
 
   // ==================== 交换 ====================
   async function trySwap(a, b) {
-    if (S.busy || !S.playing) return;
+    if (S.busy || !S.playing || S.paused) return;
     if (!inB(a.r, a.c) || !inB(b.r, b.c)) return;
     if (Math.abs(a.r - b.r) + Math.abs(a.c - b.c) !== 1) {
       S.selected = null;
@@ -974,16 +1004,18 @@
   }
 
   function undo() {
-    if (S.busy || !S.playing) return;
+    if (S.busy || !S.playing || S.paused) return;
     if (!S.history.length) {
       toast('暂无可撤销内容');
       return;
     }
-    if (S.undoLeft <= 0 && !Store.useItem('undo')) {
-      toast('撤回次数已用完，去商店补充');
+    // 每局只送 3 次，用完不自动扣背包：需要玩家自己在背包点「撤回」道具补充
+    if (S.undoLeft <= 0) {
+      toast('撤回次数用完了，去背包用「撤回」道具补充');
+      AudioManager.playSFX('invalid');
       return;
     }
-    if (S.undoLeft > 0) S.undoLeft--;
+    S.undoLeft--;
     const f = S.history.pop();
     S.board = f.board;
     S.jelly = f.jelly;
@@ -998,12 +1030,14 @@
   }
 
   function shuffleBoard() {
-    if (S.busy || !S.playing) return;
-    if (S.shuffleLeft <= 0 && !Store.useItem('shuffle')) {
-      toast('洗牌次数已用完，去商店补充');
+    if (S.busy || !S.playing || S.paused) return;
+    // 同上：用完不自动扣背包，必须玩家自己决定
+    if (S.shuffleLeft <= 0) {
+      toast('洗牌次数用完了，去背包用「洗牌」道具补充');
+      AudioManager.playSFX('invalid');
       return;
     }
-    if (S.shuffleLeft > 0) S.shuffleLeft--;
+    S.shuffleLeft--;
     pushHistory();
     reshuffle();
     drawStatic();
@@ -1049,6 +1083,7 @@
     S.lastClearAt = 0;
     S.history = [];
     S.playing = true;
+    S.paused = false;
     S.busy = false;
     S.selected = null;
     S.dragTo = null;
@@ -1084,7 +1119,7 @@
   function startTimer() {
     stopTimer();
     timerId = setInterval(() => {
-      if (!S.playing) return;
+      if (!S.playing || S.paused) return;
       S.timeLeft = Math.max(0, S.timeLeft - 1);
       updateHUD();
       updateTargetBar();
@@ -1098,6 +1133,52 @@
     if (timerId) {
       clearInterval(timerId);
       timerId = null;
+    }
+  }
+
+  // ==================== 暂停 ====================
+  function updatePauseHint() {
+    const el = $('pause-hint');
+    if (!el) return;
+    const lvTxt = S.daily ? '每日挑战' : '第 ' + S.level + ' 关';
+    const leftTxt = S.timerOn ? '剩余 ' + Math.ceil(S.timeLeft) + ' 秒' : '剩余 ' + S.moves + ' 步';
+    el.textContent = lvTxt + ' · ' + leftTxt + ' · 得分 ' + S.score;
+  }
+
+  function pauseGame() {
+    if (!S.playing || S.paused || S.busy) return;
+    S.paused = true;
+    stopTimer();
+    Input.setEnabled(false);
+    S.selected = null;
+    S.dragTo = null;
+    updatePauseHint();
+    drawStatic();
+    showOverlay('pause-menu');
+  }
+
+  function resumeGame() {
+    if (!S.paused) return;
+    S.paused = false;
+    const box = $('pause-menu');
+    if (box) box.style.display = 'none';
+    setView('game');
+    Input.setEnabled(true);
+    if (S.timerOn && S.playing) startTimer();
+    drawStatic();
+  }
+
+  // 重开当前关：步数 / 洗牌 / 撤销全部回到初始值
+  function restartCurrentLevel() {
+    const box = $('pause-menu');
+    if (box) box.style.display = 'none';
+    S.paused = false;
+    if (S.daily) {
+      const d = Tasks.getDailyChallenge();
+      startLevel(9999, { def: d, seed: d.seed, daily: true });
+    } else {
+      Store.clearRun();
+      startLevel(S.level);
     }
   }
 
@@ -1119,10 +1200,11 @@
     const starEl = $('stars');
     if (starEl) starEl.textContent = Store.totalStars();
 
+    // 徽章只显示本局剩余次数（背包里的数量在背包面板看，避免「以为能自动补」）
     const sh = $('shuffle-count');
-    if (sh) sh.textContent = S.shuffleLeft + (Store.getWallet().items.shuffle || 0);
+    if (sh) sh.textContent = S.shuffleLeft;
     const un = $('undo-count');
-    if (un) un.textContent = S.undoLeft + (Store.getWallet().items.undo || 0);
+    if (un) un.textContent = S.undoLeft;
   }
 
   function updateTargetBar() {
@@ -1173,6 +1255,7 @@
       ? { isNewScore: false, isNewStars: false }
       : Store.recordLevel(S.level, S.score, stars);
     if (!S.daily) S.menuLevel = S.level;
+    if (!S.daily) Store.markPlayed(S.level);
 
     // 金币产出（§7）
     const coins = Math.max(10, Math.floor(S.score / 100));
@@ -1210,7 +1293,8 @@
         $('game-complete').style.display = 'flex';
       }, 1400);
     }
-    saveRun();
+    // 本关已结算：清掉局内存档，避免主页还显示「继续游戏」
+    Store.clearRun();
   }
 
   function endGame() {
@@ -1224,6 +1308,7 @@
     const stars = passed ? Goals.stars(S.levelDef, S.score, remainRatio) : 0;
     if (passed && !S.daily) Store.recordLevel(S.level, S.score, stars);
     if (!S.daily) S.menuLevel = S.level;
+    if (!S.daily) Store.markPlayed(S.level);
     const coins = passed ? Math.max(10, Math.floor(S.score / 100)) : Math.floor(S.score / 300);
     Store.addCoins(coins);
     Tasks.report('play', 1);
@@ -1238,10 +1323,10 @@
       $('final-high').textContent = Store.getLevelRecord(S.level).score;
       $('final-level').textContent = S.daily ? '每日挑战' : S.level;
       $('final-coins').textContent = '+' + coins;
-      $('game-over-title').textContent = passed ? '目标达成！' : '步数耗尽';
+      $('game-over-title').textContent = passed ? '目标达成' : '步数耗尽';
       box.style.display = 'flex';
     }
-    saveRun();
+    Store.clearRun();
   }
 
   // ==================== 存档 ====================
@@ -1289,7 +1374,7 @@
   function hideAllOverlays() {
     ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
-      'rules-menu', 'logout-confirm', 'logout-confirm2',
+      'rules-menu', 'logout-confirm', 'logout-confirm2', 'pause-menu',
       'level-clear', 'game-over', 'game-complete'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -1390,7 +1475,7 @@
 
   // 道具只在局内可用（结算后 / 未开局都不行）
   function canUseItems() {
-    return !!S.playing && !S.busy;
+    return !!S.playing && !S.busy && !S.paused;
   }
 
   function useBackpackItem(key) {
@@ -1504,7 +1589,9 @@
     const maxUnlocked = Store.maxUnlockedLevel(maxMainLevel());
     const total = maxMainLevel();
     list.innerHTML = '';
-    for (let i = 1; i <= total; i++) {
+    // 只列出「已解锁的全部关卡」+「1 个未解锁的下一关」，总关数对玩家保密
+    const showTo = Math.min(total, maxUnlocked + 1);
+    for (let i = 1; i <= showTo; i++) {
       const rec = prog[i] || { score: 0, stars: 0 };
       const locked = i > maxUnlocked;
       const row = document.createElement('div');
@@ -1594,12 +1681,46 @@
     if (sh) sh.addEventListener('click', shuffleBoard);
     const un = $('btn-undo');
     if (un) un.addEventListener('click', undo);
-    const quit = $('btn-quit');
-    if (quit) quit.addEventListener('click', () => {
+    // 暂停
+    const pauseBtn = $('btn-pause');
+    if (pauseBtn) pauseBtn.addEventListener('click', pauseGame);
+    const resumeBtn = $('btn-resume');
+    if (resumeBtn) resumeBtn.addEventListener('click', resumeGame);
+    const pauseRestart = $('btn-pause-restart');
+    if (pauseRestart) pauseRestart.addEventListener('click', restartCurrentLevel);
+    const pauseHome = $('btn-pause-home');
+    if (pauseHome) pauseHome.addEventListener('click', () => {
+      const box = $('pause-menu');
+      if (box) box.style.display = 'none';
+      S.paused = false;
+      // 先把这一局存下来，回主页后按钮才会显示「继续游戏」
       saveRun();
       if (!S.daily) S.menuLevel = S.level;
       S.playing = false;
       showOverlay('main-menu');
+      refreshMenu();
+    });
+
+    // 主页上一关 / 下一关
+    const prevLv = $('btn-prev-level');
+    if (prevLv) prevLv.addEventListener('click', () => {
+      if (S.menuLevel <= 1) return;
+      S.menuLevel--;
+      Store.setSettings({ menuLevel: S.menuLevel });
+      AudioManager.playSFX('select');
+      refreshMenu();
+    });
+    const nextLv = $('btn-next-level-menu');
+    if (nextLv) nextLv.addEventListener('click', () => {
+      const maxU = Store.maxUnlockedLevel(maxMainLevel());
+      if (S.menuLevel >= maxU) {
+        toast('先通过本关才能解锁下一关');
+        AudioManager.playSFX('invalid');
+        return;
+      }
+      S.menuLevel++;
+      Store.setSettings({ menuLevel: S.menuLevel });
+      AudioManager.playSFX('select');
       refreshMenu();
     });
 
@@ -1608,14 +1729,12 @@
     if (play) play.addEventListener('click', () => {
       AudioManager.init(Store.getSettings());
       AudioManager.unlock();
-      const rec = Store.getLevelRecord(S.menuLevel || 1);
-      const cleared = !!(rec && rec.stars >= 1);
-      // 已通关的关卡点「重新开始」永远是重开；未通关才允许续玩存档
-      if (!cleared) {
-        const run = Store.loadRun();
-        if (run && run.level === S.menuLevel && !run.daily && loadRun()) return;
-      }
-      startLevel(S.menuLevel || 1);
+      const lv = S.menuLevel || 1;
+      const run = Store.loadRun();
+      // 有本关未完成的存档 → 继续；否则重开（步数/洗牌/撤销全部重置）
+      if (run && !run.daily && run.level === lv && loadRun()) return;
+      Store.clearRun();
+      startLevel(lv);
     });
     const rulesBtn = $('btn-rules');
     if (rulesBtn) rulesBtn.addEventListener('click', () => showOverlay('rules-menu'));
@@ -1856,6 +1975,14 @@
 
     const lvEl = $('menu-current-level');
     if (lvEl) lvEl.textContent = S.menuLevel;
+    const lvLabel = $('menu-level-label');
+    if (lvLabel) lvLabel.textContent = S.menuLevel;
+
+    // 上一关 / 下一关：只能在自己已解锁的范围内翻
+    const prevBtn = $('btn-prev-level');
+    if (prevBtn) prevBtn.disabled = S.menuLevel <= 1;
+    const nextBtn = $('btn-next-level-menu');
+    if (nextBtn) nextBtn.disabled = S.menuLevel >= maxUnlocked;
 
     const high = $('menu-current-high');
     if (high) high.textContent = (prog[S.menuLevel] && prog[S.menuLevel].score) || 0;
@@ -1867,9 +1994,14 @@
 
     const play = $('btn-play');
     if (play) {
-      const cleared = !!(prog[S.menuLevel] && prog[S.menuLevel].stars >= 1);
-      // 已通关 → 只有「重新开始」；没玩过 / 玩过没通关 → 「开始游戏」
-      play.textContent = cleared ? '🔄 重新开始' : '🎮 开始游戏';
+      const run = Store.loadRun();
+      const canResume = !!(run && !run.daily && run.level === S.menuLevel && (run.moves > 0 || run.timeLeft > 0));
+      const played = Store.hasPlayed(S.menuLevel) || !!(prog[S.menuLevel]);
+      // 有未完成的本局存档（暂停/中途退出）→ 继续游戏；
+      // 通关过、或玩过没通关 → 重新开始；完全没碰过 → 开始游戏
+      if (canResume) play.textContent = '🕹️ 继续游戏';
+      else if (played) play.textContent = '🔄 重新开始';
+      else play.textContent = '🎮 开始游戏';
     }
   }
 
