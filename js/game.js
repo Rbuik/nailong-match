@@ -1318,14 +1318,21 @@
 
   // ==================== 规则字号 ====================
   // 只影响规则正文（.rules-box 里的 --rule-fs 变量），不动机面其他字号
-  const RULE_FONTS = [13, 15, 17];
-  const RULE_FONT_NAMES = ['小', '中', '大'];
+  // 7 档，默认中档（15px）：往小 3 次、往大 3 次
+  const RULE_FONTS = [9, 11, 13, 15, 17, 19, 21];
+  const RULE_FONT_DEFAULT = 3; // 正中间那档 = 15px
+
+  function ruleFontLevel() {
+    const v = Number(Store.getSettings().ruleFontLv);
+    if (!Number.isFinite(v)) return RULE_FONT_DEFAULT;
+    return Math.max(0, Math.min(RULE_FONTS.length - 1, Math.round(v)));
+  }
 
   function applyRuleFont(idx) {
     const box = $('rules-box');
     const i = Math.max(0, Math.min(RULE_FONTS.length - 1, Number(idx) || 0));
     if (box) box.style.setProperty('--rule-fs', RULE_FONTS[i] + 'px');
-    // 到边界时对应按钮变淡，提示无法再调
+    // 到边界时对应按钮变淡，提示已经没法再调
     const minus = $('btn-rule-font-minus');
     const plus = $('btn-rule-font-plus');
     if (minus) minus.classList.toggle('is-off', i <= 0);
@@ -1949,21 +1956,21 @@
     });
     const rulesBtn = $('btn-rules');
     if (rulesBtn) rulesBtn.addEventListener('click', () => {
-      applyRuleFont(Number(Store.getSettings().ruleFont) || 0);
+      applyRuleFont(ruleFontLevel());
       showOverlay('rules-menu');
     });
-    // 右下角字号按钮：左边 A− 缩小、右边 A+ 放大（只调规则正文字号）
+    // 右下角「规则字号」：左边 A− 缩小、右边 A+ 放大，各可调 3 次（中间档为默认）
+    // 调节过程中不弹提示，只在调到底时提示
     const stepRuleFont = (delta) => {
-      const cur = Math.max(0, Math.min(RULE_FONTS.length - 1, Number(Store.getSettings().ruleFont) || 0));
+      const cur = ruleFontLevel();
       const next = Math.max(0, Math.min(RULE_FONTS.length - 1, cur + delta));
       if (next === cur) {
         toast(delta > 0 ? '已经是最大字号' : '已经是最小字号');
         return;
       }
       applyRuleFont(next);
-      Store.setSettings({ ruleFont: next });
+      Store.setSettings({ ruleFontLv: next });
       AudioManager.playSFX('select');
-      toast('规则字号：' + RULE_FONT_NAMES[next]);
     };
     const fontMinus = $('btn-rule-font-minus');
     if (fontMinus) fontMinus.addEventListener('click', () => stepRuleFont(-1));

@@ -347,7 +347,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   padding: 14px 16px;
   margin-bottom: 14px;
   box-sizing: border-box;
-  --rule-fs: 13px; /* 字号由右下角的 A 按钮调节 */
+  --rule-fs: 15px; /* 默认中档，由右下角「规则字号 A− / A+」调节 */
 }
 
 .rules-box::-webkit-scrollbar { width: 6px; }
@@ -357,14 +357,14 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .rule-sec:last-child { margin-bottom: 4px; }
 
 .rule-sec h3 {
-  font-size: calc(var(--rule-fs, 13px) + 2px);
+  font-size: calc(var(--rule-fs, 15px) + 2px);
   color: #4b3f8f;
   margin-bottom: 6px;
   font-weight: 800;
 }
 
 .rule-sec p {
-  font-size: var(--rule-fs, 13px);
+  font-size: var(--rule-fs, 15px);
   line-height: 1.65;
   color: #444;
   margin: 3px 0;
@@ -372,14 +372,26 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .rule-sec b { color: #222; }
 
-/* 规则页右下方：只调规则正文字号（白底 + 黑圈 + 黑字）
-   左边 A− 缩小、右边 A+ 放大，跟规则框右边缘对齐 */
+/* 规则页整页右下角：固定悬浮的字号调节（文字 + A− / A+ 两个圆钮，白底黑圈黑字） */
+#rules-menu { padding-bottom: 74px; }
+
 .rule-font-ctrl {
-  width: 92%;
+  position: absolute;
+  right: 14px;
+  bottom: 16px;
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
+  z-index: 3;
+}
+
+.rule-font-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  margin-right: 2px;
 }
 
 .rule-font-btn {
