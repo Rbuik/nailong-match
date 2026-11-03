@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>奶龙消消乐</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./css/style.css">
+<link rel="stylesheet" href="./css/themes.css">
+</head>
+<body data-theme="grass">
+<div class="game-container">
+  <div class="hud" id="hud">
+    <div class="hud-item">关卡：<b id="level">1</b></div>
+    <div class="hud-item" id="moves-container">步数：<b id="moves">25</b></div>
+    <div class="hud-item">得分：<b id="score">0</b></div>
+    <div class="hud-item hud-mini">💰 <b id="coins">0</b></div>
+    <div class="hud-item hud-mini">⭐ <b id="stars">0</b></div>
+    <button id="btn-quit">主页</button>
+  </div>
+
+  <div class="target-bar" id="target-bar">目标：得分 0 / 1000</div>
+
+  <div class="combo-bar" id="combo-bar">
+    <span id="combo-text">x2</span>
+  </div>
+
+  <div class="tools">
+    <div class="preview-strip" id="preview-strip" title="即将掉落"></div>
+    <button id="btn-music-game" class="tool-btn music-btn music-btn-main" title="音乐开关">
+      <span class="icon">🎵</span>
+    </button>
+    <button id="btn-shuffle" class="tool-btn">
+      <span class="icon">🔄</span><span class="text">洗牌</span><span class="badge" id="shuffle-count">3</span>
+    </button>
+    <button id="btn-undo" class="tool-btn">
+      <span class="icon">↩️</span><span class="text">撤回</span><span class="badge" id="undo-count">3</span>
+    </button>
+  </div>
+
+  <div class="board-wrap">
+    <canvas id="game"></canvas>
+    <div id="center-banner"><span id="center-banner-text"></span></div>
+    <div id="loading">加载中…</div>
+  </div>
+
+  <div id="toast"></div>
+
+  <!-- 主页 -->
+  <div class="overlay" id="main-menu">
+    <div class="top-right-group">
+      <button id="btn-custom-music" class="music-btn" title="设置"><span class="icon">⚙️</span></button>
+      <button id="btn-music-home" class="music-btn music-btn-main" title="音乐开关"><span class="icon">🎵</span></button>
+    </div>
+
+    <div class="mascot" aria-hidden="true">
+      <div class="mascot-body">
+        <div class="mascot-eye left"></div>
+        <div class="mascot-eye right"></div>
+        <div class="mascot-cheek left"></div>
+        <div class="mascot-cheek right"></div>
+        <div class="mascot-mouth"></div>
+      </div>
+      <div class="mascot-name">奶龙</div>
+    </div>
+
+    <h1 class="title">奶龙消消乐</h1>
+    <div class="result-box" style="margin-bottom:18px;">
+      <p><span>当前进度</span><b id="menu-current-level">1</b></p>
+      <p><span>本关最高分</span><b id="menu-current-high">0</b></p>
+      <p><span>总星星</span><b id="menu-total-stars">0</b></p>
+      <p><span>金币</span><b id="menu-coins">0</b></p>
+    </div>
+
+    <button class="btn-primary" id="btn-play">开始游戏</button>
+    <button class="btn-secondary" id="btn-restart-level">🔄 重新开始本关</button>
+
+    <div class="menu-col">
+      <button class="btn-mini wide" id="btn-history">🏆 关卡记录</button>
+      <button class="btn-mini wide" id="btn-daily">📅 每日挑战</button>
+      <button class="btn-mini wide" id="btn-goto-tasks">🎯 每日任务</button>
+      <button class="btn-mini wide" id="btn-goto-shop">🛒 商店</button>
+    </div>
+
+    <button id="btn-logout">注销</button>
+  </div>
+
+  <!-- 设置 -->
+  <div class="overlay" id="settings-menu" style="display:none;">
+    <h2 class="title small">设置</h2>
+    <div class="result-box" style="width:88%;">
+      <p style="display:flex;justify-content:space-between;font-size:14px;">
+        <span>背景音乐</span><b id="bgm-volume-val">50%</b>
+      </p>
+      <input type="range" id="bgm-volume" min="0" max="1" step="0.01" value="0.5" style="width:100%;margin-bottom:16px;">
+      <p style="display:flex;justify-content:space-between;font-size:14px;">
+        <span>游戏音效</span><b id="sfx-volume-val">50%</b>
+      </p>
+      <input type="range" id="sfx-volume" min="0" max="1" step="0.01" value="0.5" style="width:100%;">
+    </div>
+    <button class="btn-primary" id="btn-goto-playlist">📋 播放列表</button>
+    <button class="btn-primary" id="btn-goto-import">📂 导入音频</button>
+    <button class="btn-secondary" id="btn-save-volume">保存音量</button>
+    <button class="btn-secondary" id="btn-reset-bgm">恢复默认音乐</button>
+    <button class="btn-secondary" id="btn-close-settings">关闭</button>
+  </div>
+
+  <!-- 导入音频 -->
+  <div class="overlay" id="custom-music-menu" style="display:none;">
+    <h2 class="title small">导入音频</h2>
+    <div class="result-box" style="width:88%;">
+      <p style="display:block;text-align:left;font-size:13px;line-height:1.6;">
+        粘贴 <b>MP3 / M4A 音频直链</b><br>
+        <span style="color:#e53935;font-size:12px;">必须是以 .mp3 结尾的直链地址</span>
+      </p>
+      <div class="input-row">
+        <input type="text" id="input-custom-bgm" placeholder="https://.../music.mp3">
+        <button id="btn-clear-input" class="input-clear" style="display:none;">✕</button>
+      </div>
+    </div>
+    <button class="btn-primary" id="btn-save-bgm">保存并播放</button>
+    <button class="btn-secondary" id="btn-goto-history-music">历史导入</button>
+    <button class="btn-secondary" id="btn-back-import">返回</button>
+  </div>
+
+  <!-- 历史导入 -->
+  <div class="overlay" id="music-history-menu" style="display:none;">
+    <h2 class="title small">历史导入</h2>
+    <div class="batch-bar" id="batch-action-bar" style="display:none;">
+      <button class="btn-primary slim" id="btn-batch-add">添加到播放列表</button>
+      <button class="btn-primary slim danger" id="btn-batch-del">删除</button>
+      <button class="btn-secondary slim" id="btn-batch-cancel">取消</button>
+    </div>
+    <div class="music-box">
+      <div class="music-list" id="music-history-list"></div>
+    </div>
+    <button class="btn-secondary" id="btn-back-history-music">返回</button>
+  </div>
+
+  <!-- 播放列表 -->
+  <div class="overlay" id="playlist-menu" style="display:none;">
+    <h2 class="title small">播放列表</h2>
+    <div class="mode-row">
+      <button class="btn-secondary slim" id="btn-mode-seq">顺序</button>
+      <button class="btn-secondary slim" id="btn-mode-shuf">随机</button>
+      <button class="btn-secondary slim" id="btn-mode-loop">循环</button>
+    </div>
+    <div class="batch-bar" id="playlist-batch-bar" style="display:none;">
+      <button class="btn-primary slim danger" id="btn-pl-batch-del">从列表删除</button>
+      <button class="btn-secondary slim" id="btn-pl-batch-cancel">取消</button>
+    </div>
+    <div class="music-box">
+      <div class="music-list" id="playlist-list"></div>
+    </div>
+    <button class="btn-primary" id="btn-goto-library">🎵 音乐库</button>
+    <button class="btn-secondary" id="btn-back-playlist">返回</button>
+  </div>
+
+  <!-- 音乐库（与历史导入共用数据） -->
+  <div class="overlay" id="music-library-menu" style="display:none;">
+    <h2 class="title small">音乐库</h2>
+    <div class="batch-bar" id="library-batch-action-bar" style="display:none;">
+      <button class="btn-primary slim" id="btn-lib-batch-add">添加到播放列表</button>
+      <button class="btn-primary slim danger" id="btn-lib-batch-del">删除</button>
+      <button class="btn-secondary slim" id="btn-lib-batch-cancel">取消</button>
+    </div>
+    <div class="music-box">
+      <div class="music-list" id="music-library-list"></div>
+    </div>
+    <button class="btn-secondary" id="btn-back-library">返回播放列表</button>
+  </div>
+
+  <!-- 重命名 -->
+  <div class="overlay" id="rename-menu" style="display:none;">
+    <h2 class="title small">重命名</h2>
+    <div class="result-box" style="width:88%;">
+      <input type="text" id="input-rename" placeholder="输入新名称">
+    </div>
+    <button class="btn-primary" id="btn-save-rename">保存</button>
+    <button class="btn-secondary" id="btn-cancel-rename">取消</button>
+  </div>
+
+  <!-- 每日任务 -->
+  <div class="overlay" id="tasks-menu" style="display:none;">
+    <h2 class="title small">每日任务</h2>
+    <div class="signin-box" id="signin-info"></div>
+    <button class="btn-primary" id="btn-signin">签到领金币</button>
+    <div class="task-list" id="tasks-list"></div>
+    <button class="btn-secondary" id="btn-close-tasks">关闭</button>
+  </div>
+
+  <!-- 商店 -->
+  <div class="overlay" id="shop-menu" style="display:none;">
+    <h2 class="title small">商店 · 💰 <span id="shop-coins">0</span></h2>
+    <div class="shop-list" id="shop-list"></div>
+    <button class="btn-secondary" id="btn-close-shop">关闭</button>
+  </div>
+
+  <!-- 关卡记录 -->
+  <div class="overlay" id="history-menu" style="display:none;">
+    <h2 class="title small">关卡记录</h2>
+    <p class="history-hint">点任意一关即可回到主页并切换到该关</p>
+    <div class="history-list" id="history-list"></div>
+    <button class="btn-secondary" id="btn-history-back">返回</button>
+  </div>
+
+  <!-- 过关 -->
+  <div class="overlay" id="level-clear" style="display:none;">
+    <h2 class="title small">关卡完成！</h2>
+    <div class="stars-row" id="clear-stars">
+      <span>★</span><span>★</span><span>★</span>
+    </div>
+    <div class="result-box">
+      <p><span>本关得分</span><span style="display:flex;align-items:center;">
+        <span id="clear-new-record" class="new-record-badge" style="display:none;">新纪录</span>
+        <b id="clear-score">0</b></span></p>
+      <p><span>历史最高</span><b id="clear-high">0</b></p>
+      <p><span>剩余步数</span><b id="clear-moves">0</b></p>
+      <p><span>金币奖励</span><b id="clear-coins">+0</b></p>
+    </div>
+    <button class="btn-primary" id="btn-next-level">进入下一关</button>
+    <button class="btn-secondary" id="btn-clear-home">返回主页</button>
+  </div>
+
+  <!-- 失败 -->
+  <div class="overlay" id="game-over" style="display:none;">
+    <h2 class="title small" id="game-over-title">步数耗尽</h2>
+    <div class="result-box">
+      <p><span>本局得分</span><b id="final-score">0</b></p>
+      <p><span>历史最高</span><b id="final-high">0</b></p>
+      <p><span>达到关卡</span><b id="final-level">1</b></p>
+      <p><span>金币奖励</span><b id="final-coins">+0</b></p>
+    </div>
+    <button class="btn-primary" id="btn-restart">重新挑战</button>
+    <button class="btn-secondary" id="btn-home">返回主页</button>
+  </div>
+
+  <!-- 毕业 -->
+  <div class="overlay" id="game-complete" style="display:none;">
+    <h2 class="title small">🎉 恭喜全通关！</h2>
+    <div class="complete-badge">
+      <span class="icon">👑</span>
+      <span class="text">消消乐大师</span>
+    </div>
+    <div class="result-box" style="width:85%;">
+      <p style="justify-content:center;flex-direction:column;gap:8px;">
+        <span style="font-size:13px;color:#666;">主线历史总得分</span>
+        <b id="complete-total-score" style="font-size:30px;color:#ff8c00;">0</b>
+      </p>
+    </div>
+    <button class="btn-secondary" id="btn-complete-home">回到主页</button>
+  </div>
+</div>
+
+<script src="./js/rng.js"></script>
+<script src="./js/storage.js"></script>
+<script src="./js/audio.js"></script>
+<script src="./js/effects.js"></script>
+<script src="./js/specials.js"></script>
+<script src="./js/goals.js"></script>
+<script src="./js/tasks.js"></script>
+<script src="./js/input.js"></script>
+<script src="./js/music.js"></script>
+<script src="./js/game.js"></script>
+</body>
+</html>

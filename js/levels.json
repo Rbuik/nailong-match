@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "maxMainLevel": 20,
+  "themes": {
+    "grass": { "name": "草地", "bg": "#e8f7ea", "grid": "#d3ecd6" },
+    "ocean": { "name": "海洋", "bg": "#e6f2fb", "grid": "#cfe6f5" },
+    "star":  { "name": "星空", "bg": "#ece9f8", "grid": "#ddd7f2" },
+    "candy": { "name": "糖果", "bg": "#fdeef4", "grid": "#f7d8e6" }
+  },
+  "levels": [
+    { "id": 1,  "theme": "grass", "moves": 28, "goal": { "type": "score",   "target": 1000 }, "stars": [1000, 1500, 2000] },
+    { "id": 2,  "theme": "grass", "moves": 26, "goal": { "type": "collect", "target": { "0": 12, "1": 12 } }, "stars": [1200, 1800, 2400] },
+    { "id": 3,  "theme": "grass", "moves": 26, "goal": { "type": "score",   "target": 1400 }, "stars": [1400, 2000, 2700] },
+    { "id": 4,  "theme": "grass", "moves": 24, "goal": { "type": "clear",   "target": 8 },  "stars": [1000, 1600, 2200] },
+    { "id": 5,  "theme": "grass", "moves": 20, "goal": { "type": "score",   "target": 1800 }, "stars": [1800, 2400, 3000], "boss": true },
+    { "id": 6,  "theme": "ocean", "moves": 30, "goal": { "type": "collect", "target": { "0": 15, "1": 15 } }, "stars": [1500, 2200, 3000], "relief": true },
+    { "id": 7,  "theme": "ocean", "moves": 24, "goal": { "type": "score",   "target": 2200 }, "stars": [2200, 2900, 3600] },
+    { "id": 8,  "theme": "ocean", "moves": 60, "goal": { "type": "timed",   "target": 1200, "time": 60 }, "stars": [1200, 1900, 2600] },
+    { "id": 9,  "theme": "ocean", "moves": 22, "goal": { "type": "clear",   "target": 12 }, "stars": [1200, 1800, 2500] },
+    { "id": 10, "theme": "ocean", "moves": 20, "goal": { "type": "score",   "target": 3000 }, "stars": [3000, 3800, 4600], "boss": true, "chapter": 2 },
+    { "id": 11, "theme": "star",  "moves": 24, "goal": { "type": "collect", "target": { "0": 15, "2": 15 } }, "stars": [1600, 2300, 3000] },
+    { "id": 12, "theme": "star",  "moves": 14, "goal": { "type": "moves",   "target": 1800 }, "stars": [1800, 2400, 3000] },
+    { "id": 13, "theme": "star",  "moves": 22, "goal": { "type": "score",   "target": 3200 }, "stars": [3200, 4000, 4800] },
+    { "id": 14, "theme": "star",  "moves": 20, "goal": { "type": "clear",   "target": 16 }, "stars": [1400, 2100, 2800] },
+    { "id": 15, "theme": "star",  "moves": 18, "goal": { "type": "score",   "target": 3600 }, "stars": [3600, 4400, 5300], "boss": true },
+    { "id": 16, "theme": "candy", "moves": 28, "goal": { "type": "collect", "target": { "0": 18, "1": 18, "2": 18 } }, "stars": [2000, 3000, 4000], "relief": true },
+    { "id": 17, "theme": "candy", "moves": 75, "goal": { "type": "timed",   "target": 1800, "time": 75 }, "stars": [1800, 2700, 3600] },
+    { "id": 18, "theme": "candy", "moves": 22, "goal": { "type": "clear",   "target": 20 }, "stars": [1600, 2400, 3200] },
+    { "id": 19, "theme": "candy", "moves": 16, "goal": { "type": "moves",   "target": 2600 }, "stars": [2600, 3400, 4200] },
+    { "id": 20, "theme": "candy", "moves": 20, "goal": { "type": "score",   "target": 5000 }, "stars": [5000, 6000, 7200], "boss": true, "final": true }
+  ]
+}

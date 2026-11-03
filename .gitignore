@@ -1,0 +1,21 @@
+# 系统
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+
+# 依赖 / 构建产物
+node_modules/
+dist/
+*.log
+
+# 本地归档：重构前单文件版本，不入库
+_legacy/
+
+# 临时测试
+_smoke.test.js
+_tmp/
