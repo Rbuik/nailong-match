@@ -102,14 +102,26 @@
   <!-- 后台（隐藏入口：同时按住奶龙图案 + 注销键 3 秒） -->
   <div class="overlay" id="admin-menu" style="display:none;">
     <h2 class="title small">🔧 后台</h2>
-    <div class="result-box" style="width:86%;">
-      <p><span>🔗 链接打开次数</span><b id="admin-visits">0</b></p>
-      <p><span>🕐 首次打开</span><b id="admin-first" style="font-size:13px;">—</b></p>
-      <p><span>🕑 最近打开</span><b id="admin-last" style="font-size:13px;">—</b></p>
-      <p><span>📱 设备</span><b id="admin-device" style="font-size:12px;">—</b></p>
-      <p><span>🎮 游戏进度</span><b id="admin-progress" style="font-size:13px;">—</b></p>
+
+    <div class="admin-sec">
+      <div class="admin-sec-title">🌐 全网</div>
+      <div class="result-box">
+        <p><span>打开次数</span><b id="admin-global">—</b></p>
+      </div>
     </div>
-    <button class="btn-secondary" id="btn-admin-reset">计数清零</button>
+
+    <div class="admin-sec">
+      <div class="admin-sec-title">📱 本机</div>
+      <div class="result-box">
+        <p><span>打开次数</span><b id="admin-visits">0</b></p>
+        <p><span>设备</span><b id="admin-device" style="font-size:13px;">—</b></p>
+        <p><span>地址</span><b id="admin-loc" style="font-size:13px;">—</b></p>
+        <p><span>游戏进度</span><b id="admin-progress" style="font-size:13px;">—</b></p>
+        <p><span>星星总数</span><b id="admin-stars" style="font-size:13px;">0</b></p>
+        <p><span>分数总数</span><b id="admin-score" style="font-size:13px;">0</b></p>
+      </div>
+    </div>
+
     <button class="btn-primary" id="btn-admin-close">关闭</button>
   </div>
 

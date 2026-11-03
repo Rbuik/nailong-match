@@ -16,6 +16,7 @@
     settings: NS + ':settings',   // { music, bgm, sfx, theme }
     daily: NS + ':daily',         // 每日挑战当天最佳 { date, best, times }
     visits: NS + ':visits',       // 链接打开次数 { count, first, last }
+    net: NS + ':net',             // 后台缓存 { globalHits, geo:{country,region,city,ts} }
     save: NS + ':save'            // 当前局
   };
 
@@ -256,6 +257,17 @@
     write(K.visits, { count: 0, first: 0, last: 0 });
   }
 
+  // ---------- 后台统计缓存（全网次数 / 定位），离线时展示上次结果 ----------
+  function getNet() {
+    return read(K.net, { globalHits: 0, geo: null });
+  }
+
+  function patchNet(patch) {
+    const n = Object.assign(getNet(), patch);
+    write(K.net, n);
+    return n;
+  }
+
   // ---------- 当前局存档 ----------
   function saveRun(state) {
     write(K.save, state);
@@ -271,7 +283,7 @@
 
   function wipeAll() {
     Object.keys(K).forEach((key) => {
-      if (key === 'visits') return; // 打开次数是后台统计，不随注销清空（后台有「计数清零」）
+      if (key === 'visits' || key === 'net') return; // 后台统计不随注销清空
       try { localStorage.removeItem(K[key]); } catch (e) {}
     });
     ['nailong_save', 'nailong_level_scores', 'nailong_music_history', 'nailong_playlist',
@@ -287,7 +299,7 @@
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
     getTaskState, setTaskState, signIn, canSignIn, todayKey, dayIndex,
-    getSettings, setSettings, getVisits, recordVisit, resetVisits,
+    getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet,
     saveRun, loadRun, clearRun, wipeAll
   };
 })(window);

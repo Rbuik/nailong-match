@@ -478,6 +478,28 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .load-tip .load-tip-x:active { transform: scale(0.88); }
 
+/* 后台面板：分「全网 / 本机」两块 */
+.admin-sec {
+  width: 86%;
+  margin-bottom: 10px;
+}
+
+.admin-sec-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: #7c8aa5;
+  letter-spacing: 1px;
+  margin: 0 0 5px 4px;
+  text-align: left;
+}
+
+.admin-sec .result-box {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.admin-sec .result-box p { font-size: 14px; }
+
 .btn-mini.wide {
   width: 100%;
   padding: 13px 0;

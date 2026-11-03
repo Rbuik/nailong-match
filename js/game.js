@@ -1855,6 +1855,94 @@
     setTimeout(step, 40);
   }
 
+  // ==================== 后台统计：全网次数 / 设备 / 地址 / 进度 ====================
+  const HITS_API = 'https://abacus.jasoncameron.dev/hit/nailong-xiaoxiaole-2026/opens';
+  const GEO_API = 'https://ipwho.is/?lang=zh-CN';
+
+  // 打开页面就 +1，结果缓存下来，离线时显示上次的数字
+  function bumpGlobalHits() {
+    if (typeof fetch !== 'function') return;
+    fetch(HITS_API, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (j && typeof j.value === 'number') Store.patchNet({ globalHits: j.value });
+        renderAdmin();
+      })
+      .catch(() => {});
+  }
+
+  // 城市级定位：7 天内复用缓存，避免每次联网
+  function fetchGeo() {
+    const geo = Store.getNet().geo;
+    if (geo && geo.ts && Date.now() - geo.ts < 7 * 864e5) return Promise.resolve(geo);
+    if (typeof fetch !== 'function') return Promise.resolve(null);
+    return fetch(GEO_API, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (!j || j.success === false) return null;
+        const g = { country: j.country || '', region: j.region || '', city: j.city || '', ts: Date.now() };
+        Store.patchNet({ geo: g });
+        return g;
+      })
+      .catch(() => null);
+  }
+
+  function describeDevice() {
+    const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+    const ios = /OS (\d+)[._](\d+)/.exec(ua);
+    if (/iPhone/.test(ua)) return 'iPhone' + (ios ? '（iOS ' + ios[1] + '.' + ios[2] + '）' : '');
+    if (/iPad/.test(ua)) return 'iPad' + (ios ? '（iOS ' + ios[1] + '.' + ios[2] + '）' : '');
+    const and = /Android\s([\d.]+)[^;]*;\s*([^;)]+?)(?:\s+Build|\))/.exec(ua);
+    if (and) {
+      let model = (and[2] || '').replace(/\s+/g, ' ').trim();
+      if (!model || model.length < 2 || /^(K|wv)$/i.test(model)) model = '安卓手机';
+      return model + '（Android ' + and[1] + '）';
+    }
+    if (/Windows NT 10/.test(ua)) return 'Windows 10/11 电脑';
+    if (/Macintosh/.test(ua)) return 'Mac 电脑';
+    if (/Linux/.test(ua)) return 'Linux 电脑';
+    return '未知设备';
+  }
+
+  // 安卓 Chrome 能拿到更精确的机型号（UA-CH）
+  function upgradeDeviceModel() {
+    const d = (typeof navigator !== 'undefined') && navigator.userAgentData;
+    if (!d || !d.getHighEntropyValues) return;
+    d.getHighEntropyValues(['model']).then((h) => {
+      if (!h || !h.model) return;
+      const el = $('admin-device');
+      if (el) el.textContent = h.model + '（Android）';
+    }).catch(() => {});
+  }
+
+  function totalBestScore() {
+    const prog = Store.getProgress() || {};
+    let sum = 0;
+    Object.keys(prog).forEach((k) => {
+      const rec = prog[k];
+      if (rec && typeof rec.score === 'number') sum += rec.score;
+    });
+    return sum;
+  }
+
+  function renderAdmin() {
+    if (!$('admin-menu')) return;
+    const net = Store.getNet();
+    // 全网
+    const g = net.globalHits;
+    $('admin-global').textContent = (typeof g === 'number' && g > 0) ? String(g) : '—';
+    // 本机
+    $('admin-visits').textContent = Store.getVisits().count;
+    $('admin-device').textContent = describeDevice();
+    const geo = net.geo;
+    const loc = geo ? [geo.country, geo.region, geo.city].filter(Boolean).join(' ') : '';
+    $('admin-loc').textContent = loc || '—';
+    $('admin-progress').textContent = '第 ' + Store.maxUnlockedLevel(maxMainLevel()) +
+      ' 关（共 ' + maxMainLevel() + ' 关）';
+    $('admin-stars').textContent = Store.totalStars();
+    $('admin-score').textContent = totalBestScore();
+  }
+
   // ==================== 绑定 ====================
   function attachUI() {    // 画布输入
     Input.attach(canvas, {
@@ -2049,27 +2137,15 @@
       let holds = 0;
       let holdTimer = null;
       let suppressLogout = false;
-      const fmtTime = (t) => {
-        if (!t) return '—';
-        const d = new Date(t);
-        const p = (n) => (n < 10 ? '0' + n : n);
-        return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' +
-          p(d.getHours()) + ':' + p(d.getMinutes());
-      };
       const openAdmin = () => {
         holdTimer = null;
         holds = 0;
         suppressLogout = true; // 松手时不要误触「注销」确认框
-        const v = Store.getVisits();
-        $('admin-visits').textContent = v.count;
-        $('admin-first').textContent = fmtTime(v.first);
-        $('admin-last').textContent = fmtTime(v.last);
-        $('admin-device').textContent = (screen.width || '?') + '×' + (screen.height || '?') +
-          ' @' + (window.devicePixelRatio || 1) + 'x';
-        $('admin-progress').textContent = '第 ' + Store.maxUnlockedLevel(maxMainLevel()) + ' 关 · ' +
-          Store.totalStars() + ' 星 · ' + Store.getWallet().coins + ' 金币';
+        renderAdmin();
+        fetchGeo().then(renderAdmin);
         AudioManager.playSFX('select');
         showOverlay('admin-menu');
+        upgradeDeviceModel();
       };
       const press = () => {
         holds++;
@@ -2095,14 +2171,6 @@
     const adminClose = $('btn-admin-close');
     if (adminClose) adminClose.addEventListener('click', () => {
       $('admin-menu').style.display = 'none';
-    });
-    const adminReset = $('btn-admin-reset');
-    if (adminReset) adminReset.addEventListener('click', () => {
-      Store.resetVisits();
-      $('admin-visits').textContent = '0';
-      $('admin-first').textContent = '—';
-      $('admin-last').textContent = '—';
-      toast('打开次数已清零');
     });
 
     // 主页提示条：点左侧 ✕ 只是本次隐藏，下次进主页会再出现
@@ -2389,7 +2457,9 @@
     }
 
     const settings = Store.getSettings();
-    Store.recordVisit(); // 链接打开次数：每载入一次 +1（隐藏后台查看）
+    Store.recordVisit(); // 本机打开次数：每载入一次 +1
+    // 后台统计：全网计数 +1、城市定位（失败不影响游戏）
+    setTimeout(() => { bumpGlobalHits(); fetchGeo(); }, 600);
     AudioManager.init(settings);
     AudioManager.musicOn = settings.music !== false;
     ['btn-music-home', 'btn-music-game'].forEach((id) => {
