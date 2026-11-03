@@ -8,8 +8,8 @@
   const TYPES = ['score', 'collect', 'clear', 'timed', 'moves'];
 
   const LABEL = {
-    score: '得分',
-    collect: '收集',
+    score: '普通得分',
+    collect: '收集方块',
     clear: '清除果冻',
     timed: '限时得分',
     moves: '极限步数'
