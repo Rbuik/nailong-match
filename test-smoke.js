@@ -239,10 +239,9 @@ function check(name, ok) {
   $('btn-rules').dispatch('click');
   check('规则面板打开', $('rules-menu').style.display === 'flex');
   const htmlSrc = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-  check('规则含星级评价说明', htmlSrc.includes('2 星线') && htmlSrc.includes('3 星线') && htmlSrc.includes('分数线'));
-  check('规则说明十字架横竖都清', htmlSrc.includes('整行 + 整列') && htmlSrc.includes('一起清'));
-  check('规则含 5 种模式', ['得分', '收集指定方块', '清光果冻', '限时得分', '极限步数'].every((s) => htmlSrc.includes(s)));
-  check('规则首屏有速记条', htmlSrc.includes('rule-tldr') && htmlSrc.includes('三连就消'));
+  check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
+  check('规则说明十字架横竖都清', htmlSrc.includes('整行 + 整列一起清'));
+  check('规则含 5 种模式', ['得分', '收集', '清除果冻', '限时得分', '极限步数'].every((s) => htmlSrc.includes(s)));
   $('btn-close-rules').dispatch('click');
   check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
 

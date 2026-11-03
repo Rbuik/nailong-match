@@ -80,6 +80,8 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex: 0 0 auto;       /* 不被右边的分数挤扁 */
+  white-space: nowrap;  /* 三个字必须完整显示 */
   animation: pop-in 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 @keyframes pop-in {
