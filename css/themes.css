@@ -483,10 +483,10 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .history-item .h-score { color: #1a8f4a; font-size: 15px; font-weight: 700; }
 /* 「第 N 关」占固定宽度，后面的模式名才能一列对齐（1 位数 / 2 位数关卡都一样） */
-.history-item .h-lv { display: inline-block; min-width: 60px; }
-.history-item .lock-tag { font-size: 10px; color: #bbb; margin-left: 10px; }
+.history-item .h-lv { display: inline-block; min-width: 57px; }
+.history-item .lock-tag { font-size: 10px; color: #bbb; margin-left: 6px; }
 /* 模式标签：与「未解锁」同位置、同字号，只换颜色以便区分 */
-.history-item .mode-tag { font-size: 10px; color: #8b91a4; margin-left: 10px; }
+.history-item .mode-tag { font-size: 10px; color: #8b91a4; margin-left: 6px; }
 
 /* ================= 主页上一关 / 下一关 ================= */
 .level-nav-row {

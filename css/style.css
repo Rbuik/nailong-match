@@ -95,13 +95,13 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .btn-primary:active, .btn-secondary:active { transform: scale(0.95); }
 
 .history-list { width: 85%; max-height: 55vh; overflow-y: auto; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
-/* 三列等宽左对齐，整列看下去是齐的；右侧内边距收窄，让星星/分数整体右移一点 */
-.history-item { display: grid; grid-template-columns: minmax(0, 1fr) 78px 78px; column-gap: 5px; align-items: center; padding: 12px 0 12px 16px; background: rgba(255,255,255,0.9); border-radius: 8px; cursor: pointer; transition: background 0.2s; border: 1px solid rgba(0,0,0,0.06); }
+/* 三列：关卡+模式名 | 星星 | 分数；后两列右对齐并贴右，整列看下去仍是齐的 */
+.history-item { display: grid; grid-template-columns: minmax(0, 1fr) 54px 52px; column-gap: 6px; align-items: center; padding: 12px 6px 12px 12px; background: rgba(255,255,255,0.9); border-radius: 8px; cursor: pointer; transition: background 0.2s; border: 1px solid rgba(0,0,0,0.06); }
 .history-item:hover { background: #fff; }
 .history-item span { font-size: 15px; }
 .history-item .h-name { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.history-item .h-stars { text-align: left; white-space: nowrap; }
-.history-item .h-score { text-align: left; color: #1a8f4a; font-weight: bold; font-variant-numeric: tabular-nums; }
+.history-item .h-stars { text-align: right; white-space: nowrap; }
+.history-item .h-score { text-align: right; color: #1a8f4a; font-weight: bold; font-variant-numeric: tabular-nums; }
 .history-item .h-score.fail { color: #c0392b !important; }
 .history-list::-webkit-scrollbar { width: 6px; }
 .history-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
