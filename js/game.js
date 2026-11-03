@@ -95,6 +95,8 @@
 
   // ==================== Canvas ====================
   let CELL = 44;
+  // 逻辑尺寸（CSS px）与 DPR：画布位图按 DPR 放大，手机高分屏下方块照片不再糊
+  let VIEW_W = 0, VIEW_H = 0, DPR = 1;
   const canvas = $('game');
   const ctx = canvas.getContext('2d');
 
@@ -106,8 +108,15 @@
 
   function resizeCanvas() {
     CELL = computeCell();
-    canvas.width = COLS * CELL;
-    canvas.height = ROWS * CELL;
+    VIEW_W = COLS * CELL;
+    VIEW_H = ROWS * CELL;
+    DPR = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
+    canvas.width = Math.round(VIEW_W * DPR);
+    canvas.height = Math.round(VIEW_H * DPR);
+    // 位图变大后必须把显示尺寸锁回逻辑尺寸，否则画布会被撑大 DPR 倍
+    canvas.style.width = VIEW_W + 'px';
+    canvas.style.height = VIEW_H + 'px';
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
     drawStatic();
   }
 
@@ -292,9 +301,9 @@
     const pulse = 0.55 + 0.45 * Math.sin(t / 420);
 
     if (type === T.LINE_H || type === T.LINE_V) {
-      // 十字架外观：纯白十字 + 深色描边 + 蓝色外发光，横竖都清所以做成对称四臂
-      const th = Math.max(5, s * 0.26);            // 臂厚
-      const longA = s * 0.06, longB = s * 0.94;    // 长臂范围
+      // 十字架外观：纯白十字 + 深色描边 + 蓝色外发光；比格子略小一圈，不压住方块图案
+      const th = Math.max(3.5, s * 0.17);          // 臂厚
+      const longA = s * 0.18, longB = s * 0.82;    // 长臂范围（四周内缩）
       const drawBar = (x0, y0, x1, y1) => {
         roundRect(x0, y0, x1 - x0, y1 - y0, (y1 - y0) / 2);
         ctx.fill();
@@ -304,48 +313,31 @@
       ctx.globalAlpha = 0.9 + 0.1 * pulse;
       ctx.fillStyle = '#ffffff';
       ctx.strokeStyle = 'rgba(20, 40, 90, 0.85)';
-      ctx.lineWidth = Math.max(2, s * 0.055);
+      ctx.lineWidth = Math.max(1.6, s * 0.045);
       ctx.shadowColor = 'rgba(47, 107, 255, 0.85)';
-      ctx.shadowBlur = s * 0.18 * pulse;
+      ctx.shadowBlur = s * 0.16 * pulse;
       // 横臂（整行）+ 竖臂（整列）
       drawBar(x + longA, cy - th / 2, x + longB, cy + th / 2);
       drawBar(cx - th / 2, y + longA, cx + th / 2, y + longB);
       ctx.restore();
     } else if (type === T.BOMB) {
+      // 只叠 emoji，不铺底色，方块原图完整可见
       ctx.save();
-      ctx.globalAlpha = 0.9;
-      ctx.fillStyle = 'rgba(255, 80, 80, 0.85)';
-      ctx.beginPath();
-      ctx.arc(cx, cy, s * 0.3, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = pulse;
-      ctx.strokeStyle = '#fff';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, s * 0.36, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.font = 'bold ' + (s * 0.36) + 'px sans-serif';
+      ctx.globalAlpha = 0.85 + 0.15 * pulse;
+      ctx.shadowColor = 'rgba(255, 80, 80, 0.9)';
+      ctx.shadowBlur = s * 0.22 * pulse;
+      ctx.font = (s * 0.68) + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillStyle = '#fff';
-      ctx.globalAlpha = 1;
-      ctx.fillText('💣', cx, cy);
+      ctx.fillText('💣', cx, cy + s * 0.02);
       ctx.restore();
     } else if (type === T.RAINBOW) {
-      // 纯 emoji 呈现：手机端 canvas 上渐变容易糊成一片，彩虹 emoji 最直观
+      // 只叠彩虹 emoji，不加白底（白底会盖住方块原图）
       ctx.save();
-      ctx.globalAlpha = 0.55 + 0.45 * pulse;
-      ctx.fillStyle = '#ffffff';
-      ctx.strokeStyle = '#c85cff';
-      ctx.lineWidth = Math.max(2, s * 0.055);
-      ctx.shadowColor = 'rgba(200, 92, 255, 0.75)';
-      ctx.shadowBlur = s * 0.16;
-      roundRect(x + s * 0.06, y + s * 0.06, s * 0.88, s * 0.88, s * 0.22);
-      ctx.fill();
-      ctx.stroke();
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
-      ctx.font = (s * 0.74) + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+      ctx.globalAlpha = 0.88 + 0.12 * pulse;
+      ctx.shadowColor = 'rgba(200, 92, 255, 0.9)';
+      ctx.shadowBlur = s * 0.22 * pulse;
+      ctx.font = (s * 0.72) + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🌈', cx, cy + s * 0.02);
@@ -465,9 +457,9 @@
   // 静态重绘（无动画）
   function drawStatic() {
     if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, VIEW_W, VIEW_H);
     ctx.save();
-    roundRect(0, 0, canvas.width, canvas.height, 12);
+    roundRect(0, 0, VIEW_W, VIEW_H, 12);
     ctx.clip();
 
     const shake = FX.getShakeOffset();
@@ -539,9 +531,9 @@
 
   // 单帧绘制（供动画用）
   function frameDraw(custom) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, VIEW_W, VIEW_H);
     ctx.save();
-    roundRect(0, 0, canvas.width, canvas.height, 12);
+    roundRect(0, 0, VIEW_W, VIEW_H, 12);
     ctx.clip();
     const shake = FX.getShakeOffset();
     ctx.translate(shake.x, shake.y);
@@ -563,14 +555,28 @@
   }
 
   // ==================== 动画 ====================
+  // 动画补间：优先 rAF；同时挂一个超时兜底，防止 rAF 不回调（后台标签页 / 无头环境）时流程永久挂起
   function tween(dur, onFrame) {
     return new Promise((resolve) => {
       const start = performance.now();
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(guard);
+        resolve();
+      };
+      const guard = setTimeout(() => {
+        if (settled) return;
+        onFrame(1);
+        done();
+      }, dur + 260);
       function step(now) {
+        if (settled) return;
         const p = Math.min(1, (now - start) / dur);
         onFrame(p);
         if (p < 1) requestAnimationFrame(step);
-        else resolve();
+        else done();
       }
       requestAnimationFrame(step);
     });
@@ -584,9 +590,9 @@
     const ta = S.board[a.r][a.c], tb = S.board[b.r][b.c];
     await tween(140, (p) => {
       const e = p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, VIEW_W, VIEW_H);
       ctx.save();
-      roundRect(0, 0, canvas.width, canvas.height, 12);
+      roundRect(0, 0, VIEW_W, VIEW_H, 12);
       ctx.clip();
       const shake = FX.getShakeOffset();
       ctx.translate(shake.x, shake.y);
@@ -630,9 +636,9 @@
   async function animateDrop(fallFrom) {
     await tween(200, (p) => {
       const e = easeOutCubic(p);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.clearRect(0, 0, VIEW_W, VIEW_H);
       ctx.save();
-      roundRect(0, 0, canvas.width, canvas.height, 12);
+      roundRect(0, 0, VIEW_W, VIEW_H, 12);
       ctx.clip();
       const shake = FX.getShakeOffset();
       ctx.translate(shake.x, shake.y);
@@ -733,86 +739,102 @@
       const expanded = Specials.expandClears(S.board, ROWS, COLS, matched, {});
       const cells = expanded.cells;
 
-      // 统计颜色（用于收集关）
-      const colors = {};
-      let jellyHit = 0;
-      cells.forEach((k) => {
-        const p = Specials.parse(k);
-        const b = S.board[p.r][p.c];
-        if (b) colors[b.type] = (colors[b.type] || 0) + 1;
-        if (S.jelly[p.r] && S.jelly[p.r][p.c]) jellyHit++;
-      });
-
-      // 特殊块触发的任务
-      expanded.boomPoints.forEach((bp) => {
-        if (bp.type === T.BOMB) Tasks.report('bomb', 1);
-        else if (bp.type === T.RAINBOW) Tasks.report('rainbow', 1);
-        else Tasks.report('line', 1);
-      });
-      if (jellyHit > 0) Tasks.report('jelly', jellyHit);
-
-      bumpCombo();
-      const mult = comboMult(S.combo);
-      const gained = Math.round(cells.size * 10 * mult);
-      S.score += gained;
-      S.levelStartScore = S.levelStartScore || 0;
-
-      // 目标推进
-      if (S.goal) {
-        Goals.progress(S.goal, { scoreDelta: gained, colors: colors, jelly: jellyHit });
-        updateTargetBar();
-      }
-      S.clearedCount += cells.size;
-      updateHUD();
-
-      // 特效
-      expanded.boomPoints.forEach((bp) => {
-        FX.explosion(bp.c * CELL + CELL / 2, bp.r * CELL + CELL / 2, CELL);
-        if (bp.type === T.BOMB) FX.shake(3, 0.18);
-        if (bp.type === T.RAINBOW) FX.shake(4, 0.25);
-      });
-      cells.forEach((k) => {
-        const p = Specials.parse(k);
-        const b = S.board[p.r][p.c];
-        FX.burst(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, b ? FALLBACK_COLORS[b.type] : '#fff', 3);
-      });
-
-      const anchor = cells.size ? Specials.parse(cells.values().next().value) : { r: 0, c: 0 };
-      FX.text(anchor.c * CELL + CELL / 2, anchor.r * CELL + CELL / 2,
-        (S.combo >= 2 ? 'x' + S.combo + ' ' : '') + '+' + gained,
-        S.combo >= 3 ? '#ff5c5c' : '#ffd75c', 20);
-
-      if (expanded.boomPoints.some((b) => b.type === T.BOMB)) AudioManager.playSFX('bomb');
-      else if (expanded.boomPoints.some((b) => b.type === T.LINE_H || b.type === T.LINE_V)) AudioManager.playSFX('line');
-      else AudioManager.playSFX('match', { combo: S.combo });
-
-      await animateClear(cells, S.combo);
-
-      // 清除
-      cells.forEach((k) => {
-        const p = Specials.parse(k);
-        if (S.jelly[p.r] && S.jelly[p.r][p.c]) {
-          S.jelly[p.r][p.c] = 0;
-          S.jellyLeft = Math.max(0, S.jellyLeft - 1);
-        }
-        S.board[p.r][p.c] = null;
-      });
-
-      // 掉落 + 补充
-      const fallFrom = dropAndFill();
-      await animateDrop(fallFrom);
-      S.landAnims = [];
-      for (let c = 0; c < COLS; c++) {
-        for (let r = 0; r < ROWS; r++) {
-          if (fallFrom[kOf(r, c)] !== undefined) {
-            S.landAnims.push({ r, c, t0: performance.now() });
-            break;
-          }
-        }
-      }
-      drawStatic();
+      await resolveClear(cells, expanded.boomPoints);
       swapPos = null;
     }
+  }
+
+  // 处理一次消除集合：统计 → 计分 → 目标推进 → 特效 → 动画 → 清除 → 掉落
+  // （普通消除与「步数耗尽时自动引爆道具」共用同一套流程）
+  async function resolveClear(cells, boomPoints) {
+    if (!cells || !cells.size) return 0;
+    boomPoints = boomPoints || [];
+
+    // 统计颜色（用于收集关）
+    const colors = {};
+    let jellyHit = 0;
+    cells.forEach((k) => {
+      const p = Specials.parse(k);
+      const b = S.board[p.r][p.c];
+      if (b) colors[b.type] = (colors[b.type] || 0) + 1;
+      if (S.jelly[p.r] && S.jelly[p.r][p.c]) jellyHit++;
+    });
+
+    // 特殊块触发的任务
+    boomPoints.forEach((bp) => {
+      if (bp.type === T.BOMB) Tasks.report('bomb', 1);
+      else if (bp.type === T.RAINBOW) Tasks.report('rainbow', 1);
+      else Tasks.report('line', 1);
+    });
+    if (jellyHit > 0) Tasks.report('jelly', jellyHit);
+
+    bumpCombo();
+    const mult = comboMult(S.combo);
+    const gained = Math.round(cells.size * 10 * mult);
+    S.score += gained;
+    S.levelStartScore = S.levelStartScore || 0;
+
+    // 目标推进
+    if (S.goal) {
+      Goals.progress(S.goal, { scoreDelta: gained, colors: colors, jelly: jellyHit });
+      updateTargetBar();
+    }
+    S.clearedCount += cells.size;
+    updateHUD();
+
+    // 特效
+    boomPoints.forEach((bp) => {
+      FX.explosion(bp.c * CELL + CELL / 2, bp.r * CELL + CELL / 2, CELL);
+      if (bp.type === T.BOMB) FX.shake(3, 0.18);
+      if (bp.type === T.RAINBOW) FX.shake(4, 0.25);
+    });
+    cells.forEach((k) => {
+      const p = Specials.parse(k);
+      const b = S.board[p.r][p.c];
+      FX.burst(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, b ? FALLBACK_COLORS[b.type] : '#fff', 3);
+    });
+
+    const anchor = cells.size ? Specials.parse(cells.values().next().value) : { r: 0, c: 0 };
+    FX.text(anchor.c * CELL + CELL / 2, anchor.r * CELL + CELL / 2,
+      (S.combo >= 2 ? 'x' + S.combo + ' ' : '') + '+' + gained,
+      S.combo >= 3 ? '#ff5c5c' : '#ffd75c', 20);
+
+    if (boomPoints.some((b) => b.type === T.BOMB)) AudioManager.playSFX('bomb');
+    else if (boomPoints.some((b) => b.type === T.LINE_H || b.type === T.LINE_V)) AudioManager.playSFX('line');
+    else AudioManager.playSFX('match', { combo: S.combo });
+
+    await animateClear(cells, S.combo);
+
+    // 清除
+    cells.forEach((k) => {
+      const p = Specials.parse(k);
+      if (S.jelly[p.r] && S.jelly[p.r][p.c]) {
+        S.jelly[p.r][p.c] = 0;
+        S.jellyLeft = Math.max(0, S.jellyLeft - 1);
+      }
+      S.board[p.r][p.c] = null;
+    });
+
+    // 掉落 + 补充
+    const fallFrom = dropAndFill();
+    await animateDrop(fallFrom);
+    S.landAnims = [];
+    for (let c = 0; c < COLS; c++) {
+      for (let r = 0; r < ROWS; r++) {
+        if (fallFrom[kOf(r, c)] !== undefined) {
+          S.landAnims.push({ r, c, t0: performance.now() });
+          break;
+        }
+      }
+    }
+    drawStatic();
+    return gained;
+  }
+
+  // 立即引爆某一格上的特殊块（供道具自动消耗使用）
+  async function detonateAt(r, c) {
+    const expanded = Specials.expandClears(S.board, ROWS, COLS, new Set([kOf(r, c)]), {});
+    await resolveClear(expanded.cells, expanded.boomPoints);
   }
 
   function SpecsL(runs) {
@@ -989,11 +1011,11 @@
 
     if (S.levelDef.goal.type === 'timed') {
       if (S.timeLeft <= 0 && S.playing) {
-        endGame();
+        await handleOutOfResource();
         return;
       }
     } else if (S.moves <= 0 && S.playing) {
-      endGame();
+      await handleOutOfResource();
       return;
     }
 
@@ -1141,7 +1163,7 @@
       updateTargetBar();
       if (S.timeLeft <= 0) {
         stopTimer();
-        endGame();
+        handleOutOfResource();
       }
     }, 1000);
   }
@@ -1311,6 +1333,79 @@
     }
     // 本关已结算：清掉局内存档，避免主页还显示「继续游戏」
     Store.clearRun();
+  }
+
+  // ==================== 资源耗尽时的道具救场 ====================
+  // 步数用完 / 时间耗尽时，背包里剩下的道具（洗牌、撤回除外）按商店顺序自动发挥用处：
+  //  · +3 步（限时关为 +10 秒）：直接续命，游戏继续
+  //  · 炸弹 / 彩虹：随机落到棋盘上并立即引爆
+  // 全部用完后仍未过关，才弹出结算
+  let rescuing = false;
+
+  async function autoUseLeftoverItems() {
+    for (let guard = 0; guard < 24; guard++) {
+      const items = Store.getWallet().items || {};
+
+      if ((items.extraMoves || 0) > 0) {
+        Store.useItem('extraMoves');
+        if (S.timerOn) S.timeLeft += 10;
+        else S.moves += 3;
+        updateHUD();
+        checkMovesWarning();
+        renderBackpack();
+        toast('步数用完了，自动使用「' + (S.timerOn ? '时间 +10 秒' : '+3 步') + '」');
+        return true;
+      }
+
+      let key = null;
+      if ((items.startBomb || 0) > 0) key = 'startBomb';
+      else if ((items.rainbow || 0) > 0) key = 'rainbow';
+      if (!key) return false;
+
+      const spots = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (S.board[r][c] && S.board[r][c].special === T.NORMAL) spots.push([r, c]);
+        }
+      }
+      if (!spots.length) return false;
+
+      const spot = spots[randInt(spots.length)];
+      Store.useItem(key);
+      S.board[spot[0]][spot[1]].special = key === 'startBomb' ? T.BOMB : T.RAINBOW;
+      renderBackpack();
+      drawStatic();
+      toast(key === 'startBomb' ? '自动放置炸弹并引爆 💣' : '自动使用彩虹 🌈');
+      AudioManager.playSFX('bomb');
+      await sleep(280);
+      await detonateAt(spot[0], spot[1]);
+
+      if (S.goal && Goals.isComplete(S.goal)) {
+        await sleep(240);
+        levelWin();
+        return true;
+      }
+    }
+    return false;
+  }
+
+  async function handleOutOfResource() {
+    if (rescuing || !S.playing) return;
+    rescuing = true;
+    S.busy = true;
+    Input.setEnabled(false);
+    const saved = await autoUseLeftoverItems();
+    S.busy = false;
+    rescuing = false;
+    if (saved) {
+      // 救回来了：限时关要把计时器重新跑起来
+      if (S.playing) {
+        Input.setEnabled(true);
+        if (S.timerOn && S.timeLeft > 0) startTimer();
+      }
+      return;
+    }
+    endGame();
   }
 
   function endGame() {
@@ -1616,8 +1711,15 @@
       // 三列等宽左对齐：关卡名 | 星星（固定宽） | 分数（固定宽）
       const starStr = '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
         '<span class="star-off">' + '⭐'.repeat(3 - rec.stars) + '</span>';
+      // 已解锁的关卡在同样的位置、同样的字号标出模式；未解锁显示「未解锁」
+      let tag = ' <small class="lock-tag">未解锁</small>';
+      if (!locked) {
+        const def = getLevelDef(i);
+        const modeName = def && def.goal ? (Goals.LABEL[def.goal.type] || '') : '';
+        tag = modeName ? ' <small class="mode-tag">' + modeName + '</small>' : '';
+      }
       row.innerHTML =
-        '<span class="h-name">第 ' + i + ' 关' + (locked ? ' <small class="lock-tag">未解锁</small>' : '') + '</span>' +
+        '<span class="h-name">第 ' + i + ' 关' + tag + '</span>' +
         '<span class="h-stars">' + starStr + '</span>' +
         '<span class="h-score">' + rec.score + '</span>';
       row.addEventListener('click', () => {
@@ -1633,14 +1735,37 @@
     }
   }
 
+  // 打开关卡记录时，把当前关卡平滑滑到列表中间：
+  // 目标位置会夹到 [0, 最大滚动量]，所以偏上的关不动、偏下的关滑到底
+  function scrollHistoryToCurrent() {
+    const list = $('history-list');
+    if (!list) return;
+    const cur = list.querySelector('.history-item.current');
+    if (!cur) return;
+    const max = Math.max(0, list.scrollHeight - list.clientHeight);
+    const target = cur.offsetTop - (list.clientHeight - cur.offsetHeight) / 2;
+    const top = Math.max(0, Math.min(target, max));
+    list.scrollTop = 0;
+    if (top <= 0) return; // 已经贴顶，不需要滑
+    // 自己补间，兼容不支持平滑滚动 / 虚拟时钟的环境
+    const dur = 320;
+    const t0 = performance.now();
+    const step = () => {
+      const p = Math.min(1, (performance.now() - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      list.scrollTop = top * e;
+      if (p < 1) setTimeout(step, 16);
+    };
+    setTimeout(step, 40);
+  }
+
   // ==================== 绑定 ====================
-  function attachUI() {
-    // 画布输入
+  function attachUI() {    // 画布输入
     Input.attach(canvas, {
       getCellSize: () => CELL,
       getCell: (cx, cy) => {
         const rect = canvas.getBoundingClientRect();
-        const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+        const sx = VIEW_W / rect.width, sy = VIEW_H / rect.height;
         const c = Math.floor(((cx - rect.left) * sx) / CELL);
         const r = Math.floor(((cy - rect.top) * sy) / CELL);
         return inB(r, c) ? { r: r, c: c } : null;
@@ -1763,6 +1888,7 @@
     if (hist) hist.addEventListener('click', () => {
       renderHistory();
       showOverlay('history-menu');
+      scrollHistoryToCurrent();
     });
     const histBack = $('btn-history-back');
     if (histBack) histBack.addEventListener('click', () => {

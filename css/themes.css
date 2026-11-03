@@ -433,6 +433,8 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .history-item .h-score { color: #1a8f4a; font-size: 15px; font-weight: 700; }
 .history-item .lock-tag { font-size: 10px; color: #bbb; }
+/* 模式标签：与「未解锁」同位置、同字号，只换颜色以便区分 */
+.history-item .mode-tag { font-size: 10px; color: #8b91a4; }
 
 /* ================= 主页上一关 / 下一关 ================= */
 .level-nav-row {
