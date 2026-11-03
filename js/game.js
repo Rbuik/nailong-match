@@ -1325,8 +1325,11 @@
     const box = $('rules-box');
     const i = Math.max(0, Math.min(RULE_FONTS.length - 1, Number(idx) || 0));
     if (box) box.style.setProperty('--rule-fs', RULE_FONTS[i] + 'px');
-    const btn = $('btn-rule-font');
-    if (btn) btn.style.fontSize = (13 + i * 2) + 'px';
+    // 到边界时对应按钮变淡，提示无法再调
+    const minus = $('btn-rule-font-minus');
+    const plus = $('btn-rule-font-plus');
+    if (minus) minus.classList.toggle('is-off', i <= 0);
+    if (plus) plus.classList.toggle('is-off', i >= RULE_FONTS.length - 1);
     return i;
   }
 
@@ -1949,15 +1952,23 @@
       applyRuleFont(Number(Store.getSettings().ruleFont) || 0);
       showOverlay('rules-menu');
     });
-    // 右下角 A 按钮：只调规则正文的字号（小 → 中 → 大 → 小）
-    const ruleFontBtn = $('btn-rule-font');
-    if (ruleFontBtn) ruleFontBtn.addEventListener('click', () => {
-      const next = ((Number(Store.getSettings().ruleFont) || 0) + 1) % RULE_FONTS.length;
+    // 右下角字号按钮：左边 A− 缩小、右边 A+ 放大（只调规则正文字号）
+    const stepRuleFont = (delta) => {
+      const cur = Math.max(0, Math.min(RULE_FONTS.length - 1, Number(Store.getSettings().ruleFont) || 0));
+      const next = Math.max(0, Math.min(RULE_FONTS.length - 1, cur + delta));
+      if (next === cur) {
+        toast(delta > 0 ? '已经是最大字号' : '已经是最小字号');
+        return;
+      }
       applyRuleFont(next);
       Store.setSettings({ ruleFont: next });
       AudioManager.playSFX('select');
       toast('规则字号：' + RULE_FONT_NAMES[next]);
-    });
+    };
+    const fontMinus = $('btn-rule-font-minus');
+    if (fontMinus) fontMinus.addEventListener('click', () => stepRuleFont(-1));
+    const fontPlus = $('btn-rule-font-plus');
+    if (fontPlus) fontPlus.addEventListener('click', () => stepRuleFont(1));
     const rulesClose = $('btn-close-rules');
     if (rulesClose) rulesClose.addEventListener('click', () => {
       $('rules-menu').style.display = 'none';

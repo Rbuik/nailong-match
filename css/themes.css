@@ -372,32 +372,40 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .rule-sec b { color: #222; }
 
-/* 规则页右下角：只调规则正文的字号（白底 + 黑圈 + 黑字） */
+/* 规则页右下方：只调规则正文字号（白底 + 黑圈 + 黑字）
+   左边 A− 缩小、右边 A+ 放大，跟规则框右边缘对齐 */
+.rule-font-ctrl {
+  width: 92%;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
 .rule-font-btn {
-  position: absolute;
-  right: 18px;
-  bottom: 16px;
-  width: 46px;
-  height: 46px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   border-radius: 50%;
   background: #ffffff;
   color: #111111;
   border: 2px solid #111111;
   font-family: inherit;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 800;
   line-height: 1;
+  letter-spacing: -0.5px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 3;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
-  transition: transform 0.1s ease;
+  transition: transform 0.1s ease, opacity 0.15s ease;
 }
 
 .rule-font-btn:active { transform: scale(0.92); }
+/* 已经最小 / 最大时变淡 */
+.rule-font-btn.is-off { opacity: 0.3; box-shadow: none; }
 
 /* ================= 主页竖排菜单 ================= */
 .menu-col {
