@@ -54,9 +54,11 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 
 .preview-dot {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 5px;
+  object-fit: cover;
+  display: block;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
@@ -345,6 +347,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   padding: 14px 16px;
   margin-bottom: 14px;
   box-sizing: border-box;
+  --rule-fs: 13px; /* 字号由右下角的 A 按钮调节 */
 }
 
 .rules-box::-webkit-scrollbar { width: 6px; }
@@ -354,20 +357,47 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .rule-sec:last-child { margin-bottom: 4px; }
 
 .rule-sec h3 {
-  font-size: 15px;
+  font-size: calc(var(--rule-fs, 13px) + 2px);
   color: #4b3f8f;
   margin-bottom: 6px;
   font-weight: 800;
 }
 
 .rule-sec p {
-  font-size: 13px;
+  font-size: var(--rule-fs, 13px);
   line-height: 1.65;
   color: #444;
   margin: 3px 0;
 }
 
 .rule-sec b { color: #222; }
+
+/* 规则页右下角：只调规则正文的字号（白底 + 黑圈 + 黑字） */
+.rule-font-btn {
+  position: absolute;
+  right: 18px;
+  bottom: 16px;
+  width: 46px;
+  height: 46px;
+  padding: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #111111;
+  border: 2px solid #111111;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 3;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+  transition: transform 0.1s ease;
+}
+
+.rule-font-btn:active { transform: scale(0.92); }
 
 /* ================= 主页竖排菜单 ================= */
 .menu-col {
@@ -432,9 +462,11 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .history-item.locked { opacity: 0.62; }
 
 .history-item .h-score { color: #1a8f4a; font-size: 15px; font-weight: 700; }
-.history-item .lock-tag { font-size: 10px; color: #bbb; }
+/* 「第 N 关」占固定宽度，后面的模式名才能一列对齐（1 位数 / 2 位数关卡都一样） */
+.history-item .h-lv { display: inline-block; min-width: 60px; }
+.history-item .lock-tag { font-size: 10px; color: #bbb; margin-left: 10px; }
 /* 模式标签：与「未解锁」同位置、同字号，只换颜色以便区分 */
-.history-item .mode-tag { font-size: 10px; color: #8b91a4; }
+.history-item .mode-tag { font-size: 10px; color: #8b91a4; margin-left: 10px; }
 
 /* ================= 主页上一关 / 下一关 ================= */
 .level-nav-row {

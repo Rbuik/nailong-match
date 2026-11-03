@@ -913,9 +913,12 @@
     if (!strip) return;
     strip.innerHTML = '';
     S.nextQueue.slice(0, 3).forEach((t) => {
-      const d = document.createElement('div');
+      // 显示具体图案（和棋盘一致），不用颜色块，避免分不清
+      const d = document.createElement('img');
       d.className = 'preview-dot';
-      d.style.background = FALLBACK_COLORS[t];
+      d.src = './assets/' + t + '.jpg';
+      d.alt = '即将掉落';
+      d.draggable = false;
       strip.appendChild(d);
     });
   }
@@ -1313,6 +1316,20 @@
     toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
   }
 
+  // ==================== 规则字号 ====================
+  // 只影响规则正文（.rules-box 里的 --rule-fs 变量），不动机面其他字号
+  const RULE_FONTS = [13, 15, 17];
+  const RULE_FONT_NAMES = ['小', '中', '大'];
+
+  function applyRuleFont(idx) {
+    const box = $('rules-box');
+    const i = Math.max(0, Math.min(RULE_FONTS.length - 1, Number(idx) || 0));
+    if (box) box.style.setProperty('--rule-fs', RULE_FONTS[i] + 'px');
+    const btn = $('btn-rule-font');
+    if (btn) btn.style.fontSize = (13 + i * 2) + 'px';
+    return i;
+  }
+
   // ==================== 结算 ====================
   function levelWin() {
     S.playing = false;
@@ -1704,7 +1721,7 @@
     if (!owned.length) {
       const empty = document.createElement('div');
       empty.className = 'm-empty';
-      empty.textContent = '背包空空如也，去商店看看吧～';
+      empty.textContent = '背包空空如也，去购物商店看看吧～';
       list.appendChild(empty);
       return;
     }
@@ -1763,7 +1780,7 @@
         tag = modeName ? ' <small class="mode-tag">' + modeName + '</small>' : '';
       }
       row.innerHTML =
-        '<span class="h-name">第 ' + i + ' 关' + tag + '</span>' +
+        '<span class="h-name"><span class="h-lv">第 ' + i + ' 关</span>' + tag + '</span>' +
         '<span class="h-stars">' + starStr + '</span>' +
         '<span class="h-score">' + rec.score + '</span>';
       row.addEventListener('click', () => {
@@ -1928,7 +1945,19 @@
       startLevel(lv);
     });
     const rulesBtn = $('btn-rules');
-    if (rulesBtn) rulesBtn.addEventListener('click', () => showOverlay('rules-menu'));
+    if (rulesBtn) rulesBtn.addEventListener('click', () => {
+      applyRuleFont(Number(Store.getSettings().ruleFont) || 0);
+      showOverlay('rules-menu');
+    });
+    // 右下角 A 按钮：只调规则正文的字号（小 → 中 → 大 → 小）
+    const ruleFontBtn = $('btn-rule-font');
+    if (ruleFontBtn) ruleFontBtn.addEventListener('click', () => {
+      const next = ((Number(Store.getSettings().ruleFont) || 0) + 1) % RULE_FONTS.length;
+      applyRuleFont(next);
+      Store.setSettings({ ruleFont: next });
+      AudioManager.playSFX('select');
+      toast('规则字号：' + RULE_FONT_NAMES[next]);
+    });
     const rulesClose = $('btn-close-rules');
     if (rulesClose) rulesClose.addEventListener('click', () => {
       $('rules-menu').style.display = 'none';
