@@ -845,6 +845,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   will-change: transform;
   user-select: none;
   -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .m-item.selected {
