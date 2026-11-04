@@ -2158,13 +2158,44 @@
     return null;
   }
 
+  // ============ 识别「是不是 AI 在访问」 ============
+  // 只能识别「跑在浏览器里、会执行 JS 的 AI / 自动化」：
+  //   · 无头浏览器（HeadlessChrome / window.chrome 缺失 / navigator.webdriver）
+  //   · 各家 AI 爬虫与助手的 UA（GPTBot、ClaudeBot、Bytespider、PerplexityBot…）
+  // 纯 HTTP 抓取（不执行 JS 的爬虫）拿不到 UA 也跑不到这里，客户端统计不了，
+  // GitHub Pages 也没有服务端日志，这种情况只能靠别的入口统计。
+  function detectAI() {
+    try {
+      const nav = (typeof navigator !== 'undefined') ? navigator : {};
+      const ua = nav.userAgent || '';
+      if (nav.webdriver === true) return 'webdriver';
+      if (/HeadlessChrome|PhantomJS|Puppeteer|Playwright|Selenium/i.test(ua)) return 'headless';
+      const bot = /(GPTBot|ChatGPT-User|OAI-SearchBot|ClaudeBot|Claude-Web|anthropic-ai|PerplexityBot|Google-Extended|Bytespider|CCBot|Amazonbot|Applebot|Bingbot|YandexBot|Baiduspider|Sogou web spider|facebookexternalhit|python-requests|python\/\d|curl\/|wget|Go-http-client|okhttp|java\/\d|node-fetch|undici|axios|scrapy)/i.exec(ua);
+      if (bot) return bot[1].toLowerCase().replace(/[^a-z0-9]/g, '');
+      // 桌面 Chrome 一定带 window.chrome；没有却自称 Chrome 的，基本都是无头环境
+      // （必须排除手机 / 微信 / QQ 内置浏览器，它们也可能没有 window.chrome）
+      const mobileOrWebview = /Mobile|Android|iPhone|iPad|MicroMessenger|QQBrowser|MQQBrowser|Weibo|AlipayClient|baiduboxapp/i.test(ua);
+      const claimsChrome = /Chrome\/\d+/.test(ua) && !/Edg\/|OPR\/|Brave/i.test(ua);
+      if (!mobileOrWebview && claimsChrome && /Windows NT|Macintosh/.test(ua) &&
+        typeof window !== 'undefined' && !window.chrome) return 'headless';
+    } catch (e) {}
+    return '';
+  }
+  const AI_CLIENT = detectAI();          // 非空 = 本次访问被判定为 AI
+  window.__nl_ai = AI_CLIENT;            // 方便自查：控制台输入 __nl_ai 看判定结果
+
   let provCounted = false;
   function bumpProvHits() {
     if (provCounted) return;
     provCounted = true;
     if (typeof fetch !== 'function') return;
+    // AI / 自动化访问：单独记一笔，不占省份和城市的数（否则会把 AI 算成真人点击）
+    if (AI_CLIENT) {
+      fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/ai', { cache: 'no-store' }).catch(() => {});
+      return;
+    }
     const geo = Store.getNet().geo || {};
-    // 只有明确识别为中国的 IP 才计入省份（国外 / 定位失败落「调用」）
+    // 只有明确识别为中国的 IP 才计入省份（国外 / 定位失败落「其他」）
     const isCN = /中国|中华|China|CN/i.test(geo.country || '');
     const p = isCN ? matchProvince(geo.region) : null;
     const code = p ? p.code : PROV_UNKNOWN[1];
@@ -2183,7 +2214,8 @@
   // （历史点击 / AI 调用 / 没定位到的点击）。「调用」不管次数多少固定排最后。
 
   let provRows = [];     // 有点击记录的省份（不含「调用」），降序
-  let unknownN = 0;      // 「调用」：定位失败 / AI 的累计次数（只增不减）
+  let unknownN = 0;      // 「其他」：定位失败 / 没执行 JS 的历史点击（只增不减）
+  let aiN = 0;           // 「AI 调用」：被识别为 AI / 自动化的访问累计
   let opensVal = -1;     // 历史总计数器（读失败时回退用 net.globalHits）
 
   function escHtml(s) {
@@ -2216,6 +2248,12 @@
       (j && typeof j.value === 'number' ? j.value : -1));
   }
 
+  // 读「AI 调用」计数器（不存在时接口返回的不是数字 → 当 0）
+  function readAiCount() {
+    return fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/ai', 7000).then((j) =>
+      (j && typeof j.value === 'number' ? j.value : 0));
+  }
+
   // 每个省上次读到的值（这次读失败的省沿用上次的数，显示才不会来回跳）
   function provValsCache() {
     try { return JSON.parse(localStorage.getItem('nl2:provVals') || '{}') || {}; } catch (e) { return {}; }
@@ -2241,19 +2279,21 @@
     return Number.isFinite(n) ? n : 0;
   }
 
-  // 34 省合计 / 全网显示值 / 「调用」值
+  // 34 省合计 / 全网显示值 / 「AI 调用」/ 「其他」
   function provTotalSum() { return provRows.reduce((s, r) => s + r.n, 0); }
+  function aiCount() { return aiN; }
   function statsTotal() {
     const opens = opensVal >= 0 ? opensVal : (Store.getNet().globalHits || 0);
-    return Math.max(opens, provTotalSum() + unknownN);
+    return Math.max(opens, provTotalSum() + unknownN + aiN);
   }
-  // 「调用」= 全网里不属于任何省份的部分；至少要盖住定位失败的累计，只增不减
-  function callCount() { return Math.max(unknownN, statsTotal() - provTotalSum()); }
+  // 「其他」= 全网里既不属于任何省份、也不是 AI 的部分
+  // （历史点击 / 定位失败 / 没跑 JS 的抓取），只增不减
+  function callCount() { return Math.max(unknownN, statsTotal() - provTotalSum() - aiN); }
 
   // 把一次读取结果落到缓存 + 后台「全网」
-  // （兼容旧缓存里没有 code、或叫「其他地区」的行，统一算进「调用」）
-  function applyProvData(rows, opens) {
-    const isUnk = (r) => r.code === PROV_UNKNOWN[1] || r.name === PROV_UNKNOWN[0] || r.name === '其他地区';
+  // （兼容旧缓存里没有 code、或叫「其他地区」的行，统一算进「其他」）
+  function applyProvData(rows, opens, ai) {
+    const isUnk = (r) => r.code === PROV_UNKNOWN[1] || r.name === PROV_UNKNOWN[0] || r.name === '其他地区' || r.name === '调用';
     const unk = rows.find(isUnk) || { n: 0 };
     provRows = rows.filter((r) => !isUnk(r)).map((r) => ({
       name: r.name,
@@ -2261,6 +2301,7 @@
       n: r.n
     })).filter((r) => r.code).sort((a, b) => b.n - a.n);
     unknownN = Math.max(unknownN, unk.n || 0);
+    if (typeof ai === 'number' && ai >= 0) aiN = Math.max(aiN, ai);
     if (opens >= 0) opensVal = opens;
     try {
       localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: rows }));
@@ -2288,12 +2329,12 @@
     });
   }
 
-  // 后台 / 统计页共用这一份：读全省份 + 历史总数 → 落缓存 → 对齐本机
+  // 后台 / 统计页共用这一份：读全省份 + 历史总数 + AI 调用 → 落缓存 → 对齐本机
   function refreshProvStats() {
-    return Promise.all([readAllProv(), readOpens()]).then((res) => {
-      const rows = res[0], opens = res[1];
+    return Promise.all([readAllProv(), readOpens(), readAiCount()]).then((res) => {
+      const rows = res[0], opens = res[1], ai = res[2];
       if (!rows) return null;
-      applyProvData(rows, opens);
+      applyProvData(rows, opens, ai);
       return ensureProvTotal(Store.getVisits().count).then(() => statsTotal());
     });
   }
@@ -2400,16 +2441,18 @@
         ? ('共 ' + provRows.length + ' 个省份 · 合计 ' + total + ' 次点击')
         : '暂无点击记录';
     }
-    if (!rows.length && !(unknownN > 0 && !k)) {
+    const ai = aiCount();
+    const call = callCount();
+    if (!rows.length && !((unknownN > 0 || ai > 0) && !k)) {
       list.innerHTML = '<li class="prov-empty">没有找到相关省份</li>';
       return;
     }
     let html = rows.map((r) =>
       '<li class="clickable" data-code="' + r.code + '"><span>' + escHtml(r.name) +
       '<i class="prov-arrow">›</i></span><b>' + r.n + '</b></li>').join('');
-    // 「调用」固定排最后（不管次数多少），不可点
-    const call = callCount();
-    if (call > 0 && !k) html += '<li><span>调用</span><b>' + call + '</b></li>';
+    // 「AI 调用」「其他」固定排最后（不管次数多少），不可点
+    if (ai > 0 && !k) html += '<li><span>🤖 AI 调用</span><b>' + ai + '</b></li>';
+    if (call > 0 && !k) html += '<li><span>其他</span><b>' + call + '</b></li>';
     list.innerHTML = html;
     Array.prototype.forEach.call(list.querySelectorAll('li.clickable'), (li) => {
       li.addEventListener('click', () => {
@@ -2517,6 +2560,9 @@
     // 一定 ≥ 本机点击，也不会因为省份统计刷新而来回跳
     const globalShown = Math.max(statsTotal(), cachedProvSum(), localCount);
     $('admin-global').textContent = globalShown > 0 ? String(globalShown) : '—';
+    // AI 调用（识别出的自动化访问，单独计；没记录过就显示 —）
+    const aiEl = $('admin-ai');
+    if (aiEl) aiEl.textContent = aiCount() > 0 ? String(aiCount()) : '—';
     // 本机
     $('admin-visits').textContent = localCount;
     $('admin-device').textContent = describeDevice();
