@@ -98,6 +98,8 @@ const sandbox = {
   setInterval,
   clearInterval,
   performance,
+  btoa,
+  atob,
   localStorage: localStorageStub,
   document: documentStub,
   navigator: { userAgent: 'node' },
@@ -242,7 +244,7 @@ function check(name, ok) {
   check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
   check('规则说明线消横清行竖清列', htmlSrc.includes('横着连的清整行、竖着连的清整列'));
   check('规则含 8 种目标', ['普通得分', '收集方块', '清除果冻', '限时得分', '极限步数', '敲碎冰块', '运送钥匙', '护送奶龙'].every((s) => htmlSrc.includes(s)));
-  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('落到最底行才算送达'));
+  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('从同一列的顶端重新落下来'));
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('200 金币'));
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));
@@ -312,6 +314,30 @@ function check(name, ok) {
 
   $('btn-leaderboard').dispatch('click');
   check('排行榜面板打开', $('leaderboard-menu').style.display === 'flex');
+
+  // 14b. 好友：自己的码加不进 / 好友永久保留 / 同 uid 更新不重复 / 左滑删除按钮
+  const M = sandbox.Meta;
+  const myCode = M.makeCode({ name: M.nickname(), score: 1234, level: 1 });
+  check('自己的成绩码加不进', M.addFriend(myCode).ok === false);
+  const mk = (uid, name, score) => 'NL1-' + btoa(unescape(encodeURIComponent(JSON.stringify({ v: 2, u: uid, n: name, s: score, w: M.weekKey() })))).replace(/=+$/, '');
+  check('加入好友', M.addFriend(mk('t-f1', '阿呆', 900)).ok === true && M.friends().length === 1);
+  check('好友改名重新发码只更新同一条', (() => {
+    const r = M.addFriend(mk('t-f1', '阿呆2号', 1300));
+    return r.updated === true && M.friends().length === 1 && M.friends()[0].name === '阿呆2号';
+  })());
+  M.removeFriend('t-f1');
+  check('好友删干净', M.friends().length === 0);
+  check('好友行渲染删除按钮', (() => {
+    M.addFriend(mk('t-f2', '阿呆3号', 700));
+    sandbox.__nl_test.refreshMenu();
+    $('btn-leaderboard').dispatch('click');
+    let dels = 0, meRow = false;
+    ($('lb-list').children || []).forEach((row) => {
+      if (String(row.className || '').split(' ').indexOf('me') >= 0) meRow = true;
+      (row.children || []).forEach((ch) => { if (ch.className === 'lb-del') dels++; });
+    });
+    return dels >= 1 && meRow;
+  })());
   $('btn-close-lb').dispatch('click');
 
   // 15. 冰块关：铺冰 + 目标值校准 + 冰上格子不可交换
