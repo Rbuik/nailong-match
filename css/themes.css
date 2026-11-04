@@ -540,6 +540,9 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .history-item.locked { opacity: 0.62; }
 
 .history-item .h-score { color: #1a8f4a; font-size: 15px; font-weight: 700; }
+/* 没通关的关卡：分数用红色提醒（主页「本关最高纪录」同样） */
+.history-item .h-score.fail,
+#menu-current-high.fail { color: #d63a2f !important; }
 /* 「第 N 关」占固定宽度，后面的模式名才能一列对齐（1 位数 / 2 位数关卡都一样） */
 .history-item .h-lv { display: inline-block; min-width: 57px; }
 .history-item .lock-tag { font-size: 10px; color: #bbb; margin-left: 6px; }

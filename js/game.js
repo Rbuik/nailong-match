@@ -1881,7 +1881,7 @@
       row.innerHTML =
         '<span class="h-name"><span class="h-lv">第 ' + i + ' 关</span>' + tag + '</span>' +
         '<span class="h-stars">' + starStr + '</span>' +
-        '<span class="h-score">' + rec.score + '</span>';
+        '<span class="h-score' + (rec.score > 0 && rec.stars === 0 ? ' fail' : '') + '">' + rec.score + '</span>';
       row.addEventListener('click', () => {
         // 未解锁的关卡不能跳转
         if (locked) {
@@ -1927,7 +1927,106 @@
 
   // ==================== 后台统计：全网次数 / 设备 / 地址 / 进度 ====================
   const HITS_API = 'https://abacus.jasoncameron.dev/hit/nailong-xiaoxiaole-2026/opens';
+  const ABACUS_BASE = 'https://abacus.jasoncameron.dev/';
   const GEO_API = 'https://ipwho.is/?lang=zh-CN';
+
+  // 省份名单：计数器 key 只支持英文字母，这里存「全名 → 拼音代号」
+  const PROVINCES = [
+    ['北京市', 'beijing'], ['天津市', 'tianjin'], ['上海市', 'shanghai'], ['重庆市', 'chongqing'],
+    ['河北省', 'hebei'], ['山西省', 'shanxi'], ['辽宁省', 'liaoning'], ['吉林省', 'jilin'],
+    ['黑龙江省', 'heilongjiang'], ['江苏省', 'jiangsu'], ['浙江省', 'zhejiang'], ['安徽省', 'anhui'],
+    ['福建省', 'fujian'], ['江西省', 'jiangxi'], ['山东省', 'shandong'], ['河南省', 'henan'],
+    ['湖北省', 'hubei'], ['湖南省', 'hunan'], ['广东省', 'guangdong'], ['海南省', 'hainan'],
+    ['四川省', 'sichuan'], ['贵州省', 'guizhou'], ['云南省', 'yunnan'], ['陕西省', 'shaanxi'],
+    ['甘肃省', 'gansu'], ['青海省', 'qinghai'], ['台湾省', 'taiwan'],
+    ['内蒙古自治区', 'neimenggu'], ['广西壮族自治区', 'guangxi'], ['西藏自治区', 'xizang'],
+    ['宁夏回族自治区', 'ningxia'], ['新疆维吾尔自治区', 'xinjiang'],
+    ['香港', 'xianggang'], ['澳门', 'aomen']
+  ];
+
+  function matchProvince(region) {
+    const r = (region || '').trim();
+    if (!r) return null;
+    for (let i = 0; i < PROVINCES.length; i++) {
+      // 「四川省」这类全名去掉行政后缀就是匹配用的短名
+      const short = PROVINCES[i][0].replace(/(维吾尔|回族)?自治区$|省$|市$/, '');
+      if (r.indexOf(short) >= 0) return { name: PROVINCES[i][0], code: PROVINCES[i][1] };
+    }
+    return null;
+  }
+
+  // 每次打开页面，把所在省份的计数 +1（供后台省份统计网页读取）
+  let provCounted = false;
+  function bumpProvHits() {
+    if (provCounted) return;
+    provCounted = true;
+    const p = matchProvince(Store.getNet().geo && Store.getNet().geo.region);
+    if (!p || typeof fetch !== 'function') return;
+    fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + p.code, { cache: 'no-store' }).catch(() => {});
+  }
+
+  // 长按「🌐 全网」→ 跳转到省份统计网页（只显示 ≥1 的省份，从高到低，可搜索）
+  function openProvStats() {
+    if (typeof fetch !== 'function' || typeof Blob === 'undefined') return;
+    toast('正在统计省份…');
+    Promise.all(PROVINCES.map((p) => {
+      const read = () => fetch(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/prov_' + p[1], { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => ({ name: p[0], n: (j && typeof j.value === 'number') ? j.value : 0 }));
+      // 失败自动重试一次，个别请求被限流也不至于漏掉省份
+      return read().catch(() => read().catch(() => ({ name: p[0], n: 0 })));
+    })).then((rows) => {
+      const data = rows.filter((r) => r.n >= 1).sort((a, b) => b.n - a.n);
+      const html = buildProvPage(data);
+      const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
+      location.href = url;   // 跳转到统计网页（浏览器返回键可回到游戏）
+    }).catch(() => toast('统计失败，请稍后再试'));
+  }
+
+  function buildProvPage(rows) {
+    const total = rows.reduce((s, r) => s + r.n, 0);
+    const json = JSON.stringify(rows).replace(/</g, '\\u003c');
+    return '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n' +
+      '<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">\n' +
+      '<title>省份打开统计</title>\n<style>\n' +
+      'body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;' +
+      'background:linear-gradient(180deg,#eef1f8,#dfe5f2);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;}\n' +
+      '.card{width:88%;max-width:420px;background:#fff;border-radius:18px;padding:18px 16px;' +
+      'box-shadow:0 10px 30px rgba(60,70,110,.18);}\n' +
+      'h1{font-size:19px;margin:0 0 4px;text-align:center;color:#3a4160;}\n' +
+      '.sub{text-align:center;color:#8a90a8;font-size:12px;margin-bottom:12px;}\n' +
+      '.search{width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid #d7dcf0;border-radius:24px;' +
+      'font-size:15px;outline:none;margin-bottom:10px;}\n' +
+      '.search:focus{border-color:#7c5cff;}\n' +
+      'ul{list-style:none;margin:0;padding:0;max-height:56vh;overflow-y:auto;}\n' +
+      'li{display:flex;justify-content:space-between;align-items:center;padding:9px 6px;' +
+      'border-bottom:1px dashed #e6e9f4;font-size:15px;color:#3a4160;}\n' +
+      'li b{color:#7c5cff;font-size:16px;}\n' +
+      '.empty{text-align:center;color:#a5abc2;font-size:14px;padding:18px 0;}\n' +
+      '.back{display:block;margin:14px auto 0;padding:10px 34px;border:none;border-radius:24px;' +
+      'background:linear-gradient(135deg,#7c5cff,#5c8fff);color:#fff;font-size:15px;font-weight:bold;cursor:pointer;}\n' +
+      '</style>\n</head>\n<body>\n<div class="card">\n' +
+      '<h1>🗺️ 省份打开统计</h1>\n' +
+      '<p class="sub">共 ' + rows.length + ' 个省份 · ' + total + ' 次打开</p>\n' +
+      '<input class="search" id="q" type="search" placeholder="🔍 搜索省份，例如：四川省" autocomplete="off">\n' +
+      '<ul id="list"></ul>\n' +
+      '<button class="back" onclick="history.back()">返 回</button>\n' +
+      '</div>\n<script>\n' +
+      'var ROWS=' + json + ';\n' +
+      'function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}\n' +
+      'function norm(s){return (s||"").replace(/省|市|自治区|特别行政区/g,"");}\n' +
+      'function render(kw){\n' +
+      '  var k=norm(kw);\n' +
+      '  var box=document.getElementById("list");\n' +
+      '  var rows=ROWS.filter(function(r){return !k||norm(r.name).indexOf(k)>=0;});\n' +
+      '  box.innerHTML=rows.length?rows.map(function(r){\n' +
+      '    return "<li><span>"+esc(r.name)+"</span><b>"+r.n+"</b></li>";\n' +
+      '  }).join(""):"<div class=empty>没有找到相关省份</div>";\n' +
+      '}\n' +
+      'document.getElementById("q").addEventListener("input",function(){render(this.value);});\n' +
+      'render("");\n' +
+      '<\/script>\n</body>\n</html>';
+  }
 
   // 打开页面就 +1，结果缓存下来，离线时显示上次的数字
   // 顺带保证「全网 ≥ 本机」：公共计数器没有 set 接口，落后时只能多打几下补上
@@ -2009,6 +2108,17 @@
     return sum;
   }
 
+  // 地址统一成「中国-四川省-成都市」：城市没有「市」尾巴的自动补上
+  function formatRegion(geo) {
+    if (!geo) return '';
+    const city = (geo.city || '').trim();
+    const withShi = (s) => (s && !/[市区州盟县]$/.test(s) ? s + '市' : s);
+    let parts = [geo.country, geo.region, withShi(city)];
+    // 直辖市（北京市/北京市）只显示一次
+    if (parts[1] && parts[2] && parts[1] === parts[2]) parts = [parts[0], parts[1]];
+    return parts.filter(Boolean).join('-');
+  }
+
   function renderAdmin() {
     if (!$('admin-menu')) return;
     const net = Store.getNet();
@@ -2021,9 +2131,8 @@
     $('admin-visits').textContent = localCount;
     $('admin-device').textContent = describeDevice();
     const geo = net.geo;
-    // 地址：中国-四川省-成都
-    const loc = geo ? [geo.country, geo.region, geo.city].filter(Boolean).join('-') : '';
-    $('admin-loc').textContent = loc || '—';
+    // 地址：中国-四川省-成都市
+    $('admin-loc').textContent = formatRegion(geo) || '—';
     $('admin-stars').textContent = Store.totalStars();
     $('admin-score').textContent = totalBestScore();
   }
@@ -2258,6 +2367,22 @@
       $('admin-menu').style.display = 'none';
     });
 
+    // 长按「🌐 全网」标题 → 跳转省份统计网页
+    const globalTitle = $('admin-global-title');
+    if (globalTitle && typeof PointerEvent !== 'undefined') {
+      let pressTimer = null;
+      const cancel = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+      globalTitle.addEventListener('pointerdown', () => {
+        cancel();
+        pressTimer = setTimeout(() => {
+          pressTimer = null;
+          AudioManager.playSFX('coin');
+          openProvStats();
+        }, 800);
+      });
+      ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => globalTitle.addEventListener(ev, cancel));
+    }
+
     // 主页提示条：点左侧 ✕ 只是本次隐藏，下次进主页会再出现
     const loadTip = $('load-tip');
     if (loadTip) {
@@ -2384,14 +2509,25 @@
 
     const bgm = $('bgm-volume');
     const sfx = $('sfx-volume');
+    let bgmDemoAt = 0, sfxDemoAt = 0;
     if (bgm) bgm.addEventListener('input', () => {
       $('bgm-volume-val').textContent = Math.round(bgm.value * 100) + '%';
       AudioManager.setVolumes(parseFloat(bgm.value), null);
+      // 边调边听：按当前音量实时弹一小段旋律（节流，拖动时不会炸耳朵）
+      const now = Date.now();
+      if (now - bgmDemoAt > 160) {
+        bgmDemoAt = now;
+        AudioManager.bgmDemo();
+      }
     });
     if (sfx) sfx.addEventListener('input', () => {
       $('sfx-volume-val').textContent = Math.round(sfx.value * 100) + '%';
       AudioManager.setVolumes(null, parseFloat(sfx.value));
-      AudioManager.playSFX('select');
+      const now = Date.now();
+      if (now - sfxDemoAt > 160) {
+        sfxDemoAt = now;
+        AudioManager.sfxDemo();
+      }
     });
     const saveVol = $('btn-save-volume');
     if (saveVol) saveVol.addEventListener('click', () => {
@@ -2491,7 +2627,12 @@
     if (nextBtn) nextBtn.disabled = S.menuLevel >= maxUnlocked;
 
     const high = $('menu-current-high');
-    if (high) high.textContent = (prog[S.menuLevel] && prog[S.menuLevel].score) || 0;
+    if (high) {
+      const rec = prog[S.menuLevel];
+      high.textContent = (rec && rec.score) || 0;
+      // 没通关（0 星）但有成绩 → 红色提示「这关还没过」
+      high.classList.toggle('fail', !!(rec && rec.score > 0 && rec.stars === 0));
+    }
 
     const stars = $('menu-total-stars');
     if (stars) stars.textContent = Store.totalStars();
@@ -2545,7 +2686,7 @@
     const settings = Store.getSettings();
     Store.recordVisit(); // 本机打开次数：每载入一次 +1
     // 后台统计：全网计数 +1、城市定位（失败不影响游戏）
-    setTimeout(() => { bumpGlobalHits(); fetchGeo(); }, 600);
+    setTimeout(() => { bumpGlobalHits(); fetchGeo().then(bumpProvHits); }, 600);
     AudioManager.init(settings);
     AudioManager.musicOn = settings.music !== false;
     ['btn-music-home', 'btn-music-game'].forEach((id) => {
@@ -2570,13 +2711,16 @@
     requestAnimationFrame(loop);
 
     // 首次交互解锁音频，并恢复上次的自定义音乐
+    // 多绑几种事件：部分手机浏览器 pointerdown 不算「用户手势」，
+    // 只绑一种会出现「进来显示在播放但没声音，点开始游戏才响」的问题
     const unlock = () => {
       AudioManager.init(Store.getSettings());
       AudioManager.unlock();
       if (global_Music()) global_Music().restore();
-      window.removeEventListener('pointerdown', unlock);
+      UNLOCK_EVENTS.forEach((ev) => window.removeEventListener(ev, unlock));
     };
-    window.addEventListener('pointerdown', unlock);
+    const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
+    UNLOCK_EVENTS.forEach((ev) => window.addEventListener(ev, unlock, { passive: true }));
   }
 
   function global_Music() {

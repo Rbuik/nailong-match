@@ -104,7 +104,7 @@
     <h2 class="title small">🔧 后台</h2>
 
     <div class="admin-sec">
-      <div class="admin-sec-title">🌐 全网</div>
+      <div class="admin-sec-title" id="admin-global-title">🌐 全网</div>
       <div class="result-box">
         <p><span>打开次数</span><b id="admin-global">—</b></p>
       </div>
@@ -139,6 +139,7 @@
         <p><b>十字线消</b>：4 个同图案连成一条线 → 生成白色十字架块，消除时<b>整行 + 整列一起清</b>（横竖都清）。</p>
         <p><b>彩虹 🌈</b>：5 个同图案连成一条线 → 生成彩虹块，和任意方块交换，会消掉全盘同图案的方块。</p>
         <p><b>炸弹 💣</b>：清除果冻关里有概率生成，或从背包使用「开局炸弹」道具放置。爆炸清除周围 3×3 范围。</p>
+        <p><b>结算引爆</b>：步数用完 / 时间到时，棋盘上剩下的特殊块会<b>按生成的先后顺序依次自动引爆</b>——炸得好可能直接反败为胜过关！</p>
       </section>
 
       <section class="rule-sec">
@@ -180,6 +181,20 @@
       <section class="rule-sec">
         <h3>🔓 解锁规则</h3>
         <p>主线共 20 关。通过某一关（至少 1 星）才会解锁下一关；未解锁的关卡在关卡记录里点不开。</p>
+      </section>
+
+      <section class="rule-sec">
+        <h3>🏆 分数与纪录</h3>
+        <p>每一关都会记下<b>本关最高分</b>和<b>历史最好星级</b>：就算没通关，只要分数超过历史最高，也会记进纪录。</p>
+        <p>· <b>新纪录</b>：结算时刷新了纪录（包括第一次玩这一关）就会亮出「新纪录」徽章<br>
+          · <b>红色分数</b>：主页「本关最高纪录」和关卡记录里显示红色，表示这关<b>还没通关过</b>，通关后自动变回绿色</p>
+      </section>
+
+      <section class="rule-sec">
+        <h3>🎵 音乐与音量</h3>
+        <p>设置里可以打开<b>音乐库</b>：除了内置的两首歌，还支持粘贴 <b>MP3/M4A 直链</b>或 <b>QQ音乐/网易云音乐</b>的歌曲链接（分享出来的整段文本带《歌名》也行），自动解析成 MP3 入库；入库后可长按/左滑<b>重命名</b>。</p>
+        <p>可以把多首歌加进<b>播放列表</b>，支持顺序 / 随机 / 循环，切歌无缝衔接。</p>
+        <p><b>音量</b>：所有歌（包括默认背景音乐）的响度自动对齐，不会忽大忽小；「调节音量」里拖动滑块会<b>实时试听</b>当前音量。</p>
       </section>
 
       <section class="rule-sec">
@@ -245,7 +260,7 @@
     <h2 class="title small">导入音频</h2>
     <div class="result-box" style="width:88%;">
       <p style="display:block;text-align:left;font-size:13px;line-height:1.6;">
-        粘贴 <b>MP3 / M4A 音频</b> / <b>QQ音乐</b> / <b>网易云音乐</b>🔗<br>
+        粘贴 <b>MP3/M4A 音频/QQ音乐/网易云音乐🔗</b><br>
         <span style="color:#e53935;font-size:12px;">直链必须是以 .mp3 结尾的地址；QQ音乐/网易云歌曲链接直接粘贴即可</span>
       </p>
       <div class="input-row">

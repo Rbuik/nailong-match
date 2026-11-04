@@ -527,10 +527,15 @@
 
   let importing = false;
 
-  // 判断是不是 QQ音乐 / 网易云 的歌曲页链接
+  // 判断输入是什么：音频直链 / 网易云歌曲页 / QQ音乐歌曲页或分享短链 / 《歌名》文本
   function parseMusicLink(raw) {
     const s = String(raw || '').trim();
-    if (!/^https?:\/\//i.test(s)) return null;
+    if (!s) return null;
+
+    // 分享文本里常带「歌手《歌名》」，单独抽出来做搜索兜底
+    const tm = /《([^《》]{1,40})》/.exec(s);
+    const title = tm ? tm[1].trim() : '';
+    const artist = tm ? s.slice(0, tm.index).replace(/[\s@.·、，,—\-]+$/, '').trim() : '';
 
     // 网易云：music.163.com/song?id=123 / y.music.163.com/m/song?id=123 / #/song?id=123
     if (/music\.163\.com|163cn\.tv/i.test(s)) {
@@ -541,10 +546,11 @@
         const p = /\/song\/(\d+)/i.exec(s);
         if (p) id = p[1];
       }
-      return { source: 'netease', id: id, label: '网易云音乐' };
+      return { source: 'netease', id: id, label: '网易云音乐', title: title, artist: artist };
     }
 
-    // QQ音乐：y.qq.com/n/ryqq/songDetail/0039MnYb0qxYhV / playsong.html?songmid=xxx
+    // QQ音乐：y.qq.com/n/ryqq/songDetail/xxx / playsong.html?songmid=xxx
+    // 分享短链：c6.y.qq.com/base/fcgi-bin/u?__=xxxx（拿不到歌曲 id，要靠《歌名》搜索）
     if (/y\.qq\.com|qq\.com\/n\/ryqq/i.test(s)) {
       let mid = '';
       const a = /songDetail\/([0-9A-Za-z]+)/i.exec(s);
@@ -557,8 +563,11 @@
         const c = /[?&#]mid=([0-9A-Za-z]+)/i.exec(s);
         if (c) mid = c[1];
       }
-      return { source: 'tencent', id: mid, label: 'QQ音乐' };
+      return { source: 'tencent', id: mid, label: 'QQ音乐', title: title, artist: artist };
     }
+
+    // 没有链接、只有《歌名》（可能带歌手）→ 直接按歌名搜
+    if (title) return { source: 'search', id: '', label: '歌曲', title: title, artist: artist };
     return null;
   }
 
@@ -621,6 +630,61 @@
     return '';
   }
 
+  function fetchJson(url, timeoutMs) {
+    return fetchText(url, timeoutMs).then((txt) => {
+      try { return JSON.parse(txt); } catch (e) { return null; }
+    });
+  }
+
+  // 从搜索结果里挑最匹配的：歌名对上；歌手也对上的一票通过
+  function pickMatch(list, link) {
+    const t = (link.title || '').trim();
+    let best = null;
+    for (let i = 0; i < list.length; i++) {
+      const it = list[i] || {};
+      const name = String(it.name || '').trim();
+      if (!name) continue;
+      if (name.indexOf(t) < 0 && t.indexOf(name) < 0) continue;
+      const artistStr = Array.isArray(it.artist) ? it.artist.join(' ') : String(it.artist || '');
+      if (link.artist && artistStr.indexOf(link.artist) >= 0) return it;
+      if (!best) best = it;
+    }
+    return best;
+  }
+
+  // 分享短链（拿不到歌曲 id）或只粘了《歌名》→ 先搜 QQ 音乐，搜不到再搜网易云
+  async function searchSong(link) {
+    const kw = (link.artist ? link.artist + ' ' : '') + link.title;
+
+    // 1) QQ 音乐搜索（结果里的 url 带 songmid）
+    const qq = await fetchJson('https://api.qijieya.cn/meting/?server=tencent&type=search&id=' + encodeURIComponent(kw), 8000);
+    if (Array.isArray(qq)) {
+      const hit = pickMatch(qq, link);
+      const mid = hit && /id=([0-9A-Za-z]+)/.exec(hit.url || '');
+      if (mid && mid[1]) {
+        const url = 'https://api.qijieya.cn/meting/?server=tencent&type=url&id=' + mid[1];
+        if (await probeAudio(url, 9000)) {
+          return { url: url, name: (hit.name || link.title) + ' - ' + (hit.artist || link.artist || '') };
+        }
+      }
+    }
+
+    // 2) 网易云搜索兜底
+    const ne = await fetchJson('https://music-api.gdstudio.xyz/api.php?types=search&source=netease&name=' +
+      encodeURIComponent(link.title) + '&count=10', 8000);
+    if (Array.isArray(ne)) {
+      const hit = pickMatch(ne, link);
+      if (hit && hit.id) {
+        const url = 'https://api.qijieya.cn/meting/?server=netease&type=url&id=' + hit.id;
+        if (await probeAudio(url, 9000)) {
+          const artist = Array.isArray(hit.artist) ? hit.artist.join('/') : (hit.artist || link.artist || '');
+          return { url: url, name: (hit.name || link.title) + (artist ? ' - ' + artist : '') };
+        }
+      }
+    }
+    return null;
+  }
+
   function setImportBusy(on) {
     const btn = $('btn-save-bgm');
     if (!btn) return;
@@ -658,19 +722,40 @@
       toast('请填写音频直链或歌曲链接');
       return;
     }
-    if (!/^https?:\/\//i.test(raw)) {
-      toast('请填写以 http(s) 开头的链接');
-      return;
-    }
 
     const link = parseMusicLink(raw);
     if (!link) {
       // 普通音频直链：保持原来的行为
+      if (!/^https?:\/\//i.test(raw)) {
+        toast('请填写以 http(s) 开头的链接');
+        return;
+      }
       addAndPlay({ url: raw, name: nameFromUrl(raw) }, false);
       return;
     }
-    if (!link.id) {
-      toast('请打开' + link.label + '歌曲页面，复制地址栏里的完整链接');
+
+    // 《歌名》搜索：分享短链拿不到歌曲 id，或压根只粘了歌名
+    if (link.source === 'search' || !link.id) {
+      if (!link.title) {
+        toast('请在粘贴时保留《歌名》，或打开歌曲页面复制地址栏里的完整链接');
+        return;
+      }
+      importing = true;
+      setImportBusy(true);
+      toast('正在搜索「' + link.title + '」…');
+      try {
+        const found = await searchSong(link);
+        if (!found) {
+          toast('没找到「' + link.title + '」的可用音源（可能是会员/版权受限歌曲）');
+          return;
+        }
+        addAndPlay(found, true);
+      } catch (e) {
+        toast('搜索失败，请稍后重试');
+      } finally {
+        importing = false;
+        setImportBusy(false);
+      }
       return;
     }
 
@@ -679,7 +764,16 @@
     toast('正在解析' + link.label + '链接…');
     try {
       const name = await resolveSongName(link);
-      const url = await resolveSongUrl(link);
+      let url = await resolveSongUrl(link);
+      // 直链解析失败但带了《歌名》→ 退回搜索（短链/会员歌常见）
+      if (!url && link.title) {
+        toast('链接解析失败，改用歌名搜索…');
+        const found = await searchSong(link);
+        if (found) {
+          addAndPlay(found, true);
+          return;
+        }
+      }
       if (!url) {
         toast('解析失败（可能是会员/版权受限歌曲），请换一首或改用 .mp3 直链');
         return;

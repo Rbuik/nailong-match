@@ -54,9 +54,33 @@
     setVolumes(bgm, sfx) {
       if (typeof bgm === 'number') {
         this.bgmVol = bgm;
-        if (this._custom) this._custom.volume = bgm;
+        if (this._custom) this._custom.volume = this.trackVolume(this._customUrl);
       }
       if (typeof sfx === 'number') this.sfxVol = sfx;
+    },
+
+    // 调节背景音乐滑块时的实时试听：按当前音量弹一小段旋律
+    bgmDemo() {
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      const seq = [[523.25, 0], [659.25, 0.09], [783.99, 0.18]];
+      seq.forEach(([f, d]) => {
+        try {
+          const t0 = this.ctx.currentTime + d;
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, t0);
+          g.gain.setValueAtTime(0.04 * this.bgmVol * 2, t0);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
+          osc.connect(g); g.connect(this.ctx.destination);
+          osc.start(t0); osc.stop(t0 + 0.2);
+        } catch (e) {}
+      });
+    },
+
+    // 调节音效滑块时的实时试听
+    sfxDemo() {
+      this.playSFX('coin');
     },
 
     _tone(freq, type, dur, vol, delay) {
@@ -241,7 +265,88 @@
       if (!Array.isArray(urls)) return;
       urls.filter(Boolean).slice(0, 12).forEach((u) => {
         try { this.poolFor(u); } catch (e) {}
+        this.measureLoudness(u);
       });
+    },
+
+    // ---------- 响度统一 ----------
+    // 目标：所有歌（含默认背景音乐）响度一致。
+    // 默认 BGM 是合成音（振幅 0.04×音量×2 的音阶），折算响度约 0.0566×音量；
+    // 把每首歌解码算出 RMS，乘一个系数后正好落在同一条响度线上，
+    // 不会再出现「这首很小声、那首又很大声」。
+    _gainCache: null,
+    _measuring: null,
+    LOUDNESS_TARGET: 0.0566,
+    LOUDNESS_FALLBACK: 0.32,   // 跨域歌测不了响度时的经验系数
+
+    _gainMap() {
+      if (!this._gainCache) {
+        let m = {};
+        try { m = JSON.parse(localStorage.getItem('nl2:trackGain') || '{}') || {}; } catch (e) {}
+        this._gainCache = m;
+      }
+      return this._gainCache;
+    },
+
+    gainFor(url) {
+      const g = this._gainMap()[url];
+      if (typeof g === 'number' && g > 0) return g;
+      // 同源的歌马上就能测出来，先用 1 不至于突然变小；跨域的用经验值兜底
+      return this.canMeasure(url) ? 1 : this.LOUDNESS_FALLBACK;
+    },
+
+    // 某首歌当前的最终音量（滑块音量 × 响度系数，封顶 1）
+    trackVolume(url) {
+      return Math.min(1, this.bgmVol * this.gainFor(url));
+    },
+
+    // 只有同源（内置/本地/同域）音频能 fetch 下来解码；跨域 CDN 不给 CORS，测不了
+    canMeasure(url) {
+      try {
+        if (!/^https?:/i.test(url)) return true;
+        if (typeof location === 'undefined' || !/^https?:/i.test(location.protocol)) return false;
+        return new URL(url, location.href).host === location.host;
+      } catch (e) {
+        return false;
+      }
+    },
+
+    measureLoudness(url) {
+      if (!url || !this.canMeasure(url)) return;
+      const map = this._gainMap();
+      if (typeof map[url] === 'number') return;
+      if (!this._measuring) this._measuring = {};
+      if (this._measuring[url]) return;
+      this._measuring[url] = true;
+
+      const AC = global.AudioContext || global.webkitAudioContext;
+      if (!AC || typeof fetch !== 'function') return;
+      const ctx = this.ctx || new AC();
+      fetch(url, { cache: 'force-cache' })
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .then((buf) => (buf ? ctx.decodeAudioData(buf) : null))
+        .then((audio) => {
+          if (!audio) return;
+          let sum = 0, n = 0;
+          for (let ch = 0; ch < Math.min(2, audio.numberOfChannels); ch++) {
+            const data = audio.getChannelData(ch);
+            for (let i = 0; i < data.length; i += 64) {
+              sum += data[i] * data[i];
+              n++;
+            }
+          }
+          if (!n) return;
+          const rms = Math.sqrt(sum / n);
+          if (rms < 0.001) return;
+          const gain = Math.max(0.08, Math.min(2.5, this.LOUDNESS_TARGET / rms));
+          map[url] = Math.round(gain * 1000) / 1000;
+          try { localStorage.setItem('nl2:trackGain', JSON.stringify(map)); } catch (e) {}
+          // 正在播的就是这首歌 → 立刻应用新音量
+          if (this._custom && this._customUrl === url) {
+            this._custom.volume = this.trackVolume(url);
+          }
+        })
+        .catch(() => {});
     },
 
     // opts: { loop: boolean, onEnded: function, restart: boolean }
@@ -276,7 +381,7 @@
 
       const sameTrack = prevUrl === url && prev === audio && !audio.ended;
       audio.preload = 'auto';
-      audio.volume = this.bgmVol;
+      audio.volume = this.trackVolume(url);
       audio.loop = opts.loop !== false && !opts.onEnded;
       audio.onerror = () => {
         this._failing = true;
