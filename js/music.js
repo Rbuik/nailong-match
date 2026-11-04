@@ -326,14 +326,17 @@
   }
 
   function bindRowGesture(row, item, source, actW) {
-    const wrap = row.parentNode;
+    // 绑定时 row 还没插进列表，parentNode 是 null —— 必须等长按触发时再取
+    let wrap = null;
     let sx = 0, sy = 0, base = 0, dx = 0, lastY = 0;
     let swiping = false, moved = false, lp = null, pid = null;
-    let lifted = false, liftMoved = false, ghost = null, grabDy = 0, stopScroll = null;
+    let lifted = false, liftMoved = false, ghost = null, grabDy = 0, touchBound = false;
 
     // 长按 → 这一行「浮」起来，可以上下拖动换位置（同时不再触发左滑）
     function lift() {
-      if (lifted || !wrap) return;
+      if (lifted) return;
+      wrap = row.parentNode;
+      if (!wrap) return;
       lifted = true;
       liftMoved = false;
       const r = row.getBoundingClientRect();
@@ -351,10 +354,30 @@
       document.body.classList.add('m-dragging');
       if (openRow) closeOpenRow();
 
-      // 拖动期间锁住页面滚动（长按不松手时手指上下移动不该滚动列表）
-      stopScroll = (ev) => { if (ev.cancelable) ev.preventDefault(); };
-      document.addEventListener('touchmove', stopScroll, { passive: false });
+      // 触屏兜底：浏览器一旦把手势判成滚动就会发 pointercancel，
+      // 所以浮起后直接用 touch 事件接管拖动，并 preventDefault 阻止列表滚动
+      if (!touchBound) {
+        touchBound = true;
+        window.addEventListener('touchmove', onTouchMove, { passive: false });
+        window.addEventListener('touchend', onTouchEnd);
+        window.addEventListener('touchcancel', onTouchEnd);
+      }
       if (AudioManager.vibrate) AudioManager.vibrate(15);
+    }
+
+    function onTouchMove(ev) {
+      if (!lifted) return;
+      const t = ev.touches && ev.touches[0];
+      if (!t) return;
+      if (ev.cancelable) ev.preventDefault();
+      lastY = t.clientY;
+      if (!liftMoved && Math.abs(t.clientY - sy) > 3) liftMoved = true;
+      moveGhost(t.clientY);
+    }
+
+    function onTouchEnd() {
+      if (!lifted) return;
+      endLift();
     }
 
     function moveGhost(y) {
@@ -376,19 +399,23 @@
     }
 
     function endLift() {
-      if (stopScroll) {
-        document.removeEventListener('touchmove', stopScroll);
-        stopScroll = null;
+      if (!lifted) return;
+      lifted = false;
+      if (touchBound) {
+        touchBound = false;
+        window.removeEventListener('touchmove', onTouchMove);
+        window.removeEventListener('touchend', onTouchEnd);
+        window.removeEventListener('touchcancel', onTouchEnd);
       }
       document.body.classList.remove('m-dragging');
-      wrap.classList.remove('lift-src');
+      if (wrap) wrap.classList.remove('lift-src');
       if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
       ghost = null;
-      lifted = false;
       // 拖着换了位置 → 保存新顺序；长按没动就松手 → 还是原来的多选
-      if (liftMoved) commitOrder(source);
-      else toggleSelect(item.url, row);
+      const didMove = liftMoved;
       liftMoved = false;
+      if (didMove) commitOrder(source);
+      else toggleSelect(item.url, row);
     }
 
     row.addEventListener('pointerdown', (e) => {
@@ -467,10 +494,13 @@
     };
 
     row.addEventListener('pointerup', finish);
+    // 长按别让系统弹出「复制/打开链接」之类的菜单，否则手势会被打断
+    row.addEventListener('contextmenu', (e) => { e.preventDefault(); });
     row.addEventListener('pointercancel', (e) => {
       if (lp) { clearTimeout(lp); lp = null; }
       pid = null;
-      if (lifted) { liftMoved = true; endLift(); }
+      // 触屏被浏览器抢走手势（判成滚动）时不要中断拖动，交给 touch 事件收尾
+      if (lifted && e.pointerType !== 'touch') endLift();
       moved = true;
     });
   }
