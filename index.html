@@ -117,7 +117,6 @@
       <div class="admin-sec-title" id="admin-global-title">🌐 全网</div>
       <div class="result-box">
         <p><span>点击</span><b id="admin-global">—</b></p>
-        <p><span>AI 调用</span><b id="admin-ai">—</b></p>
       </div>
     </div>
 
@@ -374,6 +373,7 @@
     <p class="history-hint">点任意一关即可回到主页并切换到该关</p>
     <div class="history-list" id="history-list"></div>
     <button class="btn-secondary" id="btn-history-back">返回</button>
+    <button class="btn-primary" id="btn-replay-ending" style="display:none;">🎊 重现结算画面</button>
   </div>
 
   <!-- 背包 -->
@@ -470,6 +470,10 @@
       <p style="justify-content:center;flex-direction:column;gap:8px;">
         <span style="font-size:13px;color:#666;">主线历史总得分</span>
         <b id="complete-total-score" style="font-size:30px;color:#ff8c00;">0</b>
+      </p>
+      <p style="justify-content:center;flex-direction:column;gap:6px;">
+        <span style="font-size:13px;color:#666;">主线总星数</span>
+        <b id="complete-total-stars" style="font-size:22px;color:#ffb400;">0</b>
       </p>
     </div>
     <button class="btn-secondary" id="btn-complete-home">回到主页</button>

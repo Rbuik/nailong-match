@@ -1568,14 +1568,11 @@
       }, 30);
     }
 
-    // 毕业面板（§10）
+    // 毕业面板（§10）：全通关后弹一次；「关卡记录」里也能重现
     if (S.levelDef.final) {
-      const total = Object.keys(Store.getProgress()).reduce((s, k) => s + (Store.getProgress()[k].score || 0), 0);
-      $('complete-total-score').textContent = '0';
       setTimeout(() => {
         if (box) box.style.display = 'none';
-        $('game-complete').style.display = 'flex';
-        countUp($('complete-total-score'), total, 900);
+        showCompletePanel();
       }, 1400);
     }
     // 本关已结算：清掉局内存档，避免主页还显示「继续游戏」
@@ -1998,9 +1995,41 @@
     toast('已切换到第 ' + S.menuLevel + ' 关');
   }
 
+  // 主线是否全部通关（每一关都至少 1 星）
+  function allLevelsCleared() {
+    const prog = Store.getProgress() || {};
+    const total = maxMainLevel();
+    if (!total) return false;
+    for (let i = 1; i <= total; i++) {
+      if (!prog[i] || !(prog[i].stars > 0)) return false;
+    }
+    return true;
+  }
+
+  // 毕业结算画面：每次打开都按存档里的最新数据重新算（总得分 / 总星数）
+  function showCompletePanel() {
+    const prog = Store.getProgress() || {};
+    let totalScore = 0, totalStars = 0;
+    Object.keys(prog).forEach((k) => {
+      totalScore += (prog[k] && prog[k].score) || 0;
+      totalStars += (prog[k] && prog[k].stars) || 0;
+    });
+    const sc = $('complete-total-score'), st = $('complete-total-stars');
+    if (st) st.textContent = String(totalStars);
+    if (sc) {
+      sc.textContent = '0';
+      countUp(sc, totalScore, 900);
+    }
+    const panel = $('game-complete');
+    if (panel) panel.style.display = 'flex';
+  }
+
   function renderHistory() {
     const list = $('history-list');
     if (!list) return;
+    // 全通关才显示「重现结算画面」
+    const replay = $('btn-replay-ending');
+    if (replay) replay.style.display = allLevelsCleared() ? 'inline-block' : 'none';
     const prog = Store.getProgress();
     const maxUnlocked = Store.maxUnlockedLevel(maxMainLevel());
     const total = maxMainLevel();
@@ -2071,7 +2100,6 @@
   }
 
   // ==================== 后台统计：全网次数 / 设备 / 地址 / 进度 ====================
-  const HITS_API = 'https://abacus.jasoncameron.dev/hit/nailong-xiaoxiaole-2026/opens';
   const ABACUS_BASE = 'https://abacus.jasoncameron.dev/';
   const GEO_API = 'https://ipwho.is/?lang=zh-CN';
 
@@ -2101,8 +2129,7 @@
   }
 
   // 每次点击页面，把所在省份的计数 +1（供后台省份统计读取）
-  // 定位失败时落到「调用」（AI / 爬虫 / 没定位到的点击），保证省份合计仍能对上全网
-  const PROV_UNKNOWN = ['调用', 'unknown'];
+  // 只统计「真人 + 定位成功」的点击：AI、定位失败的一律不计入任何统计
 
   // ============ 市级统计：各省地级行政区（中文名 → 计数器代号） ============
   // 每次点击页面，所在市 +1（city_<省代号>_<市代号>）；点统计页里的省份可看
@@ -2189,21 +2216,17 @@
     if (provCounted) return;
     provCounted = true;
     if (typeof fetch !== 'function') return;
-    // AI / 自动化访问：单独记一笔，不占省份和城市的数（否则会把 AI 算成真人点击）
-    if (AI_CLIENT) {
-      fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/ai', { cache: 'no-store' }).catch(() => {});
-      return;
-    }
+    // 只统计「真人 + 定位成功」的点击：AI / 自动化访问、定位失败的一律不计
+    if (AI_CLIENT) return;
     const geo = Store.getNet().geo || {};
-    // 只有明确识别为中国的 IP 才计入省份（国外 / 定位失败落「其他」）
     const isCN = /中国|中华|China|CN/i.test(geo.country || '');
     const p = isCN ? matchProvince(geo.region) : null;
-    const code = p ? p.code : PROV_UNKNOWN[1];
-    fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + code, { cache: 'no-store' }).catch(() => {});
+    if (!p) return;
+    fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + p.code, { cache: 'no-store' }).catch(() => {});
     // 市级统计（点省份统计页里的省份可以看到）
-    const city = p ? matchCity(p.code, geo.city) : null;
+    const city = matchCity(p.code, geo.city);
     if (city) {
-      fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/city_' + code + '_' + city.code,
+      fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/city_' + p.code + '_' + city.code,
         { cache: 'no-store' }).catch(() => {});
     }
   }
@@ -2213,10 +2236,7 @@
   // 省份统计是后来才加的，所以「省份合计 ≤ 全网」，差额就是「调用」
   // （历史点击 / AI 调用 / 没定位到的点击）。「调用」不管次数多少固定排最后。
 
-  let provRows = [];     // 有点击记录的省份（不含「调用」），降序
-  let unknownN = 0;      // 「其他」：定位失败 / 没执行 JS 的历史点击（只增不减）
-  let aiN = 0;           // 「AI 调用」：被识别为 AI / 自动化的访问累计
-  let opensVal = -1;     // 历史总计数器（读失败时回退用 net.globalHits）
+  let provRows = [];     // 有点击记录的省份，降序（只含真实点击）
 
   function escHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2242,28 +2262,15 @@
     });
   }
 
-  // 读历史总计数器（get 不加数，/hit 才加）
-  function readOpens() {
-    return fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/opens', 7000).then((j) =>
-      (j && typeof j.value === 'number' ? j.value : -1));
-  }
-
-  // 读「AI 调用」计数器（不存在时接口返回的不是数字 → 当 0）
-  function readAiCount() {
-    return fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/ai', 7000).then((j) =>
-      (j && typeof j.value === 'number' ? j.value : 0));
-  }
-
   // 每个省上次读到的值（这次读失败的省沿用上次的数，显示才不会来回跳）
   function provValsCache() {
     try { return JSON.parse(localStorage.getItem('nl2:provVals') || '{}') || {}; } catch (e) { return {}; }
   }
 
-  // 读全部省份（含「调用」）；全部失败返回 null
+  // 读全部省份；全部失败返回 null
   function readAllProv() {
-    const list = PROVINCES.concat([PROV_UNKNOWN]);
     const cached = provValsCache();
-    return Promise.all(list.map((p) => readProvCount(p[1]).then((n) => {
+    return Promise.all(PROVINCES.map((p) => readProvCount(p[1]).then((n) => {
       if (n >= 0) cached[p[1]] = n;                       // 读成功 → 更新
       else if (typeof cached[p[1]] === 'number') n = cached[p[1]];  // 读失败 → 沿用上次
       return { name: p[0], code: p[1], n: n };
@@ -2279,63 +2286,31 @@
     return Number.isFinite(n) ? n : 0;
   }
 
-  // 34 省合计 / 全网显示值 / 「AI 调用」/ 「其他」
+  // 全网点击 = 各省真实点击之和（两边同一份数据，统计页相加必然等于后台）
   function provTotalSum() { return provRows.reduce((s, r) => s + r.n, 0); }
-  function aiCount() { return aiN; }
-  function statsTotal() {
-    const opens = opensVal >= 0 ? opensVal : (Store.getNet().globalHits || 0);
-    return Math.max(opens, provTotalSum() + unknownN + aiN);
-  }
-  // 「其他」= 全网里既不属于任何省份、也不是 AI 的部分
-  // （历史点击 / 定位失败 / 没跑 JS 的抓取），只增不减
-  function callCount() { return Math.max(unknownN, statsTotal() - provTotalSum() - aiN); }
+  function statsTotal() { return provTotalSum(); }
 
-  // 把一次读取结果落到缓存 + 后台「全网」
-  // （兼容旧缓存里没有 code、或叫「其他地区」的行，统一算进「其他」）
-  function applyProvData(rows, opens, ai) {
-    const isUnk = (r) => r.code === PROV_UNKNOWN[1] || r.name === PROV_UNKNOWN[0] || r.name === '其他地区' || r.name === '调用';
-    const unk = rows.find(isUnk) || { n: 0 };
+  // 把一次读取结果落到缓存 + 后台「全网」（旧缓存里的「调用/其他地区」行直接丢掉，不计入）
+  function applyProvData(rows) {
+    const isUnk = (r) => r.code === 'unknown' || r.name === '调用' || r.name === '其他地区' || r.name === '其他';
     provRows = rows.filter((r) => !isUnk(r)).map((r) => ({
       name: r.name,
       code: r.code || (matchProvince(r.name) || {}).code || '',
       n: r.n
     })).filter((r) => r.code).sort((a, b) => b.n - a.n);
-    unknownN = Math.max(unknownN, unk.n || 0);
-    if (typeof ai === 'number' && ai >= 0) aiN = Math.max(aiN, ai);
-    if (opens >= 0) opensVal = opens;
     try {
-      localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: rows }));
-      localStorage.setItem('nl2:provSum', String(provTotalSum() + unknownN));
+      localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: provRows }));
+      localStorage.setItem('nl2:provSum', String(provTotalSum()));
     } catch (e) {}
     Store.patchNet({ globalHits: statsTotal() });
     return statsTotal();
   }
 
-  // 本机点击比省份合计还多（旧数据 / 当时定位失败漏记）→ 补进「调用」，
-  // 保证「全网 ≥ 本机」，统计页加起来仍然等于全网
-  function ensureProvTotal(local) {
-    if (provTotalSum() + unknownN >= local) return Promise.resolve(statsTotal());
-    const need = Math.min(30, local - provTotalSum() - unknownN);
-    let chain = Promise.resolve();
-    for (let i = 0; i < need; i++) {
-      chain = chain.then(() => fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + PROV_UNKNOWN[1],
-        { cache: 'no-store' }).catch(() => {}));
-    }
-    return chain.then(() => {
-      unknownN += need;
-      try { localStorage.setItem('nl2:provSum', String(provTotalSum() + unknownN)); } catch (e) {}
-      Store.patchNet({ globalHits: statsTotal() });
-      return statsTotal();
-    });
-  }
-
-  // 后台 / 统计页共用这一份：读全省份 + 历史总数 + AI 调用 → 落缓存 → 对齐本机
+  // 后台 / 统计页共用这一份：读全省份 → 落缓存
   function refreshProvStats() {
-    return Promise.all([readAllProv(), readOpens(), readAiCount()]).then((res) => {
-      const rows = res[0], opens = res[1], ai = res[2];
+    return readAllProv().then((rows) => {
       if (!rows) return null;
-      applyProvData(rows, opens, ai);
-      return ensureProvTotal(Store.getVisits().count).then(() => statsTotal());
+      return applyProvData(rows);
     });
   }
 
@@ -2362,7 +2337,7 @@
     let cached = null;
     try { cached = JSON.parse(localStorage.getItem('nl2:provCache') || 'null'); } catch (e) {}
     if (cached && Array.isArray(cached.data) && cached.data.length) {
-      applyProvData(cached.data, -1);
+      applyProvData(cached.data);
       renderProvList('');
       renderAdmin();
     } else {
@@ -2437,51 +2412,23 @@
     const rows = provRows.filter((r) => !k || normProv(r.name).indexOf(k) >= 0);
     const total = statsTotal();
     if (sub) {
-      sub.textContent = (provRows.length || unknownN > 0)
+      sub.textContent = provRows.length
         ? ('共 ' + provRows.length + ' 个省份 · 合计 ' + total + ' 次点击')
         : '暂无点击记录';
     }
-    const ai = aiCount();
-    const call = callCount();
-    if (!rows.length && !((unknownN > 0 || ai > 0) && !k)) {
+    if (!rows.length) {
       list.innerHTML = '<li class="prov-empty">没有找到相关省份</li>';
       return;
     }
-    let html = rows.map((r) =>
+    list.innerHTML = rows.map((r) =>
       '<li class="clickable" data-code="' + r.code + '"><span>' + escHtml(r.name) +
       '<i class="prov-arrow">›</i></span><b>' + r.n + '</b></li>').join('');
-    // 「AI 调用」「其他」固定排最后（不管次数多少），不可点
-    if (ai > 0 && !k) html += '<li><span>🤖 AI 调用</span><b>' + ai + '</b></li>';
-    if (call > 0 && !k) html += '<li><span>其他</span><b>' + call + '</b></li>';
-    list.innerHTML = html;
     Array.prototype.forEach.call(list.querySelectorAll('li.clickable'), (li) => {
       li.addEventListener('click', () => {
         const row = provRows.find((r) => r.code === li.getAttribute('data-code'));
         if (row) openProvCities(row);
       });
     });
-  }
-
-  // 每次点击页面 +1 历史总计数器（老计数器继续累加保留历史），
-  // 后台显示的「全网」= max(历史总数, 省份合计)，离线时用上次缓存
-  function bumpGlobalHits() {
-    if (typeof fetch !== 'function') return;
-    fetch(HITS_API, { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        // /hit 的返回里带着最新值，顺手存下来给后台显示
-        if (j && typeof j.value === 'number' && j.value > 0) {
-          opensVal = Math.max(opensVal, j.value);
-          Store.patchNet({ globalHits: statsTotal() });
-          renderAdmin();
-        }
-      })
-      .catch(() => {});
-    const cached = cachedProvSum();
-    if (cached > 0) {
-      Store.patchNet({ globalHits: Math.max(Store.getNet().globalHits || 0, cached) });
-      renderAdmin();
-    }
   }
 
   // 城市级定位：24 小时内复用缓存（定位可能会变，缓存太久会把人钉死在错的省份）
@@ -2556,13 +2503,9 @@
     if (!$('admin-menu')) return;
     const net = Store.getNet();
     const localCount = Store.getVisits().count;
-    // 「全网」= 历史总计数器（每次点击 +1，从未间断）与省份合计取大者；
-    // 一定 ≥ 本机点击，也不会因为省份统计刷新而来回跳
-    const globalShown = Math.max(statsTotal(), cachedProvSum(), localCount);
+    // 「全网」= 各省真实点击之和（AI / 定位失败的一律不算），离线时用上次缓存
+    const globalShown = Math.max(statsTotal(), cachedProvSum());
     $('admin-global').textContent = globalShown > 0 ? String(globalShown) : '—';
-    // AI 调用（识别出的自动化访问，单独计；没记录过就显示 —）
-    const aiEl = $('admin-ai');
-    if (aiEl) aiEl.textContent = aiCount() > 0 ? String(aiCount()) : '—';
     // 本机
     $('admin-visits').textContent = localCount;
     $('admin-device').textContent = describeDevice();
@@ -2729,6 +2672,12 @@
       $('history-menu').style.display = 'none';
       showOverlay('main-menu');
       refreshMenu();
+    });
+    // 全通关后：在「返回」下面多一个「重现结算画面」，数据实时取最新存档
+    const replayEnding = $('btn-replay-ending');
+    if (replayEnding) replayEnding.addEventListener('click', () => {
+      $('history-menu').style.display = 'none';
+      showCompletePanel();
     });
     const dailyBtn = $('btn-daily');
     if (dailyBtn) dailyBtn.addEventListener('click', () => {
@@ -3217,7 +3166,7 @@
     const settings = Store.getSettings();
     Store.recordVisit(); // 本机点击：每载入一次 +1
     // 后台统计：全网计数 +1、城市定位（失败不影响游戏）
-    setTimeout(() => { bumpGlobalHits(); fetchGeo().then(bumpProvHits); }, 600);
+    setTimeout(() => { fetchGeo().then(bumpProvHits); }, 600);
     AudioManager.init(settings);
     AudioManager.musicOn = settings.music !== false;
     ['btn-music-home', 'btn-music-game'].forEach((id) => {
