@@ -39,7 +39,55 @@
       }
       if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
       this.masterReady = !!this.ctx;
+      this.startWatchdog();
       return this.masterReady;
+    },
+
+    // ---------- 播放看门狗（修「播放几十分钟后自己停了」） ----------
+    // 手机上挂机久了，系统会把 AudioContext 挂起 / 把 <audio> 暂停
+    // （来电、切后台再回来、省电策略），之前没人把它拉起来，音乐就永远停了。
+    // 每 4 秒巡检：上下文挂起就 resume；音乐被暂停就接着播；进度卡住就重载续播。
+    _watchdog: null,
+    _lastTick: 0,
+    _stuckCount: 0,
+    _stopped: false,   // 用户主动停掉自定义音乐时置位，看门狗不再强行拉起
+    startWatchdog() {
+      if (this._watchdog) return;
+      this._watchdog = setInterval(() => {
+        try {
+          if (!this.musicOn) return;
+          if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+          if (this.ctx && this.ctx.state === 'suspended') this.resumeCtx();
+
+          const a = this._custom;
+          if (!a) {
+            // 没在播自定义音乐：默认合成 BGM 的定时器丢了就重启
+            if (!this._stopped && !this._bgmTimer) this.startBGM();
+            return;
+          }
+          if (a.paused) {
+            if (!a.ended) {
+              const p = a.play();
+              if (p && typeof p.catch === 'function') p.catch(() => {});
+            }
+            return;
+          }
+          // 播放中但进度一直不动（断流 / 内核卡死）→ 重新加载续播
+          const t = a.currentTime;
+          if (Math.abs(t - (this._lastTick || 0)) < 0.05) {
+            this._stuckCount = (this._stuckCount || 0) + 1;
+            if (this._stuckCount >= 4) {
+              this._stuckCount = 0;
+              try { a.load(); } catch (e) {}
+              const p = a.play();
+              if (p && typeof p.catch === 'function') p.catch(() => {});
+            }
+          } else {
+            this._stuckCount = 0;
+          }
+          this._lastTick = t;
+        } catch (e) {}
+      }, 4000);
     },
 
     // 用户首次交互时调用（移动端自动播放限制）
@@ -74,9 +122,56 @@
     setVolumes(bgm, sfx) {
       if (typeof bgm === 'number') {
         this.bgmVol = bgm;
-        if (this._custom) this._custom.volume = this.trackVolume(this._customUrl);
+        // 滑块一动立即生效（iOS 上 element.volume 无效，走 WebAudio gain）
+        this.applyCustomVolume();
       }
       if (typeof sfx === 'number') this.sfxVol = sfx;
+    },
+
+    // ---------- 自定义音乐的音量通道（修 iOS「调音量没实时反馈」） ----------
+    // iOS Safari 的 <audio>.volume 是只读的，设了也不响 —— 音乐库里正播的歌
+    // 拖滑块完全没变化就是它。iOS 一律把 <audio> 接进 WebAudio
+    // （MediaElementSource → GainNode），用 gain 控制音量，滑块一动立即生效；
+    // 其它平台继续用 element.volume。
+    _mediaNodes: null,
+    _isIOS() {
+      const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+      return /iP(hone|od|ad)/.test(ua) ||
+        (/Macintosh/.test(ua) && typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1);
+    },
+    _ensureMediaGraph(audio) {
+      if (!this._isIOS() || !audio) return null;
+      const AC = global.AudioContext || global.webkitAudioContext;
+      if (!AC) return null;
+      if (!this.ctx) {
+        try { this.ctx = new AC(); } catch (e) { return null; }
+      }
+      if (!this._mediaNodes) this._mediaNodes = new Map();
+      if (this._mediaNodes.has(audio)) return this._mediaNodes.get(audio);
+      try {
+        const src = this.ctx.createMediaElementSource(audio);
+        const gain = this.ctx.createGain();
+        src.connect(gain);
+        gain.connect(this.ctx.destination);
+        const node = { src: src, gain: gain };
+        this._mediaNodes.set(audio, node);
+        return node;
+      } catch (e) {
+        return null;
+      }
+    },
+    // 当前自定义曲目的最终音量：优先 gain 节点（iOS），否则 element.volume
+    applyCustomVolume() {
+      const a = this._custom;
+      if (!a) return;
+      const v = this.trackVolume(this._customUrl);
+      const node = this._mediaNodes && this._mediaNodes.get(a);
+      if (node) {
+        try { node.gain.gain.value = v; } catch (e) {}
+        a.volume = 1;
+      } else {
+        a.volume = v;
+      }
     },
 
     // 调节背景音乐滑块时的实时试听：按当前音量弹一小段旋律
@@ -372,7 +467,7 @@
           try { localStorage.setItem('nl2:trackGain', JSON.stringify(map)); } catch (e) {}
           // 正在播的就是这首歌 → 立刻应用新音量
           if (this._custom && this._customUrl === url) {
-            this._custom.volume = this.trackVolume(url);
+            this.applyCustomVolume();
           }
         })
         .catch(() => {});
@@ -410,7 +505,7 @@
 
       const sameTrack = prevUrl === url && prev === audio && !audio.ended;
       audio.preload = 'auto';
-      audio.volume = this.trackVolume(url);
+      audio.volume = 1; // 音量统一由 applyCustomVolume 控制（iOS 走 gain 节点）
       audio.loop = opts.loop !== false && !opts.onEnded;
       audio.onerror = () => {
         this._failing = true;
@@ -422,6 +517,8 @@
       audio.onended = opts.onEnded ? () => { if (!audio.loop) opts.onEnded(); } : null;
 
       this._custom = audio;
+      this._stopped = false;
+      this.applyCustomVolume();
 
       // 同一首只改播放模式时不要重头播；其余情况从头开始
       if (!sameTrack || opts.restart) {
@@ -462,6 +559,7 @@
         this._custom = null;
       }
       this._customUrl = '';
+      this._stopped = true; // 用户主动停的，看门狗不要重启默认 BGM
     },
 
     setMusicOn(on) {
@@ -471,6 +569,7 @@
         if (this._bgmTimer) { clearInterval(this._bgmTimer); this._bgmTimer = null; }
         this.setDrum(false);
       } else {
+        this._stopped = false;
         if (this._custom) this._custom.play().catch(() => {});
         else this.startBGM();
       }

@@ -514,13 +514,18 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   -webkit-tap-highlight-color: transparent;
 }
 
-.admin-hint {
-  margin: 6px 0 0 4px;
-  font-size: 12px;
-  color: #a5abc2;
-  text-align: left;
+/* 步数耗尽 / 时间到：特殊块依次引爆的提示（固定在棋盘正下方，不占动态高度） */
+#detonate-tip {
+  min-height: 20px;
+  margin: 2px 0 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e07a1f;
+  text-align: center;
   line-height: 1.4;
+  visibility: hidden;
 }
+#detonate-tip.show { visibility: visible; }
 
 /* 省份统计页（整页覆盖，安卓返回键 / 返回按钮都能回游戏） */
 .prov-page {

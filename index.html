@@ -43,6 +43,8 @@
     <div id="loading">加载中…</div>
   </div>
 
+  <div id="detonate-tip"></div>
+
   <div id="toast"></div>
 
   <!-- 主页 -->
@@ -108,7 +110,6 @@
       <div class="result-box">
         <p><span>打开次数</span><b id="admin-global">—</b></p>
       </div>
-      <div class="admin-hint">长按本板块 3 秒查看省份统计</div>
     </div>
 
     <div class="admin-sec">
@@ -130,7 +131,7 @@
     <div class="prov-card">
       <h2 class="prov-title">🗺️ 省份打开统计</h2>
       <p class="prov-sub" id="prov-sub">正在统计…</p>
-      <input class="prov-search" id="prov-search" type="search" placeholder="🔍 搜索省份，例如：四川省" autocomplete="off">
+      <input class="prov-search" id="prov-search" type="search" placeholder="🔍 搜索" autocomplete="off">
       <ul class="prov-list" id="prov-list"></ul>
       <button class="btn-primary" id="btn-prov-back">返 回</button>
     </div>
@@ -255,7 +256,7 @@
     <h2 class="title small">音量调节</h2>
     <div class="result-box" style="width:88%;">
       <p style="display:flex;justify-content:space-between;font-size:14px;">
-        <span>背景音乐<span style="font-size:12px;color:#9aa1b5;">（默认 + 音乐库）</span></span><b id="bgm-volume-val">50%</b>
+        <span>背景音乐</span><b id="bgm-volume-val">50%</b>
       </p>
       <input type="range" id="bgm-volume" min="0" max="1" step="0.01" value="0.5" style="width:100%;margin-bottom:16px;">
       <p style="display:flex;justify-content:space-between;font-size:14px;">
@@ -414,7 +415,7 @@
         <span id="clear-new-record" class="new-record-badge" style="display:none;">新纪录</span>
         <b id="clear-score">0</b></span></p>
       <p><span>历史最高</span><b id="clear-high">0</b></p>
-      <p><span>剩余步数</span><b id="clear-moves">0</b></p>
+      <p><span id="clear-moves-label">剩余步数</span><b id="clear-moves">0</b></p>
       <p><span>金币奖励</span><b id="clear-coins">+0</b></p>
     </div>
     <button class="btn-primary" id="btn-next-level">进入下一关</button>

@@ -904,26 +904,49 @@
     return '十字线';
   }
 
-  // 棋盘上剩下的特殊块：按生成先后一个个引爆，返回是否因此达成了关卡目标
+  // 引爆提示固定显示在棋盘正下方（#detonate-tip），不占用 toast
+  function showDetonateTip(msg) {
+    const el = $('detonate-tip');
+    if (!el) return;
+    if (msg) {
+      el.textContent = msg;
+      el.classList.add('show');
+    } else {
+      el.textContent = '';
+      el.classList.remove('show');
+    }
+  }
+
+  // 棋盘上剩下的特殊块：按生成先后一个个引爆，全部生效（含引爆后掉落产生的
+  // 连消与新特殊块）之后才结束，返回是否因此达成了关卡目标。
+  // 中途就算目标已达成也继续引爆完、把棋盘清干净，最后才进结算页。
   async function detonateBoardSpecials() {
     const all = collectSpecials();
     if (!all.length) return false;
-    toast('棋盘上还有 ' + all.length + ' 个特殊块，按生成顺序依次引爆');
+    showDetonateTip('棋盘上还有 ' + all.length + ' 个特殊块，按生成顺序依次引爆');
     await sleep(420);
 
-    for (let guard = 0; guard < 40; guard++) {
+    for (let guard = 0; guard < 80; guard++) {
       const list = collectSpecials();
-      if (!list.length) break;
-      // 编号小的先生成、先引爆；编号相同（老存档）按行列顺序兜底
-      list.sort((a, b) => (a.seq - b.seq) || (a.r - b.r) || (a.c - b.c));
-      const t = list[0];
-      FX.text(t.c * CELL + CELL / 2, t.r * CELL + CELL / 2 - CELL * 0.4,
-        specialName(t.special) + '触发', '#ffb03a', 15);
-      await detonateAt(t.r, t.c);
-      if (S.goal && Goals.isComplete(S.goal)) return true;
-      await sleep(260);
+      if (list.length) {
+        // 编号小的先生成、先引爆；编号相同（老存档）按行列顺序兜底
+        list.sort((a, b) => (a.seq - b.seq) || (a.r - b.r) || (a.c - b.c));
+        const t = list[0];
+        FX.text(t.c * CELL + CELL / 2, t.r * CELL + CELL / 2 - CELL * 0.4,
+          specialName(t.special) + '触发', '#ffb03a', 15);
+        await detonateAt(t.r, t.c);
+        // 一次爆破可能连带吃掉多个特殊块，剩余数量实时更新到棋盘下方
+        const left = collectSpecials().length;
+        showDetonateTip(left > 0 ? '正在引爆特殊块…还剩 ' + left + ' 个' : '特殊块全部引爆完毕');
+        await sleep(260);
+        continue;
+      }
+      // 特殊块清完：引爆后的掉落可能产生自然连消，也一并消完再结算
+      if (findMatches().size === 0) break;
+      await resolveBoard(null);
     }
-    return false;
+    showDetonateTip('');
+    return S.goal ? Goals.isComplete(S.goal) : false;
   }
 
   function SpecsL(runs) {
@@ -996,6 +1019,8 @@
     try {
       const ba = S.board[a.r][a.c];
       const bb = S.board[b.r][b.c];
+      // 快照在交换之前拍：撤回要回到「走之前」的棋盘，连消多少次都一样
+      const snap = makeHistorySnap();
 
       await animateSwap(a, b);
       S.board[a.r][a.c] = bb;
@@ -1004,6 +1029,7 @@
       // 组合技（§2）：两个特殊块相邻
       const combo = Specials.comboAt(S.board, ROWS, COLS, a, b);
       if (combo) {
+        commitSnap(snap);
         await runCombo(combo, a, b);
         spendMove();
         await afterTurn();
@@ -1023,7 +1049,7 @@
         return;
       }
 
-      pushHistory();
+      commitSnap(snap);
       spendMove();
       await resolveBoard({ a: { r: a.r, c: a.c }, b: { r: b.r, c: b.c } });
       await afterTurn();
@@ -1122,14 +1148,32 @@
   }
 
   // ==================== 撤销 / 洗牌 ====================
-  function pushHistory() {
-    S.history.push({
+  // 快照 = 「走这一步之前」的完整局面：棋盘、果冻、分数、步数、目标进度全都要，
+  // 这样撤回时目标栏和棋盘一起回到走之前（哪怕上一步连消了多次也是同一份快照）
+  function makeHistorySnap() {
+    return {
       board: JSON.parse(JSON.stringify(S.board)),
       jelly: JSON.parse(JSON.stringify(S.jelly)),
       score: S.score,
       moves: S.moves,
-      jellyLeft: S.jellyLeft
-    });
+      jellyLeft: S.jellyLeft,
+      clearedCount: S.clearedCount,
+      goal: S.goal ? {
+        current: S.goal.current,
+        byColor: JSON.parse(JSON.stringify(S.goal.byColor || {})),
+        jellyCleared: S.goal.jellyCleared || 0
+      } : null
+    };
+  }
+
+  function pushHistory() {
+    S.history.push(makeHistorySnap());
+    if (S.history.length > 10) S.history.shift();
+  }
+
+  function commitSnap(snap) {
+    if (!snap) return;
+    S.history.push(snap);
     if (S.history.length > 10) S.history.shift();
   }
 
@@ -1152,6 +1196,13 @@
     S.score = f.score;
     S.moves = f.moves;
     S.jellyLeft = f.jellyLeft;
+    S.clearedCount = f.clearedCount != null ? f.clearedCount : S.clearedCount;
+    // 目标栏一起撤回：收集数量 / 果冻数 / 得分进度全部回到走之前
+    if (f.goal && S.goal) {
+      S.goal.current = f.goal.current || 0;
+      S.goal.byColor = f.goal.byColor || S.goal.byColor;
+      S.goal.jellyCleared = f.goal.jellyCleared || 0;
+    }
     S.selected = null;
     updateHUD();
     updateTargetBar();
@@ -1432,6 +1483,9 @@
       $('clear-high').textContent = S.daily
         ? Store.getDailyRecord().best
         : Store.getLevelRecord(S.level).score;
+      // 限时关显示「剩余时间」，步数关显示「剩余步数」
+      const mvLabel = $('clear-moves-label');
+      if (mvLabel) mvLabel.textContent = S.timerOn ? '剩余时间' : '剩余步数';
       $('clear-moves').textContent = S.timerOn ? Math.round(S.timeLeft) + 's' : S.moves;
       $('clear-coins').textContent = '+' + coins;
       // 「新纪录」等分数滚完再亮，别提前剧透
@@ -1508,6 +1562,8 @@
       AudioManager.playSFX('bomb');
       await sleep(280);
       await detonateAt(spot[0], spot[1]);
+      // 引爆后的掉落可能凑出自然连消，一并消完
+      if (findMatches().size) await resolveBoard(null);
 
       if (S.goal && Goals.isComplete(S.goal)) {
         await sleep(240);
@@ -1993,6 +2049,32 @@
     });
   }
 
+  // 把全网计数补齐到省份合计，保证「统计页数字加起来 = 后台的全网次数」
+  // （公共计数器只增不减，落后时只能多打几下补上）
+  function reconcileGlobalTo(sum) {
+    if (typeof fetch !== 'function' || !sum) return;
+    fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/opens', 7000).then((j) => {
+      let cur = j && typeof j.value === 'number' ? j.value : -1;
+      if (cur < 0) return;
+      let guard = 0;
+      const step = () => {
+        if (cur >= sum || guard++ >= 60) {
+          Store.patchNet({ globalHits: Math.max(cur, sum) });
+          renderAdmin();
+          return;
+        }
+        fetch(HITS_API, { cache: 'no-store' })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((v) => {
+            if (v && typeof v.value === 'number') cur = Math.max(cur, v.value);
+            step();
+          })
+          .catch(step);
+      };
+      step();
+    });
+  }
+
   function openProvStats() {
     const page = $('prov-page');
     if (!page) return;
@@ -2009,6 +2091,10 @@
           const data = rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
           provRows = data;
           try { localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: data })); } catch (e) {}
+          // 把省份合计记下来（后台「全网」至少显示到这个数），并把全网计数补齐到合计
+          const sum = data.reduce((s, r) => s + r.n, 0);
+          try { localStorage.setItem('nl2:provSum', String(sum)); } catch (e) {}
+          reconcileGlobalTo(sum);
         } else {
           // 全部请求失败（离线 / 被限流）→ 用上次的结果，至少有内容看
           let cached = null;
@@ -2047,6 +2133,11 @@
   function bumpGlobalHits() {
     if (typeof fetch !== 'function') return;
     const local = Store.getVisits().count;
+    // 补齐全网时把省份计数一起补，保证统计页加起来仍然等于全网
+    const prov = matchProvince(Store.getNet().geo && Store.getNet().geo.region);
+    const provHit = () => {
+      if (prov) fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + prov.code, { cache: 'no-store' }).catch(() => {});
+    };
     const hit = () => fetch(HITS_API, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
       .then((j) => (j && typeof j.value === 'number' ? j.value : null));
@@ -2058,6 +2149,7 @@
       while (cur < local && guard++ < 30) {
         const n = await hit();
         if (n == null) break;
+        provHit();
         cur = Math.max(cur, n);
       }
       Store.patchNet({ globalHits: Math.max(cur, local) });
@@ -2137,9 +2229,11 @@
     if (!$('admin-menu')) return;
     const net = Store.getNet();
     const localCount = Store.getVisits().count;
-    // 全网 ≥ 本机：计数器只增不减，落后时取本机数兜底，绝不显示比本机还小
+    // 全网 ≥ 本机 ≥ 0，且不低于省份统计的合计（保证和统计页数字对得上）
+    let provSum = 0;
+    try { provSum = parseInt(localStorage.getItem('nl2:provSum') || '0', 10) || 0; } catch (e) {}
     const g = net.globalHits;
-    const globalShown = typeof g === 'number' && g > 0 ? Math.max(g, localCount) : Math.max(0, localCount);
+    const globalShown = Math.max(typeof g === 'number' && g > 0 ? g : 0, provSum, localCount);
     $('admin-global').textContent = globalShown > 0 ? String(globalShown) : '—';
     // 本机
     $('admin-visits').textContent = localCount;
@@ -2830,6 +2924,9 @@
     win: levelWin,
     end: endGame,
     outOfResource: handleOutOfResource,
-    collectSpecials: collectSpecials
+    collectSpecials: collectSpecials,
+    swap: trySwap,
+    undoMove: undo,
+    findMatches: findMatches
   };
 })();
