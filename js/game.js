@@ -2352,7 +2352,7 @@
     // 只统计「真人」的点击：AI / 自动化访问一律不计
     if (AI_CLIENT) return;
     const geo = geoArg || Store.getNet().geo || {};
-    const hit = (key) => fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/' + key,
+    const hit = (key) => fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026-v2/' + key,
       { cache: 'no-store' }).catch(() => {});
 
     // country 可能是两位码（ipinfo：CN）或国家名（ipapi.is：China / ipwho：中国）
@@ -2407,7 +2407,7 @@
 
   // 读一个省的计数：读不到返回 -1（用来区分「真的是 0」和「没联网」）
   function readProvCount(code) {
-    const url = ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/prov_' + code;
+    const url = ABACUS_BASE + 'get/nailong-xiaoxiaole-2026-v2/prov_' + code;
     return fetchWithTimeout(url, 7000).then((j) => {
       if (j && typeof j.value === 'number') return j.value;
       return fetchWithTimeout(url, 7000).then((j2) => (j2 && typeof j2.value === 'number' ? j2.value : -1));
@@ -2416,7 +2416,7 @@
 
   // 每个省上次读到的值（这次读失败的省沿用上次的数，显示才不会来回跳）
   function provValsCache() {
-    try { return JSON.parse(localStorage.getItem('nl2:provVals') || '{}') || {}; } catch (e) { return {}; }
+    try { return JSON.parse(localStorage.getItem('nl2:provVals2') || '{}') || {}; } catch (e) { return {}; }
   }
 
   // 读全部地区（34 省 + 港澳台 + 海外）；全部失败返回 null
@@ -2433,13 +2433,13 @@
       return { name: p[0], code: p[1], n: n };
     }))).then((rows) => {
       if (!rows.some((r) => r.n >= 0)) return null;
-      try { localStorage.setItem('nl2:provVals', JSON.stringify(cached)); } catch (e) {}
+      try { localStorage.setItem('nl2:provVals2', JSON.stringify(cached)); } catch (e) {}
       return rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
     });
   }
 
   function cachedProvSum() {
-    const n = Number(localStorage.getItem('nl2:provSum') || 0);
+    const n = Number(localStorage.getItem('nl2:provSum2') || 0);
     return Number.isFinite(n) ? n : 0;
   }
 
@@ -2456,8 +2456,8 @@
       n: r.n
     })).filter((r) => r.code).sort((a, b) => b.n - a.n);
     try {
-      localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: provRows }));
-      localStorage.setItem('nl2:provSum', String(provTotalSum()));
+      localStorage.setItem('nl2:provCache2', JSON.stringify({ ts: Date.now(), data: provRows }));
+      localStorage.setItem('nl2:provSum2', String(provTotalSum()));
     } catch (e) {}
     Store.patchNet({ globalHits: statsTotal() });
     return statsTotal();
@@ -2492,7 +2492,7 @@
 
     // 1) 先画缓存（秒开 + 数字稳定，不会每进来一次就变一个样）
     let cached = null;
-    try { cached = JSON.parse(localStorage.getItem('nl2:provCache') || 'null'); } catch (e) {}
+    try { cached = JSON.parse(localStorage.getItem('nl2:provCache2') || 'null'); } catch (e) {}
     if (cached && Array.isArray(cached.data) && cached.data.length) {
       applyProvData(cached.data);
       renderProvList('');
@@ -2545,7 +2545,7 @@
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem(cacheKey) || '{}') || {}; } catch (e) {}
     Promise.all(cities.map((c) =>
-      fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/city_' + row.code + '_' + c[1], 7000)
+      fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026-v2/city_' + row.code + '_' + c[1], 7000)
         .then((j) => {
           const v = (j && typeof j.value === 'number') ? j.value : -1;
           const prev = typeof saved[c[1]] === 'number' ? saved[c[1]] : 0;
@@ -2727,9 +2727,8 @@
     $('admin-visits').textContent = localCount;
     $('admin-device').textContent = describeDevice();
     const geo = net.geo;
-    // 地址：中国-四川省-成都市 · 解析到的 IP（方便自己核对定位对不对）
-    const loc = formatRegion(geo) || '—';
-    $('admin-loc').textContent = (geo && geo.ip) ? (loc + ' · ' + geo.ip) : loc;
+    // 地址：中国-四川省-成都市
+    $('admin-loc').textContent = formatRegion(geo) || '—';
     $('admin-stars').textContent = Store.totalStars();
     $('admin-score').textContent = totalBestScore();
   }
