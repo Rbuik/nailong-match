@@ -188,7 +188,7 @@ function check(name, ok) {
   $('btn-play').dispatch('click');
   await sleep(30);
   const barHtml = $('target-bar').innerHTML;
-  check('收集关目标栏使用图案 img', barHtml.includes('goal-chip') && barHtml.includes('./assets/0.jpg'));
+  check('收集关目标栏使用图案 img', barHtml.includes('goal-chip') && barHtml.includes('./assets/0.webp'));
 
   // 6. 中央倍数横幅元素存在
   check('中央横幅存在（倍数显示）', !!getEl('center-banner') && !!getEl('center-banner-text'));

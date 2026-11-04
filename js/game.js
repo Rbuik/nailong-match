@@ -135,6 +135,7 @@
     for (let i = 0; i < 6; i++) {
       const img = new Image();
       img.decoding = 'async';
+      img.fetchPriority = 'high';
       const done = () => {
         loaded++;
         // 每张图到位就重绘一次：即使其它图还没到，先到的也能显示
@@ -143,13 +144,13 @@
       };
       img.onload = done;
       img.onerror = done;
-      img.src = './assets/' + i + '.jpg';
+      img.src = './assets/' + i + '.webp';
       IMAGES[i] = img;
     }
     // 兜底：网络极慢也不让「加载中」卡死（方块会先用颜色占位，图到了再补上）
     setTimeout(() => {
       if (!imagesReady) settle();
-    }, 4000);
+    }, 2000);
   }
 
   // ==================== 棋盘 ====================
@@ -376,7 +377,7 @@
     roundRect(x, y, w, h, radius);
     ctx.clip();
     const img = IMAGES[block.type];
-    if (imagesReady && img && img.complete && img.naturalWidth > 0) {
+    if (img && img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, x, y, w, h);
     } else {
       ctx.fillStyle = FALLBACK_COLORS[block.type];
@@ -1013,7 +1014,7 @@
       // 显示具体图案（和棋盘一致），不用颜色块，避免分不清
       const d = document.createElement('img');
       d.className = 'preview-dot';
-      d.src = './assets/' + t + '.jpg';
+      d.src = './assets/' + t + '.webp';
       d.alt = '即将掉落';
       d.draggable = false;
       strip.appendChild(d);
@@ -1455,10 +1456,10 @@
     const bar = $('target-bar');
     if (!bar || !S.goal) return;
     if (S.goal.type === 'collect') {
-      // 收集模式：显示对应棋子的准确图案（assets/{type}.jpg），不用颜色区分
+      // 收集模式：显示对应棋子的准确图案（assets/{type}.webp），不用颜色区分
       const parts = Object.keys(S.goal.target || {}).map((c) => {
         const cur = Math.min(S.goal.byColor[c] || 0, S.goal.target[c]);
-        return '<span class="goal-chip"><img class="goal-icon" src="./assets/' + c + '.jpg" alt="图案' + c + '">' +
+        return '<span class="goal-chip"><img class="goal-icon" src="./assets/' + c + '.webp" alt="图案' + c + '">' +
           cur + '/' + S.goal.target[c] + '</span>';
       }).join('');
       bar.innerHTML = '目标：收集 ' + parts;
@@ -2345,12 +2346,12 @@
   window.__nl_ai = AI_CLIENT;            // 方便自查：控制台输入 __nl_ai 看判定结果
 
   let provCounted = false;
+  // 返回 true = 这次点击已经计进全网（省份/海外）；false = 定位没拿到，还可以重试
   function bumpProvHits(geoArg) {
-    if (provCounted) return;
-    provCounted = true;
-    if (typeof fetch !== 'function') return;
+    if (provCounted) return true;
+    if (typeof fetch !== 'function') return true;
     // 只统计「真人」的点击：AI / 自动化访问一律不计
-    if (AI_CLIENT) return;
+    if (AI_CLIENT) { provCounted = true; return true; }
     const geo = geoArg || Store.getNet().geo || {};
     const hit = (key) => fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026-v2/' + key,
       { cache: 'no-store' }).catch(() => {});
@@ -2365,20 +2366,35 @@
 
     if (!isCN) {
       // 国外 IP：计入「🌍 海外」（单独一行，也算进全网点击）
-      if (known) hit('prov_' + PROV_OVERSEAS[1]);
-      else hit('geo_unknown');       // 连国家都没识别出来：只做诊断，不显示
-      return;
+      if (known) { hit('prov_' + PROV_OVERSEAS[1]); provCounted = true; return true; }
+      hit('geo_unknown');       // 连国家都没识别出来：只做诊断，不显示
+      return false;
     }
 
     const p = matchProvince(geo.region);
     if (!p) {
       hit('geo_unknown');            // 是中国的 IP，但省没识别出来（极少见）：只做诊断
-      return;
+      return false;
     }
     hit('prov_' + p.code);
+    provCounted = true;
     // 市级统计（点统计页里的省份可以看到）
-    const city = matchCity(p.code, geo.city);
+    let city = matchCity(p.code, geo.city);
+    // 直辖市 / 港澳只有「一个市」，定位没给城市名时直接归到它，避免出现「未定位到市」
+    if (!city) {
+      const only = CITY_TABLE[p.code];
+      if (only && only.length === 1) city = { name: only[0][0], code: only[0][1] };
+    }
     if (city) hit('city_' + p.code + '_' + city.code);
+    return true;
+  }
+
+  // 把本机这一次点击算进全网：定位没回来就等它，最多重试 3 次，绝不因为接口抖动丢点击
+  function attributeClick(tries) {
+    fetchGeo().then((g) => {
+      const ok = g ? bumpProvHits(g) : false;
+      if (!ok && tries < 3) setTimeout(() => attributeClick(tries + 1), 3000 * (tries + 1));
+    });
   }
 
   // ============ 省份统计（含市级下钻） ============
@@ -2729,7 +2745,8 @@
     const net = Store.getNet();
     const localCount = Store.getVisits().count;
     // 「全网」= 各省 + 海外（同一份数据，所以统计页里数字加起来一定等于这里）
-    const globalShown = Math.max(statsTotal(), cachedProvSum());
+    // 本机是全网的一部分：万一某次定位接口全挂、这次点击没能归省，至少不会出现「本机 > 全网」
+    const globalShown = Math.max(statsTotal(), cachedProvSum(), localCount);
     $('admin-global').textContent = globalShown > 0 ? String(globalShown) : '—';
     // 本机
     $('admin-visits').textContent = localCount;
@@ -3389,9 +3406,17 @@
     }
 
     const settings = Store.getSettings();
+    // 计数口径升级到 v2：本机与全网从此刻起同源重新计（旧的脏数据不再参与）
+    try {
+      if (Number(localStorage.getItem('nl2:statsVer') || 0) !== 2) {
+        localStorage.setItem('nl2:statsVer', '2');
+        Store.resetVisits();
+      }
+    } catch (e) {}
     Store.recordVisit(); // 本机点击：每载入一次 +1
     // 后台统计：全网计数 +1、城市定位（失败不影响游戏）
-    setTimeout(() => { fetchGeo().then((g) => bumpProvHits(g)); }, 300);
+    // 本机这一下必须算进全网：定位没回来就等它，最多重试 3 次，绝不丢
+    setTimeout(() => { attributeClick(0); }, 300);
     AudioManager.init(settings);
     AudioManager.musicOn = settings.music !== false;
     ['btn-music-home', 'btn-music-game'].forEach((id) => {
