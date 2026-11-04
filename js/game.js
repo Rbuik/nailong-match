@@ -2109,19 +2109,19 @@
     {
       name: 'ipinfo', url: 'https://ipinfo.io/json',
       pick: (j) => (j && j.country && j.country !== 'undefined'
-        ? { countryCode: String(j.country).toUpperCase(), country: '', region: j.region || '', city: j.city || '' }
+        ? { countryCode: String(j.country).toUpperCase(), country: '', region: j.region || '', city: j.city || '', ip: j.ip || '' }
         : null)
     },
     {
       name: 'ipapi.is', url: 'https://api.ipapi.is/',
       pick: (j) => (j && j.country
-        ? { countryCode: '', country: j.country || '', region: j.region || '', city: j.city || '' }
+        ? { countryCode: '', country: j.country || '', region: j.region || '', city: j.city || '', ip: j.ip || '' }
         : null)
     },
     {
       name: 'ipwho', url: 'https://ipwho.is/?lang=zh-CN',
       pick: (j) => (j && j.success !== false && j.country
-        ? { countryCode: j.country_code || '', country: j.country || '', region: j.region || '', city: j.city || '' }
+        ? { countryCode: j.country_code || '', country: j.country || '', region: j.region || '', city: j.city || '', ip: j.ip || '' }
         : null)
     }
   ];
@@ -2727,8 +2727,9 @@
     $('admin-visits').textContent = localCount;
     $('admin-device').textContent = describeDevice();
     const geo = net.geo;
-    // 地址：中国-四川省-成都市
-    $('admin-loc').textContent = formatRegion(geo) || '—';
+    // 地址：中国-四川省-成都市 · 解析到的 IP（方便自己核对定位对不对）
+    const loc = formatRegion(geo) || '—';
+    $('admin-loc').textContent = (geo && geo.ip) ? (loc + ' · ' + geo.ip) : loc;
     $('admin-stars').textContent = Store.totalStars();
     $('admin-score').textContent = totalBestScore();
   }
