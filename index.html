@@ -108,28 +108,29 @@
     <div class="admin-sec" id="admin-global-sec">
       <div class="admin-sec-title" id="admin-global-title">🌐 全网</div>
       <div class="result-box">
-        <p><span>打开次数</span><b id="admin-global">—</b></p>
+        <p><span>点击</span><b id="admin-global">—</b></p>
       </div>
     </div>
 
     <div class="admin-sec">
       <div class="admin-sec-title">📱 本机</div>
       <div class="result-box">
-        <p><span>打开次数</span><b id="admin-visits">0</b></p>
+        <p><span>点击</span><b id="admin-visits">0</b></p>
         <p><span>设备</span><b id="admin-device">—</b></p>
         <p><span>地址</span><b id="admin-loc">—</b></p>
-        <p><span>星星总数</span><b id="admin-stars">0</b></p>
-        <p><span>分数总数</span><b id="admin-score">0</b></p>
+        <p><span>星星</span><b id="admin-stars">0</b></p>
+        <p><span>总分</span><b id="admin-score">0</b></p>
       </div>
+      <div class="admin-note">统计自 2026-10-29 00:00:00 起</div>
     </div>
 
     <button class="btn-primary" id="btn-admin-close">关闭</button>
   </div>
 
-  <!-- 省份打开统计（后台长按「🌐 全网」3 秒打开） -->
+  <!-- 省份统计（后台长按「🌐 全网」3 秒打开） -->
   <div class="overlay prov-page" id="prov-page" style="display:none;">
     <div class="prov-card">
-      <h2 class="prov-title">🗺️ 省份打开统计</h2>
+      <h2 class="prov-title">🗺️ 省份统计</h2>
       <p class="prov-sub" id="prov-sub">正在统计…</p>
       <input class="prov-search" id="prov-search" type="search" placeholder="🔍 搜索" autocomplete="off">
       <ul class="prov-list" id="prov-list"></ul>
@@ -435,6 +436,19 @@
     </div>
     <button class="btn-primary" id="btn-restart">重新挑战</button>
     <button class="btn-secondary" id="btn-home">返回主页</button>
+  </div>
+
+  <!-- 每日挑战已完成（三星后不再重复挑战） -->
+  <div class="overlay" id="daily-done" style="display:none;">
+    <h2 class="title small" id="daily-done-title">✅ 已完成今日挑战</h2>
+    <div class="stars-row" id="daily-done-stars">
+      <span>★</span><span>★</span><span>★</span>
+    </div>
+    <div class="result-box">
+      <p><span>星星</span><b id="daily-done-star-num">3</b></p>
+      <p><span>得分</span><b id="daily-done-score">0</b></p>
+    </div>
+    <button class="btn-secondary" id="btn-daily-done-home">返回主页</button>
   </div>
 
   <!-- 毕业 -->

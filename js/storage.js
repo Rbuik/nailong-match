@@ -15,7 +15,7 @@
     tasks: NS + ':tasks',         // { date, list:[], signDay, signDate }
     settings: NS + ':settings',   // { music, bgm, sfx, theme }
     daily: NS + ':daily',         // 每日挑战当天最佳 { date, best, times }
-    visits: NS + ':visits',       // 链接打开次数 { count, first, last }
+    visits: NS + ':visits',       // 链接点击次数 { count, first, last }
     net: NS + ':net',             // 后台缓存 { globalHits, geo:{country,region,city,ts} }
     save: NS + ':save'            // 当前局
   };
@@ -97,18 +97,24 @@
 
   function getDailyRecord() {
     const rec = read(K.daily, null);
-    if (!rec || rec.date !== dailyKey()) return { date: dailyKey(), best: 0, times: 0 };
-    return { date: rec.date, best: rec.best || 0, times: rec.times || 0 };
+    if (!rec || rec.date !== dailyKey()) return { date: dailyKey(), best: 0, times: 0, stars: 0 };
+    return { date: rec.date, best: rec.best || 0, times: rec.times || 0, stars: rec.stars || 0 };
   }
 
   // 返回记录后的最佳分和是否刷新（当天第一次完成同样算新纪录）
-  function recordDaily(score) {
+  // stars 也一并记录：拿到 3 星后当天不能再挑战
+  function recordDaily(score, stars) {
     const cur = getDailyRecord();
     const first = !cur.times;
     const isNewScore = first || score > cur.best;
-    const next = { date: cur.date, best: first ? score : Math.max(cur.best, score), times: cur.times + 1 };
+    const next = {
+      date: cur.date,
+      best: first ? score : Math.max(cur.best, score),
+      times: cur.times + 1,
+      stars: Math.max(cur.stars || 0, stars || 0)
+    };
     write(K.daily, next);
-    return { isNewScore, best: next.best, times: next.times, first };
+    return { isNewScore, best: next.best, times: next.times, stars: next.stars, first };
   }
 
   // 玩过标记：只记「这关动过手」，不影响分数与星级（用于主页按钮区分「没玩过 / 玩过没通关」）
@@ -245,7 +251,7 @@
     return s;
   }
 
-  // ---------- 链接打开次数（每载入一次页面 +1，供隐藏后台查看） ----------
+  // ---------- 链接点击次数（每载入一次页面 +1，供隐藏后台查看） ----------
   // 统计起点：2026-10-29 00:00:00（本地时间），此前的打开不计入
   const COUNT_START = new Date(2026, 9, 29, 0, 0, 0).getTime();
 

@@ -123,6 +123,13 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .btn-mini:active { transform: scale(0.94); }
 
+/* 每日挑战已完成：绿色描边，别让人以为还能再打 */
+.btn-mini.is-done {
+  color: #1a8f4a;
+  border-color: rgba(26, 143, 74, 0.4);
+  background: rgba(92, 200, 143, 0.14);
+}
+
 /* ================= 任务 / 签到（§6 §8） ================= */
 .signin-box {
   width: 86%;
@@ -503,6 +510,15 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .admin-sec-title { font-size: 14px; }   /* 板块标题「🌐 全网 / 📱 本机」比主页标题大一号 */
 .admin-sec .result-box p { font-size: 16px; margin: 7px 0; }
 .admin-sec .result-box b { font-size: 18px; text-align: right; max-width: 70%; line-height: 1.35; word-break: break-word; }
+
+/* 统计口径说明（很小的一行，不抢视线） */
+.admin-note {
+  margin: 6px 0 0 4px;
+  font-size: 11px;
+  color: #a5abc2;
+  text-align: left;
+  line-height: 1.4;
+}
 
 /* 长按「🌐 全网」板块 3 秒 → 省份统计。
    手机上必须封掉滚动/选中/长按菜单，否则手指一抖就被取消 */

@@ -19,6 +19,15 @@
     bgmVol: 0.5,
     sfxVol: 0.5,
 
+    // ===== 统一响度 =====
+    // 目标：默认 BGM、音乐库所有歌、导入的歌、游戏音效，在同一个滑块位置
+    // 听起来的响度一致（都对齐到 100% 时的这个 RMS 值）
+    LOUDNESS_TARGET: 0.0566,
+    LOUDNESS_FALLBACK: 0.32,   // 跨域歌测不了响度时的经验系数
+    BGM_NOTE_PEAK: 0.24,       // 合成 BGM 主音峰值（100% 音量）
+    BGM_BASS_PEAK: 0.10,       // 合成 BGM 低音层峰值
+    SFX_PEAK_SCALE: 1.6,       // 音效峰值系数（原来是 2，偏响）
+
     _bgmTimer: null,
     _noteIndex: 0,
     _drumTimer: null,
@@ -123,24 +132,29 @@
       if (typeof bgm === 'number') {
         this.bgmVol = bgm;
         // 滑块一动立即生效（iOS 上 element.volume 无效，走 WebAudio gain）
+        // 顺手把可能挂起的上下文叫醒，保证第一次拖动就能听到变化
+        if (this.ctx && this.ctx.state !== 'running') this.resumeCtx();
         this.applyCustomVolume();
       }
       if (typeof sfx === 'number') this.sfxVol = sfx;
     },
 
-    // ---------- 自定义音乐的音量通道（修 iOS「调音量没实时反馈」） ----------
+    // ---------- 自定义音乐的音量通道 ----------
     // iOS Safari 的 <audio>.volume 是只读的，设了也不响 —— 音乐库里正播的歌
-    // 拖滑块完全没变化就是它。iOS 一律把 <audio> 接进 WebAudio
-    // （MediaElementSource → GainNode），用 gain 控制音量，滑块一动立即生效；
-    // 其它平台继续用 element.volume。
+    // 拖滑块完全没变化就是它。所以把 <audio> 接进 WebAudio
+    // （MediaElementSource → GainNode），用 gain 控制音量，滑块一动立即生效。
+    // 注意：跨域音频接进 WebAudio 会变成静音（CDN 不给 CORS），
+    // 这类歌只能用 element.volume（安卓 / 电脑可用）。
     _mediaNodes: null,
     _isIOS() {
       const ua = (typeof navigator !== 'undefined' && navigator.userAgent) || '';
       return /iP(hone|od|ad)/.test(ua) ||
         (/Macintosh/.test(ua) && typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1);
     },
-    _ensureMediaGraph(audio) {
-      if (!this._isIOS() || !audio) return null;
+    _ensureMediaGraph(audio, url) {
+      if (!audio) return null;
+      // 跨域歌不能进 WebAudio（会静音），保持原生播放
+      if (url && !this.canMeasure(url)) return null;
       const AC = global.AudioContext || global.webkitAudioContext;
       if (!AC) return null;
       if (!this.ctx) {
@@ -160,12 +174,17 @@
         return null;
       }
     },
-    // 当前自定义曲目的最终音量：优先 gain 节点（iOS），否则 element.volume
+    // 当前自定义曲目的最终音量：优先 gain 节点（iOS / 同源歌），否则 element.volume
     applyCustomVolume() {
       const a = this._custom;
       if (!a) return;
       const v = this.trackVolume(this._customUrl);
-      const node = this._mediaNodes && this._mediaNodes.get(a);
+      let node = this._mediaNodes && this._mediaNodes.get(a);
+      // 只在 AudioContext 已经跑起来（解锁成功）后才接管，
+      // 否则会把还在自动播放的歌变成静音（WebAudio 挂起时不出声）
+      if (!node && this.ctx && this.ctx.state === 'running') {
+        node = this._ensureMediaGraph(a, this._customUrl);
+      }
       if (node) {
         try { node.gain.gain.value = v; } catch (e) {}
         a.volume = 1;
@@ -174,39 +193,19 @@
       }
     },
 
-    // 调节背景音乐滑块时的实时试听：按当前音量弹一小段旋律
-    // 这里不能用 ctx.state==='running' 直接 return（iOS 刚进来常是 suspended），
-    // 先尝试 resume，再把音符排进去，resume 成功后立即出声
-    bgmDemo() {
-      const AC = global.AudioContext || global.webkitAudioContext;
-      if (!this.ctx && AC) { try { this.ctx = new AC(); } catch (e) {} }
-      if (!this.ctx) return;
-      if (this.ctx.state !== 'running') this.resumeCtx();
-
-      const vol = Math.max(0.02, Math.min(1, this.bgmVol));
-      const seq = [[523.25, 0], [659.25, 0.085], [783.99, 0.17]];
-      seq.forEach(([f, d]) => {
-        try {
-          const t0 = this.ctx.currentTime + d;
-          const osc = this.ctx.createOscillator();
-          const g = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(f, t0);
-          g.gain.setValueAtTime(0.085 * vol * 2, t0);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
-          osc.connect(g); g.connect(this.ctx.destination);
-          osc.start(t0); osc.stop(t0 + 0.2);
-        } catch (e) {}
-      });
-    },
-
     // 调节音效滑块时的实时试听
     sfxDemo() {
       this.playSFX('coin');
     },
 
     _tone(freq, type, dur, vol, delay) {
-      if (!this.ctx || this.ctx.state !== 'running') return;
+      // 音效独立于「音乐开关」：就算背景音乐关掉，特效照样响
+      if (!this.ctx) {
+        const AC = global.AudioContext || global.webkitAudioContext;
+        if (AC) { try { this.ctx = new AC(); } catch (e) {} }
+      }
+      if (!this.ctx) return;
+      if (this.ctx.state !== 'running') this.resumeCtx();
       delay = delay || 0;
       try {
         const t0 = this.ctx.currentTime + delay;
@@ -214,7 +213,8 @@
         const g = this.ctx.createGain();
         osc.type = type;
         osc.frequency.setValueAtTime(freq, t0);
-        const peak = Math.max(0.0001, vol * this.sfxVol * 2);
+        // 统一响度：所有音效与音乐在同一条响度线上（原来 ×2 偏响）
+        const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
         g.gain.setValueAtTime(0, t0);
         g.gain.linearRampToValueAtTime(peak, t0 + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
@@ -323,7 +323,7 @@
         const g = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(f, t0);
-        g.gain.setValueAtTime(0.04 * this.bgmVol * 2, t0);
+        g.gain.setValueAtTime(Math.max(0.0001, this.BGM_NOTE_PEAK * this.bgmVol), t0);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
         osc.connect(g); g.connect(this.ctx.destination);
         osc.start(t0); osc.stop(t0 + 0.2);
@@ -333,7 +333,7 @@
           const g2 = this.ctx.createGain();
           o2.type = 'triangle';
           o2.frequency.setValueAtTime(f / 2, t0);
-          g2.gain.setValueAtTime(0.02 * this.bgmVol * 2, t0);
+          g2.gain.setValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * this.bgmVol), t0);
           g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25);
           o2.connect(g2); g2.connect(this.ctx.destination);
           o2.start(t0); o2.stop(t0 + 0.25);
@@ -360,7 +360,7 @@
           osc.type = 'sine';
           osc.frequency.setValueAtTime(70, t0);
           osc.frequency.exponentialRampToValueAtTime(38, t0 + 0.09);
-          g.gain.setValueAtTime(0.09 * this.bgmVol * 2, t0);
+          g.gain.setValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * 0.8 * this.bgmVol), t0);
           g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
           osc.connect(g); g.connect(this.ctx.destination);
           osc.start(t0); osc.stop(t0 + 0.13);
@@ -395,14 +395,11 @@
 
     // ---------- 响度统一 ----------
     // 目标：所有歌（含默认背景音乐）响度一致。
-    // 默认 BGM 是合成音（振幅 0.04×音量×2 的音阶），折算响度约 0.0566×音量；
+    // 默认 BGM 是合成音，下面已按同一目标校准峰值；
     // 把每首歌解码算出 RMS，乘一个系数后正好落在同一条响度线上，
     // 不会再出现「这首很小声、那首又很大声」。
     _gainCache: null,
     _measuring: null,
-    LOUDNESS_TARGET: 0.0566,
-    LOUDNESS_FALLBACK: 0.32,   // 跨域歌测不了响度时的经验系数
-
     _gainMap() {
       if (!this._gainCache) {
         let m = {};
@@ -413,9 +410,15 @@
     },
 
     gainFor(url) {
-      const g = this._gainMap()[url];
+      const map = this._gainMap();
+      const g = map[url];
       if (typeof g === 'number' && g > 0) return g;
-      // 同源的歌马上就能测出来，先用 1 不至于突然变小；跨域的用经验值兜底
+      // 还没测出来：先用已测歌曲的中位数，避免第一耳朵忽大忽小
+      const vals = Object.keys(map)
+        .map((k) => map[k])
+        .filter((v) => typeof v === 'number' && v > 0)
+        .sort((a, b) => a - b);
+      if (vals.length) return vals[Math.floor(vals.length / 2)];
       return this.canMeasure(url) ? 1 : this.LOUDNESS_FALLBACK;
     },
 
@@ -518,6 +521,8 @@
 
       this._custom = audio;
       this._stopped = false;
+      // 同源歌在 AudioContext 已解锁时接进 WebAudio（音量滑块才能实时生效）
+      if (this.ctx && this.ctx.state === 'running') this._ensureMediaGraph(audio, url);
       this.applyCustomVolume();
 
       // 同一首只改播放模式时不要重头播；其余情况从头开始

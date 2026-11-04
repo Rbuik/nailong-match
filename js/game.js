@@ -406,6 +406,15 @@
     return !!(S.jelly[r] && S.jelly[r][c]);
   }
 
+  // 清掉一格果冻，返回是否真的清掉
+  // （生成特殊块的那格不消除方块，但它是这次连消的一部分，果冻要跟着消）
+  function clearJellyAt(r, c) {
+    if (!jellyAt(r, c)) return false;
+    S.jelly[r][c] = 0;
+    S.jellyLeft = Math.max(0, S.jellyLeft - 1);
+    return true;
+  }
+
   // 果冻格：整格蓝色底 + 白色斜纹 + 粗蓝边；
   // 上面压着的方块会缩小一圈，让果冻完整露出来（原来方块几乎盖满，完全看不出果冻）
   function drawJelly(r, c) {
@@ -753,6 +762,15 @@
       if (plan && S.board[plan.r][plan.c] && S.board[plan.r][plan.c].special === T.NORMAL) {
         markSpecial(plan.r, plan.c, plan.type);
         matched.delete(kOf(plan.r, plan.c));
+        // 这一格虽然要留下来变成特殊块（不消除方块），但它属于本次连消，
+        // 底下的果冻必须一起消掉，否则果冻关永远清不完
+        if (clearJellyAt(plan.r, plan.c)) {
+          Tasks.report('jelly', 1);
+          if (S.goal) {
+            Goals.progress(S.goal, { jelly: 1 });
+            updateTargetBar();
+          }
+        }
         if (plan.type === T.RAINBOW) {
           FX.text(plan.c * CELL + CELL / 2, plan.r * CELL + CELL / 2, '生成彩虹 🌈', '#c85cff', 16);
           AudioManager.playSFX('coin');
@@ -841,10 +859,7 @@
     // 清除
     cells.forEach((k) => {
       const p = Specials.parse(k);
-      if (S.jelly[p.r] && S.jelly[p.r][p.c]) {
-        S.jelly[p.r][p.c] = 0;
-        S.jellyLeft = Math.max(0, S.jellyLeft - 1);
-      }
+      clearJellyAt(p.r, p.c);
       S.board[p.r][p.c] = null;
     });
 
@@ -867,6 +882,35 @@
   // 立即引爆某一格上的特殊块（供道具自动消耗使用）
   async function detonateAt(r, c) {
     const expanded = Specials.expandClears(S.board, ROWS, COLS, new Set([kOf(r, c)]), {});
+    await resolveClear(expanded.cells, expanded.boomPoints);
+  }
+
+  // ==================== 彩虹：消场上所有「同色」方块 ====================
+  // 彩虹跟普通块交换时，消除的是被交换那个颜色在全盘的每一块，
+  // 而不是周围一圈/随机一种颜色。
+  function rainbowSwapInfo(ba, bb) {
+    if (!ba || !bb) return null;
+    if (ba.special === T.RAINBOW && bb.special === T.NORMAL) return { color: bb.type, fromA: true };
+    if (bb.special === T.RAINBOW && ba.special === T.NORMAL) return { color: ba.type, fromA: false };
+    return null;
+  }
+
+  async function runRainbowClear(color, rainbowCell) {
+    const seed = new Set();
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const b = S.board[r][c];
+        if (b && b.type === color && b.special !== T.RAINBOW) seed.add(kOf(r, c));
+      }
+    }
+    // 同色里夹着的炸弹/线消一起连锁引爆（不会串到别的颜色）
+    const expanded = Specials.expandClears(S.board, ROWS, COLS, seed, { rainbowColor: color });
+    expanded.cells.add(kOf(rainbowCell.r, rainbowCell.c));
+    expanded.boomPoints.push({ r: rainbowCell.r, c: rainbowCell.c, type: T.RAINBOW });
+
+    FX.text(rainbowCell.c * CELL + CELL / 2, rainbowCell.r * CELL + CELL / 2 - CELL * 0.3,
+      '全场同色消除 🌈', '#c85cff', 18);
+    AudioManager.playSFX('line');
     await resolveClear(expanded.cells, expanded.boomPoints);
   }
 
@@ -1036,6 +1080,19 @@
         return;
       }
 
+      // 彩虹 + 普通块：消掉全场所有同色方块（无视周围有没有三连）
+      const rb = rainbowSwapInfo(ba, bb);
+      if (rb) {
+        commitSnap(snap);
+        spendMove();
+        // 交换后彩虹已经挪到了对面那格
+        await runRainbowClear(rb.color, rb.fromA ? b : a);
+        // 消除后的掉落可能再凑出连消
+        await resolveBoard(null);
+        await afterTurn();
+        return;
+      }
+
       if (findMatches().size === 0) {
         await sleep(60);
         AudioManager.playSFX('invalid');
@@ -1096,10 +1153,7 @@
 
     cells.forEach((k) => {
       const p = Specials.parse(k);
-      if (S.jelly[p.r] && S.jelly[p.r][p.c]) {
-        S.jelly[p.r][p.c] = 0;
-        S.jellyLeft = Math.max(0, S.jellyLeft - 1);
-      }
+      clearJellyAt(p.r, p.c);
       S.board[p.r][p.c] = null;
     });
 
@@ -1142,6 +1196,13 @@
       await sleep(240);
       reshuffle();
       drawStatic();
+    }
+
+    // 这一回合进行时用户切走了（退出/切后台）→ 回合结束立刻停住，等他回来自己继续
+    if (S.autoPausePending) {
+      S.autoPausePending = false;
+      if (S.playing && !S.paused) pauseGame();
+      return;
     }
 
     saveRun();
@@ -1247,6 +1308,11 @@
 
   function startLevel(level, opts) {
     opts = opts || {};
+    // 每日挑战当天已满三星 → 不再开局，改为显示今日战绩
+    if (opts.daily && dailyCompleted()) {
+      showDailyDone();
+      return;
+    }
     S.daily = !!opts.daily;
     // 主线只有 20 关，越界一律夹回
     S.level = S.daily ? 0 : Math.max(1, Math.min(level || 1, maxMainLevel()));
@@ -1265,6 +1331,7 @@
     S.history = [];
     S.playing = true;
     S.paused = false;
+    S.autoPausePending = false;
     S.busy = false;
     S.selected = null;
     S.dragTo = null;
@@ -1336,7 +1403,18 @@
     S.dragTo = null;
     updatePauseHint();
     drawStatic();
+    saveRun();
     showOverlay('pause-menu');
+  }
+
+  // 退出页面 / 切后台 / 来电：默认暂停（回来时停在暂停面板，不会继续掉步数）
+  function autoPauseIfPlaying() {
+    if (!S.playing || S.paused) return;
+    if (S.busy) {
+      S.autoPausePending = true;
+      return;
+    }
+    pauseGame();
   }
 
   function resumeGame() {
@@ -1387,6 +1465,8 @@
     if (sh) sh.textContent = S.shuffleLeft;
     const un = $('undo-count');
     if (un) un.textContent = S.undoLeft;
+
+    checkMovesWarning();
   }
 
   function updateTargetBar() {
@@ -1406,11 +1486,12 @@
     bar.style.color = Goals.isComplete(S.goal) ? '#1a8f4a' : '#7c5cff';
   }
 
+  // 步数 ≤5 / 限时关时间 ≤10s 才把数字变红闪动
   function checkMovesWarning() {
     const c = $('moves-container');
     if (!c) return;
-    if (!S.timerOn && S.moves <= 5) c.classList.add('step-warning');
-    else c.classList.remove('step-warning');
+    const low = S.timerOn ? (S.timeLeft <= 10) : (S.moves <= 5);
+    c.classList.toggle('step-warning', low);
   }
 
   let toastTimer = null;
@@ -1459,10 +1540,11 @@
     const stars = Goals.stars(S.levelDef, S.score, remainRatio);
     // 每日挑战也留一个「当天最佳」的纪录，第一次完成同样算新纪录
     const rec = S.daily
-      ? Store.recordDaily(S.score)
+      ? Store.recordDaily(S.score, stars)
       : Store.recordLevel(S.level, S.score, stars);
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
+    if (S.daily) refreshMenu();
 
     // 金币产出（§7）
     const coins = Math.max(10, Math.floor(S.score / 100));
@@ -1616,10 +1698,11 @@
     const stars = passed ? Goals.stars(S.levelDef, S.score, remainRatio) : 0;
     // 没通关也记本关最高分（只记分不加星）；第一次玩这关同样算「新纪录」
     const rec = S.daily
-      ? Store.recordDaily(S.score)
+      ? Store.recordDaily(S.score, stars)
       : Store.recordLevel(S.level, S.score, stars);
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
+    if (S.daily) refreshMenu();
     const coins = passed ? Math.max(10, Math.floor(S.score / 100)) : Math.floor(S.score / 300);
     Store.addCoins(coins);
     Tasks.report('play', 1);
@@ -1695,7 +1778,7 @@
     ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
       'rules-menu', 'logout-confirm', 'logout-confirm2', 'pause-menu',
-      'level-clear', 'game-over', 'game-complete'].forEach((id) => {
+      'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
     });
@@ -1705,7 +1788,8 @@
   // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
   const MENU_PANELS = ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
-    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu', 'admin-menu'];
+    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu', 'admin-menu',
+    'daily-done'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -2011,19 +2095,23 @@
     return null;
   }
 
-  // 每次打开页面，把所在省份的计数 +1（供后台省份统计网页读取）
+  // 每次点击页面，把所在省份的计数 +1（供后台省份统计读取）
+  // 定位失败时落到「其他地区」，保证省份合计始终等于全网点击
+  const PROV_UNKNOWN = ['其他地区', 'unknown'];
   let provCounted = false;
   function bumpProvHits() {
     if (provCounted) return;
     provCounted = true;
+    if (typeof fetch !== 'function') return;
     const p = matchProvince(Store.getNet().geo && Store.getNet().geo.region);
-    if (!p || typeof fetch !== 'function') return;
-    fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + p.code, { cache: 'no-store' }).catch(() => {});
+    const code = p ? p.code : PROV_UNKNOWN[1];
+    fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + code, { cache: 'no-store' }).catch(() => {});
   }
 
   // 长按「🌐 全网」→ 跳转到省份统计网页（只显示 ≥1 的省份，从高到低，可搜索）
   // ============ 省份统计页（整页覆盖，不依赖 blob / 跳转，微信里也能打开）============
   let provRows = [];
+  let provSum = 0;
 
   function escHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2049,30 +2137,77 @@
     });
   }
 
-  // 把全网计数补齐到省份合计，保证「统计页数字加起来 = 后台的全网次数」
-  // （公共计数器只增不减，落后时只能多打几下补上）
-  function reconcileGlobalTo(sum) {
-    if (typeof fetch !== 'function' || !sum) return;
-    fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/opens', 7000).then((j) => {
-      let cur = j && typeof j.value === 'number' ? j.value : -1;
-      if (cur < 0) return;
-      let guard = 0;
-      const step = () => {
-        if (cur >= sum || guard++ >= 60) {
-          Store.patchNet({ globalHits: Math.max(cur, sum) });
-          renderAdmin();
-          return;
-        }
-        fetch(HITS_API, { cache: 'no-store' })
-          .then((r) => (r.ok ? r.json() : null))
-          .then((v) => {
-            if (v && typeof v.value === 'number') cur = Math.max(cur, v.value);
-            step();
-          })
-          .catch(step);
-      };
-      step();
+  // ============ 省份合计 = 后台「全网」点击 ============
+  // 两边都只认「34 个省份 + 其他地区」的计数之和，
+  // 所以统计页里数字加起来一定等于后台的全网点击。
+
+  // 读全部省份（含定位失败兜底的「其他地区」）；全失败返回 null
+  function readAllProv() {
+    const list = PROVINCES.concat([PROV_UNKNOWN]);
+    return Promise.all(list.map((p) => readProvCount(p[1]).then((n) => ({ name: p[0], n: n }))))
+      .then((rows) => {
+        if (!rows.some((r) => r.n >= 0)) return null;
+        return rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
+      });
+  }
+
+  function cachedProvSum() {
+    const n = Number(localStorage.getItem('nl2:provSum') || 0);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  // 把一次读取结果落到缓存 + 后台「全网」
+  function applyProvRows(rows) {
+    provRows = rows || [];
+    provSum = provRows.reduce((s, r) => s + r.n, 0);
+    try {
+      localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: provRows }));
+      localStorage.setItem('nl2:provSum', String(provSum));
+    } catch (e) {}
+    Store.patchNet({ globalHits: provSum });
+    return provSum;
+  }
+
+  // 本机点击比省份合计还多（旧数据 / 当时定位失败漏记）→ 补到「其他地区」，
+  // 保证「全网 ≥ 本机」，同时统计页加起来仍然等于全网
+  function ensureProvTotal(local) {
+    if (provSum >= local) return Promise.resolve(provSum);
+    const need = Math.min(30, local - provSum);
+    let chain = Promise.resolve();
+    for (let i = 0; i < need; i++) {
+      chain = chain.then(() => fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + PROV_UNKNOWN[1],
+        { cache: 'no-store' }).catch(() => {}));
+    }
+    return chain.then(() => {
+      const hit = provRows.find((r) => r.name === PROV_UNKNOWN[0]);
+      if (hit) hit.n += need;
+      else provRows.push({ name: PROV_UNKNOWN[0], n: need });
+      provRows.sort((a, b) => b.n - a.n);
+      provSum += need;
+      try {
+        localStorage.setItem('nl2:provSum', String(provSum));
+        localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: provRows }));
+      } catch (e) {}
+      Store.patchNet({ globalHits: provSum });
+      return provSum;
     });
+  }
+
+  // 后台 / 统计页共用这一份：读全省份 → 落缓存 → 对齐本机
+  function refreshProvStats() {
+    return readAllProv().then((rows) => {
+      if (!rows) return null;
+      applyProvRows(rows);
+      return ensureProvTotal(Store.getVisits().count).then(() => provSum);
+    });
+  }
+
+  // 后台每次打开都刷一次即可，60 秒内不重复请求（35 个计数器，别太频繁）
+  let provRefreshAt = 0;
+  function refreshProvStatsThrottled() {
+    if (Date.now() - provRefreshAt < 60000) return Promise.resolve(provSum);
+    provRefreshAt = Date.now();
+    return refreshProvStats();
   }
 
   function openProvStats() {
@@ -2084,25 +2219,17 @@
     if (list) list.innerHTML = '';
     if (search) search.value = '';
 
-    Promise.all(PROVINCES.map((p) => readProvCount(p[1]).then((n) => ({ name: p[0], n: n }))))
-      .then((rows) => {
-        const anyOk = rows.some((r) => r.n >= 0);
-        if (anyOk) {
-          const data = rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
-          provRows = data;
-          try { localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: data })); } catch (e) {}
-          // 把省份合计记下来（后台「全网」至少显示到这个数），并把全网计数补齐到合计
-          const sum = data.reduce((s, r) => s + r.n, 0);
-          try { localStorage.setItem('nl2:provSum', String(sum)); } catch (e) {}
-          reconcileGlobalTo(sum);
-        } else {
-          // 全部请求失败（离线 / 被限流）→ 用上次的结果，至少有内容看
-          let cached = null;
-          try { cached = JSON.parse(localStorage.getItem('nl2:provCache') || 'null'); } catch (e) {}
-          provRows = (cached && Array.isArray(cached.data)) ? cached.data : [];
-        }
-        renderProvList(search ? search.value : '');
-      });
+    refreshProvStats().then((sum) => {
+      if (sum == null) {
+        // 全部请求失败（离线 / 被限流）→ 用上次的结果，至少有内容看
+        let cached = null;
+        try { cached = JSON.parse(localStorage.getItem('nl2:provCache') || 'null'); } catch (e) {}
+        provRows = (cached && Array.isArray(cached.data)) ? cached.data : [];
+        provSum = provRows.reduce((s, r) => s + r.n, 0);
+      }
+      renderProvList(search ? search.value : '');
+      renderAdmin();
+    });
   }
 
   function normProv(s) {
@@ -2117,8 +2244,8 @@
     const total = provRows.reduce((s, r) => s + r.n, 0);
     if (sub) {
       sub.textContent = provRows.length
-        ? ('共 ' + provRows.length + ' 个省份 · ' + total + ' 次打开')
-        : '暂无打开记录';
+        ? ('共 ' + provRows.length + ' 个省份 · ' + total + ' 次点击')
+        : '暂无点击记录';
     }
     if (!rows.length) {
       list.innerHTML = '<li class="prov-empty">没有找到相关省份</li>';
@@ -2128,33 +2255,16 @@
       '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('');
   }
 
-  // 打开页面就 +1，结果缓存下来，离线时显示上次的数字
-  // 顺带保证「全网 ≥ 本机」：公共计数器没有 set 接口，落后时只能多打几下补上
+  // 每次点击页面 +1（老计数器继续累加保留历史），
+  // 后台显示的「全网」以省份合计为准，离线时用上次缓存
   function bumpGlobalHits() {
     if (typeof fetch !== 'function') return;
-    const local = Store.getVisits().count;
-    // 补齐全网时把省份计数一起补，保证统计页加起来仍然等于全网
-    const prov = matchProvince(Store.getNet().geo && Store.getNet().geo.region);
-    const provHit = () => {
-      if (prov) fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + prov.code, { cache: 'no-store' }).catch(() => {});
-    };
-    const hit = () => fetch(HITS_API, { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => (j && typeof j.value === 'number' ? j.value : null));
-
-    hit().then(async (v) => {
-      if (v == null) return;
-      let cur = v;
-      let guard = 0;
-      while (cur < local && guard++ < 30) {
-        const n = await hit();
-        if (n == null) break;
-        provHit();
-        cur = Math.max(cur, n);
-      }
-      Store.patchNet({ globalHits: Math.max(cur, local) });
+    fetch(HITS_API, { cache: 'no-store' }).catch(() => {});
+    const cached = cachedProvSum();
+    if (cached > 0) {
+      Store.patchNet({ globalHits: cached });
       renderAdmin();
-    }).catch(() => {});
+    }
   }
 
   // 城市级定位：7 天内复用缓存，避免每次联网
@@ -2229,12 +2339,11 @@
     if (!$('admin-menu')) return;
     const net = Store.getNet();
     const localCount = Store.getVisits().count;
-    // 全网 ≥ 本机 ≥ 0，且不低于省份统计的合计（保证和统计页数字对得上）
-    let provSum = 0;
-    try { provSum = parseInt(localStorage.getItem('nl2:provSum') || '0', 10) || 0; } catch (e) {}
+    // 「全网」= 省份统计里所有数字之和（两边同一份数据，保证加起来对得上）
+    const sum = Math.max(provSum, cachedProvSum());
     const g = net.globalHits;
-    const globalShown = Math.max(typeof g === 'number' && g > 0 ? g : 0, provSum, localCount);
-    $('admin-global').textContent = globalShown > 0 ? String(globalShown) : '—';
+    const globalShown = sum > 0 ? sum : Math.max(typeof g === 'number' && g > 0 ? g : 0, localCount);
+    $('admin-global').textContent = globalShown > 0 ? String(globalShown) : (localCount > 0 ? String(localCount) : '—');
     // 本机
     $('admin-visits').textContent = localCount;
     $('admin-device').textContent = describeDevice();
@@ -2404,8 +2513,19 @@
     });
     const dailyBtn = $('btn-daily');
     if (dailyBtn) dailyBtn.addEventListener('click', () => {
+      // 今天已经拿到 3 星：不能再打，直接看今天战绩
+      if (dailyCompleted()) {
+        showDailyDone();
+        return;
+      }
       const d = Tasks.getDailyChallenge();
       startLevel(9999, { def: d, seed: d.seed, daily: true });
+    });
+    const dailyDoneHome = $('btn-daily-done-home');
+    if (dailyDoneHome) dailyDoneHome.addEventListener('click', () => {
+      $('daily-done').style.display = 'none';
+      showOverlay('main-menu');
+      refreshMenu();
     });
     // 注销：两步确认弹窗（是/确认 = 红色，否/取消 = 绿色）
     const logout = $('btn-logout');
@@ -2445,6 +2565,8 @@
         suppressLogout = true; // 松手时不要误触「注销」确认框
         renderAdmin();
         fetchGeo().then(renderAdmin);
+        // 省份合计刷新后，后台「全网」跟着更新（两边数字始终一致）
+        refreshProvStatsThrottled().then(renderAdmin);
         AudioManager.playSFX('select');
         showOverlay('admin-menu');
         upgradeDeviceModel();
@@ -2662,16 +2784,12 @@
 
     const bgm = $('bgm-volume');
     const sfx = $('sfx-volume');
-    let bgmDemoAt = 0, sfxDemoAt = 0;
+    let sfxDemoAt = 0;
     if (bgm) bgm.addEventListener('input', () => {
       $('bgm-volume-val').textContent = Math.round(bgm.value * 100) + '%';
+      // 直接改「正在播放的那首歌 / 默认 BGM」的音量：
+      // 拖到哪儿、声音立刻变到哪儿，不用另外放试听音
       AudioManager.setVolumes(parseFloat(bgm.value), null);
-      // 边调边听：按当前音量实时弹一小段旋律（节流，拖动时不会炸耳朵）
-      const now = Date.now();
-      if (now - bgmDemoAt > 160) {
-        bgmDemoAt = now;
-        AudioManager.bgmDemo();
-      }
     });
     if (sfx) sfx.addEventListener('input', () => {
       $('sfx-volume-val').textContent = Math.round(sfx.value * 100) + '%';
@@ -2756,6 +2874,23 @@
     if (inp) inp.value = s.customBgm || '';
   }
 
+  // ==================== 每日挑战：三星后当天封盘 ====================
+  function dailyCompleted() {
+    return (Store.getDailyRecord().stars || 0) >= 3;
+  }
+
+  function showDailyDone() {
+    const rec = Store.getDailyRecord();
+    const row = $('daily-done-stars');
+    const starEls = row ? row.children : [];
+    for (let i = 0; i < starEls.length; i++) {
+      starEls[i].classList.toggle('on', i < (rec.stars || 0));
+    }
+    if ($('daily-done-star-num')) $('daily-done-star-num').textContent = rec.stars || 0;
+    if ($('daily-done-score')) $('daily-done-score').textContent = rec.best || 0;
+    showOverlay('daily-done');
+  }
+
   function refreshMenu() {
     const prog = Store.getProgress();
     const maxUnlocked = Store.maxUnlockedLevel(maxMainLevel());
@@ -2803,6 +2938,14 @@
       else if (played) play.textContent = '🔄 重新开始';
       else play.textContent = '🎮 开始游戏';
     }
+
+    // 每日挑战：今天已经三星 → 按钮变成「已完成今日挑战」
+    const dailyBtn = $('btn-daily');
+    if (dailyBtn) {
+      const done = dailyCompleted();
+      dailyBtn.textContent = done ? '✅ 已完成今日挑战' : '📅 每日挑战';
+      dailyBtn.classList.toggle('is-done', done);
+    }
   }
 
   // ==================== 主循环 ====================
@@ -2837,7 +2980,7 @@
     }
 
     const settings = Store.getSettings();
-    Store.recordVisit(); // 本机打开次数：每载入一次 +1
+    Store.recordVisit(); // 本机点击：每载入一次 +1
     // 后台统计：全网计数 +1、城市定位（失败不影响游戏）
     setTimeout(() => { bumpGlobalHits(); fetchGeo().then(bumpProvHits); }, 600);
     AudioManager.init(settings);
@@ -2903,7 +3046,11 @@
     if (window.WeixinJSBridge) setTimeout(weixinKick, 0);
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') tryPlayMusic();
+      else autoPauseIfPlaying();
     });
+    // 退到后台 / 切 App / 锁屏 都按暂停处理
+    window.addEventListener('pagehide', autoPauseIfPlaying);
+    window.addEventListener('blur', autoPauseIfPlaying);
     window.addEventListener('pageshow', () => tryPlayMusic());
   }
 
@@ -2927,6 +3074,13 @@
     collectSpecials: collectSpecials,
     swap: trySwap,
     undoMove: undo,
-    findMatches: findMatches
+    findMatches: findMatches,
+    autoPause: autoPauseIfPlaying,
+    pause: pauseGame,
+    refreshMenu: refreshMenu,
+    dailyCompleted: dailyCompleted,
+    hud: updateHUD,
+    openProvStats: openProvStats,
+    renderAdmin: renderAdmin
   };
 })();
