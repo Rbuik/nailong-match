@@ -2,7 +2,7 @@
 
 纯前端的三消小游戏，无框架、无构建、无依赖。双击 `index.html` 就能玩。
 
-## 运行
+## 🚀 运行
 
 **方式一：直接打开**
 
@@ -17,7 +17,7 @@ python -m http.server 8000
 # 然后打开 http://localhost:8000
 ```
 
-## 玩法
+## 🎮 玩法
 
 - **交换**：点一块选中，再点相邻块；或按住拖到相邻格松手
 - **目标**：每关目标不同 —— 分数 / 收集指定颜色 / 清除果冻格 / 限时 / 极限步数
@@ -27,12 +27,14 @@ python -m http.server 8000
 - **星级**：每关 1~3 星，主页显示总星数
 - **主线**：20 关，每 5 关一个 BOSS 关，第 20 关通关后有结算面板
 
-## 目录结构
+## 📁 目录结构
 
 ```
 nailong-match/
-├── index.html            页面骨架 + 所有面板
-├── README.md
+├── _legacy/              重构前的单文件旧版（index.v1.html + game.v1.js），仅作参考
+├── assets/
+│   ├── 0.jpg ~ 5.jpg     六种方块贴图
+│   └── music/            内置音乐（.m4a，随音乐库一起播放）
 ├── css/
 │   ├── style.css         基础布局、按钮、HUD
 │   └── themes.css        主题变量、连击条、星级、任务、商店、音乐列表
@@ -40,21 +42,25 @@ nailong-match/
 │   ├── game.js           主控：棋盘、交换、消除、动画、结算、面板切换
 │   ├── levels.json       20 关关卡数据（目标类型 / 步数 / 星级阈值 / 主题）
 │   ├── music.js          音乐播放列表 / 历史导入 / 重命名 / 播放模式
-│   ├── audio.js          AudioManager：合成 BGM、音效、自定义音频
-│   ├── storage.js        存档（分 key + 版本迁移）、金币、星级、签到
+│   ├── audio.js          AudioManager：合成 BGM、音效、自定义音频、响度归一
+│   ├── builtin-music.js  内置音乐清单（对应 assets/music/ 里的文件）
+│   ├── storage.js        存档（分 key + 版本迁移）、金币、星级、签到、统计计数
 │   ├── tasks.js          每日任务、每日挑战、商店
 │   ├── specials.js       特殊块判定、连锁展开、组合技矩阵
 │   ├── goals.js          5 种目标类型判定 + 星级计算
 │   ├── effects.js        粒子 / 文字 / 冲击波对象池
 │   ├── input.js          Pointer Events 拖拽 + 点击
 │   └── rng.js            种子随机（每日挑战用）
-└── assets/
-    └── 0.jpg ~ 5.jpg     六种方块贴图
+├── .gitattributes
+├── .gitignore
+├── README.md
+├── index.html            页面骨架 + 所有面板
+└── test-smoke.js         无头冒烟测试（node test-smoke.js）
 ```
 
 脚本加载顺序（`index.html` 底部）不能乱：`rng → storage → audio → effects → specials → goals → tasks → input → music → game`。
 
-## 主界面
+## 🏠 主界面
 
 主页按钮从上到下：
 
@@ -62,7 +68,7 @@ nailong-match/
 
 **关卡记录里点任意一关，会回到主页并把主页切换到那一关**，再点「开始游戏」就从那关打。已通关但没拿满星的关卡会显示 `★★☆`。
 
-## 音乐
+## 🎵 音乐
 
 设置（右上角 ⚙️）→
 
@@ -72,7 +78,7 @@ nailong-match/
 
 音频必须是能直连的 `.mp3` 地址，跨域或需要登录的链接会加载失败。
 
-## 存档
+## 💾 存档
 
 全部存在 `localStorage`，key 前缀 `nl2:`：
 
@@ -88,12 +94,12 @@ nailong-match/
 
 主页右下角「注销」会清空以上全部内容。
 
-## 已知限制
+## ⚠️ 已知限制
 
 - 素材 `assets/*.jpg` 是原图（每张 1~2MB，合计约 11MB）。想减小体积可以压到 200KB 以内，画质在棋盘尺寸下看不出差别。
 - 没有后端，也没有排行榜；每日挑战是「同一天所有人同一套棋盘（日期做种子）」，成绩只存在本地。
 - `file://` 下 `levels.json` 读不到，走内置数据兜底。
 
-## 历史版本
+## 📜 历史版本
 
 `_legacy/` 放的是重构前的单文件版本（`index.v1.html` + `game.v1.js`），仅作参考，已加入 `.gitignore` 不入库。
