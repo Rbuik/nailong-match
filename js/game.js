@@ -1966,66 +1966,80 @@
   }
 
   // 长按「🌐 全网」→ 跳转到省份统计网页（只显示 ≥1 的省份，从高到低，可搜索）
-  function openProvStats() {
-    if (typeof fetch !== 'function' || typeof Blob === 'undefined') return;
-    toast('正在统计省份…');
-    Promise.all(PROVINCES.map((p) => {
-      const read = () => fetch(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/prov_' + p[1], { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((j) => ({ name: p[0], n: (j && typeof j.value === 'number') ? j.value : 0 }));
-      // 失败自动重试一次，个别请求被限流也不至于漏掉省份
-      return read().catch(() => read().catch(() => ({ name: p[0], n: 0 })));
-    })).then((rows) => {
-      const data = rows.filter((r) => r.n >= 1).sort((a, b) => b.n - a.n);
-      const html = buildProvPage(data);
-      const url = URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' }));
-      location.href = url;   // 跳转到统计网页（浏览器返回键可回到游戏）
-    }).catch(() => toast('统计失败，请稍后再试'));
+  // ============ 省份统计页（整页覆盖，不依赖 blob / 跳转，微信里也能打开）============
+  let provRows = [];
+
+  function escHtml(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function buildProvPage(rows) {
-    const total = rows.reduce((s, r) => s + r.n, 0);
-    const json = JSON.stringify(rows).replace(/</g, '\\u003c');
-    return '<!DOCTYPE html>\n<html lang="zh-CN">\n<head>\n<meta charset="utf-8">\n' +
-      '<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">\n' +
-      '<title>省份打开统计</title>\n<style>\n' +
-      'body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;' +
-      'background:linear-gradient(180deg,#eef1f8,#dfe5f2);font-family:system-ui,-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;}\n' +
-      '.card{width:88%;max-width:420px;background:#fff;border-radius:18px;padding:18px 16px;' +
-      'box-shadow:0 10px 30px rgba(60,70,110,.18);}\n' +
-      'h1{font-size:19px;margin:0 0 4px;text-align:center;color:#3a4160;}\n' +
-      '.sub{text-align:center;color:#8a90a8;font-size:12px;margin-bottom:12px;}\n' +
-      '.search{width:100%;box-sizing:border-box;padding:10px 12px;border:2px solid #d7dcf0;border-radius:24px;' +
-      'font-size:15px;outline:none;margin-bottom:10px;}\n' +
-      '.search:focus{border-color:#7c5cff;}\n' +
-      'ul{list-style:none;margin:0;padding:0;max-height:56vh;overflow-y:auto;}\n' +
-      'li{display:flex;justify-content:space-between;align-items:center;padding:9px 6px;' +
-      'border-bottom:1px dashed #e6e9f4;font-size:15px;color:#3a4160;}\n' +
-      'li b{color:#7c5cff;font-size:16px;}\n' +
-      '.empty{text-align:center;color:#a5abc2;font-size:14px;padding:18px 0;}\n' +
-      '.back{display:block;margin:14px auto 0;padding:10px 34px;border:none;border-radius:24px;' +
-      'background:linear-gradient(135deg,#7c5cff,#5c8fff);color:#fff;font-size:15px;font-weight:bold;cursor:pointer;}\n' +
-      '</style>\n</head>\n<body>\n<div class="card">\n' +
-      '<h1>🗺️ 省份打开统计</h1>\n' +
-      '<p class="sub">共 ' + rows.length + ' 个省份 · ' + total + ' 次打开</p>\n' +
-      '<input class="search" id="q" type="search" placeholder="🔍 搜索省份，例如：四川省" autocomplete="off">\n' +
-      '<ul id="list"></ul>\n' +
-      '<button class="back" onclick="history.back()">返 回</button>\n' +
-      '</div>\n<script>\n' +
-      'var ROWS=' + json + ';\n' +
-      'function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;");}\n' +
-      'function norm(s){return (s||"").replace(/省|市|自治区|特别行政区/g,"");}\n' +
-      'function render(kw){\n' +
-      '  var k=norm(kw);\n' +
-      '  var box=document.getElementById("list");\n' +
-      '  var rows=ROWS.filter(function(r){return !k||norm(r.name).indexOf(k)>=0;});\n' +
-      '  box.innerHTML=rows.length?rows.map(function(r){\n' +
-      '    return "<li><span>"+esc(r.name)+"</span><b>"+r.n+"</b></li>";\n' +
-      '  }).join(""):"<div class=empty>没有找到相关省份</div>";\n' +
-      '}\n' +
-      'document.getElementById("q").addEventListener("input",function(){render(this.value);});\n' +
-      'render("");\n' +
-      '<\/script>\n</body>\n</html>';
+  function fetchWithTimeout(url, ms) {
+    return new Promise((resolve) => {
+      let done = false;
+      const timer = setTimeout(() => { if (!done) { done = true; resolve(null); } }, ms);
+      fetch(url, { cache: 'no-store' })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => { if (!done) { done = true; clearTimeout(timer); resolve(j); } })
+        .catch(() => { if (!done) { done = true; clearTimeout(timer); resolve(null); } });
+    });
+  }
+
+  // 读一个省的计数：读不到返回 -1（用来区分「真的是 0」和「没联网」）
+  function readProvCount(code) {
+    const url = ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/prov_' + code;
+    return fetchWithTimeout(url, 7000).then((j) => {
+      if (j && typeof j.value === 'number') return j.value;
+      return fetchWithTimeout(url, 7000).then((j2) => (j2 && typeof j2.value === 'number' ? j2.value : -1));
+    });
+  }
+
+  function openProvStats() {
+    const page = $('prov-page');
+    if (!page) return;
+    const sub = $('prov-sub'), list = $('prov-list'), search = $('prov-search');
+    page.style.display = 'flex';
+    if (sub) sub.textContent = '正在统计…';
+    if (list) list.innerHTML = '';
+    if (search) search.value = '';
+
+    Promise.all(PROVINCES.map((p) => readProvCount(p[1]).then((n) => ({ name: p[0], n: n }))))
+      .then((rows) => {
+        const anyOk = rows.some((r) => r.n >= 0);
+        if (anyOk) {
+          const data = rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
+          provRows = data;
+          try { localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: data })); } catch (e) {}
+        } else {
+          // 全部请求失败（离线 / 被限流）→ 用上次的结果，至少有内容看
+          let cached = null;
+          try { cached = JSON.parse(localStorage.getItem('nl2:provCache') || 'null'); } catch (e) {}
+          provRows = (cached && Array.isArray(cached.data)) ? cached.data : [];
+        }
+        renderProvList(search ? search.value : '');
+      });
+  }
+
+  function normProv(s) {
+    return String(s || '').replace(/省|市|自治区|特别行政区|壮族|回族|维吾尔|自治州/g, '');
+  }
+
+  function renderProvList(kw) {
+    const list = $('prov-list'), sub = $('prov-sub');
+    if (!list) return;
+    const k = normProv(kw);
+    const rows = provRows.filter((r) => !k || normProv(r.name).indexOf(k) >= 0);
+    const total = provRows.reduce((s, r) => s + r.n, 0);
+    if (sub) {
+      sub.textContent = provRows.length
+        ? ('共 ' + provRows.length + ' 个省份 · ' + total + ' 次打开')
+        : '暂无打开记录';
+    }
+    if (!rows.length) {
+      list.innerHTML = '<li class="prov-empty">没有找到相关省份</li>';
+      return;
+    }
+    list.innerHTML = rows.map((r) =>
+      '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('');
   }
 
   // 打开页面就 +1，结果缓存下来，离线时显示上次的数字
@@ -2367,21 +2381,66 @@
       $('admin-menu').style.display = 'none';
     });
 
-    // 长按「🌐 全网」标题 → 跳转省份统计网页
-    const globalTitle = $('admin-global-title');
-    if (globalTitle && typeof PointerEvent !== 'undefined') {
+    // 长按「🌐 全网」板块 3 秒 → 省份统计页
+    // 手机上手指微动/页面滚动都会让 pointer 系列事件被 cancel，
+    // 所以这里同时接 pointer 与 touch，并给 12px 的容差，只认「按住不动 3 秒」
+    const globalSec = $('admin-global-sec') || $('admin-global-title');
+    if (globalSec) {
       let pressTimer = null;
-      const cancel = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
-      globalTitle.addEventListener('pointerdown', () => {
+      let startX = 0, startY = 0, fired = false;
+      const cancel = () => {
+        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+      };
+      const begin = (x, y) => {
         cancel();
+        fired = false;
+        startX = x; startY = y;
         pressTimer = setTimeout(() => {
           pressTimer = null;
-          AudioManager.playSFX('coin');
+          fired = true;
+          try { AudioManager.playSFX('coin'); } catch (e) {}
           openProvStats();
-        }, 800);
+        }, 3000);
+      };
+      const move = (x, y) => {
+        if (!pressTimer) return;
+        if (Math.abs(x - startX) > 12 || Math.abs(y - startY) > 12) cancel();
+      };
+      const end = () => { cancel(); };
+
+      globalSec.addEventListener('pointerdown', (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        begin(e.clientX, e.clientY);
       });
-      ['pointerup', 'pointerleave', 'pointercancel'].forEach((ev) => globalTitle.addEventListener(ev, cancel));
+      globalSec.addEventListener('pointermove', (e) => move(e.clientX, e.clientY));
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) =>
+        globalSec.addEventListener(ev, end));
+
+      globalSec.addEventListener('touchstart', (e) => {
+        const t = e.touches && e.touches[0];
+        if (t) begin(t.clientX, t.clientY);
+      }, { passive: true });
+      globalSec.addEventListener('touchmove', (e) => {
+        const t = e.touches && e.touches[0];
+        if (t) move(t.clientX, t.clientY);
+      }, { passive: true });
+      ['touchend', 'touchcancel'].forEach((ev) => globalSec.addEventListener(ev, end, { passive: true }));
+
+      // 长按不要弹系统菜单
+      globalSec.addEventListener('contextmenu', (e) => e.preventDefault());
+      // 已经触发跳转后，松手不要再触发一次点击
+      globalSec.addEventListener('click', (e) => {
+        if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; }
+      }, true);
     }
+
+    // 省份统计页：搜索框 + 返回
+    const provSearch = $('prov-search');
+    if (provSearch) provSearch.addEventListener('input', () => renderProvList(provSearch.value));
+    const provBack = $('btn-prov-back');
+    if (provBack) provBack.addEventListener('click', () => {
+      $('prov-page').style.display = 'none';
+    });
 
     // 主页提示条：点左侧 ✕ 只是本次隐藏，下次进主页会再出现
     const loadTip = $('load-tip');
@@ -2711,16 +2770,47 @@
     requestAnimationFrame(loop);
 
     // 首次交互解锁音频，并恢复上次的自定义音乐
-    // 多绑几种事件：部分手机浏览器 pointerdown 不算「用户手势」，
-    // 只绑一种会出现「进来显示在播放但没声音，点开始游戏才响」的问题
-    const unlock = () => {
+    // 一进来就要有声音：
+    // 1) 先不带手势直接试一次，浏览器允许自动播放的（部分安卓 / 微信安卓）立刻出声；
+    // 2) 不允许的（iOS、微信 iOS）会在第一次触屏 / 滚动 / 点击的瞬间接上，
+    //    事件不解绑，没播起来就下次交互继续试。
+    let musicTaken = false;
+    const tryPlayMusic = () => {
       AudioManager.init(Store.getSettings());
-      AudioManager.unlock();
-      if (global_Music()) global_Music().restore();
-      UNLOCK_EVENTS.forEach((ev) => window.removeEventListener(ev, unlock));
+      AudioManager.unlock();                 // 恢复 AudioContext + 默认背景音乐
+      if (!musicTaken && global_Music()) {
+        musicTaken = true;
+        global_Music().restore();            // 恢复上次在音乐库选的那首歌
+      }
+      // 1.2 秒后还没响（被浏览器拦了）→ 允许下次交互再试一次
+      setTimeout(() => {
+        if (!AudioManager.musicOn) return;
+        const a = AudioManager._custom;
+        if (a && a.paused) musicTaken = false;
+      }, 1200);
     };
-    const UNLOCK_EVENTS = ['pointerdown', 'touchend', 'click', 'keydown'];
-    UNLOCK_EVENTS.forEach((ev) => window.addEventListener(ev, unlock, { passive: true }));
+    tryPlayMusic();
+
+    const UNLOCK_EVENTS = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown', 'scroll', 'wheel'];
+    const onGesture = () => tryPlayMusic();
+    UNLOCK_EVENTS.forEach((ev) =>
+      window.addEventListener(ev, onGesture, { passive: true, capture: true }));
+    // 微信内置浏览器：桥接就绪后基本允许自动播放
+    // （经典写法：就绪时 invoke 一次 getNetworkType，能解开微信的自动播放限制）
+    const weixinKick = () => {
+      try {
+        if (window.WeixinJSBridge && window.WeixinJSBridge.invoke) {
+          window.WeixinJSBridge.invoke('getNetworkType', {}, () => {});
+        }
+      } catch (e) {}
+      tryPlayMusic();
+    };
+    document.addEventListener('WeixinJSBridgeReady', weixinKick, false);
+    if (window.WeixinJSBridge) setTimeout(weixinKick, 0);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') tryPlayMusic();
+    });
+    window.addEventListener('pageshow', () => tryPlayMusic());
   }
 
   function global_Music() {

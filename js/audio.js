@@ -43,11 +43,31 @@
     },
 
     // 用户首次交互时调用（移动端自动播放限制）
+    // 确保 AudioContext 处于 running（放在用户手势里调用最可靠）
+    resumeCtx() {
+      if (!this.ctx) {
+        const AC = global.AudioContext || global.webkitAudioContext;
+        if (AC) { try { this.ctx = new AC(); } catch (e) {} }
+      }
+      if (!this.ctx) return false;
+      if (this.ctx.state === 'suspended' && this.ctx.resume) {
+        const p = this.ctx.resume();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      }
+      return true;
+    },
+
     unlock() {
-      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      this.resumeCtx();
       if (this.musicOn) {
-        if (this._custom) this._custom.play().catch(() => {});
-        else this.startBGM();
+        if (this._custom) {
+          if (this._custom.paused) {
+            const p = this._custom.play();
+            if (p && typeof p.catch === 'function') p.catch(() => {});
+          }
+        } else {
+          this.startBGM();
+        }
       }
     },
 
@@ -60,9 +80,16 @@
     },
 
     // 调节背景音乐滑块时的实时试听：按当前音量弹一小段旋律
+    // 这里不能用 ctx.state==='running' 直接 return（iOS 刚进来常是 suspended），
+    // 先尝试 resume，再把音符排进去，resume 成功后立即出声
     bgmDemo() {
-      if (!this.ctx || this.ctx.state !== 'running') return;
-      const seq = [[523.25, 0], [659.25, 0.09], [783.99, 0.18]];
+      const AC = global.AudioContext || global.webkitAudioContext;
+      if (!this.ctx && AC) { try { this.ctx = new AC(); } catch (e) {} }
+      if (!this.ctx) return;
+      if (this.ctx.state !== 'running') this.resumeCtx();
+
+      const vol = Math.max(0.02, Math.min(1, this.bgmVol));
+      const seq = [[523.25, 0], [659.25, 0.085], [783.99, 0.17]];
       seq.forEach(([f, d]) => {
         try {
           const t0 = this.ctx.currentTime + d;
@@ -70,7 +97,7 @@
           const g = this.ctx.createGain();
           osc.type = 'sine';
           osc.frequency.setValueAtTime(f, t0);
-          g.gain.setValueAtTime(0.04 * this.bgmVol * 2, t0);
+          g.gain.setValueAtTime(0.085 * vol * 2, t0);
           g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.18);
           osc.connect(g); g.connect(this.ctx.destination);
           osc.start(t0); osc.stop(t0 + 0.2);
@@ -112,6 +139,8 @@
     // ---------- 音效 ----------
     playSFX(name, opts) {
       opts = opts || {};
+      // 音效也在用户手势里触发，ctx 还没 running 就先恢复，否则试听没声音
+      if (!this.ctx || this.ctx.state !== 'running') this.resumeCtx();
       switch (name) {
         case 'select':
           this._tone(600, 'sine', 0.08, 0.15);
