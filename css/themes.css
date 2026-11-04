@@ -511,6 +511,16 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .admin-sec .result-box p { font-size: 16px; margin: 7px 0; }
 .admin-sec .result-box b { font-size: 18px; text-align: right; max-width: 70%; line-height: 1.35; word-break: break-word; }
 
+/* 后台底部：统计起点说明（放在「本机」板块下、关闭按钮上） */
+.admin-start-note {
+  width: 86%;
+  margin: 2px 0 10px;
+  font-size: 12px;
+  color: #8b98ad;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
+
 /* 长按「🌐 全网」板块 3 秒 → 省份统计。
    手机上必须封掉滚动/选中/长按菜单，否则手指一抖就被取消 */
 #admin-global-sec {

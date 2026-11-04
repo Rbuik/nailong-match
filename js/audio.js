@@ -109,7 +109,16 @@
       if (!this.ctx) return false;
       if (this.ctx.state === 'suspended' && this.ctx.resume) {
         const p = this.ctx.resume();
+        if (p && typeof p.then === 'function') {
+          // 上下文真正跑起来之后再把音量接管过来：
+          // 不然刚进页面时 ctx 还是 suspended，切到 WebAudio 通道的那一步会被跳过，
+          // iOS 上 element.volume 又是只读的 → 第一首歌会用 100% 音量播放，
+          // 直到下次拖滑块 / 切歌才恢复正常（这就是「一进来不是上次音量」的根因）。
+          p.then(() => this.applyCustomVolume()).catch(() => {});
+        }
         if (p && typeof p.catch === 'function') p.catch(() => {});
+      } else if (this.ctx.state === 'running') {
+        this.applyCustomVolume();
       }
       return true;
     },
@@ -168,6 +177,8 @@
         src.connect(gain);
         gain.connect(this.ctx.destination);
         const node = { src: src, gain: gain };
+        // 接进来时就把增益设成「上次保存的音量」，别先按 1.0 全音量放一耳朵
+        try { gain.gain.value = this.trackVolume(url); } catch (e) {}
         this._mediaNodes.set(audio, node);
         return node;
       } catch (e) {

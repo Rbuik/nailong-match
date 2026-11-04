@@ -252,8 +252,10 @@
   }
 
   // ---------- 链接点击次数（每载入一次页面 +1，供隐藏后台查看） ----------
-  // 统计起点：2026-10-29 00:00:00（本地时间），此前的打开不计入
-  const COUNT_START = new Date(2026, 9, 29, 0, 0, 0).getTime();
+  // 统计起点：2026-11-05 00:00:00（本地时间），此前的点击不计入
+  const COUNT_START = new Date(2026, 10, 5, 0, 0, 0).getTime();
+  // 对外暴露，game.js 里记「全网」时用同一个起点
+  function countStart() { return COUNT_START; }
 
   function getVisits() {
     return read(K.visits, { count: 0, first: 0, last: 0 });
@@ -316,7 +318,7 @@
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
     getTaskState, setTaskState, signIn, canSignIn, todayKey, dayIndex,
-    getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet,
+    getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet, countStart,
     COUNT_START,
     saveRun, loadRun, clearRun, wipeAll
   };
