@@ -779,6 +779,28 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   background: #fff;
 }
 
+/* 长按拖动排序：原位留一个淡淡的占位，手指上浮起一张「影子」跟着走 */
+.m-item-wrap.lift-src {
+  opacity: .35;
+}
+
+.drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #fff;
+  opacity: .98;
+  transform: scale(1.04);
+  box-shadow: 0 14px 32px rgba(0, 0, 0, .28), 0 2px 6px rgba(0, 0, 0, .16);
+}
+
+.drag-ghost .m-actions { display: none; }
+
+body.m-dragging { overflow: hidden; }
+body.m-dragging .m-item { cursor: grabbing; }
+
 .m-actions {
   position: absolute;
   top: 0;

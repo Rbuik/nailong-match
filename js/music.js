@@ -8,11 +8,12 @@
   const K = {
     history: 'nl2:musicHistory',
     playlist: 'nl2:playlist',
-    mode: 'nl2:playMode'
+    mode: 'nl2:playMode',
+    order: 'nl2:musicOrder'   // 音乐库/历史列表的自定义顺序（长按拖动排序）
   };
 
   const ACTION_W = 60;      // 每个滑动按钮宽度
-  const LONG_PRESS = 480;   // 长按进入多选（ms）
+  const LONG_PRESS = 420;   // 长按浮起可拖动排序（ms）
   const MOVE_TOL = 6;       // 判定为滑动的位移阈值
 
   const $ = (id) => document.getElementById(id);
@@ -210,8 +211,46 @@
 
   function itemsOf(source) {
     if (source === 'playlist') return getPlaylist();
-    // 音乐库/历史导入：内置音乐固定排在最上面
-    return getBuiltin().concat(getHistory());
+    // 音乐库/历史导入：内置音乐 + 历史，按用户长按拖动保存的顺序排
+    return applyOrder(getBuiltin().concat(getHistory()), read(K.order, null));
+  }
+
+  // 按保存的顺序排列；没在顺序表里的（新导入的）接在末尾
+  function applyOrder(list, ord) {
+    if (!Array.isArray(ord) || !ord.length) return list;
+    const pos = {};
+    ord.forEach((u, i) => { pos[u] = i; });
+    return list
+      .map((it, i) => ({ it: it, i: i }))
+      .sort((a, b) => {
+        const pa = pos[a.it.url] == null ? 1e9 : pos[a.it.url];
+        const pb = pos[b.it.url] == null ? 1e9 : pos[b.it.url];
+        return pa === pb ? a.i - b.i : pa - pb;
+      })
+      .map((x) => x.it);
+  }
+
+  // 拖动松手：把 DOM 里的新顺序存下来
+  function commitOrder(source) {
+    const cfg = SOURCES[source];
+    const box = cfg && $(cfg.listId);
+    if (!box) return;
+    const urls = Array.prototype.map.call(box.querySelectorAll('.m-item'), (r) => r.dataset.url)
+      .filter(Boolean);
+    if (!urls.length) return;
+    if (source === 'playlist') {
+      const byUrl = {};
+      getPlaylist().forEach((x) => { byUrl[x.url] = x; });
+      const next = [];
+      urls.forEach((u) => { if (byUrl[u]) { next.push(byUrl[u]); delete byUrl[u]; } });
+      Object.keys(byUrl).forEach((u) => next.push(byUrl[u]));
+      savePlaylist(next);
+    } else {
+      write(K.order, urls);
+    }
+    renderList('history');
+    renderList('library');
+    renderList('playlist');
   }
 
   function closeOpenRow() {
@@ -287,38 +326,109 @@
   }
 
   function bindRowGesture(row, item, source, actW) {
-    let sx = 0, sy = 0, base = 0, dx = 0;
-    let dragging = false, moved = false, lpFired = false, lp = null, pid = null;
+    const wrap = row.parentNode;
+    let sx = 0, sy = 0, base = 0, dx = 0, lastY = 0;
+    let swiping = false, moved = false, lp = null, pid = null;
+    let lifted = false, liftMoved = false, ghost = null, grabDy = 0, stopScroll = null;
+
+    // 长按 → 这一行「浮」起来，可以上下拖动换位置（同时不再触发左滑）
+    function lift() {
+      if (lifted || !wrap) return;
+      lifted = true;
+      liftMoved = false;
+      const r = row.getBoundingClientRect();
+      grabDy = Math.max(4, Math.min(r.height - 4, lastY - r.top));
+
+      ghost = wrap.cloneNode(true);
+      ghost.className = 'm-item-wrap drag-ghost';
+      ghost.style.left = r.left + 'px';
+      ghost.style.top = r.top + 'px';
+      ghost.style.width = r.width + 'px';
+      ghost.style.height = r.height + 'px';
+      document.body.appendChild(ghost);
+
+      wrap.classList.add('lift-src');
+      document.body.classList.add('m-dragging');
+      if (openRow) closeOpenRow();
+
+      // 拖动期间锁住页面滚动（长按不松手时手指上下移动不该滚动列表）
+      stopScroll = (ev) => { if (ev.cancelable) ev.preventDefault(); };
+      document.addEventListener('touchmove', stopScroll, { passive: false });
+      if (AudioManager.vibrate) AudioManager.vibrate(15);
+    }
+
+    function moveGhost(y) {
+      if (!ghost) return;
+      ghost.style.top = (y - grabDy) + 'px';
+      const box = wrap.parentNode;
+      if (!box) return;
+      // 越过谁的中线就插到谁前面 —— 拖动时实时换位
+      const sibs = Array.prototype.filter.call(box.children,
+        (c) => c !== wrap && c.classList && c.classList.contains('m-item-wrap'));
+      for (let i = 0; i < sibs.length; i++) {
+        const r = sibs[i].getBoundingClientRect();
+        if (y < r.top + r.height / 2) {
+          if (sibs[i] !== wrap.nextSibling) box.insertBefore(wrap, sibs[i]);
+          return;
+        }
+      }
+      if (box.lastElementChild !== wrap) box.appendChild(wrap);
+    }
+
+    function endLift() {
+      if (stopScroll) {
+        document.removeEventListener('touchmove', stopScroll);
+        stopScroll = null;
+      }
+      document.body.classList.remove('m-dragging');
+      wrap.classList.remove('lift-src');
+      if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
+      ghost = null;
+      lifted = false;
+      // 拖着换了位置 → 保存新顺序；长按没动就松手 → 还是原来的多选
+      if (liftMoved) commitOrder(source);
+      else toggleSelect(item.url, row);
+      liftMoved = false;
+    }
 
     row.addEventListener('pointerdown', (e) => {
       if (e.button != null && e.button !== 0) return;
       pid = e.pointerId;
-      sx = e.clientX; sy = e.clientY; dx = 0;
-      dragging = false; moved = false; lpFired = false;
+      sx = e.clientX; sy = e.clientY; lastY = e.clientY; dx = 0;
+      swiping = false; moved = false;
       base = row.classList.contains('open') ? -actW : 0;
       try { row.setPointerCapture(pid); } catch (err) {}
 
-      lp = setTimeout(() => {
-        if (moved) return;
-        lpFired = true;
-        toggleSelect(item.url, row);
-      }, LONG_PRESS);
+      // 已左滑打开的行不进入长按拖动，先让它收回去
+      if (base === 0) {
+        lp = setTimeout(() => {
+          if (moved || swiping) return;
+          lift();
+        }, LONG_PRESS);
+      }
     });
 
     row.addEventListener('pointermove', (e) => {
       if (pid !== e.pointerId) return;
       const mx = e.clientX - sx;
       const my = e.clientY - sy;
+      lastY = e.clientY;
+
+      if (lifted) {
+        if (!liftMoved && Math.abs(my) > 3) liftMoved = true;
+        moveGhost(e.clientY);
+        return;
+      }
 
       if (!moved && Math.abs(mx) > MOVE_TOL && Math.abs(mx) > Math.abs(my)) {
-        dragging = true;
+        swiping = true;
         if (openRow && openRow !== row) closeOpenRow();
       }
       if (Math.abs(mx) > MOVE_TOL || Math.abs(my) > MOVE_TOL) {
         moved = true;
         if (lp) { clearTimeout(lp); lp = null; }
       }
-      if (!dragging) return;
+      if (!swiping) return;
 
       dx = Math.max(-actW, Math.min(0, base + mx));
       row.style.transform = 'translateX(' + dx + 'px)';
@@ -329,13 +439,10 @@
       if (pid !== e.pointerId) return;
       pid = null;
 
-      // 长按已经处理过选中，松手不再触发点击逻辑
-      if (lpFired) {
-        lpFired = false;
-        return;
-      }
+      // 长按浮起：松手就落位（不再触发左滑/点击）
+      if (lifted) { endLift(); return; }
 
-      if (dragging) {
+      if (swiping) {
         const open = dx < -actW / 2;
         row.style.transition = 'transform .16s ease';
         row.style.transform = 'translateX(' + (open ? -actW : 0) + 'px)';
@@ -363,6 +470,7 @@
     row.addEventListener('pointercancel', (e) => {
       if (lp) { clearTimeout(lp); lp = null; }
       pid = null;
+      if (lifted) { liftMoved = true; endLift(); }
       moved = true;
     });
   }
