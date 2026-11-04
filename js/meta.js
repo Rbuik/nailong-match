@@ -11,7 +11,9 @@
     skin: 'nl2:mskin',          // 当前皮肤
     skins: 'nl2:mskins',        // 已解锁皮肤
     wheel: 'nl2:mwheel',        // { date, result }
-    board: 'nl2:mboard',        // 本周排行榜 { week, list:[] }
+    board: 'nl2:mboard',        // 旧周榜（仅用于迁移好友记录）
+    friends: 'nl2:mfriends',    // 好友列表（永久保存，手动删才消失）
+    uid: 'nl2:muid',            // 本机身份码（用来认出「加自己」）
     best: 'nl2:mbest',          // { endless, sprint, rhythm }
     story: 'nl2:mstory',        // 已看过的章节
     nick: 'nl2:mnick'           // 昵称
@@ -230,25 +232,50 @@
     return nickname();
   }
 
-  function board() {
-    const b = read(K.board, { week: weekKey(), list: [] });
-    if (b.week !== weekKey()) return { week: weekKey(), list: [] };   // 每周清零
-    return { week: b.week, list: Array.isArray(b.list) ? b.list : [] };
+  // ==================== 好友榜（纯本地，永久保存） ====================
+  // 本机身份码：只用来认出「这是自己的码」，不含任何设备信息
+  function myUid() {
+    let u = read(K.uid, '');
+    if (typeof u !== 'string' || !u) {
+      u = 'u' + Math.random().toString(36).slice(2, 10);
+      write(K.uid, u);
+    }
+    return u;
   }
 
-  function addBoard(entry) {
-    const b = board();
-    // 同名好友只留最高分那条
-    const list = b.list.filter((x) => x.name !== entry.name).concat([entry])
-      .sort((x, y) => y.score - x.score).slice(0, 20);
-    write(K.board, { week: b.week, list: list });
-    return b.week;
+  function friends() {
+    let list = read(K.friends, null);
+    if (!Array.isArray(list)) {
+      // 老版本把好友塞在周榜里（每周会清空）→ 迁移一次，之后永久保存
+      const old = read(K.board, { list: [] });
+      list = (Array.isArray(old.list) ? old.list : []).map((x, i) => ({
+        uid: x.uid || ('old' + i),
+        name: String(x.name || '好友').slice(0, 8),
+        score: Math.max(0, x.score || 0),
+        level: x.level || 0,
+        ts: x.ts || Date.now()
+      }));
+      write(K.friends, list);
+    }
+    return list;
+  }
+
+  function saveFriends(list) {
+    const arr = (list || []).slice(0, 50);
+    write(K.friends, arr);
+    return arr;
+  }
+
+  function board() {
+    const b = read(K.board, { week: weekKey(), list: [] });
+    if (b.week !== weekKey()) return { week: weekKey(), list: [] };
+    return { week: b.week, list: Array.isArray(b.list) ? b.list : [] };
   }
 
   // 成绩码：把自己的成绩发给朋友，对方粘贴进来即可同榜
   function makeCode(entry) {
     try {
-      const payload = { v: 1, n: entry.name, s: entry.score, l: entry.level || 0, w: weekKey() };
+      const payload = { v: 2, u: myUid(), n: entry.name, s: entry.score, l: entry.level || 0, w: weekKey() };
       return 'NL1-' + btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/=+$/, '');
     } catch (e) { return ''; }
   }
@@ -260,16 +287,60 @@
       const json = decodeURIComponent(escape(atob(body)));
       const p = JSON.parse(json);
       if (!p || typeof p.s !== 'number') return null;
-      return { name: String(p.n || '好友').slice(0, 8), score: Math.max(0, Math.round(p.s)), level: p.l || 0, week: p.w || '' };
+      return {
+        uid: String(p.u || ''),
+        name: String(p.n || '好友').slice(0, 8),
+        score: Math.max(0, Math.round(p.s)),
+        level: p.l || 0,
+        week: p.w || ''
+      };
     } catch (e) { return null; }
   }
 
+  // 加好友：同一 uid 只保留一条 —— 好友改名/分数变化后重新发码，粘进来就是「更新」
   function addFriend(code) {
     const e = readCode(code);
     if (!e) return { ok: false, reason: '码不对' };
-    if (e.week && e.week !== weekKey()) return { ok: false, reason: '这是上周的成绩码' };
-    addBoard({ name: e.name, score: e.score, level: e.level, ts: Date.now(), friend: true });
-    return { ok: true, entry: e };
+    if (e.uid && e.uid === myUid()) return { ok: false, reason: '这是你自己的成绩码，不用加' };
+    if (e.week && e.week !== weekKey()) return { ok: false, reason: '这是上周的成绩码，让对方重新复制一次' };
+    const list = friends();
+    let idx = -1;
+    if (e.uid) idx = list.findIndex((x) => x.uid === e.uid);
+    if (idx < 0 && !e.uid) idx = list.findIndex((x) => x.name === e.name);
+    let updated = false;
+    if (idx >= 0) {
+      list[idx] = { uid: e.uid || list[idx].uid, name: e.name, score: e.score, level: e.level, ts: Date.now() };
+      updated = true;
+    } else {
+      list.push({ uid: e.uid || ('n' + Date.now()), name: e.name, score: e.score, level: e.level, ts: Date.now() });
+    }
+    saveFriends(list);
+    return { ok: true, entry: e, updated: updated };
+  }
+
+  function removeFriend(id) {
+    const list = friends().filter((x) => x.uid !== id);
+    saveFriends(list);
+    return list;
+  }
+  function clearFriends() {
+    saveFriends([]);
+    return [];
+  }
+  function addBoard(entry) {          // 兼容旧调用
+    return addFriendEntry(entry);
+  }
+  function addFriendEntry(entry) {
+    const list = friends();
+    list.push({
+      uid: entry.uid || ('n' + Date.now()),
+      name: String(entry.name || '好友').slice(0, 8),
+      score: Math.max(0, entry.score || 0),
+      level: entry.level || 0,
+      ts: Date.now()
+    });
+    saveFriends(list);
+    return weekKey();
   }
 
   // ==================== 剧情 ====================
@@ -326,6 +397,7 @@
     canSpin, spin, wheelState,
     signInfo, signIn,
     weekKey, nickname, setNickname, board, addBoard, makeCode, addFriend,
+    myUid, friends, removeFriend, clearFriends,
     storySeen, markStory,
     renderAchievements
   };
