@@ -36,17 +36,22 @@
     _customUrl: '',
     _failing: false,
 
-    init(settings) {
+    init(settings, canCreate) {
       settings = settings || {};
       if (typeof settings.music === 'boolean') this.musicOn = settings.music;
       if (typeof settings.bgm === 'number') this.bgmVol = settings.bgm;
       if (typeof settings.sfx === 'number') this.sfxVol = settings.sfx;
 
-      if (!this.ctx) {
+      // iOS 上「非用户手势创建的 AudioContext」即使之后 resume 也可能永远起不来，
+      // 结果就是音乐关着时连音效都没声音。所以 iOS 上把创建推迟到第一次手势。
+      if (canCreate !== false && !this.ctx) {
         const AC = global.AudioContext || global.webkitAudioContext;
-        if (AC) this.ctx = new AC();
+        if (AC) { try { this.ctx = new AC(); } catch (e) {} }
       }
-      if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
+      if (this.ctx && this.ctx.state === 'suspended') {
+        const p = this.ctx.resume();
+        if (p && typeof p.catch === 'function') p.catch(() => {});
+      }
       this.masterReady = !!this.ctx;
       this.startWatchdog();
       return this.masterReady;
@@ -106,7 +111,7 @@
         const AC = global.AudioContext || global.webkitAudioContext;
         if (AC) { try { this.ctx = new AC(); } catch (e) {} }
       }
-      if (!this.ctx) return false;
+      if (!this.ctx) return Promise.resolve(false);
       if (this.ctx.state === 'suspended' && this.ctx.resume) {
         const p = this.ctx.resume();
         if (p && typeof p.then === 'function') {
@@ -115,12 +120,14 @@
           // iOS 上 element.volume 又是只读的 → 第一首歌会用 100% 音量播放，
           // 直到下次拖滑块 / 切歌才恢复正常（这就是「一进来不是上次音量」的根因）。
           p.then(() => this.applyCustomVolume()).catch(() => {});
+          return p;
         }
         if (p && typeof p.catch === 'function') p.catch(() => {});
+        return Promise.resolve(true);
       } else if (this.ctx.state === 'running') {
         this.applyCustomVolume();
       }
-      return true;
+      return Promise.resolve(true);
     },
 
     unlock() {
@@ -216,24 +223,32 @@
         if (AC) { try { this.ctx = new AC(); } catch (e) {} }
       }
       if (!this.ctx) return;
-      if (this.ctx.state !== 'running') this.resumeCtx();
       delay = delay || 0;
-      try {
-        const t0 = this.ctx.currentTime + delay;
-        const osc = this.ctx.createOscillator();
-        const g = this.ctx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, t0);
-        // 统一响度：所有音效与音乐在同一条响度线上（原来 ×2 偏响）
-        const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
-        g.gain.setValueAtTime(0, t0);
-        g.gain.linearRampToValueAtTime(peak, t0 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-        osc.connect(g);
-        g.connect(this.ctx.destination);
-        osc.start(t0);
-        osc.stop(t0 + dur + 0.02);
-      } catch (e) {}
+      const play = () => {
+        if (!this.ctx || this.ctx.state !== 'running') return;
+        try {
+          const t0 = this.ctx.currentTime + delay;
+          const osc = this.ctx.createOscillator();
+          const g = this.ctx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, t0);
+          // 统一响度：所有音效与音乐在同一条响度线上（原来 ×2 偏响）
+          const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
+          g.gain.setValueAtTime(0, t0);
+          g.gain.linearRampToValueAtTime(peak, t0 + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+          osc.connect(g);
+          g.connect(this.ctx.destination);
+          osc.start(t0);
+          osc.stop(t0 + dur + 0.02);
+        } catch (e) {}
+      };
+      if (this.ctx.state === 'running') { play(); return; }
+      // suspended 时先等上下文真正跑起来再排音符，
+      // 否则（尤其音乐关着、没人播 BGM 的时候）音符会被系统直接丢掉 → 一点音效都没有
+      const p = this.resumeCtx();
+      if (p && typeof p.then === 'function') p.then(play).catch(() => {});
+      else setTimeout(play, 60);
     },
 
     vibrate(pattern) {
