@@ -28,22 +28,26 @@
   <div class="target-bar" id="target-bar">目标：得分 0 / 1000</div>
 
   <div class="tools">
-    <div class="preview-strip" id="preview-strip" title="即将掉落"></div>
-    <button id="btn-backpack-game" class="music-btn" title="背包">
-      <span class="icon">🎒</span>
-    </button>
-    <button id="btn-music-game" class="tool-btn music-btn music-btn-main" title="音乐开关">
-      <span class="icon">🎵</span>
-    </button>
-    <button id="btn-shuffle" class="tool-btn">
-      <span class="icon">🔄</span><span class="text">洗牌</span><span class="badge" id="shuffle-count">3</span>
-    </button>
-    <button id="btn-hint" class="tool-btn">
-      <span class="icon">💡</span><span class="text">提示</span><span class="badge" id="hint-count">3</span>
-    </button>
-    <button id="btn-undo" class="tool-btn">
-      <span class="icon">↩️</span><span class="text">撤回</span><span class="badge" id="undo-count">3</span>
-    </button>
+    <div class="tools-row">
+      <div class="preview-strip" id="preview-strip" title="即将掉落"></div>
+      <button id="btn-backpack-game" class="music-btn" title="背包">
+        <span class="icon">🎒</span>
+      </button>
+      <button id="btn-music-game" class="tool-btn music-btn music-btn-main" title="音乐开关">
+        <span class="icon">🎵</span>
+      </button>
+    </div>
+    <div class="tools-row tools-row-2">
+      <button id="btn-hint" class="tool-btn">
+        <span class="icon">💡</span><span class="text">提示</span><span class="badge" id="hint-count">3</span>
+      </button>
+      <button id="btn-shuffle" class="tool-btn">
+        <span class="icon">🔄</span><span class="text">洗牌</span><span class="badge" id="shuffle-count">3</span>
+      </button>
+      <button id="btn-undo" class="tool-btn">
+        <span class="icon">↩️</span><span class="text">撤回</span><span class="badge" id="undo-count">3</span>
+      </button>
+    </div>
   </div>
 
   <div class="board-wrap">
@@ -213,7 +217,10 @@
         <h3>🧊 障碍与货物</h3>
         <p><b>冰块</b>：冻住的方块既不能交换、也不参与连消，只能靠<b>旁边消除</b>或特殊块把冰砸开；厚冰有 2 层，得砸两次。</p>
         <p><b>锁链</b>：锁住的方块第一次被消只解链、方块留下，解开之后才能正常交换和消除。</p>
-        <p><b>货物 🔑 / 🐲</b>：贴在方块上，跟着方块一起往下掉，<b>落到最底行才算送达</b>——所以要先把它下方的方块消掉给它让路。</p>
+        <p><b>货物 🔑 钥匙 / 🐲 奶龙</b>：贴在某个方块上，<b>目标只有一个——把它送到最底行</b>。消除它正下方的方块，它就会跟着往下掉一格，掉到最后一排就算送达。</p>
+        <p>· 货物被冰块、锁链挡住时先清理障碍，否则掉不下去<br>
+          · 货物所在的方块被消掉也不要紧，它会从同一列的顶端重新落下来，不会丢<br>
+          · 关卡目标数量就是场上货物的总数，全部送到最底行即过关</p>
       </section>
 
       <section class="rule-sec">
@@ -233,7 +240,7 @@
 
       <section class="rule-sec">
         <h3>🔓 解锁规则</h3>
-        <p>主线共 <b>40 关</b>，分成 <b>4 个章节</b>：草地奇遇（1–10）、海底钥匙（11–20）、星图之夜（21–30）、糖果城堡（31–40）。通过某一关（至少 1 星）才会解锁下一关；未解锁的关卡在关卡记录里点不开。</p>
+        <p>主线共 <b>40 关</b>，分成 <b>4 个章节</b>：奶龙的草地午后（1–10）、奶龙海底捞钥匙（11–20）、奶龙闯星空（21–30）、奶龙的糖果城堡（31–40）。通过某一关（至少 1 星）才会解锁下一关；未解锁的关卡在关卡记录里点不开。</p>
         <p>每章第一关进去会先播一小段剧情，点「跳过」就不看了；看过的章节下次不会再播。</p>
       </section>
 
@@ -296,8 +303,8 @@
       <section class="rule-sec">
         <h3>🏅 成就、图鉴与排行榜</h3>
         <p><b>成就</b>：共 19 枚，覆盖通关数、星星数、连击、彩虹 / 炸弹 / 线消、冰块、货物、果冻、三星次数、三个模式的高分和签到天数。达成时会弹提示，成就面板里能看到每一枚的条件和「已获得 / 未获得」。</p>
-        <p><b>奶龙图鉴</b>：5 款皮肤按累计星星解锁——原味（默认）、薄荷 12 星、樱花 30 星、星夜 60 星、黄金 100 星。选中后棋盘配色整套换掉。</p>
-        <p><b>排行榜</b>：本周成绩榜存在本地，最多显示 20 名。可以改昵称，也能复制自己的<b>成绩码</b>发给朋友；朋友把码粘进来就出现在你榜上，标为「好友」。分数只在本机，不上传。</p>
+        <p><b>奶龙图鉴</b>：5 款皮肤按累计星星解锁——原味（默认）、薄荷 12 星、樱花 30 星、星夜 60 星、黄金 100 星。选中后棋盘光晕、主页奶龙和按钮投影换个颜色；<b>只换外观，不影响分数、步数和难度</b>。</p>
+        <p><b>排行榜</b>：自己的本周最佳 + 好友，最多显示 20 名。改名只改自己那条；好友加进来后<b>一直留着</b>（不会每周清空），只有<b>左滑好友行</b>点「删除」才会消失。好友改名或分数变了，让他重新复制一次成绩码，你粘进来会更新同一条、不会多出一行；自己的码加不了自己。</p>
       </section>
 
       <section class="rule-sec">
@@ -608,7 +615,11 @@
   <!-- 奶龙图鉴 -->
   <div class="overlay" id="collection-menu" style="display:none;">
     <h2 class="title small">🎨 奶龙图鉴 <span class="sub-count">⭐ <b id="skin-stars">0</b></span></h2>
-    <p class="history-hint">星星越多能解锁的皮肤越多，点一下就能换上</p>
+    <div class="skin-intro">
+      <p><b>这是什么：</b>奶龙的「皮肤」收藏册，一共 5 款外观，按累计星星解锁。</p>
+      <p><b>用在哪：</b>选中后，游戏里棋盘外圈的光晕、主页和结算按钮的投影颜色都会跟着换，主页的奶龙配色也会变。</p>
+      <p>只改样子，<b>不影响分数、步数和难度</b>；点卡片随时换，也能换回「原味」。</p>
+    </div>
     <div class="skin-list" id="skin-list"></div>
     <button class="btn-secondary" id="btn-close-skins">返回</button>
   </div>
@@ -628,8 +639,8 @@
 
   <!-- 排行榜 -->
   <div class="overlay" id="leaderboard-menu" style="display:none;">
-    <h2 class="title small">📊 本周排行榜 <span class="sub-count" id="lb-week"></span></h2>
-    <p class="history-hint">成绩只存在本机，不上传服务器；和朋友互发成绩码就能同榜</p>
+    <h2 class="title small">📊 排行榜 <span class="sub-count" id="lb-week"></span></h2>
+    <p class="history-hint">成绩只存在本机；好友加进来后一直留在榜上，只有你自己能删。左滑好友行可以删除。</p>
     <div class="lb-list" id="lb-list"></div>
     <div class="lb-form">
       <input type="text" id="lb-nick" maxlength="8" placeholder="昵称（最多 8 字）">
@@ -639,8 +650,9 @@
       <input type="text" id="lb-code" placeholder="粘贴好友成绩码 NL1-…">
       <button class="btn-mini" id="btn-lb-add">加入</button>
     </div>
+    <p class="lb-tip">好友改名或分数变了，让他重新复制成绩码，你粘进来会自动更新同一条（不会重复）；自己的码不能加自己。</p>
     <button class="btn-mini wide" id="btn-lb-copy">复制我的成绩码</button>
-    <button class="btn-secondary" id="btn-close-lb">返回</button>
+    <button class="btn-secondary lb-back" id="btn-close-lb">返回</button>
   </div>
 
   <!-- 再来 3 步 -->
