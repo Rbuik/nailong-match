@@ -511,15 +511,6 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .admin-sec .result-box p { font-size: 16px; margin: 7px 0; }
 .admin-sec .result-box b { font-size: 18px; text-align: right; max-width: 70%; line-height: 1.35; word-break: break-word; }
 
-/* 统计口径说明（很小的一行，不抢视线） */
-.admin-note {
-  margin: 6px 0 0 4px;
-  font-size: 11px;
-  color: #a5abc2;
-  text-align: left;
-  line-height: 1.4;
-}
-
 /* 长按「🌐 全网」板块 3 秒 → 省份统计。
    手机上必须封掉滚动/选中/长按菜单，否则手指一抖就被取消 */
 #admin-global-sec {
@@ -529,19 +520,6 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
-
-/* 步数耗尽 / 时间到：特殊块依次引爆的提示（固定在棋盘正下方，不占动态高度） */
-#detonate-tip {
-  min-height: 20px;
-  margin: 2px 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #e07a1f;
-  text-align: center;
-  line-height: 1.4;
-  visibility: hidden;
-}
-#detonate-tip.show { visibility: visible; }
 
 /* 省份统计页（整页覆盖，安卓返回键 / 返回按钮都能回游戏） */
 .prov-page {
@@ -613,6 +591,10 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 .prov-list li b { color: #7c5cff; font-size: 16px; }
 .prov-list .prov-empty { justify-content: center; color: #a5abc2; font-size: 14px; padding: 18px 0; }
+/* 点省份进市级统计：可点击的行给个箭头与按压反馈 */
+.prov-list li.clickable { cursor: pointer; }
+.prov-list li.clickable:active { background: rgba(124, 92, 255, 0.10); }
+.prov-list .prov-arrow { font-style: normal; color: #b7bcd4; font-size: 16px; margin-left: 4px; }
 .prov-card .btn-primary {
   flex: 0 0 auto;
   width: auto;

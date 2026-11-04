@@ -885,9 +885,10 @@
     await resolveClear(expanded.cells, expanded.boomPoints);
   }
 
-  // ==================== 彩虹：消场上所有「同色」方块 ====================
-  // 彩虹跟普通块交换时，消除的是被交换那个颜色在全盘的每一块，
-  // 而不是周围一圈/随机一种颜色。
+  // ==================== 彩虹：消场上所有「同图案」方块 ====================
+  // 彩虹跟普通块交换时，只消除被交换那个图案在全盘的每一块 + 彩虹自身；
+  // 不连锁引爆同色里夹着的炸弹/线消（它们只被当作普通方块消掉），
+  // 也绝不会碰到其它图案的方块。
   function rainbowSwapInfo(ba, bb) {
     if (!ba || !bb) return null;
     if (ba.special === T.RAINBOW && bb.special === T.NORMAL) return { color: bb.type, fromA: true };
@@ -896,22 +897,21 @@
   }
 
   async function runRainbowClear(color, rainbowCell) {
-    const seed = new Set();
+    const cells = new Set([kOf(rainbowCell.r, rainbowCell.c)]);
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const b = S.board[r][c];
-        if (b && b.type === color && b.special !== T.RAINBOW) seed.add(kOf(r, c));
+        if (b && b.type === color && !(r === rainbowCell.r && c === rainbowCell.c)) {
+          cells.add(kOf(r, c));
+        }
       }
     }
-    // 同色里夹着的炸弹/线消一起连锁引爆（不会串到别的颜色）
-    const expanded = Specials.expandClears(S.board, ROWS, COLS, seed, { rainbowColor: color });
-    expanded.cells.add(kOf(rainbowCell.r, rainbowCell.c));
-    expanded.boomPoints.push({ r: rainbowCell.r, c: rainbowCell.c, type: T.RAINBOW });
+    const boomPoints = [{ r: rainbowCell.r, c: rainbowCell.c, type: T.RAINBOW }];
 
     FX.text(rainbowCell.c * CELL + CELL / 2, rainbowCell.r * CELL + CELL / 2 - CELL * 0.3,
-      '全场同色消除 🌈', '#c85cff', 18);
+      '同图案消除 🌈', '#c85cff', 18);
     AudioManager.playSFX('line');
-    await resolveClear(expanded.cells, expanded.boomPoints);
+    await resolveClear(cells, boomPoints);
   }
 
   // ==================== 特殊块的生成顺序 ====================
@@ -942,33 +942,14 @@
     return list;
   }
 
-  function specialName(t) {
-    if (t === T.RAINBOW) return '彩虹';
-    if (t === T.BOMB) return '炸弹';
-    return '十字线';
-  }
-
-  // 引爆提示固定显示在棋盘正下方（#detonate-tip），不占用 toast
-  function showDetonateTip(msg) {
-    const el = $('detonate-tip');
-    if (!el) return;
-    if (msg) {
-      el.textContent = msg;
-      el.classList.add('show');
-    } else {
-      el.textContent = '';
-      el.classList.remove('show');
-    }
-  }
-
   // 棋盘上剩下的特殊块：按生成先后一个个引爆，全部生效（含引爆后掉落产生的
   // 连消与新特殊块）之后才结束，返回是否因此达成了关卡目标。
   // 中途就算目标已达成也继续引爆完、把棋盘清干净，最后才进结算页。
+  // 不弹任何文字提示，节奏收紧（引爆间隔很短），避免结束前拖沓卡顿。
   async function detonateBoardSpecials() {
     const all = collectSpecials();
     if (!all.length) return false;
-    showDetonateTip('棋盘上还有 ' + all.length + ' 个特殊块，按生成顺序依次引爆');
-    await sleep(420);
+    await sleep(180);
 
     for (let guard = 0; guard < 80; guard++) {
       const list = collectSpecials();
@@ -976,20 +957,14 @@
         // 编号小的先生成、先引爆；编号相同（老存档）按行列顺序兜底
         list.sort((a, b) => (a.seq - b.seq) || (a.r - b.r) || (a.c - b.c));
         const t = list[0];
-        FX.text(t.c * CELL + CELL / 2, t.r * CELL + CELL / 2 - CELL * 0.4,
-          specialName(t.special) + '触发', '#ffb03a', 15);
         await detonateAt(t.r, t.c);
-        // 一次爆破可能连带吃掉多个特殊块，剩余数量实时更新到棋盘下方
-        const left = collectSpecials().length;
-        showDetonateTip(left > 0 ? '正在引爆特殊块…还剩 ' + left + ' 个' : '特殊块全部引爆完毕');
-        await sleep(260);
+        await sleep(110);
         continue;
       }
       // 特殊块清完：引爆后的掉落可能产生自然连消，也一并消完再结算
       if (findMatches().size === 0) break;
       await resolveBoard(null);
     }
-    showDetonateTip('');
     return S.goal ? Goals.isComplete(S.goal) : false;
   }
 
@@ -1173,6 +1148,13 @@
   }
 
   async function afterTurn() {
+    // 兜底：无论哪条路径（组合技 / 彩虹 / 道具引爆 / 掉落），只要棋盘上还留着
+    // 可消除的连消，就在这里补消完，绝不把「该消没消」的方块留给下一回合
+    let safety = 0;
+    while (findMatches().size && safety++ < 24) {
+      await resolveBoard(null);
+    }
+
     S.busy = false;
 
     if (S.goal && Goals.isComplete(S.goal)) {
@@ -1847,6 +1829,36 @@
     }
   }
 
+  // 购买确认（点「🪙 价格」先弹确认，再真正扣钱）
+  let pendingBuy = null;
+  function openBuyConfirm(item) {
+    pendingBuy = item;
+    const box = $('buy-confirm');
+    if (!box) { doBuy(item); return; }
+    const wallet = Store.getWallet();
+    const txt = $('buy-confirm-text');
+    if (txt) {
+      txt.innerHTML = '是否购买 <b>' + escHtml(item.name) + '</b>？<br>' +
+        '<small>价格 🪙 ' + item.price + ' · 现有 🪙 ' + wallet.coins + '</small>';
+    }
+    box.style.display = 'flex';
+  }
+  function closeBuyConfirm() {
+    const box = $('buy-confirm');
+    if (box) box.style.display = 'none';
+    pendingBuy = null;
+  }
+  function doBuy(item) {
+    const res = Tasks.buy(item.key);
+    if (!res.ok) {
+      toast(res.reason === 'no-coins' ? '金币不足' : '购买失败');
+      return;
+    }
+    toast('已购买 ' + item.name);
+    renderShop();
+    updateHUD();
+  }
+
   function renderShop() {
     const list = $('shop-list');
     if (!list) return;
@@ -1862,14 +1874,7 @@
         '<span class="shop-own">持有 ' + (wallet.items[item.key] || 0) + '</span>' +
         '<button class="shop-buy" ' + (wallet.coins < item.price ? 'disabled' : '') + '>🪙 ' + item.price + '</button>';
       row.querySelector('.shop-buy').addEventListener('click', () => {
-        const res = Tasks.buy(item.key);
-        if (!res.ok) {
-          toast(res.reason === 'no-coins' ? '金币不足' : '购买失败');
-          return;
-        }
-        toast('已购买 ' + item.name);
-        renderShop();
-        updateHUD();
+        openBuyConfirm(item);
       });
       list.appendChild(row);
     });
@@ -2096,22 +2101,90 @@
   }
 
   // 每次点击页面，把所在省份的计数 +1（供后台省份统计读取）
-  // 定位失败时落到「其他地区」，保证省份合计始终等于全网点击
-  const PROV_UNKNOWN = ['其他地区', 'unknown'];
+  // 定位失败时落到「调用」（AI / 爬虫 / 没定位到的点击），保证省份合计仍能对上全网
+  const PROV_UNKNOWN = ['调用', 'unknown'];
+
+  // ============ 市级统计：各省地级行政区（中文名 → 计数器代号） ============
+  // 每次点击页面，所在市 +1（city_<省代号>_<市代号>）；点统计页里的省份可看
+  const CITY_TABLE = {
+    beijing: [['北京市', 'beijing']],
+    tianjin: [['天津市', 'tianjin']],
+    shanghai: [['上海市', 'shanghai']],
+    chongqing: [['重庆市', 'chongqing']],
+    hebei: [['石家庄市', 'shijiazhuang'], ['唐山市', 'tangshan'], ['秦皇岛市', 'qinhuangdao'], ['邯郸市', 'handan'], ['邢台市', 'xingtai'], ['保定市', 'baoding'], ['张家口市', 'zhangjiakou'], ['承德市', 'chengde'], ['沧州市', 'cangzhou'], ['廊坊市', 'langfang'], ['衡水市', 'hengshui']],
+    shanxi: [['太原市', 'taiyuan'], ['大同市', 'datong'], ['阳泉市', 'yangquan'], ['长治市', 'changzhi'], ['晋城市', 'jincheng'], ['朔州市', 'shuozhou'], ['晋中市', 'jinzhong'], ['运城市', 'yuncheng'], ['忻州市', 'xinzhou'], ['临汾市', 'linfen'], ['吕梁市', 'lvliang']],
+    liaoning: [['沈阳市', 'shenyang'], ['大连市', 'dalian'], ['鞍山市', 'anshan'], ['抚顺市', 'fushun'], ['本溪市', 'benxi'], ['丹东市', 'dandong'], ['锦州市', 'jinzhou'], ['营口市', 'yingkou'], ['阜新市', 'fuxin'], ['辽阳市', 'liaoyang'], ['盘锦市', 'panjin'], ['铁岭市', 'tieling'], ['朝阳市', 'chaoyang'], ['葫芦岛市', 'huludao']],
+    jilin: [['长春市', 'changchun'], ['吉林市', 'jilin'], ['四平市', 'siping'], ['辽源市', 'liaoyuan'], ['通化市', 'tonghua'], ['白山市', 'baishan'], ['松原市', 'songyuan'], ['白城市', 'baicheng'], ['延边州', 'yanbian']],
+    heilongjiang: [['哈尔滨市', 'haerbin'], ['齐齐哈尔市', 'qiqihaer'], ['鸡西市', 'jixi'], ['鹤岗市', 'hegang'], ['双鸭山市', 'shuangyashan'], ['大庆市', 'daqing'], ['伊春市', 'yichun'], ['佳木斯市', 'jiamusi'], ['七台河市', 'qitaihe'], ['牡丹江市', 'mudanjiang'], ['黑河市', 'heihe'], ['绥化市', 'suihua'], ['大兴安岭地区', 'daxinganling']],
+    jiangsu: [['南京市', 'nanjing'], ['无锡市', 'wuxi'], ['徐州市', 'xuzhou'], ['常州市', 'changzhou'], ['苏州市', 'suzhou'], ['南通市', 'nantong'], ['连云港市', 'lianyungang'], ['淮安市', 'huaian'], ['盐城市', 'yancheng'], ['扬州市', 'yangzhou'], ['镇江市', 'zhenjiang'], ['泰州市', 'taizhou'], ['宿迁市', 'suqian']],
+    zhejiang: [['杭州市', 'hangzhou'], ['宁波市', 'ningbo'], ['温州市', 'wenzhou'], ['嘉兴市', 'jiaxing'], ['湖州市', 'huzhou'], ['绍兴市', 'shaoxing'], ['金华市', 'jinhua'], ['衢州市', 'quzhou'], ['舟山市', 'zhoushan'], ['台州市', 'taizhou2'], ['丽水市', 'lishui']],
+    anhui: [['合肥市', 'hefei'], ['芜湖市', 'wuhu'], ['蚌埠市', 'bengbu'], ['淮南市', 'huainan'], ['马鞍山市', 'maanshan'], ['淮北市', 'huaibei'], ['铜陵市', 'tongling'], ['安庆市', 'anqing'], ['黄山市', 'huangshan'], ['滁州市', 'chuzhou'], ['阜阳市', 'fuyang'], ['宿州市', 'suzhou2'], ['六安市', 'luan'], ['亳州市', 'bozhou'], ['池州市', 'chizhou'], ['宣城市', 'xuancheng']],
+    fujian: [['福州市', 'fuzhou'], ['厦门市', 'xiamen'], ['莆田市', 'putian'], ['三明市', 'sanming'], ['泉州市', 'quanzhou'], ['漳州市', 'zhangzhou'], ['南平市', 'nanping'], ['龙岩市', 'longyan'], ['宁德市', 'ningde']],
+    jiangxi: [['南昌市', 'nanchang'], ['景德镇市', 'jingdezhen'], ['萍乡市', 'pingxiang'], ['九江市', 'jiujiang'], ['新余市', 'xinyu'], ['鹰潭市', 'yingtan'], ['赣州市', 'ganzhou'], ['吉安市', 'jian'], ['宜春市', 'yichun2'], ['抚州市', 'fuzhou2'], ['上饶市', 'shangrao']],
+    shandong: [['济南市', 'jinan'], ['青岛市', 'qingdao'], ['淄博市', 'zibo'], ['枣庄市', 'zaozhuang'], ['东营市', 'dongying'], ['烟台市', 'yantai'], ['潍坊市', 'weifang'], ['济宁市', 'jining'], ['泰安市', 'taian'], ['威海市', 'weihai'], ['日照市', 'rizhao'], ['临沂市', 'linyi'], ['德州市', 'dezhou'], ['聊城市', 'liaocheng'], ['滨州市', 'binzhou'], ['菏泽市', 'heze']],
+    henan: [['郑州市', 'zhengzhou'], ['开封市', 'kaifeng'], ['洛阳市', 'luoyang'], ['平顶山市', 'pingdingshan'], ['安阳市', 'anyang'], ['鹤壁市', 'hebi'], ['新乡市', 'xinxiang'], ['焦作市', 'jiaozuo'], ['濮阳市', 'puyang'], ['许昌市', 'xuchang'], ['漯河市', 'luohe'], ['三门峡市', 'sanmenxia'], ['南阳市', 'nanyang'], ['商丘市', 'shangqiu'], ['信阳市', 'xinyang'], ['周口市', 'zhoukou'], ['驻马店市', 'zhumadian'], ['济源市', 'jiyuan']],
+    hubei: [['武汉市', 'wuhan'], ['黄石市', 'huangshi'], ['十堰市', 'shiyan'], ['宜昌市', 'yichang2'], ['襄阳市', 'xiangyang'], ['鄂州市', 'ezhou'], ['荆门市', 'jingmen'], ['孝感市', 'xiaogan'], ['荆州市', 'jingzhou'], ['黄冈市', 'huanggang'], ['咸宁市', 'xianning'], ['随州市', 'suizhou'], ['恩施州', 'enshi'], ['仙桃市', 'xiantao'], ['潜江市', 'qianjiang'], ['天门市', 'tianmen']],
+    hunan: [['长沙市', 'changsha'], ['株洲市', 'zhuzhou'], ['湘潭市', 'xiangtan'], ['衡阳市', 'hengyang'], ['邵阳市', 'shaoyang'], ['岳阳市', 'yueyang'], ['常德市', 'changde'], ['张家界市', 'zhangjiajie'], ['益阳市', 'yiyang'], ['郴州市', 'chenzhou'], ['永州市', 'yongzhou'], ['怀化市', 'huaihua'], ['娄底市', 'loudi'], ['湘西州', 'xiangxi']],
+    guangdong: [['广州市', 'guangzhou'], ['韶关市', 'shaoguan'], ['深圳市', 'shenzhen'], ['珠海市', 'zhuhai'], ['汕头市', 'shantou'], ['佛山市', 'foshan'], ['江门市', 'jiangmen'], ['湛江市', 'zhanjiang'], ['茂名市', 'maoming'], ['肇庆市', 'zhaoqing'], ['惠州市', 'huizhou'], ['梅州市', 'meizhou'], ['汕尾市', 'shanwei'], ['河源市', 'heyuan'], ['阳江市', 'yangjiang'], ['清远市', 'qingyuan'], ['东莞市', 'dongguan'], ['中山市', 'zhongshan'], ['潮州市', 'chaozhou'], ['揭阳市', 'jieyang'], ['云浮市', 'yunfu']],
+    hainan: [['海口市', 'haikou'], ['三亚市', 'sanya'], ['三沙市', 'sansha'], ['儋州市', 'danzhou']],
+    sichuan: [['成都市', 'chengdu'], ['自贡市', 'zigong'], ['攀枝花市', 'panzhihua'], ['泸州市', 'luzhou'], ['德阳市', 'deyang'], ['绵阳市', 'mianyang'], ['广元市', 'guangyuan'], ['遂宁市', 'suining'], ['内江市', 'neijiang'], ['乐山市', 'leshan'], ['南充市', 'nanchong'], ['眉山市', 'meishan'], ['宜宾市', 'yibin'], ['广安市', 'guangan'], ['达州市', 'dazhou'], ['雅安市', 'yaan'], ['巴中市', 'bazhong'], ['资阳市', 'ziyang'], ['阿坝州', 'aba'], ['甘孜州', 'ganzi'], ['凉山州', 'liangshan']],
+    guizhou: [['贵阳市', 'guiyang'], ['六盘水市', 'liupanshui'], ['遵义市', 'zunyi'], ['安顺市', 'anshun'], ['毕节市', 'bijie'], ['铜仁市', 'tongren'], ['黔西南州', 'qianxinan'], ['黔东南州', 'qiandongnan'], ['黔南州', 'qiannan']],
+    yunnan: [['昆明市', 'kunming'], ['曲靖市', 'qujing'], ['玉溪市', 'yuxi'], ['保山市', 'baoshan'], ['昭通市', 'zhaotong'], ['丽江市', 'lijiang'], ['普洱市', 'puer'], ['临沧市', 'lincang'], ['楚雄州', 'chuxiong'], ['红河州', 'honghe'], ['文山州', 'wenshan'], ['西双版纳州', 'xishuangbanna'], ['大理州', 'dali'], ['德宏州', 'dehong'], ['怒江州', 'nujiang'], ['迪庆州', 'diqing']],
+    shaanxi: [['西安市', 'xian'], ['铜川市', 'tongchuan'], ['宝鸡市', 'baoji'], ['咸阳市', 'xianyang'], ['渭南市', 'weinan'], ['延安市', 'yanan'], ['汉中市', 'hanzhong'], ['榆林市', 'yulin2'], ['安康市', 'ankang'], ['商洛市', 'shangluo']],
+    gansu: [['兰州市', 'lanzhou'], ['嘉峪关市', 'jiayuguan'], ['金昌市', 'jinchang'], ['白银市', 'baiyin'], ['天水市', 'tianshui'], ['武威市', 'wuwei'], ['张掖市', 'zhangye'], ['平凉市', 'pingliang'], ['酒泉市', 'jiuquan'], ['庆阳市', 'qingyang'], ['定西市', 'dingxi'], ['陇南市', 'longnan'], ['临夏州', 'linxia'], ['甘南州', 'gannan']],
+    qinghai: [['西宁市', 'xining'], ['海东市', 'haidong'], ['海北州', 'haibei'], ['黄南州', 'huangnan'], ['海南州', 'hainanzhou'], ['果洛州', 'guoluo'], ['玉树州', 'yushu'], ['海西州', 'haixi']],
+    taiwan: [['台北市', 'taibei'], ['新北市', 'xinbei'], ['桃园市', 'taoyuan'], ['台中市', 'taizhong'], ['台南市', 'tainan'], ['高雄市', 'gaoxiong']],
+    neimenggu: [['呼和浩特市', 'huhehaote'], ['包头市', 'baotou'], ['乌海市', 'wuhai'], ['赤峰市', 'chifeng'], ['通辽市', 'tongliao'], ['鄂尔多斯市', 'eerduosi'], ['呼伦贝尔市', 'hulunbeier'], ['巴彦淖尔市', 'bayannaoer'], ['乌兰察布市', 'wulanchabu'], ['兴安盟', 'xingan'], ['锡林郭勒盟', 'xilinguole'], ['阿拉善盟', 'alashan']],
+    guangxi: [['南宁市', 'nanning'], ['柳州市', 'liuzhou'], ['桂林市', 'guilin'], ['梧州市', 'wuzhou'], ['北海市', 'beihai'], ['防城港市', 'fangchenggang'], ['钦州市', 'qinzhou'], ['贵港市', 'guigang'], ['玉林市', 'yulin3'], ['百色市', 'baise'], ['贺州市', 'hezhou'], ['河池市', 'hechi'], ['来宾市', 'laibin'], ['崇左市', 'chongzuo']],
+    xizang: [['拉萨市', 'lasa'], ['日喀则市', 'rikaze'], ['昌都市', 'changdu'], ['林芝市', 'linzhi'], ['山南市', 'shannan'], ['那曲市', 'naqu'], ['阿里地区', 'ali']],
+    ningxia: [['银川市', 'yinchuan'], ['石嘴山市', 'shizuishan'], ['吴忠市', 'wuzhong2'], ['固原市', 'guyuan'], ['中卫市', 'zhongwei']],
+    xinjiang: [['乌鲁木齐市', 'wulumuqi'], ['克拉玛依市', 'kelamayi'], ['吐鲁番市', 'tulufan'], ['哈密市', 'hami'], ['昌吉州', 'changji'], ['博尔塔拉州', 'boertala'], ['巴音郭楞州', 'bayinguoleng'], ['阿克苏地区', 'akesu'], ['克孜勒苏州', 'kezilesu'], ['喀什地区', 'kashi'], ['和田地区', 'hetian'], ['伊犁州', 'yili'], ['塔城地区', 'tacheng'], ['阿勒泰地区', 'aletai']],
+    xianggang: [['香港', 'xianggang']],
+    aomen: [['澳门', 'aomen']]
+  };
+
+  // 把 IP 定位返回的城市名对应到市级统计表里（如「成都市」「成都」都算成都）
+  function matchCity(provCode, cityStr) {
+    const list = CITY_TABLE[provCode];
+    if (!list) return null;
+    const g = String(cityStr || '').replace(/[市地区盟县州区自治]+$/, '').trim();
+    if (!g || !/[\u4e00-\u9fa5]/.test(g)) return null;   // 英文/空的城市名不计入市
+    for (let i = 0; i < list.length; i++) {
+      const short = list[i][0].replace(/[市地区盟县州区自治]+$/, '');
+      if (g === short || g.indexOf(short) >= 0 || (short.length >= 2 && short.indexOf(g) === 0)) {
+        return { name: list[i][0], code: list[i][1] };
+      }
+    }
+    return null;
+  }
+
   let provCounted = false;
   function bumpProvHits() {
     if (provCounted) return;
     provCounted = true;
     if (typeof fetch !== 'function') return;
-    const p = matchProvince(Store.getNet().geo && Store.getNet().geo.region);
+    const geo = Store.getNet().geo || {};
+    // 只有明确识别为中国的 IP 才计入省份（国外 / 定位失败落「调用」）
+    const isCN = /中国|中华|China|CN/i.test(geo.country || '');
+    const p = isCN ? matchProvince(geo.region) : null;
     const code = p ? p.code : PROV_UNKNOWN[1];
     fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + code, { cache: 'no-store' }).catch(() => {});
+    // 市级统计（点省份统计页里的省份可以看到）
+    const city = p ? matchCity(p.code, geo.city) : null;
+    if (city) {
+      fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/city_' + code + '_' + city.code,
+        { cache: 'no-store' }).catch(() => {});
+    }
   }
 
-  // 长按「🌐 全网」→ 跳转到省份统计网页（只显示 ≥1 的省份，从高到低，可搜索）
-  // ============ 省份统计页（整页覆盖，不依赖 blob / 跳转，微信里也能打开）============
-  let provRows = [];
-  let provSum = 0;
+  // ============ 省份统计（含市级下钻） ============
+  // 后台「全网」用的是历史总计数器 opens（每一次点击都 +1，一直没断过），
+  // 省份统计是后来才加的，所以「省份合计 ≤ 全网」，差额就是「调用」
+  // （历史点击 / AI 调用 / 没定位到的点击）。「调用」不管次数多少固定排最后。
+
+  let provRows = [];     // 有点击记录的省份（不含「调用」），降序
+  let unknownN = 0;      // 「调用」：定位失败 / AI 的累计次数（只增不减）
+  let opensVal = -1;     // 历史总计数器（读失败时回退用 net.globalHits）
 
   function escHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -2137,18 +2210,30 @@
     });
   }
 
-  // ============ 省份合计 = 后台「全网」点击 ============
-  // 两边都只认「34 个省份 + 其他地区」的计数之和，
-  // 所以统计页里数字加起来一定等于后台的全网点击。
+  // 读历史总计数器（get 不加数，/hit 才加）
+  function readOpens() {
+    return fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/opens', 7000).then((j) =>
+      (j && typeof j.value === 'number' ? j.value : -1));
+  }
 
-  // 读全部省份（含定位失败兜底的「其他地区」）；全失败返回 null
+  // 每个省上次读到的值（这次读失败的省沿用上次的数，显示才不会来回跳）
+  function provValsCache() {
+    try { return JSON.parse(localStorage.getItem('nl2:provVals') || '{}') || {}; } catch (e) { return {}; }
+  }
+
+  // 读全部省份（含「调用」）；全部失败返回 null
   function readAllProv() {
     const list = PROVINCES.concat([PROV_UNKNOWN]);
-    return Promise.all(list.map((p) => readProvCount(p[1]).then((n) => ({ name: p[0], n: n }))))
-      .then((rows) => {
-        if (!rows.some((r) => r.n >= 0)) return null;
-        return rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
-      });
+    const cached = provValsCache();
+    return Promise.all(list.map((p) => readProvCount(p[1]).then((n) => {
+      if (n >= 0) cached[p[1]] = n;                       // 读成功 → 更新
+      else if (typeof cached[p[1]] === 'number') n = cached[p[1]];  // 读失败 → 沿用上次
+      return { name: p[0], code: p[1], n: n };
+    }))).then((rows) => {
+      if (!rows.some((r) => r.n >= 0)) return null;
+      try { localStorage.setItem('nl2:provVals', JSON.stringify(cached)); } catch (e) {}
+      return rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
+    });
   }
 
   function cachedProvSum() {
@@ -2156,80 +2241,148 @@
     return Number.isFinite(n) ? n : 0;
   }
 
+  // 34 省合计 / 全网显示值 / 「调用」值
+  function provTotalSum() { return provRows.reduce((s, r) => s + r.n, 0); }
+  function statsTotal() {
+    const opens = opensVal >= 0 ? opensVal : (Store.getNet().globalHits || 0);
+    return Math.max(opens, provTotalSum() + unknownN);
+  }
+  // 「调用」= 全网里不属于任何省份的部分；至少要盖住定位失败的累计，只增不减
+  function callCount() { return Math.max(unknownN, statsTotal() - provTotalSum()); }
+
   // 把一次读取结果落到缓存 + 后台「全网」
-  function applyProvRows(rows) {
-    provRows = rows || [];
-    provSum = provRows.reduce((s, r) => s + r.n, 0);
+  // （兼容旧缓存里没有 code、或叫「其他地区」的行，统一算进「调用」）
+  function applyProvData(rows, opens) {
+    const isUnk = (r) => r.code === PROV_UNKNOWN[1] || r.name === PROV_UNKNOWN[0] || r.name === '其他地区';
+    const unk = rows.find(isUnk) || { n: 0 };
+    provRows = rows.filter((r) => !isUnk(r)).map((r) => ({
+      name: r.name,
+      code: r.code || (matchProvince(r.name) || {}).code || '',
+      n: r.n
+    })).filter((r) => r.code).sort((a, b) => b.n - a.n);
+    unknownN = Math.max(unknownN, unk.n || 0);
+    if (opens >= 0) opensVal = opens;
     try {
-      localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: provRows }));
-      localStorage.setItem('nl2:provSum', String(provSum));
+      localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: rows }));
+      localStorage.setItem('nl2:provSum', String(provTotalSum() + unknownN));
     } catch (e) {}
-    Store.patchNet({ globalHits: provSum });
-    return provSum;
+    Store.patchNet({ globalHits: statsTotal() });
+    return statsTotal();
   }
 
-  // 本机点击比省份合计还多（旧数据 / 当时定位失败漏记）→ 补到「其他地区」，
-  // 保证「全网 ≥ 本机」，同时统计页加起来仍然等于全网
+  // 本机点击比省份合计还多（旧数据 / 当时定位失败漏记）→ 补进「调用」，
+  // 保证「全网 ≥ 本机」，统计页加起来仍然等于全网
   function ensureProvTotal(local) {
-    if (provSum >= local) return Promise.resolve(provSum);
-    const need = Math.min(30, local - provSum);
+    if (provTotalSum() + unknownN >= local) return Promise.resolve(statsTotal());
+    const need = Math.min(30, local - provTotalSum() - unknownN);
     let chain = Promise.resolve();
     for (let i = 0; i < need; i++) {
       chain = chain.then(() => fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + PROV_UNKNOWN[1],
         { cache: 'no-store' }).catch(() => {}));
     }
     return chain.then(() => {
-      const hit = provRows.find((r) => r.name === PROV_UNKNOWN[0]);
-      if (hit) hit.n += need;
-      else provRows.push({ name: PROV_UNKNOWN[0], n: need });
-      provRows.sort((a, b) => b.n - a.n);
-      provSum += need;
-      try {
-        localStorage.setItem('nl2:provSum', String(provSum));
-        localStorage.setItem('nl2:provCache', JSON.stringify({ ts: Date.now(), data: provRows }));
-      } catch (e) {}
-      Store.patchNet({ globalHits: provSum });
-      return provSum;
+      unknownN += need;
+      try { localStorage.setItem('nl2:provSum', String(provTotalSum() + unknownN)); } catch (e) {}
+      Store.patchNet({ globalHits: statsTotal() });
+      return statsTotal();
     });
   }
 
-  // 后台 / 统计页共用这一份：读全省份 → 落缓存 → 对齐本机
+  // 后台 / 统计页共用这一份：读全省份 + 历史总数 → 落缓存 → 对齐本机
   function refreshProvStats() {
-    return readAllProv().then((rows) => {
+    return Promise.all([readAllProv(), readOpens()]).then((res) => {
+      const rows = res[0], opens = res[1];
       if (!rows) return null;
-      applyProvRows(rows);
-      return ensureProvTotal(Store.getVisits().count).then(() => provSum);
+      applyProvData(rows, opens);
+      return ensureProvTotal(Store.getVisits().count).then(() => statsTotal());
     });
   }
 
-  // 后台每次打开都刷一次即可，60 秒内不重复请求（35 个计数器，别太频繁）
+  // 后台每次打开都刷一次即可，60 秒内不重复请求（36 个计数器，别太频繁）
   let provRefreshAt = 0;
   function refreshProvStatsThrottled() {
-    if (Date.now() - provRefreshAt < 60000) return Promise.resolve(provSum);
+    if (Date.now() - provRefreshAt < 60000) return Promise.resolve(statsTotal());
     provRefreshAt = Date.now();
     return refreshProvStats();
   }
 
+  // ============ 省份统计页 ============
+  // 先用上次的缓存立刻画出来（数字稳定），后台再刷新一次，刷新完才更新显示
+  let provCityView = null;   // null = 省份列表；{name, code} = 某省的市级视图
+  const cityCache = {};      // provCode -> [{name, n}]
+
   function openProvStats() {
     const page = $('prov-page');
     if (!page) return;
-    const sub = $('prov-sub'), list = $('prov-list'), search = $('prov-search');
     page.style.display = 'flex';
-    if (sub) sub.textContent = '正在统计…';
-    if (list) list.innerHTML = '';
-    if (search) search.value = '';
+    provCityView = null;
 
-    refreshProvStats().then((sum) => {
-      if (sum == null) {
-        // 全部请求失败（离线 / 被限流）→ 用上次的结果，至少有内容看
-        let cached = null;
-        try { cached = JSON.parse(localStorage.getItem('nl2:provCache') || 'null'); } catch (e) {}
-        provRows = (cached && Array.isArray(cached.data)) ? cached.data : [];
-        provSum = provRows.reduce((s, r) => s + r.n, 0);
-      }
-      renderProvList(search ? search.value : '');
+    // 1) 先画缓存（秒开 + 数字稳定，不会每进来一次就变一个样）
+    let cached = null;
+    try { cached = JSON.parse(localStorage.getItem('nl2:provCache') || 'null'); } catch (e) {}
+    if (cached && Array.isArray(cached.data) && cached.data.length) {
+      applyProvData(cached.data, -1);
+      renderProvList('');
+      renderAdmin();
+    } else {
+      renderProvList('');
+    }
+
+    // 2) 后台刷新，完成后只把「有变化的部分」更新上去
+    refreshProvStats().then((total) => {
+      if (total == null) return;   // 全部请求失败：继续显示缓存
+      if (provCityView) return;    // 用户已经点进某个省了，别打断
+      renderProvList($('prov-search') ? $('prov-search').value : '');
       renderAdmin();
     });
+  }
+
+  // 点某个省份 → 市级统计（标题 = 省名，数字从高到低）
+  function openProvCities(row) {
+    provCityView = row;
+    const title = $('prov-title'), sub = $('prov-sub'), search = $('prov-search'), list = $('prov-list');
+    if (title) title.textContent = '📍 ' + row.name;
+    if (search) search.style.display = 'none';
+    if (sub) sub.textContent = '正在统计…';
+    if (list) list.innerHTML = '<li class="prov-empty">正在统计…</li>';
+
+    const render = (rows) => {
+      if (!provCityView || provCityView.code !== row.code) return;
+      cityCache[row.code] = rows;
+      if (sub) sub.textContent = rows.length
+        ? ('共 ' + rows.length + ' 个市 · ' + rows.reduce((s, r) => s + r.n, 0) + ' 次点击')
+        : '暂无市级点击记录';
+      if (list) {
+        list.innerHTML = rows.length
+          ? rows.map((r) => '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('')
+          : '<li class="prov-empty">暂无市级点击记录</li>';
+      }
+    };
+
+    if (cityCache[row.code]) render(cityCache[row.code]);   // 先画缓存
+    const cities = CITY_TABLE[row.code] || [];
+    Promise.all(cities.map((c) =>
+      fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/city_' + row.code + '_' + c[1], 7000)
+        .then((j) => ({ name: c[0], n: (j && typeof j.value === 'number') ? j.value : 0 }))))
+      .then((rows) => {
+        // 读失败（0 不可信的判断做不了，简单起见 0 直接不显示）
+        render(rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n));
+      });
+  }
+
+  // 返回：市级视图 → 省份列表；省份列表 → 关闭统计页
+  function provBack() {
+    const page = $('prov-page');
+    if (!page) return;
+    if (provCityView) {
+      provCityView = null;
+      const title = $('prov-title'), search = $('prov-search');
+      if (title) title.textContent = '🗺️ 省份统计';
+      if (search) { search.style.display = ''; search.value = ''; }
+      renderProvList('');
+    } else {
+      page.style.display = 'none';
+    }
   }
 
   function normProv(s) {
@@ -2241,36 +2394,57 @@
     if (!list) return;
     const k = normProv(kw);
     const rows = provRows.filter((r) => !k || normProv(r.name).indexOf(k) >= 0);
-    const total = provRows.reduce((s, r) => s + r.n, 0);
+    const total = statsTotal();
     if (sub) {
-      sub.textContent = provRows.length
-        ? ('共 ' + provRows.length + ' 个省份 · ' + total + ' 次点击')
+      sub.textContent = (provRows.length || unknownN > 0)
+        ? ('共 ' + provRows.length + ' 个省份 · 合计 ' + total + ' 次点击')
         : '暂无点击记录';
     }
-    if (!rows.length) {
+    if (!rows.length && !(unknownN > 0 && !k)) {
       list.innerHTML = '<li class="prov-empty">没有找到相关省份</li>';
       return;
     }
-    list.innerHTML = rows.map((r) =>
-      '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('');
+    let html = rows.map((r) =>
+      '<li class="clickable" data-code="' + r.code + '"><span>' + escHtml(r.name) +
+      '<i class="prov-arrow">›</i></span><b>' + r.n + '</b></li>').join('');
+    // 「调用」固定排最后（不管次数多少），不可点
+    const call = callCount();
+    if (call > 0 && !k) html += '<li><span>调用</span><b>' + call + '</b></li>';
+    list.innerHTML = html;
+    Array.prototype.forEach.call(list.querySelectorAll('li.clickable'), (li) => {
+      li.addEventListener('click', () => {
+        const row = provRows.find((r) => r.code === li.getAttribute('data-code'));
+        if (row) openProvCities(row);
+      });
+    });
   }
 
-  // 每次点击页面 +1（老计数器继续累加保留历史），
-  // 后台显示的「全网」以省份合计为准，离线时用上次缓存
+  // 每次点击页面 +1 历史总计数器（老计数器继续累加保留历史），
+  // 后台显示的「全网」= max(历史总数, 省份合计)，离线时用上次缓存
   function bumpGlobalHits() {
     if (typeof fetch !== 'function') return;
-    fetch(HITS_API, { cache: 'no-store' }).catch(() => {});
+    fetch(HITS_API, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        // /hit 的返回里带着最新值，顺手存下来给后台显示
+        if (j && typeof j.value === 'number' && j.value > 0) {
+          opensVal = Math.max(opensVal, j.value);
+          Store.patchNet({ globalHits: statsTotal() });
+          renderAdmin();
+        }
+      })
+      .catch(() => {});
     const cached = cachedProvSum();
     if (cached > 0) {
-      Store.patchNet({ globalHits: cached });
+      Store.patchNet({ globalHits: Math.max(Store.getNet().globalHits || 0, cached) });
       renderAdmin();
     }
   }
 
-  // 城市级定位：7 天内复用缓存，避免每次联网
+  // 城市级定位：24 小时内复用缓存（定位可能会变，缓存太久会把人钉死在错的省份）
   function fetchGeo() {
     const geo = Store.getNet().geo;
-    if (geo && geo.ts && Date.now() - geo.ts < 7 * 864e5) return Promise.resolve(geo);
+    if (geo && geo.ts && Date.now() - geo.ts < 24 * 864e5) return Promise.resolve(geo);
     if (typeof fetch !== 'function') return Promise.resolve(null);
     return fetch(GEO_API, { cache: 'no-store' })
       .then((r) => (r.ok ? r.json() : null))
@@ -2339,11 +2513,10 @@
     if (!$('admin-menu')) return;
     const net = Store.getNet();
     const localCount = Store.getVisits().count;
-    // 「全网」= 省份统计里所有数字之和（两边同一份数据，保证加起来对得上）
-    const sum = Math.max(provSum, cachedProvSum());
-    const g = net.globalHits;
-    const globalShown = sum > 0 ? sum : Math.max(typeof g === 'number' && g > 0 ? g : 0, localCount);
-    $('admin-global').textContent = globalShown > 0 ? String(globalShown) : (localCount > 0 ? String(localCount) : '—');
+    // 「全网」= 历史总计数器（每次点击 +1，从未间断）与省份合计取大者；
+    // 一定 ≥ 本机点击，也不会因为省份统计刷新而来回跳
+    const globalShown = Math.max(statsTotal(), cachedProvSum(), localCount);
+    $('admin-global').textContent = globalShown > 0 ? String(globalShown) : '—';
     // 本机
     $('admin-visits').textContent = localCount;
     $('admin-device').textContent = describeDevice();
@@ -2551,6 +2724,16 @@
       $('logout-confirm2').style.display = 'none';
     });
 
+    // 购买道具：确认 / 取消
+    const buyYes = $('btn-buy-yes');
+    if (buyYes) buyYes.addEventListener('click', () => {
+      const item = pendingBuy;
+      closeBuyConfirm();
+      if (item) doBuy(item);
+    });
+    const buyNo = $('btn-buy-no');
+    if (buyNo) buyNo.addEventListener('click', closeBuyConfirm);
+
     // ==================== 隐藏后台：同时按住奶龙图案 + 注销键 3 秒 ====================
     const adminMascot = (typeof document.querySelector === 'function')
       ? document.querySelector('#main-menu .mascot') : null;
@@ -2650,13 +2833,11 @@
       }, true);
     }
 
-    // 省份统计页：搜索框 + 返回
+    // 省份统计页：搜索框 + 返回（市级视图先回省份列表，列表再关闭页面）
     const provSearch = $('prov-search');
     if (provSearch) provSearch.addEventListener('input', () => renderProvList(provSearch.value));
-    const provBack = $('btn-prov-back');
-    if (provBack) provBack.addEventListener('click', () => {
-      $('prov-page').style.display = 'none';
-    });
+    const provBackBtn = $('btn-prov-back');
+    if (provBackBtn) provBackBtn.addEventListener('click', provBack);
 
     // 主页提示条：点左侧 ✕ 只是本次隐藏，下次进主页会再出现
     const loadTip = $('load-tip');
@@ -2785,20 +2966,28 @@
     const bgm = $('bgm-volume');
     const sfx = $('sfx-volume');
     let sfxDemoAt = 0;
+    let bgmSaveTimer = null, sfxSaveTimer = null;
     if (bgm) bgm.addEventListener('input', () => {
       $('bgm-volume-val').textContent = Math.round(bgm.value * 100) + '%';
       // 直接改「正在播放的那首歌 / 默认 BGM」的音量：
       // 拖到哪儿、声音立刻变到哪儿，不用另外放试听音
-      AudioManager.setVolumes(parseFloat(bgm.value), null);
+      const v = parseFloat(bgm.value);
+      AudioManager.setVolumes(v, null);
+      // 拖完就记住（防抖 400ms 统一写一次）：下次进来还是这个音量
+      clearTimeout(bgmSaveTimer);
+      bgmSaveTimer = setTimeout(() => Store.setSettings({ bgm: v }), 400);
     });
     if (sfx) sfx.addEventListener('input', () => {
       $('sfx-volume-val').textContent = Math.round(sfx.value * 100) + '%';
-      AudioManager.setVolumes(null, parseFloat(sfx.value));
+      const v = parseFloat(sfx.value);
+      AudioManager.setVolumes(null, v);
       const now = Date.now();
       if (now - sfxDemoAt > 160) {
         sfxDemoAt = now;
         AudioManager.sfxDemo();
       }
+      clearTimeout(sfxSaveTimer);
+      sfxSaveTimer = setTimeout(() => Store.setSettings({ sfx: v }), 400);
     });
     const saveVol = $('btn-save-volume');
     if (saveVol) saveVol.addEventListener('click', () => {
@@ -3081,6 +3270,9 @@
     dailyCompleted: dailyCompleted,
     hud: updateHUD,
     openProvStats: openProvStats,
-    renderAdmin: renderAdmin
+    renderAdmin: renderAdmin,
+    detonateAt: detonateAt,
+    markSpecial: markSpecial,
+    openProvCities: openProvCities
   };
 })();

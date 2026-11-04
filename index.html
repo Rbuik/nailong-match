@@ -43,9 +43,17 @@
     <div id="loading">加载中…</div>
   </div>
 
-  <div id="detonate-tip"></div>
-
   <div id="toast"></div>
+
+  <!-- 购买确认 -->
+  <div class="overlay confirm-overlay" id="buy-confirm" style="display:none;">
+    <h2 class="title small">购买道具</h2>
+    <p class="confirm-text" id="buy-confirm-text">是否购买？</p>
+    <div>
+      <button class="btn-primary btn-success" id="btn-buy-yes">确认</button>
+      <button class="btn-primary" id="btn-buy-no">取消</button>
+    </div>
+  </div>
 
   <!-- 主页 -->
   <div class="overlay" id="main-menu">
@@ -121,16 +129,15 @@
         <p><span>星星</span><b id="admin-stars">0</b></p>
         <p><span>总分</span><b id="admin-score">0</b></p>
       </div>
-      <div class="admin-note">统计自 2026-10-29 00:00:00 起</div>
     </div>
 
     <button class="btn-primary" id="btn-admin-close">关闭</button>
   </div>
 
-  <!-- 省份统计（后台长按「🌐 全网」3 秒打开） -->
+  <!-- 省份统计（后台长按「🌐 全网」3 秒打开；点省份可进市级统计） -->
   <div class="overlay prov-page" id="prov-page" style="display:none;">
     <div class="prov-card">
-      <h2 class="prov-title">🗺️ 省份统计</h2>
+      <h2 class="prov-title" id="prov-title">🗺️ 省份统计</h2>
       <p class="prov-sub" id="prov-sub">正在统计…</p>
       <input class="prov-search" id="prov-search" type="search" placeholder="🔍 搜索" autocomplete="off">
       <ul class="prov-list" id="prov-list"></ul>
