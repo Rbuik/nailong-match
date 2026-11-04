@@ -591,6 +591,9 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 .prov-list li b { color: #7c5cff; font-size: 16px; }
 .prov-list .prov-empty { justify-content: center; color: #a5abc2; font-size: 14px; padding: 18px 0; }
+/* 市级页里「IP 只到省、没到市」的差额行（不可点，颜色弱化） */
+.prov-list li.prov-unknown { color: #8b90a8; }
+.prov-list li.prov-unknown b { color: #a5abc2; }
 /* 点省份进市级统计：可点击的行给个箭头与按压反馈 */
 .prov-list li.clickable { cursor: pointer; }
 .prov-list li.clickable:active { background: rgba(124, 92, 255, 0.10); }

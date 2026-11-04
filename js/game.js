@@ -2101,7 +2101,53 @@
 
   // ==================== 后台统计：全网次数 / 设备 / 地址 / 进度 ====================
   const ABACUS_BASE = 'https://abacus.jasoncameron.dev/';
-  const GEO_API = 'https://ipwho.is/?lang=zh-CN';
+
+  // IP 定位源（浏览器端只能靠第三方 IP 库，多源互相兜底）：
+  //   · ipinfo / ipapi.is 是同一套库，对国内移动网络（尤其 IPv6）判断明显更准；
+  //   · ipwho.is 常把移动 IPv6 直接判成「北京」，只在前面两个都失败时兜底（它给中文，匹配稳）。
+  const GEO_SOURCES = [
+    {
+      name: 'ipinfo', url: 'https://ipinfo.io/json',
+      pick: (j) => (j && j.country && j.country !== 'undefined'
+        ? { countryCode: String(j.country).toUpperCase(), country: '', region: j.region || '', city: j.city || '' }
+        : null)
+    },
+    {
+      name: 'ipapi.is', url: 'https://api.ipapi.is/',
+      pick: (j) => (j && j.country
+        ? { countryCode: '', country: j.country || '', region: j.region || '', city: j.city || '' }
+        : null)
+    },
+    {
+      name: 'ipwho', url: 'https://ipwho.is/?lang=zh-CN',
+      pick: (j) => (j && j.success !== false && j.country
+        ? { countryCode: j.country_code || '', country: j.country || '', region: j.region || '', city: j.city || '' }
+        : null)
+    }
+  ];
+
+  // 国家/地区中文名（港澳台按中国省份统计，不落「海外」）
+  const COUNTRY_CN = {
+    CN: '中国', HK: '中国香港', MO: '中国澳门', TW: '中国台湾',
+    US: '美国', JP: '日本', KR: '韩国', SG: '新加坡', MY: '马来西亚', TH: '泰国',
+    VN: '越南', PH: '菲律宾', ID: '印度尼西亚', IN: '印度', GB: '英国', DE: '德国',
+    FR: '法国', CA: '加拿大', AU: '澳大利亚', NZ: '新西兰', RU: '俄罗斯', BR: '巴西',
+    IT: '意大利', ES: '西班牙', NL: '荷兰', AE: '阿联酋', SA: '沙特阿拉伯',
+    TR: '土耳其', MX: '墨西哥', CH: '瑞士', SE: '瑞典', PL: '波兰', KP: '朝鲜', MN: '蒙古'
+  };
+
+  function countryLabel(geo) {
+    const cc = String((geo && geo.countryCode) || '').toUpperCase();
+    if (cc && COUNTRY_CN[cc]) return COUNTRY_CN[cc];
+    if (cc) {
+      try {
+        const n = new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(cc);
+        if (n) return n;
+      } catch (e) {}
+      return cc;
+    }
+    return String((geo && geo.country) || '');
+  }
 
   // 省份名单：计数器 key 只支持英文字母，这里存「全名 → 拼音代号」
   const PROVINCES = [
@@ -2117,13 +2163,58 @@
     ['香港', 'xianggang'], ['澳门', 'aomen']
   ];
 
-  function matchProvince(region) {
-    const r = (region || '').trim();
-    if (!r) return null;
+  // 国外 IP 单独一行（算进全网点击，但不归属任何省份）
+  const PROV_OVERSEAS = ['🌍 海外', 'overseas'];
+
+  // ipinfo / ipapi.is 返回的是英文省名，这里做「英文名 → 内部代号」映射。
+  // 归一化后（小写 + 去空格标点）精确匹配，所以 Shanxi(山西) / Shaanxi(陕西) 不会互相串。
+  const PROVINCE_EN = {
+    beijing: 'beijing', tianjin: 'tianjin', shanghai: 'shanghai', chongqing: 'chongqing',
+    hebei: 'hebei', shanxi: 'shanxi', liaoning: 'liaoning', jilin: 'jilin',
+    heilongjiang: 'heilongjiang', jiangsu: 'jiangsu', zhejiang: 'zhejiang', anhui: 'anhui',
+    fujian: 'fujian', jiangxi: 'jiangxi', shandong: 'shandong', henan: 'henan',
+    hubei: 'hubei', hunan: 'hunan', guangdong: 'guangdong', hainan: 'hainan',
+    sichuan: 'sichuan', guizhou: 'guizhou', yunnan: 'yunnan', shaanxi: 'shaanxi',
+    gansu: 'gansu', qinghai: 'qinghai', taiwan: 'taiwan',
+    innermongolia: 'neimenggu', neimenggu: 'neimenggu', neimongol: 'neimenggu',
+    guangxi: 'guangxi', tibet: 'xizang', xizang: 'xizang',
+    ningxia: 'ningxia', xinjiang: 'xinjiang',
+    hongkong: 'xianggang', macau: 'aomen', macao: 'aomen'
+  };
+
+  function normEn(s) {
+    return String(s || '').toLowerCase().replace(/[^a-z]/g, '');
+  }
+
+  function provByCode(code) {
     for (let i = 0; i < PROVINCES.length; i++) {
-      // 「四川省」这类全名去掉行政后缀就是匹配用的短名
+      if (PROVINCES[i][1] === code) return { name: PROVINCES[i][0], code: PROVINCES[i][1] };
+    }
+    return null;
+  }
+
+  function matchProvince(region) {
+    const r = String(region || '').trim();
+    if (!r) return null;
+    // 1) 英文省名（ipinfo / ipapi.is）：精确匹配
+    const en = PROVINCE_EN[normEn(r)];
+    if (en) {
+      const hit = provByCode(en);
+      if (hit) return hit;
+    }
+    // 2) 中文省名（ipwho.is 等）：包含匹配，「四川省」→ 四川
+    for (let i = 0; i < PROVINCES.length; i++) {
       const short = PROVINCES[i][0].replace(/(维吾尔|回族)?自治区$|省$|市$/, '');
       if (r.indexOf(short) >= 0) return { name: PROVINCES[i][0], code: PROVINCES[i][1] };
+    }
+    // 3) 复合串（"Sichuan, China"）里夹着英文省名：长名优先，避免 shanxi 命中 shaanxi
+    const nr = normEn(r);
+    const keys = Object.keys(PROVINCE_EN).sort((a, b) => b.length - a.length);
+    for (let i = 0; i < keys.length; i++) {
+      if (nr.indexOf(keys[i]) >= 0) {
+        const hit = provByCode(PROVINCE_EN[keys[i]]);
+        if (hit) return hit;
+      }
     }
     return null;
   }
@@ -2170,16 +2261,58 @@
     aomen: [['澳门', 'aomen']]
   };
 
-  // 把 IP 定位返回的城市名对应到市级统计表里（如「成都市」「成都」都算成都）
+  // 英文城市名 → 拼音代号 的例外（ipinfo 用的是当地惯用名，不一定是拼音）
+  const CITY_EN_ALIAS = {
+    harbin: 'haerbin', hohhot: 'huhehaote', urumqi: 'wulumuqi', lhasa: 'lasa',
+    hulunbuir: 'hulunbeier', ordos: 'eerduosi', erdos: 'eerduosi',
+    shigatse: 'rikaze', xigaze: 'rikaze', chamdo: 'changdu', qamdo: 'changdu',
+    nyingchi: 'linzhi', lhoka: 'shannan', nagqu: 'naqu', nagchu: 'naqu',
+    ngari: 'ali', gar: 'ali', kashgar: 'kashi', khotan: 'hetian', hotan: 'hetian',
+    turpan: 'tulufan', turfan: 'tulufan', korla: 'bayinguoleng', karamay: 'kelamayi',
+    ili: 'yili', yining: 'yili', altay: 'aletai',
+    hongkong: 'xianggang', macau: 'aomen', macao: 'aomen',
+    taipei: 'taibei', taichung: 'taizhong', kaohsiung: 'gaoxiong', newtaipei: 'xinbei'
+  };
+
+  // 把 IP 定位返回的城市名对应到市级统计表里（「成都市」/「Chengdu」都算成都）
   function matchCity(provCode, cityStr) {
     const list = CITY_TABLE[provCode];
     if (!list) return null;
-    const g = String(cityStr || '').replace(/[市地区盟县州区自治]+$/, '').trim();
-    if (!g || !/[\u4e00-\u9fa5]/.test(g)) return null;   // 英文/空的城市名不计入市
+    const raw = String(cityStr || '').trim();
+    if (!raw) return null;
+
+    if (/[\u4e00-\u9fa5]/.test(raw)) {
+      // 中文城市名（ipwho.is）
+      const g = raw.replace(/[市地区盟县州区自治]+$/, '').trim();
+      if (!g) return null;
+      for (let i = 0; i < list.length; i++) {
+        const short = list[i][0].replace(/[市地区盟县州区自治]+$/, '');
+        if (g === short || g.indexOf(short) >= 0 || (short.length >= 2 && short.indexOf(g) === 0)) {
+          return { name: list[i][0], code: list[i][1] };
+        }
+      }
+      return null;
+    }
+
+    // 英文城市名（ipinfo / ipapi.is）：拼音一般和代号一致，Chengdu → chengdu
+    const c = normEn(raw);
+    if (!c) return null;
+    const alias = CITY_EN_ALIAS[c];
+    if (alias) {
+      for (let i = 0; i < list.length; i++) {
+        if (list[i][1] === alias) return { name: list[i][0], code: list[i][1] };
+      }
+    }
     for (let i = 0; i < list.length; i++) {
-      const short = list[i][0].replace(/[市地区盟县州区自治]+$/, '');
-      if (g === short || g.indexOf(short) >= 0 || (short.length >= 2 && short.indexOf(g) === 0)) {
-        return { name: list[i][0], code: list[i][1] };
+      if (normEn(list[i][1]) === c) return { name: list[i][0], code: list[i][1] };
+    }
+    // 前缀兜底（Hulunbuir / Ordos 这类拼写差异），太短的不做模糊
+    if (c.length >= 5) {
+      for (let i = 0; i < list.length; i++) {
+        const p = normEn(list[i][1]);
+        if (p.length >= 5 && (p.indexOf(c) === 0 || c.indexOf(p) === 0)) {
+          return { name: list[i][0], code: list[i][1] };
+        }
       }
     }
     return null;
@@ -2212,29 +2345,48 @@
   window.__nl_ai = AI_CLIENT;            // 方便自查：控制台输入 __nl_ai 看判定结果
 
   let provCounted = false;
-  function bumpProvHits() {
+  function bumpProvHits(geoArg) {
     if (provCounted) return;
     provCounted = true;
     if (typeof fetch !== 'function') return;
-    // 只统计「真人 + 定位成功」的点击：AI / 自动化访问、定位失败的一律不计
+    // 只统计「真人」的点击：AI / 自动化访问一律不计
     if (AI_CLIENT) return;
-    const geo = Store.getNet().geo || {};
-    const isCN = /中国|中华|China|CN/i.test(geo.country || '');
-    const p = isCN ? matchProvince(geo.region) : null;
-    if (!p) return;
-    fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/prov_' + p.code, { cache: 'no-store' }).catch(() => {});
-    // 市级统计（点省份统计页里的省份可以看到）
-    const city = matchCity(p.code, geo.city);
-    if (city) {
-      fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/city_' + p.code + '_' + city.code,
-        { cache: 'no-store' }).catch(() => {});
+    const geo = geoArg || Store.getNet().geo || {};
+    const hit = (key) => fetch(ABACUS_BASE + 'hit/nailong-xiaoxiaole-2026/' + key,
+      { cache: 'no-store' }).catch(() => {});
+
+    // country 可能是两位码（ipinfo：CN）或国家名（ipapi.is：China / ipwho：中国）
+    // 港澳台在省份表里，按中国省份统计，不落「海外」
+    const cc = String(geo.countryCode || '').trim().toUpperCase();
+    const cn = String(geo.country || '').trim();
+    const isCN = cc === 'CN' || cc === 'CHN' || cc === 'HK' || cc === 'MO' || cc === 'TW' ||
+      /^(china|中国|中华人民共和国|hong kong|macau|macao|taiwan)$/i.test(cn);
+    const known = !!(cc || cn);
+
+    if (!isCN) {
+      // 国外 IP：计入「🌍 海外」（单独一行，也算进全网点击）
+      if (known) hit('prov_' + PROV_OVERSEAS[1]);
+      else hit('geo_unknown');       // 连国家都没识别出来：只做诊断，不显示
+      return;
     }
+
+    const p = matchProvince(geo.region);
+    if (!p) {
+      hit('geo_unknown');            // 是中国的 IP，但省没识别出来（极少见）：只做诊断
+      return;
+    }
+    hit('prov_' + p.code);
+    // 市级统计（点统计页里的省份可以看到）
+    const city = matchCity(p.code, geo.city);
+    if (city) hit('city_' + p.code + '_' + city.code);
   }
 
   // ============ 省份统计（含市级下钻） ============
-  // 后台「全网」用的是历史总计数器 opens（每一次点击都 +1，一直没断过），
-  // 省份统计是后来才加的，所以「省份合计 ≤ 全网」，差额就是「调用」
-  // （历史点击 / AI 调用 / 没定位到的点击）。「调用」不管次数多少固定排最后。
+  // 口径：真人且定位成功的点击才计数（AI / 自动化直接排除）。
+  //   · 中国的 IP → 记到具体省份（再尽量记到市）；
+  //   · 国外 IP   → 记到「🌍 海外」一行（固定排最后，也算进全网点击）；
+  //   · 定位接口全挂 → 记 geo_unknown 只做诊断，不上屏。
+  // 后台「点击」= 各省之和 + 海外 = 统计页「合计」，两边永远同源。
 
   let provRows = [];     // 有点击记录的省份，降序（只含真实点击）
 
@@ -2267,12 +2419,17 @@
     try { return JSON.parse(localStorage.getItem('nl2:provVals') || '{}') || {}; } catch (e) { return {}; }
   }
 
-  // 读全部省份；全部失败返回 null
+  // 读全部地区（34 省 + 港澳台 + 海外）；全部失败返回 null
+  // 计数器只增不减：读回来的数比上次缓存小，一定是请求被限流/截断了，取大者，
+  // 否则每次刷新数字都会往回掉（之前「每次进来都不一样」就是这个原因）
   function readAllProv() {
     const cached = provValsCache();
-    return Promise.all(PROVINCES.map((p) => readProvCount(p[1]).then((n) => {
-      if (n >= 0) cached[p[1]] = n;                       // 读成功 → 更新
-      else if (typeof cached[p[1]] === 'number') n = cached[p[1]];  // 读失败 → 沿用上次
+    const list = PROVINCES.concat([PROV_OVERSEAS]);
+    return Promise.all(list.map((p) => readProvCount(p[1]).then((n) => {
+      const prev = typeof cached[p[1]] === 'number' ? cached[p[1]] : 0;
+      if (n >= 0) n = Math.max(n, prev);
+      else n = prev;                                     // 读失败 → 沿用上次
+      if (n > 0) cached[p[1]] = n;
       return { name: p[0], code: p[1], n: n };
     }))).then((rows) => {
       if (!rows.some((r) => r.n >= 0)) return null;
@@ -2365,22 +2522,40 @@
     const render = (rows) => {
       if (!provCityView || provCityView.code !== row.code) return;
       cityCache[row.code] = rows;
-      if (sub) sub.textContent = rows.length
-        ? ('共 ' + rows.length + ' 个市 · ' + rows.reduce((s, r) => s + r.n, 0) + ' 次点击')
-        : '暂无市级点击记录';
+      const citySum = rows.reduce((s, r) => s + r.n, 0);
+      // 移动网络下 IP 库经常只到省、给不出市 → 差额单列一行，保证「各市相加 = 该省总数」
+      const rest = Math.max(0, (row.n || 0) - citySum);
+      if (sub) {
+        sub.textContent = row.n
+          ? ('共 ' + rows.length + ' 个市 · ' + row.n + ' 次点击')
+          : '暂无市级点击记录';
+      }
       if (list) {
-        list.innerHTML = rows.length
-          ? rows.map((r) => '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('')
-          : '<li class="prov-empty">暂无市级点击记录</li>';
+        let html = rows.map((r) => '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('');
+        if (rest > 0) {
+          html += '<li class="prov-unknown"><span>未定位到市</span><b>' + rest + '</b></li>';
+        }
+        list.innerHTML = html || '<li class="prov-empty">暂无市级点击记录</li>';
       }
     };
 
     if (cityCache[row.code]) render(cityCache[row.code]);   // 先画缓存
     const cities = CITY_TABLE[row.code] || [];
+    const cacheKey = 'nl2:cityVals:' + row.code;
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem(cacheKey) || '{}') || {}; } catch (e) {}
     Promise.all(cities.map((c) =>
       fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026/city_' + row.code + '_' + c[1], 7000)
-        .then((j) => ({ name: c[0], n: (j && typeof j.value === 'number') ? j.value : 0 }))))
+        .then((j) => {
+          const v = (j && typeof j.value === 'number') ? j.value : -1;
+          const prev = typeof saved[c[1]] === 'number' ? saved[c[1]] : 0;
+          // 只增不减：读失败或读回变小都沿用上次（同省级统计）
+          const n = v >= 0 ? Math.max(v, prev) : prev;
+          if (n > 0) saved[c[1]] = n;
+          return { name: c[0], n: n };
+        })))
       .then((rows) => {
+        try { localStorage.setItem(cacheKey, JSON.stringify(saved)); } catch (e) {}
         // 读失败（0 不可信的判断做不了，简单起见 0 直接不显示）
         render(rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n));
       });
@@ -2409,20 +2584,27 @@
     const list = $('prov-list'), sub = $('prov-sub');
     if (!list) return;
     const k = normProv(kw);
-    const rows = provRows.filter((r) => !k || normProv(r.name).indexOf(k) >= 0);
+    const oversea = provRows.filter((r) => r.code === PROV_OVERSEAS[1])[0] || null;
+    const provs = provRows.filter((r) => r.code !== PROV_OVERSEAS[1]);
+    const rows = provs.filter((r) => !k || normProv(r.name).indexOf(k) >= 0);
     const total = statsTotal();
     if (sub) {
       sub.textContent = provRows.length
-        ? ('共 ' + provRows.length + ' 个省份 · 合计 ' + total + ' 次点击')
+        ? ('共 ' + provs.length + ' 个省份' + (oversea ? ' + 海外' : '') + ' · 合计 ' + total + ' 次点击')
         : '暂无点击记录';
     }
-    if (!rows.length) {
+    if (!rows.length && !(oversea && !k)) {
       list.innerHTML = '<li class="prov-empty">没有找到相关省份</li>';
       return;
     }
-    list.innerHTML = rows.map((r) =>
+    let html = rows.map((r) =>
       '<li class="clickable" data-code="' + r.code + '"><span>' + escHtml(r.name) +
       '<i class="prov-arrow">›</i></span><b>' + r.n + '</b></li>').join('');
+    // 海外固定排最后（不管次数多少），不参与搜索、不可点
+    if (oversea && !k) {
+      html += '<li><span>' + escHtml(PROV_OVERSEAS[0]) + '</span><b>' + oversea.n + '</b></li>';
+    }
+    list.innerHTML = html;
     Array.prototype.forEach.call(list.querySelectorAll('li.clickable'), (li) => {
       li.addEventListener('click', () => {
         const row = provRows.find((r) => r.code === li.getAttribute('data-code'));
@@ -2431,20 +2613,52 @@
     });
   }
 
-  // 城市级定位：24 小时内复用缓存（定位可能会变，缓存太久会把人钉死在错的省份）
+  // IP 定位：缓存 1 小时（移动网络切基站/切 Wi-Fi 会变，缓存太久会把人钉在错的省）
+  // 主源 ipinfo / ipapi.is 并发，2.5s 没结果再用 ipwho 兜底；全失败就沿用上次的定位，
+  // 绝不因为一次接口抖动把这次点击丢掉（之前用的 ipwho.is 经常超时 → 数字对不上）。
   function fetchGeo() {
-    const geo = Store.getNet().geo;
-    if (geo && geo.ts && Date.now() - geo.ts < 24 * 864e5) return Promise.resolve(geo);
-    if (typeof fetch !== 'function') return Promise.resolve(null);
-    return fetch(GEO_API, { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        if (!j || j.success === false) return null;
-        const g = { country: j.country || '', region: j.region || '', city: j.city || '', ts: Date.now() };
-        Store.patchNet({ geo: g });
-        return g;
-      })
-      .catch(() => null);
+    const old = Store.getNet().geo;
+    if (old && old.ts && Date.now() - old.ts < 3600e3) return Promise.resolve(old);
+    if (typeof fetch !== 'function') return Promise.resolve(old || null);
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (g) => {
+        if (settled) return;
+        settled = true;
+        if (g) {
+          g.ts = Date.now();
+          Store.patchNet({ geo: g });
+          window.__nl_geo = g;              // 控制台 __nl_geo 可自查定位结果
+          resolve(g);
+        } else {
+          resolve(old || null);             // 全部失败：沿用上次定位
+        }
+      };
+
+      const primary = GEO_SOURCES.filter((s) => s.name !== 'ipwho');
+      const fb = GEO_SOURCES.filter((s) => s.name === 'ipwho')[0];
+      let primaryLeft = primary.length;
+      let fbAsked = false;
+      const askFallback = () => {
+        if (fbAsked || settled) return;
+        fbAsked = true;
+        fetchWithTimeout(fb.url, 4500).then((j) => {
+          const g = j ? fb.pick(j) : null;
+          if (g) { g.src = fb.name; finish(g); } else finish(null);
+        });
+      };
+
+      primary.forEach((src) => {
+        fetchWithTimeout(src.url, 4500).then((j) => {
+          const g = j ? src.pick(j) : null;
+          primaryLeft--;
+          if (g) { g.src = src.name; finish(g); return; }
+          if (!primaryLeft) askFallback();
+        });
+      });
+      setTimeout(askFallback, 2500);
+    });
   }
 
   let androidVer = '';
@@ -2491,11 +2705,14 @@
   // 地址统一成「中国-四川省-成都市」：城市没有「市」尾巴的自动补上
   function formatRegion(geo) {
     if (!geo) return '';
-    const city = (geo.city || '').trim();
-    const withShi = (s) => (s && !/[市区州盟县]$/.test(s) ? s + '市' : s);
-    let parts = [geo.country, geo.region, withShi(city)];
-    // 直辖市（北京市/北京市）只显示一次
-    if (parts[1] && parts[2] && parts[1] === parts[2]) parts = [parts[0], parts[1]];
+    const country = countryLabel(geo);
+    const p = matchProvince(geo.region);
+    const city = p ? matchCity(p.code, geo.city) : null;
+    const parts = [country];
+    if (p) parts.push(p.name);
+    else if (geo.region) parts.push(String(geo.region));
+    if (city) parts.push(city.name);
+    else if (geo.city && p) parts.push(String(geo.city));
     return parts.filter(Boolean).join('-');
   }
 
@@ -2503,7 +2720,7 @@
     if (!$('admin-menu')) return;
     const net = Store.getNet();
     const localCount = Store.getVisits().count;
-    // 「全网」= 各省真实点击之和（AI / 定位失败的一律不算），离线时用上次缓存
+    // 「全网」= 各省 + 海外（同一份数据，所以统计页里数字加起来一定等于这里）
     const globalShown = Math.max(statsTotal(), cachedProvSum());
     $('admin-global').textContent = globalShown > 0 ? String(globalShown) : '—';
     // 本机
@@ -3166,7 +3383,7 @@
     const settings = Store.getSettings();
     Store.recordVisit(); // 本机点击：每载入一次 +1
     // 后台统计：全网计数 +1、城市定位（失败不影响游戏）
-    setTimeout(() => { fetchGeo().then(bumpProvHits); }, 600);
+    setTimeout(() => { fetchGeo().then((g) => bumpProvHits(g)); }, 300);
     AudioManager.init(settings);
     AudioManager.musicOn = settings.music !== false;
     ['btn-music-home', 'btn-music-game'].forEach((id) => {
@@ -3268,6 +3485,15 @@
     renderAdmin: renderAdmin,
     detonateAt: detonateAt,
     markSpecial: markSpecial,
-    openProvCities: openProvCities
+    openProvCities: openProvCities,
+    matchProvince: matchProvince,
+    matchCity: matchCity,
+    formatRegion: formatRegion,
+    bumpProvHits: bumpProvHits,
+    refreshProvStats: refreshProvStats,
+    provRows: () => provRows,
+    statsTotal: statsTotal,
+    renderProvList: renderProvList,
+    resetProvCounted: () => { provCounted = false; }
   };
 })();
