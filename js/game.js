@@ -84,7 +84,21 @@
     menuLevel: 0,     // 主页当前显示的关卡（可由关卡记录切换）
     daily: false,
     rng: null,
-    lastFrame: 0
+    lastFrame: 0,
+    // —— 新玩法 ——
+    ice: [],            // 冰块层数（0/1/2）：冻住的格子不能动、不能消，相邻消除砸掉一层
+    chain: [],          // 锁链（0/1）：锁住的格子不能动，第一次被消除只解锁
+    cargoLeft: 0,       // 场上还没送达的货物数
+    rescueLeft: 0,      // 还没护送到位的奶龙数
+    frenzyUntil: 0,     // 狂热模式结束时间
+    hintLeft: 2,        // 本局剩余提示次数
+    hintCells: null,    // 当前高亮的提示格
+    hintUntil: 0,
+    mode: 'main',       // main / endless / sprint / rhythm
+    reviveUsed: false,  // 本局是否已用过「再来 3 步」
+    chapter: 1,
+    beat: 0,            // 节奏关：节拍计数
+    beatStamp: 0        // 节奏关：上一次节拍时间
   };
 
   const $ = (id) => document.getElementById(id);
@@ -165,9 +179,13 @@
   function initBoard() {
     S.board = [];
     S.jelly = [];
+    S.ice = [];
+    S.chain = [];
     for (let r = 0; r < ROWS; r++) {
       S.board[r] = [];
       S.jelly[r] = [];
+      S.ice[r] = [];
+      S.chain[r] = [];
       for (let c = 0; c < COLS; c++) {
         let t;
         let guard = 0;
@@ -180,11 +198,89 @@
         ));
         S.board[r][c] = { type: t, special: T.NORMAL };
         S.jelly[r][c] = 0;
+        S.ice[r][c] = 0;
+        S.chain[r][c] = 0;
       }
     }
     placeJelly();
+    placeObstacles();
     S.nextQueue = [randType(), randType(), randType()];
   }
+
+  // ==================== 新障碍：冰块 / 锁链 / 货物 ====================
+  // 冰块：冻住的格子既不能交换也不能参与连消，只能靠相邻消除（或特殊块）砸开
+  // 锁链：可以参与连消，但第一次被消只解链、方块留下
+  // 货物：钥匙🔑 / 礼物🎁 / 奶龙🐲 贴在方块上，跟着方块下落，落到最底行才算送达
+  function isIced(r, c) {
+    return !!(S.ice[r] && S.ice[r][c] > 0);
+  }
+  function isChained(r, c) {
+    return !!(S.chain[r] && S.chain[r][c] > 0);
+  }
+  function isLocked(r, c) {
+    return isIced(r, c) || isChained(r, c);
+  }
+
+  function placeObstacles() {
+    const d = S.levelDef || {};
+    S.cargoLeft = 0;
+    S.rescueLeft = 0;
+    const free = [];
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) free.push({ r, c });
+    shuffleArr(free);
+
+    // 货物只放上半区（必须靠下落送到底），且同一格不会重复放
+    const top = free.filter((p) => p.r <= 4);
+    let ti = 0;
+    const putCargo = (kind, n) => {
+      for (let k = 0; k < n && ti < top.length; k++) {
+        const p = top[ti++];
+        S.board[p.r][p.c].cargo = { kind: kind };
+      }
+    };
+    putCargo('key', Math.max(0, d.cargo || 0));
+    putCargo('nailong', Math.max(0, d.rescue || 0));
+
+    // 冰块 / 锁链放在剩下的格子里（不和货物重叠）
+    const rest = free.filter((p) => !S.board[p.r][p.c].cargo);
+    let ri = 0;
+    const take = () => (ri < rest.length ? rest[ri++] : null);
+    for (let k = 0; k < (d.ice || 0); k++) { const p = take(); if (!p) break; S.ice[p.r][p.c] = 1; }
+    for (let k = 0; k < (d.iceHard || 0); k++) { const p = take(); if (!p) break; S.ice[p.r][p.c] = 2; }
+    for (let k = 0; k < (d.chain || 0); k++) { const p = take(); if (!p) break; S.chain[p.r][p.c] = 1; }
+
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const b = S.board[r][c];
+        if (b && b.cargo) {
+          S.cargoLeft++;
+          if (b.cargo.kind === 'nailong') S.rescueLeft++;
+        }
+      }
+    }
+  }
+
+  // 冰块层数总量（冰块关的目标值以场上实际层数为准）
+  function iceTotal() {
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) n += (S.ice[r] && S.ice[r][c]) || 0;
+    return n;
+  }
+
+  // 砸掉一层冰（返回是否真的砸掉了）
+  function crackIceAt(r, c) {
+    if (!S.ice[r] || !S.ice[r][c]) return false;
+    S.ice[r][c]--;
+    AudioManager.playSFX('line');
+    FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#9fe8ff', 5);
+    if (S.goal) {
+      Goals.progress(S.goal, { ice: 1 });
+      updateTargetBar();
+    }
+    Meta.bump('ice', 1);
+    return true;
+  }
+
 
   // 清除关：随机铺果冻
   function placeJelly() {
@@ -212,7 +308,8 @@
     for (let r = 0; r < ROWS; r++) {
       let run = 1;
       for (let c = 1; c <= COLS; c++) {
-        const same = c < COLS && S.board[r][c] && S.board[r][c - 1] && S.board[r][c].type === S.board[r][c - 1].type;
+        const same = c < COLS && S.board[r][c] && S.board[r][c - 1] && S.board[r][c].type === S.board[r][c - 1].type
+          && !isLocked(r, c) && !isLocked(r, c - 1);
         if (same) run++;
         else {
           if (run >= 3) for (let k = c - run; k < c; k++) set.add(kOf(r, k));
@@ -223,7 +320,8 @@
     for (let c = 0; c < COLS; c++) {
       let run = 1;
       for (let r = 1; r <= ROWS; r++) {
-        const same = r < ROWS && S.board[r][c] && S.board[r - 1][c] && S.board[r][c].type === S.board[r - 1][c].type;
+        const same = r < ROWS && S.board[r][c] && S.board[r - 1][c] && S.board[r][c].type === S.board[r - 1][c].type
+          && !isLocked(r, c) && !isLocked(r - 1, c);
         if (same) run++;
         else {
           if (run >= 3) for (let k = r - run; k < r; k++) set.add(kOf(k, c));
@@ -240,6 +338,7 @@
         for (let d = 0; d < 2; d++) {
           const nr = r + (d === 1 ? 1 : 0), nc = c + (d === 0 ? 1 : 0);
           if (!inB(nr, nc)) continue;
+          if (isLocked(r, c) || isLocked(nr, nc)) continue;   // 冻住/锁住的格子交换不了
           const a = S.board[r][c], b = S.board[nr][nc];
           S.board[r][c] = b; S.board[nr][nc] = a;
           const ok = findMatches().size > 0;
@@ -259,6 +358,7 @@
         for (let d = 0; d < 2; d++) {
           const nr = r + (d === 1 ? 1 : 0), nc = c + (d === 0 ? 1 : 0);
           if (!inB(nr, nc)) continue;
+          if (isLocked(r, c) || isLocked(nr, nc)) continue;
           const a = S.board[r][c], b = S.board[nr][nc];
           S.board[r][c] = b; S.board[nr][nc] = a;
           const ok = findMatches().size > 0;
@@ -280,7 +380,17 @@
       for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) S.board[r][c] = all[i++];
       tries++;
     } while ((findMatches().size > 0 || !hasPossibleMove()) && tries < 40);
-    if (findMatches().size > 0 || !hasPossibleMove()) initBoard();
+    // 兜底：只重排图案，绝不清掉冰块 / 锁链 / 货物（否则障碍关会被洗牌洗回原点）
+    if (findMatches().size > 0 || !hasPossibleMove()) {
+      for (let attempt = 0; attempt < 60; attempt++) {
+        for (let r = 0; r < ROWS; r++) {
+          for (let c = 0; c < COLS; c++) {
+            if (S.board[r][c] && !isLocked(r, c)) S.board[r][c].type = randType();
+          }
+        }
+        if (findMatches().size === 0 && hasPossibleMove()) break;
+      }
+    }
   }
 
   // ==================== 渲染 ====================
@@ -464,6 +574,97 @@
   const JELLY_BLOCK_SCALE = 0.76;
 
   // 静态重绘（无动画）
+  // 冰块 / 锁链 / 货物徽标 / 提示高亮：统一在方块画完之后叠一层
+  function drawCellOverlays() {
+    const now = performance.now();
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const x = c * CELL, y = r * CELL;
+        const b = S.board[r] && S.board[r][c];
+
+        // 货物：贴在方块上的钥匙 / 奶龙
+        if (b && b.cargo) {
+          const isN = b.cargo.kind === 'nailong';
+          const cx = x + CELL / 2, cy = y + CELL / 2;
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(cx, cy, CELL * 0.3, 0, Math.PI * 2);
+          ctx.fillStyle = isN ? 'rgba(255,196,86,0.94)' : 'rgba(255,255,255,0.94)';
+          ctx.fill();
+          ctx.strokeStyle = isN ? '#ff8c00' : '#7c5cff';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.font = Math.round(CELL * 0.36) + 'px serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(isN ? '🐲' : '🔑', cx, cy + 1);
+          ctx.restore();
+        }
+
+        // 冰块
+        const ice = S.ice[r] ? S.ice[r][c] : 0;
+        if (ice > 0) {
+          ctx.save();
+          roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
+          ctx.fillStyle = ice > 1 ? 'rgba(150,220,255,0.60)' : 'rgba(205,240,255,0.42)';
+          ctx.fill();
+          ctx.strokeStyle = ice > 1 ? 'rgba(70,165,225,0.95)' : 'rgba(150,215,245,0.9)';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.moveTo(x + CELL * 0.24, y + CELL * 0.16);
+          ctx.lineTo(x + CELL * 0.44, y + CELL * 0.5);
+          ctx.lineTo(x + CELL * 0.28, y + CELL * 0.78);
+          ctx.stroke();
+          if (ice > 1) {
+            ctx.beginPath();
+            ctx.moveTo(x + CELL * 0.74, y + CELL * 0.2);
+            ctx.lineTo(x + CELL * 0.56, y + CELL * 0.5);
+            ctx.lineTo(x + CELL * 0.78, y + CELL * 0.8);
+            ctx.stroke();
+          }
+          ctx.restore();
+        }
+
+        // 锁链
+        if (S.chain[r] && S.chain[r][c]) {
+          ctx.save();
+          roundRect(x + 3, y + 3, CELL - 6, CELL - 6, 8);
+          ctx.fillStyle = 'rgba(86,92,108,0.28)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(66,72,88,0.9)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(x + 6, y + 6); ctx.lineTo(x + CELL - 6, y + CELL - 6);
+          ctx.moveTo(x + CELL - 6, y + 6); ctx.lineTo(x + 6, y + CELL - 6);
+          ctx.stroke();
+          ctx.font = Math.round(CELL * 0.28) + 'px serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🔗', x + CELL / 2, y + CELL / 2);
+          ctx.restore();
+        }
+
+        // 提示：脉动虚线框
+        if (S.hintCells && now < S.hintUntil) {
+          const on = S.hintCells.some((p) => p.r === r && p.c === c);
+          if (on) {
+            const k = 0.5 + 0.5 * Math.sin(now / 180);
+            ctx.save();
+            ctx.setLineDash([6, 4]);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = 'rgba(124,92,255,' + (0.45 + 0.45 * k) + ')';
+            roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 10);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+    }
+  }
+
   function drawStatic() {
     if (!ctx) return;
     ctx.clearRect(0, 0, VIEW_W, VIEW_H);
@@ -482,6 +683,7 @@
         }
       }
     }
+    drawCellOverlays();
 
     // 选中框
     if (S.selected) {
@@ -559,6 +761,7 @@
         }
       }
     }
+    drawCellOverlays();
     FX.render(ctx);
     ctx.restore();
   }
@@ -709,6 +912,44 @@
     return MULT[Math.min(n, MULT.length - 1)];
   }
 
+  // ==================== 狂热模式（连击 x4 触发 6 秒双倍） ====================
+  const FRENZY_MS = 6000;
+  let frenzyTimer = null;
+  function frenzyActive() {
+    return performance.now() < S.frenzyUntil;
+  }
+  function frenzyMult() {
+    return frenzyActive() ? 2 : 1;
+  }
+  function startFrenzy() {
+    S.frenzyUntil = performance.now() + FRENZY_MS;
+    const banner = $('frenzy-banner');
+    if (banner) {
+      banner.classList.add('on');
+      setTimeout(() => banner.classList.remove('on'), 1400);
+    }
+    document.body.classList.add('frenzy');
+    AudioManager.playSFX('star', { stars: 3 });
+    if (frenzyTimer) clearTimeout(frenzyTimer);
+    frenzyTimer = setTimeout(() => {
+      document.body.classList.remove('frenzy');
+      S.frenzyUntil = 0;
+      drawStatic();
+    }, FRENZY_MS);
+  }
+
+  // ==================== 节奏关：踩到节拍上额外 1.5 倍 ====================
+  const BEAT_MS = 620;          // ≈97 BPM
+  function beatMult() {
+    if (S.mode !== 'rhythm' || !S.playing) return 1;
+    const t = performance.now() % BEAT_MS;
+    const d = Math.min(t, BEAT_MS - t);
+    return d < 170 ? 1.5 : 1;
+  }
+  function beatBonus() {
+    return beatMult() > 1;
+  }
+
   function bumpCombo() {
     const now = performance.now();
     if (now - S.lastClearAt > COMBO_WINDOW) S.combo = 1;
@@ -716,6 +957,7 @@
     S.lastClearAt = now;
     S.comboUntil = now + COMBO_DECAY;
     S.maxCombo = Math.max(S.maxCombo, S.combo);
+    if (S.combo >= 4 && !frenzyActive()) startFrenzy();
     updateComboBar();
     if (S.combo >= 3) AudioManager.setDrum(true);
     else AudioManager.setDrum(false);
@@ -798,31 +1040,80 @@
 
   // 处理一次消除集合：统计 → 计分 → 目标推进 → 特效 → 动画 → 清除 → 掉落
   // （普通消除与「步数耗尽时自动引爆道具」共用同一套流程）
+  // 处理一次消除集合：统计 → 计分 → 目标推进 → 特效 → 动画 → 清除 → 掉落
+  // 冰块不直接消（砸一层），锁链第一次被消只解锁；被消掉的货物会从同列顶部重新掉下来
   async function resolveClear(cells, boomPoints) {
     if (!cells || !cells.size) return 0;
     boomPoints = boomPoints || [];
 
-    // 统计颜色（用于收集关）
-    const colors = {};
-    let jellyHit = 0;
+    // 1) 把「真消除」和「撞障碍」分开
+    const clearSet = new Set();
+    const iceHitList = [];
+    const seenIce = {};
+    let chainBroken = 0;
+
+    const addIce = (r, c) => {
+      if (!inB(r, c) || !isIced(r, c)) return;
+      const key = kOf(r, c);
+      if (seenIce[key]) return;
+      seenIce[key] = 1;
+      iceHitList.push({ r, c });
+    };
+
     cells.forEach((k) => {
       const p = Specials.parse(k);
+      if (isIced(p.r, p.c)) { addIce(p.r, p.c); return; }
+      if (isChained(p.r, p.c)) {
+        S.chain[p.r][p.c] = 0;
+        chainBroken++;
+        FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '解锁 🔗', '#8a93a3', 14);
+        return;
+      }
+      clearSet.add(k);
+    });
+    // 相邻消除顺带砸冰
+    clearSet.forEach((k) => {
+      const p = Specials.parse(k);
+      addIce(p.r - 1, p.c); addIce(p.r + 1, p.c);
+      addIce(p.r, p.c - 1); addIce(p.r, p.c + 1);
+    });
+    iceHitList.forEach((p) => crackIceAt(p.r, p.c));
+    if (chainBroken) AudioManager.playSFX('line');
+
+    if (!clearSet.size) {
+      // 全是障碍（比如整片冰 + 锁链）：没有可消的方块，直接返回
+      drawStatic();
+      return 0;
+    }
+
+    // 2) 统计颜色 / 果冻 / 要被顶回上面的货物
+    const colors = {};
+    let jellyHit = 0;
+    const kickedCargo = [];
+    clearSet.forEach((k) => {
+      const p = Specials.parse(k);
       const b = S.board[p.r][p.c];
-      if (b) colors[b.type] = (colors[b.type] || 0) + 1;
+      if (b) {
+        colors[b.type] = (colors[b.type] || 0) + 1;
+        if (b.cargo) kickedCargo.push({ c: p.c, cargo: b.cargo });
+      }
       if (S.jelly[p.r] && S.jelly[p.r][p.c]) jellyHit++;
     });
 
     // 特殊块触发的任务
     boomPoints.forEach((bp) => {
-      if (bp.type === T.BOMB) Tasks.report('bomb', 1);
-      else if (bp.type === T.RAINBOW) Tasks.report('rainbow', 1);
-      else Tasks.report('line', 1);
+      if (bp.type === T.BOMB) { Tasks.report('bomb', 1); Meta.bump('bombs', 1); }
+      else if (bp.type === T.RAINBOW) { Tasks.report('rainbow', 1); Meta.bump('rainbows', 1); }
+      else { Tasks.report('line', 1); Meta.bump('lines', 1); }
     });
-    if (jellyHit > 0) Tasks.report('jelly', jellyHit);
+    if (jellyHit > 0) { Tasks.report('jelly', jellyHit); Meta.bump('jelly', jellyHit); }
 
     bumpCombo();
+    Meta.setMax('maxCombo', S.combo);
     const mult = comboMult(S.combo);
-    const gained = Math.round(cells.size * 10 * mult);
+    const fz = frenzyMult();
+    const beat = beatMult();
+    const gained = Math.round(clearSet.size * 10 * mult * fz * beat);
     S.score += gained;
     S.levelStartScore = S.levelStartScore || 0;
 
@@ -831,34 +1122,34 @@
       Goals.progress(S.goal, { scoreDelta: gained, colors: colors, jelly: jellyHit });
       updateTargetBar();
     }
-    S.clearedCount += cells.size;
+    S.clearedCount += clearSet.size;
     updateHUD();
 
-    // 特效
+    // 3) 特效
     boomPoints.forEach((bp) => {
       FX.explosion(bp.c * CELL + CELL / 2, bp.r * CELL + CELL / 2, CELL);
       if (bp.type === T.BOMB) FX.shake(3, 0.18);
       if (bp.type === T.RAINBOW) FX.shake(4, 0.25);
     });
-    cells.forEach((k) => {
+    clearSet.forEach((k) => {
       const p = Specials.parse(k);
       const b = S.board[p.r][p.c];
       FX.burst(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, b ? FALLBACK_COLORS[b.type] : '#fff', 3);
     });
 
-    const anchor = cells.size ? Specials.parse(cells.values().next().value) : { r: 0, c: 0 };
+    const anchor = Specials.parse(clearSet.values().next().value);
     FX.text(anchor.c * CELL + CELL / 2, anchor.r * CELL + CELL / 2,
-      (S.combo >= 2 ? 'x' + S.combo + ' ' : '') + '+' + gained,
-      S.combo >= 3 ? '#ff5c5c' : '#ffd75c', 20);
+      (fz > 1 ? '狂热 ' : '') + (beat > 1 ? '踩点 ' : '') + (S.combo >= 2 ? 'x' + S.combo + ' ' : '') + '+' + gained,
+      fz > 1 ? '#ff8c00' : S.combo >= 3 ? '#ff5c5c' : '#ffd75c', 20);
 
     if (boomPoints.some((b) => b.type === T.BOMB)) AudioManager.playSFX('bomb');
     else if (boomPoints.some((b) => b.type === T.LINE_H || b.type === T.LINE_V)) AudioManager.playSFX('line');
-    else AudioManager.playSFX('match', { combo: S.combo });
+    else AudioManager.playSFX('match', { combo: S.combo, beat: beatBonus() });
 
-    await animateClear(cells, S.combo);
+    await animateClear(clearSet, S.combo);
 
-    // 清除
-    cells.forEach((k) => {
+    // 4) 清除
+    clearSet.forEach((k) => {
       const p = Specials.parse(k);
       clearJellyAt(p.r, p.c);
       S.board[p.r][p.c] = null;
@@ -866,6 +1157,10 @@
 
     // 掉落 + 补充
     const fallFrom = dropAndFill();
+    // 被消掉的货物从同列最上方重新掉下来（不白丢）
+    kickedCargo.forEach((d) => {
+      if (S.board[0][d.c]) S.board[0][d.c].cargo = d.cargo;
+    });
     await animateDrop(fallFrom);
     S.landAnims = [];
     for (let c = 0; c < COLS; c++) {
@@ -876,8 +1171,38 @@
         }
       }
     }
+    collectCargo();
     drawStatic();
     return gained;
+  }
+
+  // 落到最底行的货物就算送达
+  function collectCargo() {
+    let n = 0, res = 0;
+    for (let c = 0; c < COLS; c++) {
+      const b = S.board[ROWS - 1][c];
+      if (b && b.cargo) {
+        const kind = b.cargo.kind;
+        b.cargo = null;
+        n++;
+        if (kind === 'nailong') res++;
+        FX.text(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2,
+          kind === 'nailong' ? '奶龙送达 🐲' : '送达 🔑', '#2fa84f', 16);
+        FX.burst(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2, '#7cf29a', 5);
+        AudioManager.playSFX('coin');
+      }
+    }
+    if (!n) return 0;
+    S.cargoLeft = Math.max(0, S.cargoLeft - n);
+    S.rescueLeft = Math.max(0, S.rescueLeft - res);
+    Meta.bump('cargo', n);
+    if (res) Meta.bump('rescue', res);
+    if (S.goal) {
+      Goals.progress(S.goal, { cargo: n, rescue: res });
+      updateTargetBar();
+    }
+    updateHUD();
+    return n;
   }
 
   // 立即引爆某一格上的特殊块（供道具自动消耗使用）
@@ -1028,6 +1353,15 @@
     if (Math.abs(a.r - b.r) + Math.abs(a.c - b.c) !== 1) {
       S.selected = null;
       drawStatic();
+      return;
+    }
+    // 冰块 / 锁链：动不了，提示一下就好
+    if (isLocked(a.r, a.c) || isLocked(b.r, b.c)) {
+      S.selected = null;
+      S.shakeCell = { from: a, to: b, t0: performance.now() };
+      drawStatic();
+      AudioManager.playSFX('invalid');
+      toast(isIced(a.r, a.c) || isIced(b.r, b.c) ? '冰块里的方块动不了' : '锁住的方块动不了');
       return;
     }
 
@@ -1198,14 +1532,21 @@
     return {
       board: JSON.parse(JSON.stringify(S.board)),
       jelly: JSON.parse(JSON.stringify(S.jelly)),
+      ice: JSON.parse(JSON.stringify(S.ice || [])),
+      chain: JSON.parse(JSON.stringify(S.chain || [])),
       score: S.score,
       moves: S.moves,
       jellyLeft: S.jellyLeft,
+      cargoLeft: S.cargoLeft,
+      rescueLeft: S.rescueLeft,
       clearedCount: S.clearedCount,
       goal: S.goal ? {
         current: S.goal.current,
         byColor: JSON.parse(JSON.stringify(S.goal.byColor || {})),
-        jellyCleared: S.goal.jellyCleared || 0
+        jellyCleared: S.goal.jellyCleared || 0,
+        iceCleared: S.goal.iceCleared || 0,
+        cargoGot: S.goal.cargoGot || 0,
+        rescueGot: S.goal.rescueGot || 0
       } : null
     };
   }
@@ -1237,15 +1578,22 @@
     const f = S.history.pop();
     S.board = f.board;
     S.jelly = f.jelly;
+    if (f.ice) S.ice = f.ice;
+    if (f.chain) S.chain = f.chain;
     S.score = f.score;
     S.moves = f.moves;
     S.jellyLeft = f.jellyLeft;
+    if (f.cargoLeft != null) S.cargoLeft = f.cargoLeft;
+    if (f.rescueLeft != null) S.rescueLeft = f.rescueLeft;
     S.clearedCount = f.clearedCount != null ? f.clearedCount : S.clearedCount;
-    // 目标栏一起撤回：收集数量 / 果冻数 / 得分进度全部回到走之前
+    // 目标栏一起撤回：收集数量 / 果冻数 / 冰块 / 货物 / 得分进度全部回到走之前
     if (f.goal && S.goal) {
       S.goal.current = f.goal.current || 0;
       S.goal.byColor = f.goal.byColor || S.goal.byColor;
       S.goal.jellyCleared = f.goal.jellyCleared || 0;
+      S.goal.iceCleared = f.goal.iceCleared || 0;
+      S.goal.cargoGot = f.goal.cargoGot || 0;
+      S.goal.rescueGot = f.goal.rescueGot || 0;
     }
     S.selected = null;
     updateHUD();
@@ -1297,10 +1645,12 @@
       return;
     }
     S.daily = !!opts.daily;
-    // 主线只有 20 关，越界一律夹回
+    S.mode = opts.mode || 'main';
+    // 主线越界一律夹回
     S.level = S.daily ? 0 : Math.max(1, Math.min(level || 1, maxMainLevel()));
     S.levelDef = opts.def || getLevelDef(S.level);
     S.rng = opts.seed != null ? RNG.source(opts.seed) : null;
+    S.chapter = S.levelDef.chapter || (S.level ? Math.ceil(S.level / 10) : 0);
 
     S.goal = Goals.create(S.levelDef.goal);
     S.score = 0;
@@ -1323,9 +1673,24 @@
     S.undoLeft = 3;
     S.shuffleLeft = 3;
     S.specSeq = 0;
+    S.hintLeft = 3;
+    S.hintCells = null;
+    S.hintUntil = 0;
+    S.reviveUsed = false;
+    S.frenzyUntil = 0;
+    S.cargoLeft = 0;
+    S.rescueLeft = 0;
+    document.body.classList.remove('frenzy');
+    const fzBanner = $('frenzy-banner');
+    if (fzBanner) fzBanner.classList.remove('on');
 
     applyTheme(S.levelDef.theme);
     initBoard();
+
+    // 冰块 / 货运 / 护送关：目标值以场上实际数量为准，保证一定能完成
+    if (S.goal.type === 'ice') S.goal.target = Math.max(1, iceTotal());
+    else if (S.goal.type === 'drop') S.goal.target = Math.max(1, S.cargoLeft);
+    else if (S.goal.type === 'rescue') S.goal.target = Math.max(1, S.rescueLeft);
 
     // 道具：开局炸弹（§7）
     if (opts.startBomb) {
@@ -1333,7 +1698,11 @@
       markSpecial(r, c, T.BOMB);
     }
 
-    $('level').textContent = S.daily ? '每日挑战' : S.level;
+    $('level').textContent = S.daily ? '每日挑战'
+      : S.mode === 'endless' ? '无尽'
+      : S.mode === 'sprint' ? '冲刺'
+      : S.mode === 'rhythm' ? '节奏'
+      : S.level;
     const nxtBtn = $('btn-next-level');
     if (nxtBtn) nxtBtn.style.display = S.daily ? 'none' : 'inline-block';
     updateHUD();
@@ -1428,7 +1797,13 @@
   // ==================== HUD ====================
   function updateHUD() {
     const lv = $('level');
-    if (lv) lv.textContent = S.daily ? '每日挑战' : S.level;
+    if (lv) lv.textContent = S.daily ? '每日挑战'
+      : S.mode === 'endless' ? '无尽'
+      : S.mode === 'sprint' ? '冲刺'
+      : S.mode === 'rhythm' ? '节奏'
+      : S.level;
+    const hintEl = $('hint-count');
+    if (hintEl) hintEl.textContent = S.hintLeft;
     const mv = $('moves');
     if (mv) mv.textContent = S.timerOn ? Math.ceil(S.timeLeft) + 's' : S.moves;
     const mc = $('moves-container');
@@ -1455,6 +1830,19 @@
   function updateTargetBar() {
     const bar = $('target-bar');
     if (!bar || !S.goal) return;
+    if (S.mode && S.mode !== 'main') {
+      const best = Meta.getBest();
+      const bv = best[S.mode] || 0;
+      if (S.mode === 'rhythm') {
+        bar.textContent = '节奏关 · 踩拍子消除 1.5 倍分　本局 ' + S.score + '　最佳 ' + bv;
+      } else if (S.mode === 'sprint') {
+        bar.textContent = '60 秒冲刺　本局 ' + S.score + '　最佳 ' + bv;
+      } else {
+        bar.textContent = '无尽模式　本局 ' + S.score + '　最佳 ' + bv;
+      }
+      bar.style.color = '#7c5cff';
+      return;
+    }
     if (S.goal.type === 'collect') {
       // 收集模式：显示对应棋子的准确图案（assets/{type}.webp），不用颜色区分
       const parts = Object.keys(S.goal.target || {}).map((c) => {
@@ -1513,6 +1901,7 @@
 
   // ==================== 结算 ====================
   function levelWin() {
+    if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     S.playing = false;
     stopTimer();
     Input.setEnabled(false);
@@ -1534,6 +1923,16 @@
     Store.addCoins(coins);
     Tasks.report('play', 1);
     Tasks.report('score', S.score);
+
+    // 成就统计
+    Meta.bump('wins', 1);
+    Meta.bump('scoreTotal', S.score);
+    Meta.bump('starsGot', stars);
+    if (stars >= 3) Meta.bump('perfect', 1);
+    if (S.maxCombo >= 4) Meta.setMax('maxCombo', S.maxCombo);
+    const newAch = Meta.check();
+    if (newAch.length) setTimeout(() => toast('🏆 解锁成就：' + newAch[0].name), 1200);
+    try { recordMyScore(); } catch (e) {}
 
     // 星星音效稍等一下，和逐颗弹出对齐
     setTimeout(() => AudioManager.playSFX('star', { stars }), 180);
@@ -1638,6 +2037,8 @@
 
   async function handleOutOfResource() {
     if (rescuing || !S.playing) return;
+    // 无尽 / 冲刺 / 节奏：步数或时间用完直接结束，不动背包道具
+    if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     rescuing = true;
     S.busy = true;
     Input.setEnabled(false);
@@ -1664,11 +2065,14 @@
       }
       return;
     }
+    // 3) 差一点点：给一次「再来 3 步」的机会（主线才有）
+    if (maybeOfferRevive()) return;
     endGame();
   }
 
   function endGame() {
     if (!S.playing) return;
+    if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     S.playing = false;
     stopTimer();
     Input.setEnabled(false);
@@ -1714,11 +2118,15 @@
 
   // ==================== 存档 ====================
   function saveRun() {
-    if (!S.playing || S.daily) return;
+    if (!S.playing || S.daily || (S.mode && S.mode !== 'main')) return;
     Store.saveRun({
       level: S.level,
       board: S.board,
       jelly: S.jelly,
+      ice: S.ice,
+      chain: S.chain,
+      cargoLeft: S.cargoLeft,
+      rescueLeft: S.rescueLeft,
       score: S.score,
       moves: S.moves,
       timeLeft: S.timeLeft,
@@ -1736,6 +2144,10 @@
     startLevel(s.level || 1, {});
     S.board = s.board;
     S.jelly = s.jelly || S.jelly;
+    if (s.ice) S.ice = s.ice;
+    if (s.chain) S.chain = s.chain;
+    if (s.cargoLeft != null) S.cargoLeft = s.cargoLeft;
+    if (s.rescueLeft != null) S.rescueLeft = s.rescueLeft;
     S.score = s.score || 0;
     S.moves = s.moves;
     S.timeLeft = s.timeLeft != null ? s.timeLeft : S.timeLeft;
@@ -1758,6 +2170,8 @@
     ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
       'rules-menu', 'logout-confirm', 'logout-confirm2', 'pause-menu',
+      'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
+      'leaderboard-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -1769,7 +2183,8 @@
   const MENU_PANELS = ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
     'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu', 'admin-menu',
-    'daily-done'];
+    'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
+    'leaderboard-menu', 'modes-menu', 'story-menu', 'daily-done'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -2905,7 +3320,7 @@
       // 有本关未完成的存档 → 继续；否则重开（步数/洗牌/撤销全部重置）
       if (run && !run.daily && run.level === lv && loadRun()) return;
       Store.clearRun();
-      startLevel(lv);
+      playLevel(lv);
     });
     const rulesBtn = $('btn-rules');
     if (rulesBtn) rulesBtn.addEventListener('click', () => {
@@ -3151,6 +3566,41 @@
     const closePack = $('btn-close-backpack');
     if (closePack) closePack.addEventListener('click', () => $('backpack-menu').style.display = 'none');
 
+    // ==================== 新玩法：章节 / 模式 / 成就 / 图鉴 / 福利 / 排行榜 ====================
+    const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
+
+    on('btn-hint', useHint);
+
+    on('btn-chapters', () => { renderChapterMap(); showOverlay('chapters-menu'); });
+    on('btn-close-chapters', () => { $('chapters-menu').style.display = 'none'; showOverlay('main-menu'); });
+
+    on('btn-modes', () => { renderModeList(); showOverlay('modes-menu'); });
+    on('btn-close-modes', () => { $('modes-menu').style.display = 'none'; showOverlay('main-menu'); });
+    on('btn-mode-endless', () => startMode('endless'));
+    on('btn-mode-sprint', () => startMode('sprint'));
+    on('btn-mode-rhythm', () => startMode('rhythm'));
+    on('btn-mode-again', () => { $('mode-over').style.display = 'none'; startMode(lastMode); });
+    on('btn-mode-home', () => { $('mode-over').style.display = 'none'; S.playing = false; showOverlay('main-menu'); refreshMenu(); });
+
+    on('btn-achievements', () => { renderAchPanel(); showOverlay('achievements-menu'); });
+    on('btn-close-ach', () => { $('achievements-menu').style.display = 'none'; showOverlay('main-menu'); });
+    on('btn-collection', () => { renderSkinPanel(); showOverlay('collection-menu'); });
+    on('btn-close-skins', () => { $('collection-menu').style.display = 'none'; showOverlay('main-menu'); });
+    on('btn-welfare', () => { renderWelfare(); showOverlay('welfare-menu'); });
+    on('btn-close-welfare', () => { $('welfare-menu').style.display = 'none'; showOverlay('main-menu'); });
+    on('btn-welfare-signin', doSignIn);
+    on('btn-wheel', doWheel);
+    on('btn-leaderboard', () => { renderLeaderboard(); showOverlay('leaderboard-menu'); });
+    on('btn-close-lb', () => { $('leaderboard-menu').style.display = 'none'; showOverlay('main-menu'); });
+    on('btn-lb-save', saveNick);
+    on('btn-lb-add', addFriendFromInput);
+    on('btn-lb-copy', copyMyCode);
+
+    on('btn-story-go', closeStory);
+    on('btn-story-skip', closeStory);
+    on('btn-revive-yes', doRevive);
+    on('btn-revive-no', declineRevive);
+
     // 结算
     const next = $('btn-next-level');
     if (next) next.addEventListener('click', () => {
@@ -3161,7 +3611,7 @@
         return;
       }
       S.menuLevel = S.level + 1;
-      startLevel(S.level + 1);
+      playLevel(S.level + 1);
     });
     const home1 = $('btn-clear-home');
     if (home1) home1.addEventListener('click', () => {
@@ -3464,6 +3914,12 @@
     applyTheme(S.levelDef.theme);
     updatePreview();
 
+    // 皮肤 / 成就：启动时同步一次
+    try {
+      document.body.dataset.skin = Meta.currentSkin();
+      Meta.check();
+    } catch (e) {}
+
     attachUI();
     if (global_Music()) global_Music().init();
     refreshMenu();
@@ -3523,6 +3979,394 @@
     return typeof window !== 'undefined' ? window.Music : null;
   }
 
+  // ==================== 章节地图 / 剧情 / 提示 / 复活 / 多模式 ====================
+  function chapters() {
+    const c = (S.data && S.data.chapters) || [];
+    if (c.length) return c;
+    return [{ id: 1, name: '主线关卡', theme: 'grass', from: 1, to: maxMainLevel(), emoji: '🌱', story: '' }];
+  }
+
+  function chapterProgress(ch) {
+    let stars = 0;
+    for (let lv = ch.from; lv <= ch.to; lv++) stars += Store.getLevelRecord(lv).stars || 0;
+    return { stars: stars, total: (ch.to - ch.from + 1) * 3 };
+  }
+
+  function renderChapterMap() {
+    const box = $('chapters-list');
+    if (!box) return;
+    const maxU = Store.maxUnlockedLevel(maxMainLevel());
+    box.innerHTML = '';
+    chapters().forEach((ch) => {
+      const p = chapterProgress(ch);
+      const locked = maxU < ch.from;
+      const card = document.createElement('div');
+      card.className = 'chapter-card' + (locked ? ' locked' : '');
+      const head = document.createElement('div');
+      head.className = 'chapter-head';
+      head.innerHTML = '<span class="chapter-emoji">' + (ch.emoji || '📖') + '</span>' +
+        '<span class="chapter-name">' + ch.name + '</span>' +
+        '<span class="chapter-stars">⭐ ' + p.stars + '/' + p.total + '</span>';
+      card.appendChild(head);
+      const grid = document.createElement('div');
+      grid.className = 'chapter-grid';
+      for (let lv = ch.from; lv <= ch.to; lv++) {
+        const rec = Store.getLevelRecord(lv);
+        const open = lv <= maxU;
+        const b = document.createElement('button');
+        b.className = 'level-chip' + (open ? '' : ' locked') + ((rec.stars || 0) >= 1 ? ' done' : '');
+        b.innerHTML = '<b>' + lv + '</b><i>' + (open ? ('★★★'.slice(0, rec.stars || 0) || '·') : '🔒') + '</i>';
+        if (open) {
+          b.addEventListener('click', () => {
+            $('chapters-menu').style.display = 'none';
+            playLevel(lv);
+          });
+        }
+        grid.appendChild(b);
+      }
+      card.appendChild(grid);
+      if (locked) {
+        const lk = document.createElement('div');
+        lk.className = 'chapter-lock';
+        lk.textContent = '通关上一章后解锁';
+        card.appendChild(lk);
+      }
+      box.appendChild(card);
+    });
+  }
+
+  let storyCb = null;
+  function showStory(chId, cb) {
+    const ch = chapters()[chId - 1];
+    storyCb = cb || null;
+    if (!ch) {
+      const f = storyCb; storyCb = null;
+      if (f) f();
+      return;
+    }
+    Meta.markStory(chId);
+    if ($('story-chapter')) $('story-chapter').textContent = ch.name;
+    if ($('story-emoji')) $('story-emoji').textContent = ch.emoji || '📖';
+    if ($('story-text')) $('story-text').textContent = ch.story || '';
+    showOverlay('story-menu');
+    AudioManager.playSFX('select');
+  }
+
+  function closeStory() {
+    const cb = storyCb;
+    storyCb = null;
+    if ($('story-menu')) $('story-menu').style.display = 'none';
+    if (cb) cb();
+  }
+
+  function playLevel(lv) {
+    const def = getLevelDef(lv);
+    const chId = def.chapter || 1;
+    const ch = chapters()[chId - 1];
+    const firstOfChapter = ch && ch.from === lv;
+    const go = () => {
+      AudioManager.init(Store.getSettings());
+      AudioManager.unlock();
+      const run = Store.loadRun();
+      if (run && !run.daily && run.level === lv && loadRun()) return;
+      Store.clearRun();
+      S.menuLevel = lv;
+      startLevel(lv);
+    };
+    if (firstOfChapter && !Meta.storySeen(chId)) showStory(chId, go);
+    else go();
+  }
+
+  // ---------- 提示：花一次机会高亮一组可走的交换 ----------
+  function useHint() {
+    if (!S.playing || S.busy || S.paused) return;
+    if (S.hintLeft <= 0) {
+      toast('提示次数用完了（每局 3 次）');
+      AudioManager.playSFX('invalid');
+      return;
+    }
+    const h = findHint();
+    if (!h) {
+      toast('暂时没有可走的步，点「洗牌」试试');
+      AudioManager.playSFX('invalid');
+      return;
+    }
+    S.hintLeft--;
+    S.hintCells = h;
+    S.hintUntil = performance.now() + 2600;
+    updateHUD();
+    AudioManager.playSFX('select');
+    drawStatic();
+    const timer = setInterval(() => {
+      if (!S.playing || performance.now() > S.hintUntil) {
+        clearInterval(timer);
+        S.hintCells = null;
+        drawStatic();
+      } else {
+        drawStatic();
+      }
+    }, 130);
+  }
+
+  // ---------- 再来 3 步 ----------
+  const REVIVE_COST = 200;
+  function maybeOfferRevive() {
+    if (!S.playing) return false;
+    if (S.daily || (S.mode && S.mode !== 'main') || S.reviveUsed) return false;
+    const box = $('revive-menu');
+    if (!box) return false;
+    const w = Store.getWallet();
+    const can = w.coins >= REVIVE_COST;
+    if ($('revive-cost')) $('revive-cost').textContent = REVIVE_COST;
+    if ($('revive-tip')) {
+      $('revive-tip').textContent = can
+        ? '差一点点就过了，要再来一次吗？'
+        : '金币还差 ' + (REVIVE_COST - w.coins) + ' 枚，通关或签到能赚金币';
+    }
+    const yes = $('btn-revive-yes');
+    if (yes) {
+      yes.disabled = !can;
+      yes.textContent = can ? ('花 ' + REVIVE_COST + ' 金币，再来 3 步') : '金币不足';
+    }
+    S.busy = true;
+    Input.setEnabled(false);
+    stopTimer();
+    showOverlay('revive-menu');
+    return true;
+  }
+
+  function doRevive() {
+    if (!Store.spendCoins(REVIVE_COST)) { toast('金币不够'); return; }
+    S.reviveUsed = true;
+    if (S.timerOn) S.timeLeft = Math.max(0, S.timeLeft) + 15;
+    else S.moves += 3;
+    S.playing = true;
+    S.paused = false;
+    S.busy = false;
+    if ($('revive-menu')) $('revive-menu').style.display = 'none';
+    setView('game');
+    Input.setEnabled(true);
+    updateHUD();
+    updateTargetBar();
+    drawStatic();
+    if (S.timerOn) startTimer();
+    AudioManager.playSFX('coin');
+    toast(S.timerOn ? '续命成功：+15 秒' : '续命成功：+3 步');
+  }
+
+  function declineRevive() {
+    if ($('revive-menu')) $('revive-menu').style.display = 'none';
+    S.busy = false;
+    endGame();
+  }
+
+  // ---------- 无尽 / 冲刺 / 节奏 ----------
+  const MODES = {
+    endless: { name: '无尽模式', theme: 'star', moves: 40, time: 0, desc: '40 步自由发挥，连击越猛分越高' },
+    sprint: { name: '60 秒冲刺', theme: 'candy', moves: 0, time: 60, desc: '60 秒内能刷出多少分' },
+    rhythm: { name: '节奏关卡', theme: 'ocean', moves: 0, time: 90, desc: '踩在节拍上消除，额外 1.5 倍分' }
+  };
+
+  let lastMode = 'endless';
+
+  function renderModeList() {
+    const best = Meta.getBest();
+    ['endless', 'sprint', 'rhythm'].forEach((k) => {
+      const el = $('mode-best-' + k);
+      if (el) el.textContent = best[k] > 0 ? ('最佳 ' + best[k]) : '还没挑战过';
+    });
+  }
+
+  function startMode(mode) {
+    const m = MODES[mode];
+    if (!m) return;
+    lastMode = mode;
+    const def = {
+      id: 0, theme: m.theme, colors: 6, moves: m.moves, stars: [0, 0, 0],
+      goal: { type: m.time ? 'timed' : 'score', target: 999999 }
+    };
+    if (m.time) def.goal.time = m.time;
+    ['chapters-menu', 'modes-menu', 'main-menu'].forEach((id) => {
+      const el = $(id);
+      if (el) el.style.display = 'none';
+    });
+    startLevel(1, { def: def, mode: mode });
+  }
+
+  function endModeRun() {
+    S.playing = false;
+    stopTimer();
+    Input.setEnabled(false);
+    document.body.classList.remove('frenzy');
+    const mode = S.mode === 'main' ? 'endless' : S.mode;
+    const r = Meta.recordBest(mode, S.score);
+    const coins = Math.max(5, Math.floor(S.score / 200));
+    Store.addCoins(coins);
+    Meta.bump('modes', 1);
+    Meta.setMax('maxCombo', S.maxCombo);
+    const got = Meta.check();
+    if (got.length) setTimeout(() => toast('🏆 解锁成就：' + got[0].name), 1000);
+    if ($('mode-over-title')) $('mode-over-title').textContent = (MODES[mode] || {}).name + ' 结束';
+    if ($('mode-over-score')) $('mode-over-score').textContent = '0';
+    if ($('mode-over-best')) $('mode-over-best').textContent = r.best;
+    if ($('mode-over-coins')) $('mode-over-coins').textContent = '+' + coins;
+    if ($('mode-over-record')) $('mode-over-record').style.display = r.isNew ? 'inline-flex' : 'none';
+    if ($('mode-over')) $('mode-over').style.display = 'flex';
+    setTimeout(() => countUp($('mode-over-score'), S.score, 620), 30);
+    S.mode = 'main';
+  }
+
+  // ---------- 成就墙 ----------
+  function renderAchPanel() {
+    Meta.renderAchievements($('ach-list'));
+    const n = Meta.unlockedIds().length;
+    if ($('ach-total')) $('ach-total').textContent = n + ' / ' + Meta.ACHIEVEMENTS.length;
+  }
+
+  // ---------- 图鉴 / 皮肤 ----------
+  function renderSkinPanel() {
+    Meta.renderSkins($('skin-list'), (skin, own) => {
+      if (!own) { toast('星星还不够，先去多拿几颗 ⭐'); return; }
+      const r = Meta.applySkin(skin.id);
+      if (r.ok) {
+        toast('已换上「' + skin.name + '」');
+        AudioManager.playSFX('coin');
+        renderSkinPanel();
+      }
+    });
+    if ($('skin-stars')) $('skin-stars').textContent = Store.totalStars();
+  }
+
+  // ---------- 福利：签到 + 转盘 ----------
+  function renderWelfare() {
+    const info = Meta.signInfo();
+    const dayBox = $('welfare-sign');
+    if (dayBox) {
+      dayBox.innerHTML = '';
+      info.rewards.forEach((r, i) => {
+        const d = document.createElement('div');
+        const signed = (i + 1) <= info.day;
+        d.className = 'sign-day' + (signed ? ' signed' : '') + (i + 1 === info.day + 1 ? ' today' : '');
+        d.innerHTML = '<i>第 ' + (i + 1) + ' 天</i><b>' + (r.item ? '🌈' : r.coins) + '</b>';
+        dayBox.appendChild(d);
+      });
+    }
+    const btn = $('btn-welfare-signin');
+    if (btn) {
+      btn.disabled = info.signedToday;
+      btn.textContent = info.signedToday ? '今天已签到' : '签到领金币';
+    }
+    const w = Meta.wheelState();
+    const wb = $('btn-wheel');
+    if (wb) wb.disabled = w.used;
+    if ($('wheel-result') && w.used) $('wheel-result').textContent = '今日已抽到：' + (w.result || '—');
+    if (wb && !w.used) $('wheel-result') && ($('wheel-result').textContent = '每天可以转一次');
+  }
+
+  function doSignIn() {
+    const r = Meta.signIn();
+    if (r.ok) {
+      toast('签到成功：+' + r.reward.coins + ' 金币' + (r.reward.item ? ' +彩虹道具' : ''));
+      AudioManager.playSFX('coin');
+      renderWelfare();
+      refreshMenu();
+    } else {
+      toast('今天已经签过了');
+    }
+  }
+
+  function doWheel() {
+    const r = Meta.spin();
+    if (!r.ok) { toast('今天已经转过啦'); return; }
+    const el = $('wheel-result');
+    const box = $('wheel-box');
+    if (box) {
+      box.classList.add('spinning');
+      setTimeout(() => box.classList.remove('spinning'), 900);
+    }
+    if (el) {
+      el.textContent = '转盘转起来…';
+      setTimeout(() => { el.textContent = '🎉 抽到：' + r.prize.label; }, 900);
+    }
+    AudioManager.playSFX('coin');
+    renderWelfare();
+    refreshMenu();
+    Meta.check();
+  }
+
+  // ---------- 排行榜（本地 + 好友成绩码） ----------
+  function myBestEntry() {
+    const all = Store.getProgress();
+    let best = { score: 0, level: 0 };
+    Object.keys(all).forEach((k) => {
+      const s = all[k].score || 0;
+      if (s > best.score) best = { score: s, level: Number(k) || 0 };
+    });
+    return { name: Meta.nickname(), score: best.score, level: best.level, ts: Date.now(), me: true };
+  }
+
+  function renderLeaderboard() {
+    const box = $('lb-list');
+    if (!box) return;
+    const b = Meta.board();
+    const rows = b.list.slice();
+    const me = myBestEntry();
+    if (me.score > 0 && !rows.some((x) => x.me)) rows.push(me);
+    rows.sort((x, y) => y.score - x.score);
+    box.innerHTML = '';
+    if (!rows.length) {
+      const d = document.createElement('div');
+      d.className = 'lb-empty';
+      d.textContent = '本周还没有成绩，通关一局就会自动上榜';
+      box.appendChild(d);
+    }
+    rows.slice(0, 20).forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'lb-row' + (r.me ? ' me' : '');
+      row.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
+        '<span class="lb-name">' + String(r.name || '玩家').slice(0, 8) + (r.friend ? ' <i>好友</i>' : '') + '</span>' +
+        '<span class="lb-score">' + (r.score || 0) + '</span>';
+      box.appendChild(row);
+    });
+    if ($('lb-nick')) $('lb-nick').value = Meta.nickname();
+    if ($('lb-week')) $('lb-week').textContent = b.week;
+  }
+
+  // 自己的成绩始终按「当前最好成绩」实时算，不写进榜单列表，避免重复行
+  function recordMyScore() {}
+
+  function copyMyCode() {
+    const me = myBestEntry();
+    const code = Meta.makeCode(me);
+    if (!code) { toast('生成失败'); return; }
+    const done = () => toast('成绩码已复制，发给朋友贴上就行');
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(code).then(done).catch(() => {
+        if ($('lb-code')) { $('lb-code').value = code; toast('已填入输入框，手动复制一下'); }
+      });
+    } else if ($('lb-code')) {
+      $('lb-code').value = code;
+      toast('已填入输入框，手动复制一下');
+    }
+  }
+
+  function addFriendFromInput() {
+    const raw = $('lb-code') ? $('lb-code').value : '';
+    const r = Meta.addFriend(raw);
+    if (!r.ok) { toast(r.reason || '成绩码无效'); AudioManager.playSFX('invalid'); return; }
+    toast('已加入好友成绩：' + r.entry.name + ' ' + r.entry.score);
+    if ($('lb-code')) $('lb-code').value = '';
+    renderLeaderboard();
+    AudioManager.playSFX('coin');
+  }
+
+  function saveNick() {
+    const v = $('lb-nick') ? $('lb-nick').value : '';
+    Meta.setNickname(v);
+    toast('昵称已保存：' + Meta.nickname());
+    renderLeaderboard();
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', boot);
   } else {
@@ -3558,6 +4402,11 @@
     provRows: () => provRows,
     statsTotal: statsTotal,
     renderProvList: renderProvList,
+    resolveClear: resolveClear,
+    collectCargo: collectCargo,
+    crackIceAt: crackIceAt,
+    iceTotal: iceTotal,
+    endModeRun: endModeRun,
     resetProvCounted: () => { provCounted = false; }
   };
 })();

@@ -38,6 +38,9 @@
     <button id="btn-shuffle" class="tool-btn">
       <span class="icon">🔄</span><span class="text">洗牌</span><span class="badge" id="shuffle-count">3</span>
     </button>
+    <button id="btn-hint" class="tool-btn">
+      <span class="icon">💡</span><span class="text">提示</span><span class="badge" id="hint-count">3</span>
+    </button>
     <button id="btn-undo" class="tool-btn">
       <span class="icon">↩️</span><span class="text">撤回</span><span class="badge" id="undo-count">3</span>
     </button>
@@ -46,6 +49,7 @@
   <div class="board-wrap">
     <canvas id="game" width="480" height="480"></canvas>
     <div id="center-banner"><span id="center-banner-text"></span></div>
+    <div id="frenzy-banner">🔥 狂热模式 · 双倍得分 🔥</div>
     <div id="loading">加载中…</div>
   </div>
 
@@ -100,11 +104,17 @@
 
     <button class="btn-primary" id="btn-play">🎮 开始游戏</button>
 
-    <div class="menu-col">
-      <button class="btn-mini wide" id="btn-history">🏆 关卡记录</button>
-      <button class="btn-mini wide" id="btn-daily">📅 每日挑战</button>
-      <button class="btn-mini wide" id="btn-goto-tasks">🎯 每日任务</button>
-      <button class="btn-mini wide" id="btn-goto-shop">🛒 购物商店</button>
+    <div class="menu-grid">
+      <button class="btn-mini" id="btn-chapters">🗺️ 章节地图</button>
+      <button class="btn-mini" id="btn-modes">🎮 更多玩法</button>
+      <button class="btn-mini" id="btn-history">🏆 关卡记录</button>
+      <button class="btn-mini" id="btn-daily">📅 每日挑战</button>
+      <button class="btn-mini" id="btn-goto-tasks">🎯 每日任务</button>
+      <button class="btn-mini" id="btn-welfare">🎁 福利中心</button>
+      <button class="btn-mini" id="btn-goto-shop">🛒 购物商店</button>
+      <button class="btn-mini" id="btn-collection">🎨 奶龙图鉴</button>
+      <button class="btn-mini" id="btn-achievements">🏅 成就</button>
+      <button class="btn-mini" id="btn-leaderboard">📊 排行榜</button>
     </div>
 
     <div class="load-tip" id="load-tip">
@@ -490,6 +500,117 @@
     </div>
     <button class="btn-secondary" id="btn-complete-home">回到主页</button>
   </div>
+  <!-- 章节地图 -->
+  <div class="overlay" id="chapters-menu" style="display:none;">
+    <h2 class="title small">🗺️ 章节地图</h2>
+    <p class="history-hint">点章节里的任意一关直接开始</p>
+    <div class="chapters-list" id="chapters-list"></div>
+    <button class="btn-secondary" id="btn-close-chapters">返回</button>
+  </div>
+
+  <!-- 剧情过场 -->
+  <div class="overlay" id="story-menu" style="display:none;">
+    <h2 class="title small" id="story-chapter">第一章</h2>
+    <div class="story-card">
+      <div class="story-emoji" id="story-emoji">🌱</div>
+      <p class="story-text" id="story-text"></p>
+    </div>
+    <button class="btn-primary" id="btn-story-go">继续前进</button>
+    <button class="btn-secondary" id="btn-story-skip">跳过剧情</button>
+  </div>
+
+  <!-- 更多玩法 -->
+  <div class="overlay" id="modes-menu" style="display:none;">
+    <h2 class="title small">🎮 更多玩法</h2>
+    <div class="mode-list">
+      <div class="mode-card">
+        <div class="mode-head"><b>♾️ 无尽模式</b><span id="mode-best-endless">还没挑战过</span></div>
+        <p>40 步随便打，连击越猛分越高，没有固定目标。</p>
+        <button class="btn-primary" id="btn-mode-endless">开始无尽</button>
+      </div>
+      <div class="mode-card">
+        <div class="mode-head"><b>⏱️ 60 秒冲刺</b><span id="mode-best-sprint">还没挑战过</span></div>
+        <p>60 秒内能刷出多少分，拼手速和连击。</p>
+        <button class="btn-primary" id="btn-mode-sprint">开始冲刺</button>
+      </div>
+      <div class="mode-card">
+        <div class="mode-head"><b>🎧 节奏关卡</b><span id="mode-best-rhythm">还没挑战过</span></div>
+        <p>90 秒，踩在节拍上消除额外 1.5 倍分。</p>
+        <button class="btn-primary" id="btn-mode-rhythm">开始节奏关</button>
+      </div>
+    </div>
+    <button class="btn-secondary" id="btn-close-modes">返回</button>
+  </div>
+
+  <!-- 模式结算 -->
+  <div class="overlay" id="mode-over" style="display:none;">
+    <h2 class="title small" id="mode-over-title">挑战结束</h2>
+    <div class="result-box">
+      <p><span>本局得分</span><span style="display:flex;align-items:center;">
+        <span id="mode-over-record" class="new-record-badge" style="display:none;">新纪录</span>
+        <b id="mode-over-score">0</b></span></p>
+      <p><span>历史最佳</span><b id="mode-over-best">0</b></p>
+      <p><span>金币奖励</span><b id="mode-over-coins">+0</b></p>
+    </div>
+    <button class="btn-primary" id="btn-mode-again">再来一局</button>
+    <button class="btn-secondary" id="btn-mode-home">返回主页</button>
+  </div>
+
+  <!-- 成就 -->
+  <div class="overlay" id="achievements-menu" style="display:none;">
+    <h2 class="title small">🏅 成就 <span class="sub-count" id="ach-total">0 / 20</span></h2>
+    <div class="ach-list" id="ach-list"></div>
+    <button class="btn-secondary" id="btn-close-ach">返回</button>
+  </div>
+
+  <!-- 奶龙图鉴 -->
+  <div class="overlay" id="collection-menu" style="display:none;">
+    <h2 class="title small">🎨 奶龙图鉴 <span class="sub-count">⭐ <b id="skin-stars">0</b></span></h2>
+    <p class="history-hint">星星越多能解锁的皮肤越多，点一下就能换上</p>
+    <div class="skin-list" id="skin-list"></div>
+    <button class="btn-secondary" id="btn-close-skins">返回</button>
+  </div>
+
+  <!-- 福利中心 -->
+  <div class="overlay" id="welfare-menu" style="display:none;">
+    <h2 class="title small">🎁 福利中心</h2>
+    <div class="welfare-sign" id="welfare-sign"></div>
+    <button class="btn-primary" id="btn-welfare-signin">签到领金币</button>
+    <div class="wheel-box" id="wheel-box">
+      <div class="wheel-face">🎡</div>
+      <div class="wheel-result" id="wheel-result">每天可以转一次</div>
+    </div>
+    <button class="btn-primary" id="btn-wheel">转盘抽奖</button>
+    <button class="btn-secondary" id="btn-close-welfare">返回</button>
+  </div>
+
+  <!-- 排行榜 -->
+  <div class="overlay" id="leaderboard-menu" style="display:none;">
+    <h2 class="title small">📊 本周排行榜 <span class="sub-count" id="lb-week"></span></h2>
+    <p class="history-hint">成绩只存在本机，不上传服务器；和朋友互发成绩码就能同榜</p>
+    <div class="lb-list" id="lb-list"></div>
+    <div class="lb-form">
+      <input type="text" id="lb-nick" maxlength="8" placeholder="昵称（最多 8 字）">
+      <button class="btn-mini" id="btn-lb-save">保存</button>
+    </div>
+    <div class="lb-form">
+      <input type="text" id="lb-code" placeholder="粘贴好友成绩码 NL1-…">
+      <button class="btn-mini" id="btn-lb-add">加入</button>
+    </div>
+    <button class="btn-mini wide" id="btn-lb-copy">复制我的成绩码</button>
+    <button class="btn-secondary" id="btn-close-lb">返回</button>
+  </div>
+
+  <!-- 再来 3 步 -->
+  <div class="overlay" id="revive-menu" style="display:none;">
+    <h2 class="title small">就差一点点！</h2>
+    <p class="confirm-text" id="revive-tip">要再来 3 步吗？</p>
+    <div class="result-box">
+      <p><span>花费</span><b>🪙 <span id="revive-cost">200</span></b></p>
+    </div>
+    <button class="btn-primary" id="btn-revive-yes">花 200 金币，再来 3 步</button>
+    <button class="btn-secondary" id="btn-revive-no">放弃，看结算</button>
+  </div>
 </div>
 
 <script src="./js/rng.js"></script>
@@ -502,6 +623,7 @@
 <script src="./js/input.js"></script>
 <script src="./js/builtin-music.js"></script>
 <script src="./js/music.js"></script>
+<script src="./js/meta.js"></script>
 <script src="./js/game.js"></script>
 </body>
 </html>

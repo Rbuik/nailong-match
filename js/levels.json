@@ -1,32 +1,726 @@
 {
-  "version": 2,
-  "maxMainLevel": 20,
+  "version": 3,
+  "maxMainLevel": 40,
   "themes": {
-    "grass": { "name": "草地", "bg": "#ffffff", "grid": "#f0f0f0" },
-    "ocean": { "name": "海洋", "bg": "#ffffff", "grid": "#f0f0f0" },
-    "star":  { "name": "星空", "bg": "#ffffff", "grid": "#f0f0f0" },
-    "candy": { "name": "糖果", "bg": "#ffffff", "grid": "#f0f0f0" }
+    "grass": {
+      "name": "草地",
+      "bg": "#ffffff",
+      "grid": "#f0f0f0"
+    },
+    "ocean": {
+      "name": "海洋",
+      "bg": "#ffffff",
+      "grid": "#f0f0f0"
+    },
+    "star": {
+      "name": "星空",
+      "bg": "#ffffff",
+      "grid": "#f0f0f0"
+    },
+    "candy": {
+      "name": "糖果",
+      "bg": "#ffffff",
+      "grid": "#f0f0f0"
+    }
   },
+  "chapters": [
+    {
+      "id": 1,
+      "name": "第一章 · 草地奇遇",
+      "theme": "grass",
+      "from": 1,
+      "to": 10,
+      "emoji": "🌱",
+      "story": "奶龙在草地上捡到一颗会发光的糖，糖纸里裹着一张皱巴巴的地图。"
+    },
+    {
+      "id": 2,
+      "name": "第二章 · 海底钥匙",
+      "theme": "ocean",
+      "from": 11,
+      "to": 20,
+      "emoji": "🌊",
+      "story": "地图指向海底的沉船，可钥匙被浪打散在珊瑚之间，得一颗颗捞回来。"
+    },
+    {
+      "id": 3,
+      "name": "第三章 · 星图之夜",
+      "theme": "star",
+      "from": 21,
+      "to": 30,
+      "emoji": "🌌",
+      "story": "沉船里的星图忽然亮了，光点连成一条通往天上的路。"
+    },
+    {
+      "id": 4,
+      "name": "第四章 · 糖果城堡",
+      "theme": "candy",
+      "from": 31,
+      "to": 40,
+      "emoji": "🍬",
+      "story": "最后一站。糖果城堡的门只为把糖完整带回来的奶龙打开。"
+    }
+  ],
   "levels": [
-    { "id": 1,  "theme": "grass", "moves": 28, "goal": { "type": "score",   "target": 1000 }, "stars": [1000, 1500, 2000] },
-    { "id": 2,  "theme": "grass", "moves": 26, "goal": { "type": "collect", "target": { "0": 12, "1": 12 } }, "stars": [1200, 1800, 2400] },
-    { "id": 3,  "theme": "grass", "moves": 26, "goal": { "type": "score",   "target": 1400 }, "stars": [1400, 2000, 2700] },
-    { "id": 4,  "theme": "grass", "moves": 24, "goal": { "type": "clear",   "target": 8 },  "stars": [1000, 1600, 2200] },
-    { "id": 5,  "theme": "grass", "moves": 20, "goal": { "type": "score",   "target": 1800 }, "stars": [1800, 2400, 3000], "boss": true },
-    { "id": 6,  "theme": "ocean", "moves": 30, "goal": { "type": "collect", "target": { "0": 15, "1": 15 } }, "stars": [1500, 2200, 3000], "relief": true },
-    { "id": 7,  "theme": "ocean", "moves": 24, "goal": { "type": "score",   "target": 2200 }, "stars": [2200, 2900, 3600] },
-    { "id": 8,  "theme": "ocean", "moves": 60, "goal": { "type": "timed",   "target": 1200, "time": 60 }, "stars": [1200, 1900, 2600] },
-    { "id": 9,  "theme": "ocean", "moves": 22, "goal": { "type": "clear",   "target": 12 }, "stars": [1200, 1800, 2500] },
-    { "id": 10, "theme": "ocean", "moves": 20, "goal": { "type": "score",   "target": 3000 }, "stars": [3000, 3800, 4600], "boss": true, "chapter": 2 },
-    { "id": 11, "theme": "star",  "moves": 24, "goal": { "type": "collect", "target": { "0": 15, "2": 15 } }, "stars": [1600, 2300, 3000] },
-    { "id": 12, "theme": "star",  "moves": 14, "goal": { "type": "moves",   "target": 1800 }, "stars": [1800, 2400, 3000] },
-    { "id": 13, "theme": "star",  "moves": 22, "goal": { "type": "score",   "target": 3200 }, "stars": [3200, 4000, 4800] },
-    { "id": 14, "theme": "star",  "moves": 20, "goal": { "type": "clear",   "target": 16 }, "stars": [1400, 2100, 2800] },
-    { "id": 15, "theme": "star",  "moves": 18, "goal": { "type": "score",   "target": 3600 }, "stars": [3600, 4400, 5300], "boss": true },
-    { "id": 16, "theme": "candy", "moves": 28, "goal": { "type": "collect", "target": { "0": 18, "1": 18, "2": 18 } }, "stars": [2000, 3000, 4000], "relief": true },
-    { "id": 17, "theme": "candy", "moves": 75, "goal": { "type": "timed",   "target": 1800, "time": 75 }, "stars": [1800, 2700, 3600] },
-    { "id": 18, "theme": "candy", "moves": 22, "goal": { "type": "clear",   "target": 20 }, "stars": [1600, 2400, 3200] },
-    { "id": 19, "theme": "candy", "moves": 16, "goal": { "type": "moves",   "target": 2600 }, "stars": [2600, 3400, 4200] },
-    { "id": 20, "theme": "candy", "moves": 20, "goal": { "type": "score",   "target": 5000 }, "stars": [5000, 6000, 7200], "boss": true, "final": true }
+    {
+      "id": 1,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 28,
+      "goal": {
+        "type": "score",
+        "target": 1000
+      },
+      "stars": [
+        900,
+        1250,
+        1600
+      ]
+    },
+    {
+      "id": 2,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 26,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "0": 12,
+          "1": 12
+        }
+      },
+      "stars": [
+        2106,
+        2925,
+        3744
+      ]
+    },
+    {
+      "id": 3,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 26,
+      "goal": {
+        "type": "score",
+        "target": 1400
+      },
+      "stars": [
+        1260,
+        1750,
+        2240
+      ],
+      "ice": 4
+    },
+    {
+      "id": 4,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 24,
+      "goal": {
+        "type": "clear",
+        "target": 8
+      },
+      "stars": [
+        1944,
+        2700,
+        3456
+      ]
+    },
+    {
+      "id": 5,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 22,
+      "goal": {
+        "type": "score",
+        "target": 1900
+      },
+      "stars": [
+        1710,
+        2375,
+        3040
+      ],
+      "boss": true
+    },
+    {
+      "id": 6,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 26,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "0": 15,
+          "1": 15
+        }
+      },
+      "stars": [
+        2106,
+        2925,
+        3744
+      ],
+      "ice": 6
+    },
+    {
+      "id": 7,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 1800
+      },
+      "stars": [
+        1620,
+        2250,
+        2880
+      ],
+      "chain": 4
+    },
+    {
+      "id": 8,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 0,
+      "goal": {
+        "type": "timed",
+        "target": 2000,
+        "time": 60
+      },
+      "stars": [
+        1800,
+        2500,
+        3200
+      ]
+    },
+    {
+      "id": 9,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 24,
+      "goal": {
+        "type": "clear",
+        "target": 10
+      },
+      "stars": [
+        1944,
+        2700,
+        3456
+      ],
+      "ice": 8
+    },
+    {
+      "id": 10,
+      "chapter": 1,
+      "theme": "grass",
+      "moves": 22,
+      "goal": {
+        "type": "score",
+        "target": 2600
+      },
+      "stars": [
+        2340,
+        3250,
+        4160
+      ],
+      "boss": true,
+      "rescue": 2
+    },
+    {
+      "id": 11,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 26,
+      "goal": {
+        "type": "drop",
+        "target": 5
+      },
+      "stars": [
+        2106,
+        2925,
+        3744
+      ],
+      "cargo": 5
+    },
+    {
+      "id": 12,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 14,
+      "goal": {
+        "type": "moves",
+        "target": 1800
+      },
+      "stars": [
+        1620,
+        2250,
+        2880
+      ]
+    },
+    {
+      "id": 13,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 26,
+      "goal": {
+        "type": "ice",
+        "target": 12
+      },
+      "stars": [
+        2106,
+        2925,
+        3744
+      ],
+      "ice": 12
+    },
+    {
+      "id": 14,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 28,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "0": 18,
+          "1": 18
+        }
+      },
+      "stars": [
+        2268,
+        3150,
+        4032
+      ]
+    },
+    {
+      "id": 15,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 3200
+      },
+      "stars": [
+        2880,
+        4000,
+        5120
+      ],
+      "boss": true,
+      "cargo": 4
+    },
+    {
+      "id": 16,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 26,
+      "goal": {
+        "type": "rescue",
+        "target": 4
+      },
+      "stars": [
+        2106,
+        2925,
+        3744
+      ],
+      "rescue": 4
+    },
+    {
+      "id": 17,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 0,
+      "goal": {
+        "type": "timed",
+        "target": 2600,
+        "time": 75
+      },
+      "stars": [
+        2340,
+        3250,
+        4160
+      ]
+    },
+    {
+      "id": 18,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 26,
+      "goal": {
+        "type": "clear",
+        "target": 12
+      },
+      "stars": [
+        2106,
+        2925,
+        3744
+      ],
+      "chain": 6
+    },
+    {
+      "id": 19,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 28,
+      "goal": {
+        "type": "ice",
+        "target": 16
+      },
+      "stars": [
+        2268,
+        3150,
+        4032
+      ],
+      "ice": 12,
+      "iceHard": 4
+    },
+    {
+      "id": 20,
+      "chapter": 2,
+      "theme": "ocean",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 3800
+      },
+      "stars": [
+        3420,
+        4750,
+        6080
+      ],
+      "boss": true
+    },
+    {
+      "id": 21,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 28,
+      "goal": {
+        "type": "drop",
+        "target": 7
+      },
+      "stars": [
+        2268,
+        3150,
+        4032
+      ],
+      "cargo": 7
+    },
+    {
+      "id": 22,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 16,
+      "goal": {
+        "type": "moves",
+        "target": 2600
+      },
+      "stars": [
+        2340,
+        3250,
+        4160
+      ]
+    },
+    {
+      "id": 23,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 30,
+      "goal": {
+        "type": "ice",
+        "target": 18
+      },
+      "stars": [
+        2430,
+        3375,
+        4320
+      ],
+      "ice": 14,
+      "iceHard": 4,
+      "chain": 4
+    },
+    {
+      "id": 24,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 30,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "0": 20,
+          "1": 20
+        }
+      },
+      "stars": [
+        2430,
+        3375,
+        4320
+      ]
+    },
+    {
+      "id": 25,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 26,
+      "goal": {
+        "type": "score",
+        "target": 4500
+      },
+      "stars": [
+        4050,
+        5625,
+        7200
+      ],
+      "boss": true
+    },
+    {
+      "id": 26,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 28,
+      "goal": {
+        "type": "rescue",
+        "target": 5
+      },
+      "stars": [
+        2268,
+        3150,
+        4032
+      ],
+      "rescue": 5
+    },
+    {
+      "id": 27,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 0,
+      "goal": {
+        "type": "timed",
+        "target": 3600,
+        "time": 80
+      },
+      "stars": [
+        3240,
+        4500,
+        5760
+      ]
+    },
+    {
+      "id": 28,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 26,
+      "goal": {
+        "type": "clear",
+        "target": 14
+      },
+      "stars": [
+        2106,
+        2925,
+        3744
+      ],
+      "ice": 6
+    },
+    {
+      "id": 29,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 30,
+      "goal": {
+        "type": "drop",
+        "target": 9
+      },
+      "stars": [
+        2430,
+        3375,
+        4320
+      ],
+      "chain": 4,
+      "cargo": 9
+    },
+    {
+      "id": 30,
+      "chapter": 3,
+      "theme": "star",
+      "moves": 26,
+      "goal": {
+        "type": "score",
+        "target": 5200
+      },
+      "stars": [
+        4680,
+        6500,
+        8320
+      ],
+      "boss": true
+    },
+    {
+      "id": 31,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 28,
+      "goal": {
+        "type": "ice",
+        "target": 20
+      },
+      "stars": [
+        2268,
+        3150,
+        4032
+      ],
+      "ice": 16,
+      "iceHard": 4
+    },
+    {
+      "id": 32,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 30,
+      "goal": {
+        "type": "rescue",
+        "target": 6
+      },
+      "stars": [
+        2430,
+        3375,
+        4320
+      ],
+      "chain": 4,
+      "rescue": 6
+    },
+    {
+      "id": 33,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 30,
+      "goal": {
+        "type": "drop",
+        "target": 10
+      },
+      "stars": [
+        2430,
+        3375,
+        4320
+      ],
+      "cargo": 10
+    },
+    {
+      "id": 34,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 18,
+      "goal": {
+        "type": "moves",
+        "target": 3400
+      },
+      "stars": [
+        3060,
+        4250,
+        5440
+      ]
+    },
+    {
+      "id": 35,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 28,
+      "goal": {
+        "type": "score",
+        "target": 6000
+      },
+      "stars": [
+        5400,
+        7500,
+        9600
+      ],
+      "boss": true
+    },
+    {
+      "id": 36,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 30,
+      "goal": {
+        "type": "ice",
+        "target": 24
+      },
+      "stars": [
+        2430,
+        3375,
+        4320
+      ],
+      "ice": 18,
+      "iceHard": 6
+    },
+    {
+      "id": 37,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 0,
+      "goal": {
+        "type": "timed",
+        "target": 4200,
+        "time": 90
+      },
+      "stars": [
+        3780,
+        5250,
+        6720
+      ]
+    },
+    {
+      "id": 38,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 32,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "0": 22,
+          "1": 22
+        }
+      },
+      "stars": [
+        2592,
+        3600,
+        4608
+      ],
+      "chain": 8
+    },
+    {
+      "id": 39,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 30,
+      "goal": {
+        "type": "rescue",
+        "target": 7
+      },
+      "stars": [
+        2430,
+        3375,
+        4320
+      ],
+      "ice": 6,
+      "rescue": 7
+    },
+    {
+      "id": 40,
+      "chapter": 4,
+      "theme": "candy",
+      "moves": 30,
+      "goal": {
+        "type": "score",
+        "target": 7000
+      },
+      "stars": [
+        6300,
+        8750,
+        11200
+      ],
+      "boss": true,
+      "cargo": 4,
+      "rescue": 3,
+      "final": true
+    }
   ]
 }

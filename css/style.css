@@ -274,8 +274,8 @@ input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
   text-shadow: 0 2px 10px rgba(255, 92, 92, 0.2);
 }
 
-/* 窄屏下 HUD / 工具栏适配：保证“洗牌/撤回”始终在同一行 */
-@media (max-width: 420px) {
+/* 窄屏下 HUD / 工具栏适配：保证“洗牌/提示/撤回”始终在同一行（加了提示按钮后断点放宽到 520） */
+@media (max-width: 520px) {
   .hud { flex-wrap: wrap; gap: 8px 12px; font-size: 14px; }
   .hud-item b { font-size: 16px; }
   .tools { flex-wrap: nowrap; justify-content: flex-end; gap: 6px; padding: 0 4px; }

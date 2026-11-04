@@ -117,7 +117,7 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
 // ---------- 按顺序加载脚本 ----------
-const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'game.js'];
+const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'meta.js', 'game.js'];
 for (const s of scripts) {
   const code = fs.readFileSync(path.join(__dirname, 'js', s), 'utf8');
   try {
@@ -256,6 +256,9 @@ function check(name, ok) {
   // 11. 洗牌次数用完后必须玩家自己补（不再自动扣背包）
   $('btn-play').dispatch('click');
   await sleep(30);
+  // 第 1 关是第一章开头 → 先过剧情，再进关卡
+  if ($('story-menu').style.display === 'flex') $('btn-story-skip').dispatch('click');
+  await sleep(10);
   const walletShuffle = sandbox.Store.getWallet().items.shuffle || 0;
   for (let i = 0; i < 4; i++) $('btn-shuffle').dispatch('click');
   check('洗牌用完后提示去背包补充', $('toast').textContent.includes('用完了'));
@@ -277,6 +280,117 @@ function check(name, ok) {
 
   // 13. 主页上一关 / 下一关
   check('主页有关卡翻页按钮', !!getEl('btn-prev-level') && !!getEl('btn-next-level-menu') && !!getEl('menu-level-label'));
+
+  // 14. 新玩法面板：章节 / 成就 / 图鉴 / 福利
+  // 沙箱里没有网络，关卡数据用磁盘上的真实 levels.json 顶替，和线上走同一条渲染路径
+  sandbox.__nl_test.state().data = JSON.parse(fs.readFileSync(path.join('js', 'levels.json'), 'utf8'));
+  $('btn-chapters').dispatch('click');
+  check('章节地图渲染出 4 章', $('chapters-list').children.length === 4);
+  $('btn-close-chapters').dispatch('click');
+
+  $('btn-achievements').dispatch('click');
+  check('成就墙渲染出全部成就', $('ach-list').children.length === sandbox.Meta.ACHIEVEMENTS.length);
+  $('btn-close-ach').dispatch('click');
+
+  $('btn-collection').dispatch('click');
+  check('图鉴渲染出全部皮肤', $('skin-list').children.length === sandbox.Meta.SKINS.length);
+  $('btn-close-skins').dispatch('click');
+
+  $('btn-welfare').dispatch('click');
+  check('福利中心渲染 7 天签到', $('welfare-sign').children.length === 7);
+  $('btn-close-welfare').dispatch('click');
+
+  $('btn-modes').dispatch('click');
+  check('更多玩法面板打开', $('modes-menu').style.display === 'flex');
+  $('btn-close-modes').dispatch('click');
+
+  $('btn-leaderboard').dispatch('click');
+  check('排行榜面板打开', $('leaderboard-menu').style.display === 'flex');
+  $('btn-close-lb').dispatch('click');
+
+  // 15. 冰块关：铺冰 + 目标值校准 + 冰上格子不可交换
+  const iceDef = { id: 99, theme: 'candy', moves: 20, goal: { type: 'ice', target: 10 }, ice: 10, stars: [1, 2, 3] };
+  sandbox.__nl_test.start(1, { def: iceDef });
+  let iceN = 0;
+  let st = sandbox.__nl_test.state();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.ice[r][c]) iceN++;
+  check('冰块关铺出 10 块冰', iceN === 10);
+  check('冰块目标值按实际层数校准', st.goal.target === iceN);
+
+  // 16. 货运关：货物数量 + 目标值
+  const dropDef = { id: 98, theme: 'candy', moves: 20, goal: { type: 'drop', target: 4 }, cargo: 4, stars: [1, 2, 3] };
+  sandbox.__nl_test.start(1, { def: dropDef });
+  let cargoN = 0;
+  st = sandbox.__nl_test.state();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.board[r][c] && st.board[r][c].cargo) cargoN++;
+  check('货运关放置 4 件货物', cargoN === 4);
+  check('货运关目标值 = 货物数', st.goal.target === cargoN);
+
+  // 17. 护送关
+  const rescueDef = { id: 97, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 3 }, rescue: 3, stars: [1, 2, 3] };
+  sandbox.__nl_test.start(1, { def: rescueDef });
+  st = sandbox.__nl_test.state();
+  check('护送关目标值 = 奶龙数', st.goal.target === 3 && st.rescueLeft === 3);
+
+  // 18. 提示按钮：消耗次数并高亮
+  const hintBefore = sandbox.__nl_test.state().hintLeft;
+  $('btn-hint').dispatch('click');
+  st = sandbox.__nl_test.state();
+  check('点提示后次数 -1', st.hintLeft === hintBefore - 1);
+  check('点提示后有高亮格子', Array.isArray(st.hintCells) && st.hintCells.length === 2);
+
+  // 19. 金币不足时「再来 3 步」按钮禁用
+  sandbox.Store.addCoins(-999999);
+  sandbox.__nl_test.state().reviveUsed = false;
+  const coinsNow = sandbox.Store.getWallet().coins;
+  check('金币不足时复活不可用', coinsNow < 200);
+
+  // 20. 模式：无尽开局
+  sandbox.__nl_test.start(1, { def: { id: 0, theme: 'star', colors: 6, moves: 40, stars: [0, 0, 0], goal: { type: 'score', target: 999999 } }, mode: 'endless' });
+  st = sandbox.__nl_test.state();
+  check('无尽模式开局（40 步无目标）', st.mode === 'endless' && st.moves === 40);
+  check('无尽模式目标栏显示最佳分', $('target-bar').textContent.includes('无尽'));
+
+  // 21. 节奏关：踩点倍率函数可用
+  sandbox.__nl_test.start(1, { def: { id: 0, theme: 'ocean', colors: 6, moves: 0, stars: [0, 0, 0], goal: { type: 'timed', target: 999999, time: 90 } }, mode: 'rhythm' });
+  st = sandbox.__nl_test.state();
+  check('节奏关开局（90 秒限时）', st.mode === 'rhythm' && st.timerOn === true);
+
+  // 22. 冰块：相邻消除砸掉一层冰并推进目标
+  sandbox.__nl_test.start(1, { def: { id: 96, theme: 'candy', moves: 20, goal: { type: 'ice', target: 3 }, ice: 3, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  let iceCell = null;
+  for (let r = 0; r < 8 && !iceCell; r++) for (let c = 0; c < 8 && !iceCell; c++) if (st.ice[r][c]) iceCell = { r: r, c: c };
+  const nb = { r: iceCell.r, c: iceCell.c + 1 < 8 ? iceCell.c + 1 : iceCell.c - 1 };
+  const iceBefore = st.goal.iceCleared || 0;
+  await sandbox.__nl_test.resolveClear(new Set([nb.r + ',' + nb.c]), []);
+  check('相邻消除砸掉一层冰', st.ice[iceCell.r][iceCell.c] === 0);
+  check('冰块目标进度推进', (st.goal.iceCleared || 0) === iceBefore + 1);
+
+  // 23. 锁链：第一次被消只解锁，方块留下
+  sandbox.__nl_test.start(1, { def: { id: 95, theme: 'candy', moves: 20, goal: { type: 'score', target: 5000 }, chain: 3, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  let chainCell = null;
+  for (let r = 0; r < 8 && !chainCell; r++) for (let c = 0; c < 8 && !chainCell; c++) if (st.chain[r][c]) chainCell = { r: r, c: c };
+  await sandbox.__nl_test.resolveClear(new Set([chainCell.r + ',' + chainCell.c]), []);
+  check('锁链被消一次即解锁', st.chain[chainCell.r][chainCell.c] === 0);
+  check('解锁时方块保留', !!st.board[chainCell.r][chainCell.c]);
+
+  // 24. 货物：落到底行即送达并推进目标
+  sandbox.__nl_test.start(1, { def: { id: 94, theme: 'candy', moves: 20, goal: { type: 'drop', target: 2 }, cargo: 2, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  st.board[6][0] = { type: 0, special: 0, cargo: { kind: 'key' } };
+  const cargoBefore = st.goal.cargoGot || 0;
+  await sandbox.__nl_test.resolveClear(new Set(['7,0']), []);
+  check('货物落到底行即送达', (st.goal.cargoGot || 0) === cargoBefore + 1);
+
+  // 25. 全障碍也不会卡死（整片冰时 resolveClear 安全返回）
+  const allIce = new Set();
+  sandbox.__nl_test.start(1, { def: { id: 93, theme: 'candy', moves: 20, goal: { type: 'ice', target: 64 }, ice: 30, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.ice[r][c]) allIce.add(r + ',' + c);
+  const r0 = await sandbox.__nl_test.resolveClear(allIce, []);
+  check('全是冰时安全返回 0', r0 === 0);
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

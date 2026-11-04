@@ -976,3 +976,295 @@ body.m-dragging .m-item { cursor: grabbing; }
   background: linear-gradient(135deg, #43c56d, #1a8f4a);
   box-shadow: 0 4px 15px rgba(67, 197, 109, 0.35);
 }
+
+/* ================= 主页：两列小按钮（新增玩法入口） ================= */
+.menu-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 86%;
+  margin: 2px 0 6px;
+}
+.menu-grid .btn-mini {
+  width: 100%;
+  padding: 9px 6px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* ================= 章节地图 ================= */
+.chapters-list {
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 6px 0 12px;
+}
+.chapter-card {
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(124, 92, 255, 0.06);
+  border: 1px solid rgba(124, 92, 255, 0.16);
+}
+.chapter-card.locked { opacity: 0.55; }
+.chapter-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.chapter-emoji { font-size: 20px; }
+.chapter-name { font-size: 14px; font-weight: 800; color: #3d3556; flex: 1; }
+.chapter-stars { font-size: 12px; color: #8a7fb5; font-weight: 700; }
+.chapter-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+.level-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 7px 0 5px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+}
+.level-chip b { font-size: 14px; color: #3d3556; }
+.level-chip i { font-size: 9px; font-style: normal; color: #ffb400; letter-spacing: -1px; }
+.level-chip.done { border-color: rgba(255, 180, 0, 0.55); background: rgba(255, 246, 224, 0.9); }
+.level-chip.locked { opacity: 0.45; cursor: default; }
+.level-chip:active { transform: scale(0.94); }
+.chapter-lock { margin-top: 8px; font-size: 12px; color: #9a93ad; text-align: center; }
+
+/* ================= 剧情过场 ================= */
+.story-card {
+  width: 84%;
+  padding: 18px 16px;
+  margin: 10px 0 14px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, rgba(124, 92, 255, 0.10), rgba(255, 214, 120, 0.16));
+  text-align: center;
+}
+.story-emoji { font-size: 46px; line-height: 1.2; }
+.story-text { margin: 12px 0 0; font-size: 14px; line-height: 1.75; color: #4a4560; }
+
+/* ================= 更多玩法 ================= */
+.mode-list {
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 0 12px;
+}
+.mode-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+}
+.mode-head { display: flex; align-items: center; justify-content: space-between; }
+.mode-head b { font-size: 15px; color: #3d3556; }
+.mode-head span { font-size: 11px; color: #9a93ad; }
+.mode-card p { margin: 6px 0 10px; font-size: 12px; color: #7c7590; line-height: 1.5; }
+.mode-card .btn-primary { width: 100%; }
+
+/* ================= 成就 ================= */
+.sub-count { font-size: 12px; color: #9a93ad; font-weight: 700; }
+.ach-list {
+  width: 90%;
+  max-height: 52vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+.ach-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  opacity: 0.62;
+}
+.ach-row.got {
+  opacity: 1;
+  border-color: rgba(255, 180, 0, 0.5);
+  background: linear-gradient(120deg, #fffaf0, #fff);
+}
+.ach-icon { font-size: 20px; }
+.ach-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.ach-main b { font-size: 13px; color: #3d3556; }
+.ach-main i { font-size: 11px; font-style: normal; color: #8b84a0; }
+.ach-mark { font-size: 11px; color: #b0a9c0; }
+.ach-row.got .ach-mark { color: #e6a23c; font-weight: 700; }
+
+/* ================= 图鉴 / 皮肤 ================= */
+.skin-list {
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0 12px;
+}
+.skin-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border-radius: 12px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  cursor: pointer;
+}
+.skin-row.active { border-color: #7c5cff; background: rgba(124, 92, 255, 0.08); }
+.skin-row.locked { opacity: 0.55; }
+.skin-icon { font-size: 20px; }
+.skin-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.skin-main b { font-size: 13px; color: #3d3556; }
+.skin-main i { font-size: 11px; font-style: normal; color: #8b84a0; }
+.skin-mark { font-size: 11px; color: #7c5cff; font-weight: 700; }
+
+/* ================= 福利中心 ================= */
+.welfare-sign {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 5px;
+  width: 92%;
+  margin: 4px 0 10px;
+}
+.sign-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 0;
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.04);
+  font-size: 10px;
+  color: #8b84a0;
+}
+.sign-day i { font-style: normal; }
+.sign-day b { font-size: 12px; color: #5b5470; }
+.sign-day.signed { background: rgba(92, 200, 143, 0.2); color: #1a8f4a; }
+.sign-day.today { outline: 2px dashed #7c5cff; }
+.wheel-box {
+  width: 70%;
+  margin: 12px 0 8px;
+  padding: 14px;
+  border-radius: 16px;
+  background: linear-gradient(150deg, rgba(255, 214, 120, 0.28), rgba(124, 92, 255, 0.14));
+  text-align: center;
+}
+.wheel-face { font-size: 40px; display: inline-block; }
+.wheel-box.spinning .wheel-face { animation: wheelSpin 0.9s ease-out; }
+@keyframes wheelSpin {
+  from { transform: rotate(0deg) scale(1); }
+  to { transform: rotate(720deg) scale(1.12); }
+}
+.wheel-result { margin-top: 8px; font-size: 13px; font-weight: 700; color: #5b5470; }
+
+/* ================= 排行榜 ================= */
+.lb-list {
+  width: 90%;
+  max-height: 42vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 6px 0 10px;
+}
+.lb-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  font-size: 13px;
+}
+.lb-row.me { border-color: #7c5cff; background: rgba(124, 92, 255, 0.08); }
+.lb-rank { width: 22px; text-align: center; font-weight: 800; color: #b0a9c0; }
+.lb-row.me .lb-rank { color: #7c5cff; }
+.lb-name { flex: 1; color: #3d3556; }
+.lb-name i { font-style: normal; font-size: 10px; color: #8a7fb5; }
+.lb-score { font-weight: 800; color: #ff8c00; }
+.lb-empty { padding: 18px; text-align: center; font-size: 12px; color: #9a93ad; }
+.lb-form {
+  display: flex;
+  gap: 8px;
+  width: 90%;
+  margin-bottom: 8px;
+}
+.lb-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  font-size: 13px;
+  background: #fff;
+  color: #333;
+}
+.lb-form .btn-mini { padding: 9px 14px; font-size: 13px; }
+
+/* ================= 狂热模式 / 节拍 ================= */
+#frenzy-banner {
+  position: absolute;
+  left: 50%;
+  top: 14px;
+  transform: translate(-50%, -12px) scale(0.9);
+  padding: 7px 16px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #ff8c00, #ff5c5c);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  box-shadow: 0 6px 18px rgba(255, 110, 60, 0.45);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  z-index: 6;
+}
+#frenzy-banner.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+body.frenzy .board-wrap {
+  box-shadow: 0 0 0 3px rgba(255, 140, 0, 0.45), 0 0 26px rgba(255, 92, 92, 0.35) !important;
+  animation: frenzyPulse 0.85s ease-in-out infinite alternate;
+}
+@keyframes frenzyPulse {
+  from { filter: saturate(1); }
+  to { filter: saturate(1.35) brightness(1.04); }
+}
+
+/* ================= 皮肤（图鉴里换） ================= */
+body[data-skin="mint"] .board-wrap {
+  box-shadow: 0 0 0 3px rgba(90, 200, 160, 0.45), 0 10px 26px rgba(90, 200, 160, 0.22);
+}
+body[data-skin="sakura"] .board-wrap {
+  box-shadow: 0 0 0 3px rgba(255, 150, 190, 0.5), 0 10px 26px rgba(255, 150, 190, 0.25);
+}
+body[data-skin="galaxy"] .board-wrap {
+  box-shadow: 0 0 0 3px rgba(80, 70, 160, 0.55), 0 10px 30px rgba(60, 50, 140, 0.35);
+}
+body[data-skin="galaxy"] .board-wrap::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.35) 0 1px, transparent 2px),
+              radial-gradient(circle at 70% 40%, rgba(255, 255, 255, 0.3) 0 1px, transparent 2px),
+              radial-gradient(circle at 45% 80%, rgba(255, 255, 255, 0.28) 0 1px, transparent 2px);
+  pointer-events: none;
+}
+body[data-skin="gold"] .board-wrap {
+  box-shadow: 0 0 0 3px rgba(230, 170, 20, 0.6), 0 12px 30px rgba(230, 170, 20, 0.35);
+}

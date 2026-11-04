@@ -5,14 +5,17 @@
 (function (global) {
   'use strict';
 
-  const TYPES = ['score', 'collect', 'clear', 'timed', 'moves'];
+  const TYPES = ['score', 'collect', 'clear', 'timed', 'moves', 'ice', 'drop', 'rescue'];
 
   const LABEL = {
     score: '普通得分',
     collect: '收集方块',
     clear: '清除果冻',
     timed: '限时得分',
-    moves: '极限步数'
+    moves: '极限步数',
+    ice: '敲碎冰块',
+    drop: '运送钥匙',
+    rescue: '护送奶龙'
   };
 
   function clone(o) {
@@ -28,6 +31,9 @@
       current: 0,
       byColor: {},
       jellyCleared: 0,
+      iceCleared: 0,
+      cargoGot: 0,
+      rescueGot: 0,
       timeLimit: d.time || 0,
       timeLeft: d.time || 0
     };
@@ -39,7 +45,7 @@
   }
 
   // 每次消除后推进进度
-  // ctx = { scoreDelta, colors: {type:count}, jelly: number }
+  // ctx = { scoreDelta, colors: {type:count}, jelly, ice, cargo, rescue }
   function progress(state, ctx) {
     ctx = ctx || {};
     if (state.type === 'collect') {
@@ -51,6 +57,17 @@
     }
     if (state.type === 'clear') {
       state.jellyCleared += ctx.jelly || 0;
+      return;
+    }
+    if (state.type === 'ice') {
+      state.iceCleared += ctx.ice || 0;
+      return;
+    }
+    if (state.type === 'drop' || state.type === 'rescue') {
+      state.cargoGot += ctx.cargo || 0;
+      state.rescueGot += ctx.rescue || 0;
+      if (state.type === 'rescue') state.current = state.rescueGot;
+      else state.current = state.cargoGot;
       return;
     }
     // score / timed / moves 都看分数
@@ -66,6 +83,12 @@
         );
       case 'clear':
         return state.jellyCleared >= state.target;
+      case 'ice':
+        return state.iceCleared >= state.target;
+      case 'drop':
+        return state.cargoGot >= state.target;
+      case 'rescue':
+        return state.rescueGot >= state.target;
       default:
         return state.current >= state.target;
     }
@@ -83,6 +106,15 @@
     if (state.type === 'clear') {
       return Math.min(1, state.jellyCleared / (state.target || 1));
     }
+    if (state.type === 'ice') {
+      return Math.min(1, state.iceCleared / (state.target || 1));
+    }
+    if (state.type === 'drop') {
+      return Math.min(1, state.cargoGot / (state.target || 1));
+    }
+    if (state.type === 'rescue') {
+      return Math.min(1, state.rescueGot / (state.target || 1));
+    }
     return Math.min(1, state.current / (state.target || 1));
   }
 
@@ -98,6 +130,12 @@
       }
       case 'clear':
         return `还剩 ${Math.max(0, state.target - state.jellyCleared)} 格`;
+      case 'ice':
+        return `还剩 ${Math.max(0, state.target - state.iceCleared)} 层冰`;
+      case 'drop':
+        return `还差 ${Math.max(0, state.target - state.cargoGot)} 个`;
+      case 'rescue':
+        return `还差 ${Math.max(0, state.target - state.rescueGot)} 只`;
       case 'timed':
         return `${Math.round(state.timeLeft)}s / 目标 ${state.target}`;
       default:
@@ -115,6 +153,15 @@
     }
     if (state.type === 'clear') {
       return `目标：清除果冻 ${Math.min(state.jellyCleared, state.target)} / ${state.target}`;
+    }
+    if (state.type === 'ice') {
+      return `目标：敲碎冰块 ${Math.min(state.iceCleared, state.target)} / ${state.target} 层`;
+    }
+    if (state.type === 'drop') {
+      return `目标：运送钥匙 ${Math.min(state.cargoGot, state.target)} / ${state.target}`;
+    }
+    if (state.type === 'rescue') {
+      return `目标：护送奶龙 ${Math.min(state.rescueGot, state.target)} / ${state.target}`;
     }
     if (state.type === 'timed') {
       return `目标：限时 ${state.timeLimit}s 内得 ${state.current} / ${state.target} 分`;
