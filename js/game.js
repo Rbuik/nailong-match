@@ -2617,6 +2617,14 @@
   // 主源 ipinfo / ipapi.is 并发，2.5s 没结果再用 ipwho 兜底；全失败就沿用上次的定位，
   // 绝不因为一次接口抖动把这次点击丢掉（之前用的 ipwho.is 经常超时 → 数字对不上）。
   function fetchGeo() {
+    // 定位缓存版本：早期 ipwho 把移动 IPv6 误判成北京，旧缓存一律作废一次
+    const GEO_VER = 2;
+    try {
+      if (Number(localStorage.getItem('nl2:geoV') || 0) !== GEO_VER) {
+        localStorage.setItem('nl2:geoV', String(GEO_VER));
+        Store.patchNet({ geo: null });
+      }
+    } catch (e) {}
     const old = Store.getNet().geo;
     if (old && old.ts && Date.now() - old.ts < 3600e3) return Promise.resolve(old);
     if (typeof fetch !== 'function') return Promise.resolve(old || null);
