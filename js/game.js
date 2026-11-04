@@ -683,7 +683,6 @@
         }
       }
     }
-    drawCellOverlays();
 
     // 选中框
     if (S.selected) {
@@ -735,6 +734,10 @@
         S.shakeCell = null;
       }
     }
+
+    // 覆盖层（冰 / 锁链 / 货物 / 提示）必须画在方块和摇头重绘之后，
+    // 否则「点冰块再点相邻格」的摇头动画会把冰层盖掉，看起来像冰块消失了一下
+    drawCellOverlays();
 
     FX.render(ctx);
     ctx.restore();
@@ -2837,7 +2840,7 @@
 
   // 把本机这一次点击算进全网：定位没回来就等它，最多重试 3 次，绝不因为接口抖动丢点击
   function attributeClick(tries) {
-    fetchGeo().then((g) => {
+    fetchGeoFast().then((g) => {
       const ok = g ? bumpProvHits(g) : false;
       if (!ok && tries < 3) setTimeout(() => attributeClick(tries + 1), 3000 * (tries + 1));
     });
@@ -3075,10 +3078,11 @@
     });
   }
 
-  // IP 定位：缓存 1 小时（移动网络切基站/切 Wi-Fi 会变，缓存太久会把人钉在错的省）
-  // 主源 ipinfo / ipapi.is 并发，2.5s 没结果再用 ipwho 兜底；全失败就沿用上次的定位，
+  // IP 定位：缓存 12 小时；有旧结果先用旧的，后台悄悄刷新（绝不让人干等定位）
+  // 主源 ipinfo / ipapi.is 并发，1 秒没结果就用 ipwho 兜底；全失败就沿用上次的定位，
   // 绝不因为一次接口抖动把这次点击丢掉（之前用的 ipwho.is 经常超时 → 数字对不上）。
-  function fetchGeo() {
+  let geoFetchAt = 0;
+  function fetchGeo(force) {
     // 定位缓存版本：早期 ipwho 把移动 IPv6 误判成北京，旧缓存一律作废一次
     const GEO_VER = 2;
     try {
@@ -3088,7 +3092,7 @@
       }
     } catch (e) {}
     const old = Store.getNet().geo;
-    if (old && old.ts && Date.now() - old.ts < 3600e3) return Promise.resolve(old);
+    if (!force && old && old.ts && Date.now() - old.ts < 12 * 3600e3) return Promise.resolve(old);
     if (typeof fetch !== 'function') return Promise.resolve(old || null);
 
     return new Promise((resolve) => {
@@ -3113,22 +3117,36 @@
       const askFallback = () => {
         if (fbAsked || settled) return;
         fbAsked = true;
-        fetchWithTimeout(fb.url, 4500).then((j) => {
+        fetchWithTimeout(fb.url, 3000).then((j) => {
           const g = j ? fb.pick(j) : null;
           if (g) { g.src = fb.name; finish(g); } else finish(null);
         });
       };
 
       primary.forEach((src) => {
-        fetchWithTimeout(src.url, 4500).then((j) => {
+        fetchWithTimeout(src.url, 2200).then((j) => {
           const g = j ? src.pick(j) : null;
           primaryLeft--;
           if (g) { g.src = src.name; finish(g); return; }
           if (!primaryLeft) askFallback();
         });
       });
-      setTimeout(askFallback, 2500);
+      setTimeout(askFallback, 900);
     });
+  }
+
+  // 有缓存但过期：先拿旧的用，后台刷新（5 分钟内不重复请求）
+  function fetchGeoFast() {
+    const old = Store.getNet().geo;
+    if (old && old.prov) {
+      const now = Date.now();
+      if (now - geoFetchAt > 5 * 60e3) {
+        geoFetchAt = now;
+        fetchGeo(true).catch(() => {});
+      }
+      return Promise.resolve(old);
+    }
+    return fetchGeo();
   }
 
   let androidVer = '';
@@ -3430,7 +3448,7 @@
         holds = 0;
         suppressLogout = true; // 松手时不要误触「注销」确认框
         renderAdmin();
-        fetchGeo().then(renderAdmin);
+        fetchGeoFast().then(renderAdmin);
         // 省份合计刷新后，后台「全网」跟着更新（两边数字始终一致）
         refreshProvStatsThrottled().then(renderAdmin);
         AudioManager.playSFX('select');
@@ -3933,8 +3951,12 @@
     // 2) 不允许的（iOS、微信 iOS）会在第一次触屏 / 滚动 / 点击的瞬间接上，
     //    事件不解绑，没播起来就下次交互继续试。
     let musicTaken = false;
-    const tryPlayMusic = () => {
-      AudioManager.init(Store.getSettings());
+    // iOS / iPadOS：AudioContext 必须在手势里创建，否则之后 resume 也起不来，
+    // 表现就是「上次把音乐关掉，这次进来连音效都没了」
+    const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '') ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const tryPlayMusic = (gesture) => {
+      AudioManager.init(Store.getSettings(), gesture === true || !IS_IOS);
       AudioManager.unlock();                 // 恢复 AudioContext + 默认背景音乐
       if (!musicTaken && global_Music()) {
         musicTaken = true;
@@ -3950,7 +3972,7 @@
     tryPlayMusic();
 
     const UNLOCK_EVENTS = ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown', 'scroll', 'wheel'];
-    const onGesture = () => tryPlayMusic();
+    const onGesture = () => tryPlayMusic(true);
     UNLOCK_EVENTS.forEach((ev) =>
       window.addEventListener(ev, onGesture, { passive: true, capture: true }));
     // 微信内置浏览器：桥接就绪后基本允许自动播放
@@ -3961,18 +3983,18 @@
           window.WeixinJSBridge.invoke('getNetworkType', {}, () => {});
         }
       } catch (e) {}
-      tryPlayMusic();
+      tryPlayMusic(true);
     };
     document.addEventListener('WeixinJSBridgeReady', weixinKick, false);
     if (window.WeixinJSBridge) setTimeout(weixinKick, 0);
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') tryPlayMusic();
+      if (document.visibilityState === 'visible') tryPlayMusic(true);
       else autoPauseIfPlaying();
     });
     // 退到后台 / 切 App / 锁屏 都按暂停处理
     window.addEventListener('pagehide', autoPauseIfPlaying);
     window.addEventListener('blur', autoPauseIfPlaying);
-    window.addEventListener('pageshow', () => tryPlayMusic());
+    window.addEventListener('pageshow', () => tryPlayMusic(true));
   }
 
   function global_Music() {
@@ -4305,31 +4327,105 @@
     return { name: Meta.nickname(), score: best.score, level: best.level, ts: Date.now(), me: true };
   }
 
+  // 排行榜：自己的本周最佳 + 好友（好友永久保留，手动删除才消失）
+  let lbOpenRow = null;
+
+  function closeLbOpenRow(except) {
+    if (lbOpenRow && lbOpenRow !== except) {
+      const inner = lbOpenRow.querySelector('.lb-swipe');
+      if (inner) inner.style.transform = 'translateX(0)';
+      lbOpenRow.classList.remove('open');
+      lbOpenRow = null;
+    }
+  }
+
+  // 好友行左滑露出「删除」：按住往左拖，松手吸附
+  function bindLbSwipe(row, inner) {
+    const W = 68;
+    let startX = 0, dx = 0, base = 0, dragging = false;
+    const setX = (v) => { inner.style.transform = 'translateX(' + v + 'px)'; };
+    row.addEventListener('pointerdown', (e) => {
+      if (e.target && e.target.classList && e.target.classList.contains('lb-del')) return;
+      startX = e.clientX;
+      dx = 0;
+      base = row.classList.contains('open') ? -W : 0;
+      dragging = true;
+      inner.style.transition = 'none';
+      try { row.setPointerCapture(e.pointerId); } catch (err) {}
+    });
+    row.addEventListener('pointermove', (e) => {
+      if (!dragging) return;
+      dx = e.clientX - startX;
+      let v = base + dx;
+      if (v > 0) v = 0;
+      if (v < -W) v = -W;
+      setX(v);
+    });
+    const finish = () => {
+      if (!dragging) return;
+      dragging = false;
+      inner.style.transition = 'transform 0.18s ease';
+      const open = (base + dx) < -W / 2;
+      if (open) {
+        closeLbOpenRow(row);
+        row.classList.add('open');
+        lbOpenRow = row;
+        setX(-W);
+      } else {
+        row.classList.remove('open');
+        if (lbOpenRow === row) lbOpenRow = null;
+        setX(0);
+      }
+    };
+    row.addEventListener('pointerup', finish);
+    row.addEventListener('pointercancel', finish);
+  }
+
   function renderLeaderboard() {
     const box = $('lb-list');
     if (!box) return;
-    const b = Meta.board();
-    const rows = b.list.slice();
     const me = myBestEntry();
-    if (me.score > 0 && !rows.some((x) => x.me)) rows.push(me);
-    rows.sort((x, y) => y.score - x.score);
+    const rows = Meta.friends().map((f) => ({
+      uid: f.uid, name: f.name, score: f.score || 0, friend: true
+    })).concat([me]);
+    rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+
     box.innerHTML = '';
+    lbOpenRow = null;
     if (!rows.length) {
       const d = document.createElement('div');
       d.className = 'lb-empty';
-      d.textContent = '本周还没有成绩，通关一局就会自动上榜';
+      d.textContent = '还没有成绩，通关一局就会自动上榜';
       box.appendChild(d);
     }
     rows.slice(0, 20).forEach((r, i) => {
       const row = document.createElement('div');
       row.className = 'lb-row' + (r.me ? ' me' : '');
-      row.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
-        '<span class="lb-name">' + String(r.name || '玩家').slice(0, 8) + (r.friend ? ' <i>好友</i>' : '') + '</span>' +
+      const inner = document.createElement('div');
+      inner.className = 'lb-swipe';
+      inner.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
+        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
+        (r.me ? '<i class="lb-me">我</i>' : '<i>好友</i>') + '</span>' +
         '<span class="lb-score">' + (r.score || 0) + '</span>';
+      row.appendChild(inner);
+      if (r.friend) {
+        const del = document.createElement('button');
+        del.className = 'lb-del';
+        del.textContent = '删除';
+        del.addEventListener('click', (e) => {
+          e.stopPropagation();
+          Meta.removeFriend(r.uid);
+          toast('已删除好友 ' + r.name);
+          AudioManager.playSFX('invalid');
+          renderLeaderboard();
+        });
+        row.appendChild(del);
+        bindLbSwipe(row, inner);
+      }
       box.appendChild(row);
     });
     if ($('lb-nick')) $('lb-nick').value = Meta.nickname();
-    if ($('lb-week')) $('lb-week').textContent = b.week;
+    if ($('lb-week')) $('lb-week').textContent = Meta.weekKey();
   }
 
   // 自己的成绩始终按「当前最好成绩」实时算，不写进榜单列表，避免重复行
@@ -4354,7 +4450,7 @@
     const raw = $('lb-code') ? $('lb-code').value : '';
     const r = Meta.addFriend(raw);
     if (!r.ok) { toast(r.reason || '成绩码无效'); AudioManager.playSFX('invalid'); return; }
-    toast('已加入好友成绩：' + r.entry.name + ' ' + r.entry.score);
+    toast(r.updated ? ('已更新好友：' + r.entry.name + ' ' + r.entry.score) : ('已加入好友：' + r.entry.name + ' ' + r.entry.score));
     if ($('lb-code')) $('lb-code').value = '';
     renderLeaderboard();
     AudioManager.playSFX('coin');
@@ -4363,8 +4459,9 @@
   function saveNick() {
     const v = $('lb-nick') ? $('lb-nick').value : '';
     Meta.setNickname(v);
-    toast('昵称已保存：' + Meta.nickname());
+    toast('昵称已改为「' + Meta.nickname() + '」');
     renderLeaderboard();
+    refreshMenu();
   }
 
   if (document.readyState === 'loading') {
@@ -4407,6 +4504,7 @@
     crackIceAt: crackIceAt,
     iceTotal: iceTotal,
     endModeRun: endModeRun,
+    drawStatic: drawStatic,
     resetProvCounted: () => { provCounted = false; }
   };
 })();
