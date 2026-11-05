@@ -138,7 +138,7 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
 // ---------- 按顺序加载脚本（game.js 最后：它一加载就 boot） ----------
-const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'meta.js', 'account.js', 'board.js'];
+const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'meta.js', 'mail.js', 'account.js', 'board.js'];
 function loadScript(name) {
   const code = fs.readFileSync(path.join(__dirname, 'js', name), 'utf8');
   try {
@@ -196,22 +196,14 @@ function check(name, ok) {
   $('btn-close-backpack').dispatch('click');
   check('背包关闭', $('backpack-menu').style.display === 'none');
 
-  // 4. 两步注销 = 退出登录（数据留在本机，可以再切回来）
-  $('btn-logout').dispatch('click');
-  check('注销第一步弹窗', $('logout-confirm').style.display === 'flex');
-  $('btn-logout-yes').dispatch('click');
-  check('第一步"是"→第二步弹窗', $('logout-confirm2').style.display === 'flex' && $('logout-confirm').style.display === 'none');
-  $('btn-logout-cancel').dispatch('click');
-  check('第二步"取消"关闭', $('logout-confirm2').style.display === 'none');
-  $('btn-logout').dispatch('click');
-  $('btn-logout-yes').dispatch('click');
-  $('btn-logout-confirm').dispatch('click');
-  const accAfterLogout = sandbox.Account.list()[0];
-  check('注销后回到登录页（显示登录 / 注册）',
-    $('auth-menu').style.display === 'flex' && !sandbox.Account.loggedIn());
-  check('注销后存档还在本机（不是删号）', !!accAfterLogout && !!lsMap.get('nl2:acc:' + accAfterLogout.id));
-  const relogin = sandbox.Account.login('测试奶龙', '123456');
-  check('用名字 + 密码可以再登录回来', relogin.ok && sandbox.Store.getWallet().coins === 500);
+  // 4. 注销账号：入口搬到「设置 → 账号安全」（切换账号下面），主页换成邮箱键
+  const htmlSrc0 = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  check('主页不再有注销按钮，右下角是 📮 邮箱键',
+    htmlSrc0.includes('id="btn-mail"') && htmlSrc0.indexOf('id="btn-mail"') < htmlSrc0.indexOf('id="home-menu"'));
+  check('注销账号在账号安全面板里、切换账号下面',
+    htmlSrc0.indexOf('id="btn-logout"') > htmlSrc0.indexOf('id="btn-goto-switch"') &&
+    htmlSrc0.indexOf('id="btn-logout"') < htmlSrc0.indexOf('id="btn-close-account"'));
+  check('注销确认文案说明会删除全部数据', htmlSrc0.includes('全部数据') && htmlSrc0.includes('不可恢复'));
   // 后面的用例按「空仓库」起手，这里把钱包重置回初始状态
   lsMap.set('nl2:wallet', JSON.stringify({ coins: 500, items: {} }));
   $('main-menu').style.display = 'flex';
@@ -304,6 +296,7 @@ function check(name, ok) {
   const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="btn-features-back"'));
   check('功能介绍里放的是系统功能（章节 / 福利 / 账号）',
     featsHtml.includes('主线与章节') && featsHtml.includes('福利中心') && featsHtml.includes('账号与昵称') &&
+    featsHtml.includes('📮 邮箱') && featsHtml.includes('注销账号') &&
     !featsHtml.includes('基本玩法'));
   $('btn-features-back').dispatch('click');
   check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
@@ -935,6 +928,65 @@ function check(name, ok) {
   $('btn-fix-save').dispatch('click');
   check('改完名字就放行', sandbox.Account.needsFix().any === false &&
     sandbox.Account.current().name === '老玩家2');
+
+  // 35. 📮 邮箱：系统邮件 / 未读角标 / 领取奖励
+  const mailListAll = sandbox.Mail.list();
+  const giftMail = mailListAll.filter((m) => m.hasGift)[0];
+  check('邮箱里有系统邮件（公告 + 带奖励的）',
+    mailListAll.length >= 3 && !!giftMail && !!giftMail.coins);
+  check('未读数和已读状态初始正确', sandbox.Mail.get(giftMail.id).read === false);
+  sandbox.__nl_test && null;
+  $('main-menu').style.display = 'flex';
+  check('主页邮箱键显示未读角标（数字 = 未读封数）',
+    String($('mail-badge').textContent) === String(mailListAll.length) && $('mail-badge').style.display !== 'none');
+  $('btn-mail').dispatch('click');
+  check('点主页邮箱键打开邮箱列表',
+    $('mail-menu').style.display === 'flex' && $('mail-list').children.length === mailListAll.length);
+
+  const coinsBeforeMail = sandbox.Store.getWallet().coins;
+  const giftIdx = mailListAll.findIndex((m) => m.id === giftMail.id);
+  $('mail-list').children[giftIdx].dispatch('click');
+  check('点邮件进详情页，正文有内容',
+    $('mail-view').style.display === 'flex' && $('mail-view-body').textContent.length > 10);
+  check('打开邮件即标为已读', sandbox.Mail.get(giftMail.id).read === true);
+  $('btn-mail-claim').dispatch('click');
+  check('领取附件金币到账', sandbox.Store.getWallet().coins === coinsBeforeMail + giftMail.coins);
+  check('同一封邮件不能重复领',
+    sandbox.Mail.claim(giftMail.id).ok === false &&
+    sandbox.Store.getWallet().coins === coinsBeforeMail + giftMail.coins);
+  $('btn-mail-back').dispatch('click');
+  check('邮件详情「返回」回到列表', $('mail-menu').style.display === 'flex' && $('mail-view').style.display === 'none');
+  $('btn-mail-close').dispatch('click');
+  check('邮箱「返回」回到主页', $('main-menu').style.display === 'flex' && $('mail-menu').style.display === 'none');
+
+  // 邮箱状态跟着账号走，不串号
+  const otherAcc = sandbox.Account.list().filter((a) => a.name === '测试奶龙')[0];
+  sandbox.Account.switchTo(otherAcc.id);
+  check('换个账号，邮箱领取状态是各自独立的', sandbox.Mail.get(giftMail.id).claimed === false);
+  sandbox.Account.switchTo(sandbox.Account.list().filter((a) => a.name === '老玩家2')[0].id);
+  check('切回来奖励还是已领取', sandbox.Mail.get(giftMail.id).claimed === true);
+
+  // 36. 注销账号 = 彻底删除
+  const purgeId = sandbox.Account.current().id;
+  const accCountBefore = sandbox.Account.list().length;
+  lsMap.set('nl2:mail', lsMap.get('nl2:mail') || '{}');
+  reloaded = false;
+  $('btn-logout').dispatch('click');
+  check('注销账号弹第一步确认', $('logout-confirm').style.display === 'flex');
+  $('btn-logout-yes').dispatch('click');
+  check('第一步「是」→ 第二步确认', $('logout-confirm2').style.display === 'flex');
+  $('btn-logout-cancel').dispatch('click');
+  check('第二步「取消」不删号', $('logout-confirm2').style.display === 'none' && sandbox.Account.loggedIn());
+  $('btn-logout').dispatch('click');
+  $('btn-logout-yes').dispatch('click');
+  $('btn-logout-confirm').dispatch('click');
+  await sleep(260);
+  check('注销后这个号从账号表里消失（其他号还在）',
+    sandbox.Account.list().length === accCountBefore - 1 && !sandbox.Account.loggedIn());
+  check('注销后存档快照也删掉', !lsMap.has('nl2:acc:' + purgeId));
+  check('注销后本机存档全清（金币 / 进度 / 邮箱）',
+    !lsMap.has('nl2:wallet') && !lsMap.has('nl2:progress') && !lsMap.has('nl2:mail'));
+  check('注销后自动回到登录页', reloaded === true);
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261105g">
-<link rel="stylesheet" href="./css/themes.css?v=20261105g">
+<link rel="stylesheet" href="./css/style.css?v=20261105h">
+<link rel="stylesheet" href="./css/themes.css?v=20261105h">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -137,7 +137,7 @@
       <span>如遇方块没有加载出来请耐心等待</span>
     </div>
 
-    <button id="btn-logout">注销</button>
+    <button id="btn-mail" title="邮箱"><span class="mail-ico">📮</span>邮箱<i class="mail-badge" id="mail-badge" style="display:none;">0</i></button>
   </div>
 
   <!-- 主页键（左上角）：改名等主页相关设置 -->
@@ -242,6 +242,12 @@
       </section>
 
       <section class="rule-sec">
+        <h3>📮 邮箱</h3>
+        <p>主页右下角的 <b>📮 邮箱键</b>收系统发来的公告和奖励。有还没看过的新邮件时，键上会亮一个<b>红色角标</b>，数字就是没读的封数。</p>
+        <p>点开一封邮件能看完整正文；带奖励的邮件底部有「领取」按钮，金币直接进钱包，<b>每封只能领一次</b>。已读和领取记录<b>跟着账号走</b>，切换账号不会串。</p>
+      </section>
+
+      <section class="rule-sec">
         <h3>🏅 成就与配色</h3>
         <p><b>成就</b>：共 19 枚。每一枚都有 <b>5 个阶段</b>——灰色（还没开始）→ 铜 → 银 → 金 → 彩（满级）。同一个成就的进度越高，颜色就往上走一阶，比如「星星收集者」铜 10 颗、银 20 颗、金 35 颗、彩 60 颗。成就面板里能看到每一枚还差多少、下一阶是什么颜色。</p>
         <p><b>棋盘配色</b>：8 款配色按累计星星解锁——黄色（默认）、红色 10 星、橙色 20 星、绿色 35 星、青色 55 星、蓝色 80 星、紫色 110 星、黑色 150 星。换上后只改<b>游戏里棋盘外圈的光晕</b>和<b>「目标：」那一栏的底色</b>，<b>不影响分数、步数和难度</b>。</p>
@@ -271,7 +277,8 @@
         <p><b>第一次进来</b>先选「登录」或「注册」。注册只要起个名字 + 设个密码（4~24 位，不能有空格），进去就是一个全新的空号；登录要名字和密码都对，输错会提示「名字或密码不正确，请确认后再次输入」。</p>
         <p><b>昵称</b>：最多 8 个字，中文、字母、数字都可以，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，<b>名字具有唯一性</b>。想改名随时点左上角的 <b>🏠 主页键</b>（<b>📖 规则键在它右边</b>），里面有「✏️ 改名」，改完账号名一起更新。</p>
         <p><b>切换账号</b>：设置 → 🔐 账号安全 → 🔄 切换账号，本机的账号都会列出来，点一下就进去，金币、星星、进度各自独立保存。</p>
-        <p><b>修改密码</b>：设置 → 🔐 账号安全 → 🔑 修改密码。主页右下角的「注销」= 退出登录（不是删号），进度和金币都留在本机，回到登录页后可以点别的号，也能再登回来。</p>
+        <p><b>修改密码</b>：设置 → 🔐 账号安全 → 🔑 修改密码。想换号玩点「🔄 切换账号」，本机的号都会列出来，点一下就进去。</p>
+        <p><b>注销账号</b>：设置 → 🔐 账号安全 → 🔒 注销账号（在切换账号下面）。两步确认后这个号就<b>彻底删除</b>了——进度、星星、金币、背包、成就、邮箱、榜单成绩全部清掉，<b>无法恢复</b>。只是想换个号玩，请用「切换账号」，不要用注销。</p>
       </section>
     </div>
     <button class="btn-secondary" id="btn-features-back">返回</button>
@@ -374,6 +381,25 @@
     </div>
   </div>
 
+  <!-- 📮 邮箱：收系统发的公告与奖励 -->
+  <div class="overlay" id="mail-menu" style="display:none;">
+    <h2 class="title small">📮 邮箱</h2>
+    <p class="history-hint">系统发的公告和奖励都在这里</p>
+    <div class="mail-list" id="mail-list"></div>
+    <button class="btn-secondary" id="btn-mail-close">返回</button>
+  </div>
+
+  <!-- 邮件详情 -->
+  <div class="overlay" id="mail-view" style="display:none;">
+    <h2 class="title small" id="mail-view-title">📮 邮件</h2>
+    <div class="mail-body-box">
+      <p class="mail-meta" id="mail-view-meta"></p>
+      <p class="mail-body" id="mail-view-body"></p>
+    </div>
+    <button class="btn-primary" id="btn-mail-claim">领取奖励</button>
+    <button class="btn-secondary" id="btn-mail-back">返回</button>
+  </div>
+
   <!-- 设置：只有「音乐设置」和「账号安全」两个入口 -->
   <div class="overlay" id="settings-menu" style="display:none;">
     <h2 class="title small">设置</h2>
@@ -400,6 +426,7 @@
     </div>
     <button class="btn-primary" id="btn-goto-password">🔑 修改密码</button>
     <button class="btn-secondary" id="btn-goto-switch">🔄 切换账号</button>
+    <button class="btn-danger-outline" id="btn-logout">🔒 注销账号</button>
     <button class="btn-secondary" id="btn-close-account">返回</button>
   </div>
 
@@ -604,9 +631,9 @@
     <button class="btn-secondary" id="btn-pause-home">🏠 返回主页</button>
   </div>
 
-  <!-- 注销（= 退出登录）：数据留在本机，随时切回来 -->
+  <!-- 注销账号（彻底删除） -->
   <div class="overlay confirm-overlay" id="logout-confirm" style="display:none;">
-    <h2 class="title small">注销</h2>
+    <h2 class="title small">注销账号</h2>
     <p class="confirm-text">是否注销当前账号？</p>
     <div>
       <button class="btn-primary btn-danger" id="btn-logout-yes">是</button>
@@ -617,7 +644,7 @@
   <!-- 注销确认（第二步） -->
   <div class="overlay confirm-overlay" id="logout-confirm2" style="display:none;">
     <h2 class="title small">注销</h2>
-    <p class="confirm-text">注销后回到登录页，这个号的进度和金币都还在本机，登录或切换到别的号都能再回来</p>
+    <p class="confirm-text">注销会删除这个账号的<b>全部数据</b>：进度、星星、金币、背包、成就、邮箱、榜单成绩，<b>不可恢复</b></p>
     <div>
       <button class="btn-primary btn-danger" id="btn-logout-confirm">确认</button>
       <button class="btn-primary btn-success" id="btn-logout-cancel">取消</button>
@@ -828,19 +855,20 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261105g"></script>
-<script src="./js/storage.js?v=20261105g"></script>
-<script src="./js/audio.js?v=20261105g"></script>
-<script src="./js/effects.js?v=20261105g"></script>
-<script src="./js/specials.js?v=20261105g"></script>
-<script src="./js/goals.js?v=20261105g"></script>
-<script src="./js/tasks.js?v=20261105g"></script>
-<script src="./js/input.js?v=20261105g"></script>
-<script src="./js/builtin-music.js?v=20261105g"></script>
-<script src="./js/music.js?v=20261105g"></script>
-<script src="./js/meta.js?v=20261105g"></script>
-<script src="./js/account.js?v=20261105g"></script>
-<script src="./js/board.js?v=20261105g"></script>
-<script src="./js/game.js?v=20261105g"></script>
+<script src="./js/rng.js?v=20261105h"></script>
+<script src="./js/storage.js?v=20261105h"></script>
+<script src="./js/audio.js?v=20261105h"></script>
+<script src="./js/effects.js?v=20261105h"></script>
+<script src="./js/specials.js?v=20261105h"></script>
+<script src="./js/goals.js?v=20261105h"></script>
+<script src="./js/tasks.js?v=20261105h"></script>
+<script src="./js/mail.js?v=20261105h"></script>
+<script src="./js/input.js?v=20261105h"></script>
+<script src="./js/builtin-music.js?v=20261105h"></script>
+<script src="./js/music.js?v=20261105h"></script>
+<script src="./js/meta.js?v=20261105h"></script>
+<script src="./js/account.js?v=20261105h"></script>
+<script src="./js/board.js?v=20261105h"></script>
+<script src="./js/game.js?v=20261105h"></script>
 </body>
 </html>

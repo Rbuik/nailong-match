@@ -1,0 +1,127 @@
+// mail.js — 系统邮箱：收系统发的公告与奖励
+// 邮件正文写在代码里（SYSTEM_MAILS），每个账号各自记录「已读 / 已领取」（nl2:mail），
+// 切换账号时随账号存档一起走，不会串号。暴露 window.Mail
+
+(function (global) {
+  'use strict';
+
+  const KEY = 'nl2:mail';
+
+  // 系统邮件：以后要发新公告 / 补偿，往这里加一条就行（id 唯一）
+  const SYSTEM_MAILS = [
+    {
+      id: 'welcome-2026-11',
+      at: '2026-11-05 12:00',
+      icon: '🎉',
+      title: '欢迎来到奶龙消消乐',
+      from: '系统',
+      body: '谢谢你来玩奶龙消消乐！这是一点小小的见面礼，先去购物商店挑个顺手的道具吧。\n\n以后有活动、补偿、版本更新，都会发到这封信箱里，记得常来看看。',
+      coins: 200
+    },
+    {
+      id: 'notice-account-2026-11',
+      at: '2026-11-05 18:00',
+      icon: '📢',
+      title: '账号系统上线：注册 / 登录 / 切换账号',
+      from: '系统',
+      body: '现在第一次进来要先「注册」或「登录」，名字和密码都要有才能开始玩。\n\n· 设置 → 🔐 账号安全：可以修改密码、切换本机的其他账号\n· 名字具有唯一性，最多 8 个字，特殊符号只能用 - . _\n\n账号数据存在本机，同一台设备上可以来回切换。',
+      coins: 0
+    },
+    {
+      id: 'notice-rules-2026-11',
+      at: '2026-11-05 19:00',
+      icon: '📖',
+      title: '规则页更新：功能介绍和玩法规则分开了',
+      from: '系统',
+      body: '左上角的 📖 规则现在先让你选看哪一份：\n\n· 🧩 功能介绍：章节、更多玩法、金币道具、每日挑战、福利、成就与配色、排行榜、音乐、账号\n· 🎮 玩法规则：基本玩法、特殊块、组合技、连击、关卡目标、障碍与货物、星级、分数与纪录、提示与续命\n\n只想查一个机制的时候，不用再翻完一整页了。',
+      coins: 0
+    }
+  ];
+
+  function read(k, fb) {
+    try {
+      const raw = localStorage.getItem(k);
+      return raw ? JSON.parse(raw) : fb;
+    } catch (e) { return fb; }
+  }
+
+  function write(k, v) {
+    try { localStorage.setItem(k, JSON.stringify(v)); return true; }
+    catch (e) { return false; }
+  }
+
+  function state() {
+    const s = read(KEY, null);
+    if (!s || typeof s !== 'object') return { read: {}, claimed: {} };
+    return {
+      read: s.read && typeof s.read === 'object' ? s.read : {},
+      claimed: s.claimed && typeof s.claimed === 'object' ? s.claimed : {}
+    };
+  }
+
+  function save(s) { return write(KEY, s); }
+
+  // 列表：最新的排前面，带上「已读 / 已领取」状态
+  function list() {
+    const s = state();
+    return SYSTEM_MAILS.map((m) => ({
+      id: m.id,
+      at: m.at,
+      icon: m.icon || '📮',
+      title: m.title,
+      from: m.from || '系统',
+      body: m.body || '',
+      coins: m.coins || 0,
+      items: m.items || null,
+      read: !!s.read[m.id],
+      claimed: !!s.claimed[m.id],
+      hasGift: !!(m.coins || m.items)
+    })).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  }
+
+  function get(id) {
+    return list().filter((m) => m.id === id)[0] || null;
+  }
+
+  function unread() {
+    return list().filter((m) => !m.read).length;
+  }
+
+  function hasGift() {
+    return list().filter((m) => m.hasGift && !m.claimed).length;
+  }
+
+  function markRead(id) {
+    const s = state();
+    if (!s.read[id]) { s.read[id] = Date.now(); save(s); }
+    return true;
+  }
+
+  // 领取附件：只发一次
+  function claim(id) {
+    const m = get(id);
+    if (!m) return { ok: false, reason: '邮件不存在' };
+    if (!m.hasGift) return { ok: false, reason: '这封邮件没有附件' };
+    if (m.claimed) return { ok: false, reason: '奖励已经领过了' };
+    const s = state();
+    s.read[id] = s.read[id] || Date.now();
+    s.claimed[id] = Date.now();
+    save(s);
+
+    let coins = 0;
+    const items = [];
+    if (m.coins) {
+      coins = m.coins;
+      if (global.Store && Store.addCoins) Store.addCoins(coins);
+    }
+    if (m.items) {
+      Object.keys(m.items).forEach((k) => {
+        if (global.Store && Store.addItem) Store.addItem(k, m.items[k]);
+        items.push({ key: k, n: m.items[k] });
+      });
+    }
+    return { ok: true, coins: coins, items: items };
+  }
+
+  global.Mail = { list, get, unread, hasGift, markRead, claim, SYSTEM_MAILS };
+})(window);

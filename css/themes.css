@@ -1625,3 +1625,118 @@ body[data-skin="black"]   { --skin-target-bg: rgba(40, 40, 48, 0.18); }
 .acct-row.cur .acct-mark { color: #1a8f4a; }
 
 .acct-list { width: 88%; max-width: 380px; margin-bottom: 4px; }
+
+/* ================= 📮 邮箱 ================= */
+.mail-badge {
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  background: #ff5c5c;
+  color: #fff;
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+.mail-list {
+  width: 88%;
+  max-width: 380px;
+  max-height: 56vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.mail-list::-webkit-scrollbar { width: 6px; }
+.mail-list::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
+
+.mail-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border-radius: 14px;
+  border: 2px solid #eceaf6;
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 2px 8px rgba(80, 60, 140, 0.06);
+  transition: transform 0.1s ease, border-color 0.15s ease;
+}
+
+.mail-row:active { transform: scale(0.985); }
+.mail-row.unread { border-color: rgba(124, 92, 255, 0.5); background: rgba(124, 92, 255, 0.05); }
+
+.mail-row .m-ico {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(124, 92, 255, 0.1);
+  color: #5b3fd6;
+  font-size: 15px;
+  line-height: 30px;
+  text-align: center;
+}
+
+.mail-row .m-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mail-row .m-title { font-size: 14px; font-weight: 700; color: #3d3556; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-row .m-sub { font-size: 11px; color: #9a93ad; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mail-row .m-flag { flex: 0 0 auto; font-size: 11px; font-weight: 700; color: #c0392b; }
+.mail-row .m-flag.done { color: #9a93ad; }
+
+.mail-row .m-dot {
+  flex: 0 0 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff5c5c;
+}
+
+.mail-body-box {
+  width: 88%;
+  max-width: 380px;
+  max-height: 54vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.035);
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  text-align: left;
+}
+
+.mail-body-box::-webkit-scrollbar { width: 6px; }
+.mail-body-box::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
+
+.mail-meta { font-size: 11px; color: #9a93ad; margin: 0 0 8px; }
+.mail-body { font-size: 14px; line-height: 1.7; color: #444; margin: 0; white-space: pre-wrap; word-break: break-word; }
+
+/* 账号安全里的「注销账号」：描边红按钮，和普通按钮区分开 */
+.btn-danger-outline {
+  width: 180px;
+  padding: 14px 0;
+  border: 2px solid rgba(220, 70, 70, 0.55);
+  border-radius: 30px;
+  background: rgba(255, 92, 92, 0.06);
+  color: #c0392b;
+  font-size: 17px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-bottom: 12px;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.btn-danger-outline:hover { background: rgba(255, 92, 92, 0.14); }
+.btn-danger-outline:active { transform: scale(0.95); }

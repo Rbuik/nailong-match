@@ -110,9 +110,10 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .history-list::-webkit-scrollbar { width: 6px; }
 .history-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
 
-#main-menu #btn-logout { position: absolute; right: 18px; bottom: 14px; padding: 8px 18px; border: 1px solid rgba(255, 92, 92, 0.35); border-radius: 10px; background: rgba(255, 92, 92, 0.08); color: #c0392b; font-size: 13px; font-weight: bold; cursor: pointer; transition: all 0.15s ease; }
-#main-menu #btn-logout:hover { background: rgba(255, 92, 92, 0.16); }
-#main-menu #btn-logout:active { transform: scale(0.94); }
+#main-menu #btn-mail { position: absolute; right: 18px; bottom: 14px; display: flex; align-items: center; gap: 6px; padding: 8px 16px; border: 1px solid rgba(124, 92, 255, 0.35); border-radius: 10px; background: rgba(124, 92, 255, 0.08); color: #5b3fd6; font-size: 13px; font-weight: bold; cursor: pointer; transition: all 0.15s ease; }
+#main-menu #btn-mail:hover { background: rgba(124, 92, 255, 0.16); }
+#main-menu #btn-mail:active { transform: scale(0.94); }
+#main-menu #btn-mail .mail-ico { font-size: 15px; line-height: 1; }
 
 /* 主页/设置等面板显示时，容器需要更多高度，避免内容溢出、按钮互相压住 */
 body[data-view="menu"] .game-container {

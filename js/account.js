@@ -233,6 +233,20 @@
     return true;
   }
 
+  // 注销账号 = 彻底删除：本机这份存档、账号表里的记录、榜单成绩、邮箱等全部清掉
+  // （榜单删除广播 Board.remove 由调用方先发，它的墓碑 nl2:lb-del 是设备级 key，不会被这里清掉）
+  function purge() {
+    const acc = current();
+    const uid = (acc && acc.id) || currentId() || '';
+    const arr = list().filter((x) => !acc || x.id !== acc.id);
+    saveList(arr);
+    if (uid) { try { localStorage.removeItem(K.slot + uid); } catch (e) {} }
+    wipeActive();
+    write(K.cur, '');
+    try { sessionStorage.clear(); } catch (e) {}
+    return { ok: true, uid: uid, left: arr.length };
+  }
+
   function switchTo(id) {
     const acc = find(id);
     if (!acc) return { ok: false, reason: '账号不存在' };
@@ -369,7 +383,7 @@
     hash,
     list: all, find, findByName, current, currentId, loggedIn,
     register, login, logout, switchTo,
-    setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick,
+    setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick, purge,
     saveCurrent, checkName, checkPass
   };
 })(window);

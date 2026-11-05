@@ -2341,7 +2341,8 @@
   function hideAllOverlays() {
     ['main-menu', 'settings-menu', 'music-settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
-      'rules-menu', 'features-menu', 'play-rules-menu', 'logout-confirm', 'logout-confirm2', 'pause-menu',
+      'rules-menu', 'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view',
+      'logout-confirm', 'logout-confirm2', 'pause-menu',
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu',
@@ -2356,7 +2357,7 @@
   const MENU_PANELS = ['main-menu', 'settings-menu', 'music-settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
     'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu',
-    'features-menu', 'play-rules-menu', 'admin-menu',
+    'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu'];
@@ -3682,12 +3683,13 @@
     });
     const logoutConfirm = $('btn-logout-confirm');
     if (logoutConfirm) logoutConfirm.addEventListener('click', () => {
-      // 注销 = 退出登录：当前号的数据进本机快照（不删除、不上榜删除），回到登录页，
-      // 之后可以登录 / 切换到另一个号，也能随时切回来
-      Account.logout();
+      // 注销账号 = 彻底删除：先向共享榜广播「删除我」，再把本机这个号的存档、账号记录、
+      // 邮箱、成就、进度全部清掉（`nl2:lb-del` 墓碑与访问统计是设备级的，保留）
+      try { if (typeof Board !== 'undefined' && Board.remove) Board.remove(Meta.myUid()); } catch (e) {}
+      try { if (typeof Account !== 'undefined' && Account.purge) Account.purge(); } catch (e) {}
       $('logout-confirm2').style.display = 'none';
+      $('account-menu').style.display = 'none';
       S.playing = false;
-      showAuthScreen();
       setTimeout(() => { try { location.reload(); } catch (e) {} }, 160);
     });
     const logoutCancel = $('btn-logout-cancel');
@@ -3708,7 +3710,7 @@
     // ==================== 隐藏后台：同时按住奶龙图案 + 注销键 3 秒 ====================
     const adminMascot = (typeof document.querySelector === 'function')
       ? document.querySelector('#main-menu .mascot') : null;
-    const adminLogout = $('btn-logout');
+    const adminLogout = $('btn-mail');   // 隐藏手势改成「奶龙图案 + 主页右下角 📮 邮箱键」按住 3 秒
     if (adminMascot && adminLogout) {
       let holds = 0;
       let holdTimer = null;
@@ -3716,7 +3718,7 @@
       const openAdmin = () => {
         holdTimer = null;
         holds = 0;
-        suppressLogout = true; // 松手时不要误触「注销」确认框
+        suppressLogout = true; // 松手时不要误触「打开邮箱」
         renderAdmin();
         fetchGeoFast().then(renderAdmin);
         // 省份合计刷新后，后台「全网」跟着更新（两边数字始终一致）
@@ -3872,6 +3874,24 @@
       syncVolumeUI();
       AudioManager.playSFX('select');
     });
+
+    // 📮 邮箱：主页右下角进来，看系统邮件 / 领奖励
+    on('btn-mail', () => {
+      renderMailList();
+      showOverlay('mail-menu');
+      AudioManager.playSFX('select');
+    });
+    on('btn-mail-close', () => {
+      $('mail-menu').style.display = 'none';
+      showOverlay('main-menu');
+      refreshMenu();
+    });
+    on('btn-mail-back', () => {
+      $('mail-view').style.display = 'none';
+      renderMailList();
+      showOverlay('mail-menu');
+    });
+    on('btn-mail-claim', claimMail);
 
     on('btn-chapters', () => { renderChapterMap(); showOverlay('chapters-menu'); });
     on('btn-close-chapters', () => { $('chapters-menu').style.display = 'none'; showOverlay('main-menu'); });
@@ -4304,6 +4324,8 @@
 
     const stars = $('menu-total-stars');
     if (stars) stars.textContent = Store.totalStars();
+    refreshMailBadge();
+
     const coins = $('menu-coins');
     if (coins) coins.textContent = Store.getWallet().coins;
 
@@ -5454,6 +5476,89 @@
     if (Account.needsFix().any) { openFixMenu(); return false; }
     then();
     return true;
+  }
+
+  // ==================== 📮 邮箱 ====================
+  let mailOpenId = '';
+
+  // 主页邮箱键上的未读角标
+  function refreshMailBadge() {
+    const badge = $('mail-badge');
+    if (!badge) return;
+    let n = 0;
+    try { n = (typeof Mail !== 'undefined') ? Mail.unread() : 0; } catch (e) { n = 0; }
+    if (n > 0) {
+      badge.textContent = n > 9 ? '9+' : String(n);
+      badge.style.display = '';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function renderMailList() {
+    const box = $('mail-list');
+    if (!box) return;
+    box.innerHTML = '';
+    const arr = (typeof Mail !== 'undefined') ? Mail.list() : [];
+    if (!arr.length) {
+      const p = document.createElement('p');
+      p.className = 'history-hint';
+      p.textContent = '暂时还没有邮件';
+      box.appendChild(p);
+      return;
+    }
+    arr.forEach((m) => {
+      const row = document.createElement('div');
+      row.className = 'mail-row' + (m.read ? '' : ' unread');
+      let flag = '';
+      if (m.hasGift) {
+        flag = m.claimed
+          ? '<span class="m-flag done">已领取</span>'
+          : '<span class="m-flag">🎁 ' + (m.coins || '附件') + '</span>';
+      }
+      row.innerHTML = '<span class="m-ico">' + (m.icon || '📮') + '</span>' +
+        '<span class="m-main"><b class="m-title">' + escHtml(m.title) + '</b>' +
+        '<i class="m-sub">' + escHtml(m.from) + ' · ' + escHtml(m.at) + '</i></span>' +
+        flag + (m.read ? '' : '<span class="m-dot"></span>');
+      row.addEventListener('click', () => openMail(m.id));
+      box.appendChild(row);
+    });
+  }
+
+  function openMail(id) {
+    const m = (typeof Mail !== 'undefined') ? Mail.get(id) : null;
+    if (!m) return;
+    mailOpenId = id;
+    try { Mail.markRead(id); } catch (e) {}
+    const t = $('mail-view-title');
+    if (t) t.textContent = (m.icon || '📮') + ' ' + m.title;
+    const meta = $('mail-view-meta');
+    if (meta) meta.textContent = m.from + ' · ' + m.at;
+    const body = $('mail-view-body');
+    if (body) body.textContent = m.body;
+    const claim = $('btn-mail-claim');
+    if (claim) {
+      claim.style.display = m.hasGift ? 'block' : 'none';
+      claim.disabled = !!m.claimed;
+      claim.textContent = m.claimed ? '奖励已领取' : (m.coins ? '领取 ' + m.coins + ' 金币' : '领取奖励');
+    }
+    $('mail-menu').style.display = 'none';
+    showOverlay('mail-view');
+    refreshMailBadge();
+    AudioManager.playSFX('select');
+  }
+
+  function claimMail() {
+    if (!mailOpenId) return;
+    const r = Mail.claim(mailOpenId);
+    if (!r.ok) { toast(r.reason || '领取失败'); return; }
+    const claim = $('btn-mail-claim');
+    if (claim) { claim.disabled = true; claim.textContent = '奖励已领取'; }
+    toast(r.coins ? '领取成功：+' + r.coins + ' 金币' : '领取成功');
+    try { AudioManager.playSFX('coin'); } catch (e) {}
+    renderMailList();
+    refreshMenu();
+    refreshMailBadge();
   }
 
   function claimCompensation() {
