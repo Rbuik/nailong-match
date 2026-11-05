@@ -2045,14 +2045,15 @@
   }
 
   function applyRuleFont(idx) {
-    const box = $('rules-box');
     const i = Math.max(0, Math.min(RULE_FONTS.length - 1, Number(idx) || 0));
-    if (box) box.style.setProperty('--rule-fs', RULE_FONTS[i] + 'px');
+    // 「功能介绍」和「玩法规则」两块正文各自有一套字号按钮，统一应用
+    ['features-box', 'play-rules-box'].forEach((id) => {
+      const box = $(id);
+      if (box) box.style.setProperty('--rule-fs', RULE_FONTS[i] + 'px');
+    });
     // 到边界时对应按钮变淡，提示已经没法再调
-    const minus = $('btn-rule-font-minus');
-    const plus = $('btn-rule-font-plus');
-    if (minus) minus.classList.toggle('is-off', i <= 0);
-    if (plus) plus.classList.toggle('is-off', i >= RULE_FONTS.length - 1);
+    document.querySelectorAll('.js-rule-minus').forEach((el) => el.classList.toggle('is-off', i <= 0));
+    document.querySelectorAll('.js-rule-plus').forEach((el) => el.classList.toggle('is-off', i >= RULE_FONTS.length - 1));
     return i;
   }
 
@@ -2340,7 +2341,7 @@
   function hideAllOverlays() {
     ['main-menu', 'settings-menu', 'music-settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
-      'rules-menu', 'logout-confirm', 'logout-confirm2', 'pause-menu',
+      'rules-menu', 'features-menu', 'play-rules-menu', 'logout-confirm', 'logout-confirm2', 'pause-menu',
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu',
@@ -2354,7 +2355,8 @@
   // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
   const MENU_PANELS = ['main-menu', 'settings-menu', 'music-settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
-    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu', 'admin-menu',
+    'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu',
+    'features-menu', 'play-rules-menu', 'admin-menu',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu'];
@@ -3602,15 +3604,31 @@
       Store.setSettings({ ruleFontLv: next });
       AudioManager.playSFX('select');
     };
-    const fontMinus = $('btn-rule-font-minus');
-    if (fontMinus) fontMinus.addEventListener('click', () => stepRuleFont(-1));
-    const fontPlus = $('btn-rule-font-plus');
-    if (fontPlus) fontPlus.addEventListener('click', () => stepRuleFont(1));
+    document.querySelectorAll('.js-rule-minus').forEach((el) => el.addEventListener('click', () => stepRuleFont(-1)));
+    document.querySelectorAll('.js-rule-plus').forEach((el) => el.addEventListener('click', () => stepRuleFont(1)));
     const rulesClose = $('btn-close-rules');
     if (rulesClose) rulesClose.addEventListener('click', () => {
       $('rules-menu').style.display = 'none';
       if (quietPaused) quietResumeGame();
       else showOverlay('main-menu');
+    });
+    // 📖 规则首页：功能介绍 / 玩法规则分开看
+    const gotoRulesSub = (id) => {
+      applyRuleFont(ruleFontLevel());
+      $('rules-menu').style.display = 'none';
+      showOverlay(id);
+    };
+    const featBtn = $('btn-goto-features');
+    if (featBtn) featBtn.addEventListener('click', () => gotoRulesSub('features-menu'));
+    const playRuleBtn = $('btn-goto-play-rules');
+    if (playRuleBtn) playRuleBtn.addEventListener('click', () => gotoRulesSub('play-rules-menu'));
+    ['btn-features-back', 'btn-play-rules-back'].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener('click', () => {
+        $('features-menu').style.display = 'none';
+        $('play-rules-menu').style.display = 'none';
+        showOverlay('rules-menu');
+      });
     });
     const hist = $('btn-history');
     if (hist) hist.addEventListener('click', () => {

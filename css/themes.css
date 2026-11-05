@@ -355,8 +355,17 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .rule-sec b { color: #222; }
 
-/* 规则页整页右下角：固定悬浮的字号调节（文字 + A− / A+ 两个圆钮，白底黑圈黑字） */
-#rules-menu { padding-bottom: 74px; }
+/* 📖 规则首页：功能介绍 / 玩法规则 两个入口 */
+.rules-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* 内容页右下角：固定悬浮的字号调节（文字 + A− / A+ 两个圆钮，白底黑圈黑字） */
+#features-menu,
+#play-rules-menu { padding-bottom: 74px; }
 
 .rule-font-ctrl {
   position: absolute;

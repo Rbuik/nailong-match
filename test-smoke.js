@@ -283,7 +283,10 @@ function check(name, ok) {
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('200 金币'));
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));
-  check('规则含成就配色排行榜说明', htmlSrc.includes('成就、配色与排行榜') && htmlSrc.includes('总榜 → 省榜 → 局榜') && htmlSrc.includes('奖牌'));
+  check('规则含成就配色排行榜说明', htmlSrc.includes('成就与配色') && htmlSrc.includes('排行榜与奖牌') && htmlSrc.includes('总榜 → 省榜 → 局榜'));
+  check('规则里昵称只说「名字具有唯一性」，不提旧默认名 / 榜上重名',
+    htmlSrc.includes('名字具有唯一性') && !htmlSrc.includes('不能和榜上的人重名') &&
+    !htmlSrc.includes('默认的「奶龙玩家」'));
   check('规则页不剧透总章节数 / 总关数', !htmlSrc.includes('主线共 <b>40 关</b>') && !htmlSrc.includes('40 关') && !htmlSrc.includes('4 个章节'));
   check('规则含补签说明', htmlSrc.includes('补签') && htmlSrc.includes('300 金币'));
   check('结算页有继续游戏按钮且在进入下一关上面',
@@ -295,6 +298,23 @@ function check(name, ok) {
     htmlSrc.indexOf('welfare-streak') > htmlSrc.indexOf('btn-wheel'));
   check('省榜 / 局榜更换符号在标题右边', htmlSrc.includes('lb-title-row') && htmlSrc.includes('lb-swap') &&
     htmlSrc.indexOf('lb-view-title') < htmlSrc.indexOf('lb-prov-swap'));
+  // 📖 规则首页 → 功能介绍 / 玩法规则 分开
+  $('btn-goto-features').dispatch('click');
+  check('点「功能介绍」进入功能介绍页', $('features-menu').style.display === 'flex' && $('rules-menu').style.display === 'none');
+  const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="btn-features-back"'));
+  check('功能介绍里放的是系统功能（章节 / 福利 / 账号）',
+    featsHtml.includes('主线与章节') && featsHtml.includes('福利中心') && featsHtml.includes('账号与昵称') &&
+    !featsHtml.includes('基本玩法'));
+  $('btn-features-back').dispatch('click');
+  check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
+  $('btn-goto-play-rules').dispatch('click');
+  check('点「玩法规则」进入玩法规则页', $('play-rules-menu').style.display === 'flex');
+  const playHtml = htmlSrc.slice(htmlSrc.indexOf('id="play-rules-box"'), htmlSrc.indexOf('id="btn-play-rules-back"'));
+  check('玩法规则里放的是单局玩法（基本玩法 / 特殊块 / 星级）',
+    playHtml.includes('基本玩法') && playHtml.includes('特殊块怎么来') &&
+    playHtml.includes('星级评价怎么算') && !playHtml.includes('福利中心'));
+  $('btn-play-rules-back').dispatch('click');
+  check('玩法规则「返回」回到规则首页', $('play-rules-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
   $('btn-close-rules').dispatch('click');
   check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
 
