@@ -1439,7 +1439,31 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-score { font-weight: 800; color: #ff8c00; }
 .lb-score.none { font-weight: 600; font-size: 11px; color: #b0a9c0; }
 /* 后台「全服用户名单」：右边的省份标签比分数低调 */
-.ul-prov { font-weight: 700; font-size: 12px; color: #8a82a6; }
+/* 后台「玩家」名单：名次 / 名字 / 总分 / 省份 四列，分数在省份左边且竖向对齐 */
+.ul-score {
+  min-width: 68px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.ul-prov {
+  font-weight: 700;
+  font-size: 12px;
+  color: #8a82a6;
+  width: 64px;
+  min-width: 64px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.admin-ul-list .lb-name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 「玩家」名单的搜索框跟着列表同宽 */
+#admin-ul-search { width: 90%; margin: 8px 0 2px; }
 /* 整行灰显：0 分没上榜的人（名次 / 名字也跟着变灰） */
 .lb-row.none .lb-rank,
 .lb-row.none .lb-name { color: #b0a9c0; }

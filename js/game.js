@@ -3618,7 +3618,7 @@
       const k = n.toLowerCase();
       const p = String(pv || '').toLowerCase();
       const cur = map[k];
-      if (!cur) { map[k] = { name: n, prov: p }; return; }
+      if (!cur) { map[k] = { name: n, prov: p, score: 0 }; return; }
       if (p) cur.prov = p;   // 名字相同（大小写不同）只留一条，省份以有值的为准
     };
     try {
@@ -3631,10 +3631,23 @@
         Board.list().forEach((e) => { if (e) add(e && e.name, e && e.pv); });
       }
     } catch (e) {}
+    // 总分：取共享榜里同名（不分大小写）的最高分，没上榜的就是 0 分
+    try {
+      if (typeof Board !== 'undefined' && Board.list) {
+        Board.list().forEach((e) => {
+          if (!e || !e.name) return;
+          const cur = map[String(e.name).trim().toLowerCase()];
+          if (!cur) return;
+          const s = Math.max(0, Math.round(Number(e.score) || 0));
+          if (s > cur.score) cur.score = s;
+        });
+      }
+    } catch (e) {}
     return Object.keys(map).map((k) => map[k]);
   }
 
   let adminUlProv = '';   // '' = 全服；否则是省份代码
+  let adminUlQuery = '';  // 搜索关键字（只在本页当前范围内搜）
 
   function adminUlProvName() {
     if (!adminUlProv) return '全服';
@@ -3644,13 +3657,14 @@
 
   function adminUlRows() {
     const list = collectUserList();
-    const rows = adminUlProv
+    let rows = adminUlProv
       ? list.filter((u) => u.prov === adminUlProv)
       : list.slice();
-    return rows.sort((a, b) => {
-      if (!adminUlProv && a.prov !== b.prov) return String(a.prov).localeCompare(String(b.prov));
-      return String(a.name).localeCompare(String(b.name), 'zh');
-    });
+    const q = String(adminUlQuery || '').trim().toLowerCase();
+    if (q) rows = rows.filter((u) => String(u.name).toLowerCase().indexOf(q) >= 0);
+    // 按总分从高到低排（同分按名字）
+    return rows.sort((a, b) => (b.score - a.score) ||
+      String(a.name).localeCompare(String(b.name), 'zh'));
   }
 
   function hideAdminUlPicker() {
@@ -3685,17 +3699,18 @@
     const rows = adminUlRows();
     const title = $('admin-ul-title');
     if (title) {
-      title.textContent = '👥 全服用户 · ' + adminUlProvName() + '（' + rows.length + '）';
+      title.textContent = '玩家 · ' + adminUlProvName() + '（' + rows.length + '）';
     }
     box.innerHTML = '';
     rows.forEach((u, i) => {
       const p = u.prov ? (provByCode(u.prov) || {}).name || u.prov : '未定位';
       const row = document.createElement('div');
-      row.className = 'lb-row';
+      row.className = 'lb-row' + (u.score > 0 ? '' : ' none');
       const inner = document.createElement('div');
       inner.className = 'lb-swipe';
       inner.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
         '<span class="lb-name">' + escHtml(String(u.name).slice(0, 12)) + '</span>' +
+        '<span class="lb-score ul-score">' + (u.score > 0 ? String(u.score) : '—') + '</span>' +
         '<span class="lb-score ul-prov">' + escHtml(p) + '</span>';
       row.appendChild(inner);
       box.appendChild(row);
@@ -3703,13 +3718,18 @@
     if (!rows.length) {
       const d = document.createElement('div');
       d.className = 'lb-empty';
-      d.textContent = adminUlProv ? '这个省还没有用户' : '还没有用户';
+      d.textContent = String(adminUlQuery || '').trim()
+        ? '没有找到这个玩家'
+        : (adminUlProv ? '这个省还没有用户' : '还没有用户');
       box.appendChild(d);
     }
   }
 
   function openAdminUserList() {
     adminUlProv = '';
+    adminUlQuery = '';
+    const se = $('admin-ul-search');
+    if (se) se.value = '';
     hideAdminUlPicker();
     renderAdminUserList();
     showOverlay('admin-user-list');
@@ -4031,6 +4051,12 @@
       showOverlay('admin-menu');
       showAdminPage('users');
       renderAdminUsers();
+    });
+    // 搜索：只在当前范围（全服 / 某个省）里按名字过滤
+    const adminUlSearch = $('admin-ul-search');
+    if (adminUlSearch) adminUlSearch.addEventListener('input', () => {
+      adminUlQuery = adminUlSearch.value || '';
+      renderAdminUserList();
     });
 
     // 省份统计入口（隐藏）：在「📊 点击数量」页里，同时按住「🔧 后台」标题和「🌐 全网」板块 3 秒

@@ -298,9 +298,18 @@ function check(name, ok) {
   check('名单 = 本机账号 + 榜上玩家（和用户数量同一口径）', ulRows.length === su2.users);
   check('名单带所在省', (ulRows.filter((u) => u.name === '外省玩家')[0] || {}).prov === 'guangdong');
   sandbox.__nl_test.openUserList();
-  check('名单页打开、标题是全服', $('admin-user-list').style.display === 'flex' &&
-    String($('admin-ul-title').textContent).indexOf('全服') >= 0);
+  check('名单页打开、标题是「玩家 · 全服」', $('admin-user-list').style.display === 'flex' &&
+    String($('admin-ul-title').textContent).indexOf('玩家 · 全服') === 0);
   check('名单列出全部用户', $('admin-ul-list').children.length === su2.users);
+  check('名单按总分从高到低排（10 分外省玩家在最前）', (() => {
+    const html = String($('admin-ul-list').children[0].children[0].innerHTML);
+    return html.indexOf('外省玩家') >= 0;
+  })());
+  check('分数在省份左边、两列都有值', (() => {
+    const html = String($('admin-ul-list').children[0].children[0].innerHTML);
+    return html.indexOf('ul-score') >= 0 && html.indexOf('ul-score') < html.indexOf('ul-prov') &&
+      html.indexOf('>10<') >= 0;
+  })());
   $('admin-ul-swap').dispatch('click');
   check('⇄ 弹出「全服 + 每个省」的选择', $('admin-ul-picker').style.display === 'grid' &&
     $('admin-ul-picker').children.length >= 30 &&
@@ -310,6 +319,18 @@ function check(name, ok) {
     String($('admin-ul-list').children[0].children[0].innerHTML).indexOf('外省玩家') >= 0);
   sandbox.__nl_test.setUserListProv('');
   check('切回全服又全部列出', $('admin-ul-list').children.length === su2.users);
+  const ulSearch = $('admin-ul-search');
+  ulSearch.value = '外省';
+  ulSearch.dispatch('input');
+  check('搜索只筛当前范围里的玩家', $('admin-ul-list').children.length === 1 &&
+    String($('admin-ul-list').children[0].children[0].innerHTML).indexOf('外省玩家') >= 0);
+  ulSearch.value = '查不到的名字';
+  ulSearch.dispatch('input');
+  check('搜不到时给空提示', $('admin-ul-list').children.length === 1 &&
+    String($('admin-ul-list').children[0].textContent).indexOf('没有找到') >= 0);
+  ulSearch.value = '';
+  ulSearch.dispatch('input');
+  check('清空搜索恢复全部', $('admin-ul-list').children.length === su2.users);
 
   // 收尾：把测试用的假账号摘掉、恢复榜单与定位
   const accClean = JSON.parse(lsMap.get('nl2:accounts')).filter((a) => a.id !== 'utest-nopass');
