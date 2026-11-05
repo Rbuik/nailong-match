@@ -113,12 +113,13 @@
   }
 
   // ==================== 皮肤（图鉴） ====================
+  // 颜色依次：黄、绿、粉、紫、金；icon 是对应颜色的方块色块
   const SKINS = [
-    { id: 'default', name: '原味', icon: '🧸', stars: 0, desc: '默认配色' },
-    { id: 'mint', name: '薄荷清凉', icon: '🌿', stars: 12, desc: '棋盘泛薄荷绿光，目标栏淡绿底' },
-    { id: 'sakura', name: '樱花软糖', icon: '🌸', stars: 30, desc: '樱花粉光晕，目标栏粉底' },
-    { id: 'galaxy', name: '星夜流萤', icon: '🌌', stars: 60, desc: '深紫光晕 + 星点，目标栏淡紫底' },
-    { id: 'gold', name: '黄金奶龙', icon: '🏆', stars: 100, desc: '金色光晕，目标栏浅金底' }
+    { id: 'default', name: '黄色', icon: '■', color: '#ffd94a', stars: 0, desc: '默认配色' },
+    { id: 'mint', name: '绿色', icon: '■', color: '#3ecf8e', stars: 12, desc: '绿色光晕，目标栏淡绿底' },
+    { id: 'sakura', name: '粉色', icon: '■', color: '#ff8fc0', stars: 30, desc: '粉色光晕，目标栏粉底' },
+    { id: 'galaxy', name: '紫色', icon: '■', color: '#9a8cf0', stars: 60, desc: '紫色光晕，目标栏淡紫底' },
+    { id: 'gold', name: '金色', icon: '■', color: '#f0a30a', stars: 100, desc: '金色光晕，目标栏浅金底' }
   ];
 
   function currentSkin() {
@@ -380,7 +381,7 @@
       const row = document.createElement('div');
       row.className = 'skin-row' + (own ? '' : ' locked') + (s.id === cur ? ' active' : '');
       row.innerHTML =
-        '<span class="skin-icon">' + s.icon + '</span>' +
+        '<span class="skin-icon" style="color:' + (s.color || '#ffd94a') + '">' + s.icon + '</span>' +
         '<span class="skin-main"><b>' + s.name + '</b><i>' + s.desc + '</i></span>' +
         '<span class="skin-mark">' + (s.id === cur ? '使用中' : own ? '点击使用' : '需 ' + s.stars + ' ⭐') + '</span>';
       row.addEventListener('click', () => { if (onPick) onPick(s, own); });
