@@ -1088,6 +1088,28 @@ function check(name, ok) {
     return r.ok === false && sandbox.Account.list().length === before;
   })());
 
+  // 31d. 找回本机旧存档：账号表里丢了、快照还留在本机的号能捞回来
+  check('旧存档：账号表删掉的号还能列出来并恢复', (() => {
+    const acc = sandbox.Account.current();
+    if (!acc) return false;
+    sandbox.Store.addCoins(1234);
+    lsMap.set('nl2:progress', JSON.stringify({ '1': { stars: 3, score: 100 } }));
+    sandbox.Account.saveCurrent();
+    const id = sandbox.Account.currentId();
+    const st = sandbox.Account.summary(acc);
+    const kk = 'nl2:accounts';
+    const arr = JSON.parse(lsMap.get(kk) || '[]').filter((a) => a.id !== id);
+    lsMap.set(kk, JSON.stringify(arr));
+    const hit = sandbox.Account.lostSlots().filter((x) => x.id === id)[0];
+    const listed = !!hit && hit.coins === st.coins && hit.stars === st.stars;
+    const r = sandbox.Account.adoptSlot(id);
+    return listed && r.ok === true && sandbox.Account.currentId() === id &&
+      sandbox.Store.getWallet().coins === st.coins &&
+      Object.keys(sandbox.Store.getProgress()).length > 0;
+  })());
+  check('找回旧存档后要补密码才能玩（不留空密码号）',
+    sandbox.Account.needsFix().any === true || sandbox.Account.current().pass === '');
+
   // 32. yone 的 1360 金币奖励：发到邮箱，自己领
   const coinsBeforeYone = sandbox.Store.getWallet().coins;
   const yReg = sandbox.Account.register('yone', 'yone1234');
