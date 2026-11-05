@@ -2373,7 +2373,7 @@
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-      'lost-menu', 'fix-menu',
+      'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2389,7 +2389,7 @@
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-    'lost-menu', 'fix-menu'];
+    'fix-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -4450,14 +4450,6 @@
       const el = $(id);
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
     });
-    // 找回本机旧存档（账号表里没有、快照还在的号）
-    on('btn-switch-lost', () => openLostMenu('switch'));
-    on('btn-auth-lost', () => openLostMenu('auth'));
-    on('btn-lost-back', () => {
-      $('lost-menu').style.display = 'none';
-      if (lostFrom === 'auth') showAuthScreen();
-      else { showOverlay('switch-menu'); renderSwitchList(); }
-    });
     on('btn-fix-save', saveFix);
     const fixName = $('fix-name');
     if (fixName) fixName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveFix(); });
@@ -4538,7 +4530,7 @@
       ov.addEventListener('click', (e) => {
         // 主页 / 结算 / 登录 / 补资料这些面板点遮罩不关闭（必须点按钮）
         if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete',
-          'auth-menu', 'auth-form', 'lost-menu', 'fix-menu'].indexOf(ov.id) < 0) {
+          'auth-menu', 'auth-form', 'fix-menu'].indexOf(ov.id) < 0) {
           ov.style.display = 'none';
         }
       });
@@ -5576,8 +5568,7 @@
     if (!accountOk() && typeof Account === 'undefined') return;
     const others = Account.list().filter((a) => a.name);
     if (!others.length) return;
-    const tip = document.createElement('p');
-    tip.className = 'history-hint';
+    const tip = document.createElement('p');    tip.className = 'history-hint';
     tip.textContent = '本机账号';
     box.appendChild(tip);
     others.forEach((a) => {
@@ -5614,11 +5605,8 @@
     if (f) f.style.display = 'none';
     const fix = $('fix-menu');
     if (fix) fix.style.display = 'none';
-    const lost = $('lost-menu');
-    if (lost) lost.style.display = 'none';
     setAuthError('');
     renderAuthAccounts();
-    refreshLostEntry();
     showOverlay('auth-menu');
     setView('menu');
   }
@@ -5696,7 +5684,6 @@
   function renderSwitchList() {
     const box = $('acct-list');
     if (!box) return;
-    refreshLostEntry();
     box.innerHTML = '';
     const cur = Account.current();
     const arr = Account.list();
@@ -5724,68 +5711,6 @@
       });
       box.appendChild(row);
     });
-  }
-
-  // ---------- 找回本机旧存档 ----------
-  // 账号表里没有、但数据快照（nl2:acc:<id>）还留在这台设备上的号，能捞回来
-  let lostFrom = 'switch';   // 'switch' | 'auth'
-
-  function lostRows() {
-    try { return Account.lostSlots ? Account.lostSlots() : []; } catch (e) { return []; }
-  }
-
-  // 两个入口：只有真的存在旧存档才露出来
-  function refreshLostEntry() {
-    const n = lostRows().length;
-    const a = $('btn-switch-lost');
-    if (a) {
-      a.style.display = n ? '' : 'none';
-      a.textContent = '🕘 找回旧存档（' + n + '）';
-    }
-    const b = $('btn-auth-lost');
-    if (b) {
-      b.style.display = n ? '' : 'none';
-      b.textContent = '找回本机旧存档（' + n + '）';
-    }
-  }
-
-  function renderLostList() {
-    const box = $('lost-list');
-    if (!box) return;
-    box.innerHTML = '';
-    const rows = lostRows();
-    if (!rows.length) {
-      const p = document.createElement('p');
-      p.className = 'history-hint';
-      p.textContent = '本机没有可以恢复的旧存档';
-      box.appendChild(p);
-      return;
-    }
-    rows.forEach((s) => {
-      const row = document.createElement('div');
-      row.className = 'acct-row';
-      row.innerHTML = '<span class="acct-main"><b>' + escHtml(s.nick || '未命名存档') + '</b>' +
-        '<i>🪙 ' + s.coins + ' · ⭐ ' + s.stars + ' · 打到第 ' + s.levels + ' 关</i></span>' +
-        '<span class="acct-mark">恢复</span>';
-      row.addEventListener('click', () => {
-        const r = Account.adoptSlot(s.id);
-        if (!r.ok) { toast(r.reason || '恢复失败'); return; }
-        toast('旧存档已恢复');
-        setTimeout(() => { try { location.reload(); } catch (e) {} }, 320);
-      });
-      box.appendChild(row);
-    });
-  }
-
-  function openLostMenu(from) {
-    lostFrom = from === 'auth' ? 'auth' : 'switch';
-    ['switch-menu', 'auth-menu', 'auth-form'].forEach((id) => {
-      const el = $(id);
-      if (el) el.style.display = 'none';
-    });
-    renderLostList();
-    showOverlay('lost-menu');
-    setView('menu');
   }
 
   // 资料不全（缺名字 / 缺密码 / 含敏感词）→ 必须补好才能玩

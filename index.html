@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261105x">
-<link rel="stylesheet" href="./css/themes.css?v=20261105x">
+<link rel="stylesheet" href="./css/style.css?v=20261105y">
+<link rel="stylesheet" href="./css/themes.css?v=20261105y">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -475,17 +475,8 @@
     <h2 class="title small">🔄 切换账号</h2>
     <p class="history-hint">点一个账号直接进去，数据各自独立保存</p>
     <div class="acct-list" id="acct-list"></div>
-    <button class="btn-secondary" id="btn-switch-lost" style="display:none;">🕘 找回旧存档</button>
     <button class="btn-secondary" id="btn-switch-login">登录其他账号</button>
     <button class="btn-secondary" id="btn-switch-cancel">返回</button>
-  </div>
-
-  <!-- 找回本机旧存档：账号列表里没有、但数据快照还留在这台设备上的号 -->
-  <div class="overlay" id="lost-menu" style="display:none;">
-    <h2 class="title small">🕘 找回旧存档</h2>
-    <p class="history-hint">这些是本机还留着的存档，点一个就恢复成账号</p>
-    <div class="acct-list" id="lost-list"></div>
-    <button class="btn-secondary" id="btn-lost-back">返回</button>
   </div>
 
   <!-- 第一次进入链接 / 注销后：先选登录还是注册 -->
@@ -493,7 +484,6 @@
     <h2 class="title small">奶龙消消乐</h2>
     <button class="btn-primary" id="btn-auth-login">登录</button>
     <button class="btn-primary" id="btn-auth-register">注册</button>
-    <button class="btn-text" id="btn-auth-lost" style="display:none;">找回本机旧存档</button>
     <div class="auth-acct-box" id="auth-accounts"></div>
   </div>
 
@@ -888,23 +878,23 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261105x"></script>
-<script src="./js/storage.js?v=20261105x"></script>
-<script src="./js/audio.js?v=20261105x"></script>
-<script src="./js/effects.js?v=20261105x"></script>
-<script src="./js/specials.js?v=20261105x"></script>
-<script src="./js/goals.js?v=20261105x"></script>
-<script src="./js/tasks.js?v=20261105x"></script>
-<script src="./js/mail.js?v=20261105x"></script>
-<script src="./js/input.js?v=20261105x"></script>
-<script src="./js/builtin-music.js?v=20261105x"></script>
-<script src="./js/music.js?v=20261105x"></script>
-<script src="./js/meta.js?v=20261105x"></script>
-<script src="./js/cloud-sdk.js?v=20261105x"></script>
-<script src="./js/cloud-config.js?v=20261105x"></script>
-<script src="./js/cloud.js?v=20261105x"></script>
-<script src="./js/account.js?v=20261105x"></script>
-<script src="./js/board.js?v=20261105x"></script>
-<script src="./js/game.js?v=20261105x"></script>
+<script src="./js/rng.js?v=20261105y"></script>
+<script src="./js/storage.js?v=20261105y"></script>
+<script src="./js/audio.js?v=20261105y"></script>
+<script src="./js/effects.js?v=20261105y"></script>
+<script src="./js/specials.js?v=20261105y"></script>
+<script src="./js/goals.js?v=20261105y"></script>
+<script src="./js/tasks.js?v=20261105y"></script>
+<script src="./js/mail.js?v=20261105y"></script>
+<script src="./js/input.js?v=20261105y"></script>
+<script src="./js/builtin-music.js?v=20261105y"></script>
+<script src="./js/music.js?v=20261105y"></script>
+<script src="./js/meta.js?v=20261105y"></script>
+<script src="./js/cloud-sdk.js?v=20261105y"></script>
+<script src="./js/cloud-config.js?v=20261105y"></script>
+<script src="./js/cloud.js?v=20261105y"></script>
+<script src="./js/account.js?v=20261105y"></script>
+<script src="./js/board.js?v=20261105y"></script>
+<script src="./js/game.js?v=20261105y"></script>
 </body>
 </html>

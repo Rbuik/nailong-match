@@ -260,7 +260,8 @@
     write(K.cur, acc.id);
     syncNick(acc);
     touch(acc.id);
-    bgLogin(acc, pass);
+    // 老账号（云端上线前建的）下次登录时静默搬上服务器：服务器上没有就帮它建档
+    bgLogin(acc, pass).then((ok) => { if (!ok) bgRegister(acc, pass); });
     return { ok: true, account: acc };
   }
 
@@ -647,94 +648,6 @@
     return arr;
   }
 
-  // ---------- 本机旧存档（快照）找回 ----------
-  // 场景：账号表被误删、或「找回账号」时当成新号建了另一个条目，
-  // 但每个号的数据快照 nl2:acc:<id> 是设备级 key，一直留在本机。
-  // 这里把「有快照但不在账号表里」的存档捞出来，让玩家点一下就能恢复成账号。
-  function slotIds() {
-    const out = [];
-    try {
-      const n = localStorage.length;
-      for (let i = 0; i < n; i++) {
-        const k = localStorage.key(i);
-        if (!k || k.indexOf(K.slot) !== 0) continue;
-        const id = k.slice(K.slot.length);
-        if (id) out.push(id);
-      }
-    } catch (e) {}
-    return out;
-  }
-
-  function slotInfo(id) {
-    const slot = read(K.slot + id, null);
-    const keys = (slot && slot.keys) || {};
-    let coins = 0, stars = 0, levels = 0, nick = '';
-    try {
-      if (keys['nl2:wallet']) coins = (JSON.parse(keys['nl2:wallet']).coins) || 0;
-    } catch (e) {}
-    try {
-      if (keys['nl2:progress']) {
-        const p = JSON.parse(keys['nl2:progress']) || {};
-        Object.keys(p).forEach((k) => {
-          const s = (p[k] && p[k].stars) || 0;
-          stars += s;
-          if (s > 0) levels++;
-        });
-      }
-    } catch (e) {}
-    try {
-      if (keys['nl2:mnick']) {
-        const v = keys['nl2:mnick'];
-        nick = String(v).charAt(0) === '"' ? (JSON.parse(v) || '') : String(v);
-      }
-    } catch (e) { nick = ''; }
-    return {
-      id: id, coins: coins, stars: stars, levels: levels,
-      nick: String(nick || '').slice(0, 12),
-      savedAt: (slot && slot.savedAt) || 0,
-      keys: keys
-    };
-  }
-
-  function lostSlots() {
-    const have = {};
-    list().forEach((a) => { have[a.id] = 1; });
-    return slotIds()
-      .filter((id) => !have[id])
-      .map(slotInfo)
-      // 空快照（没有金币 / 星星 / 数据）不列，免得刷一堆垃圾
-      .filter((s) => s.coins > 0 || s.stars > 0 || s.levels > 0)
-      .sort((a, b) => (b.stars - a.stars) || (b.savedAt - a.savedAt));
-  }
-
-  // 把一个旧存档恢复成账号（密码留空，进去后会强制补一个）
-  function adoptSlot(id) {
-    id = String(id || '');
-    if (!id) return { ok: false, reason: '存档不存在' };
-    if (find(id)) {
-      const r = switchTo(id);
-      return r.ok ? { ok: true, existing: true, account: r.account } : r;
-    }
-    const slot = read(K.slot + id, null);
-    if (!slot || !slot.keys) return { ok: false, reason: '存档不存在' };
-    const info = slotInfo(id);
-    let name = String(info.nick || '').trim();
-    if (name === '奶龙玩家') name = '';
-    if (name && findByName(name)) name = '';    // 重名就先留空，进来后强制补
-    const acc = {
-      id: id, name: name, pass: '',
-      created: Date.now(), last: Date.now(), recovered: true
-    };
-    const arr = list();
-    arr.push(acc);
-    saveList(arr);
-    saveCurrent();                 // 先把当前账号最新的数据存好，再切
-    write(K.cur, id);
-    loadSlot(id);
-    syncNick(acc);
-    return { ok: true, created: true, account: acc };
-  }
-
   global.Account = {
     K, GRANTS, BAD_PASS,
     hash,
@@ -742,7 +655,6 @@
     register, login, logout, switchTo,
     setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick, purge,
     saveCurrent, checkName, checkPass,
-    slotIds, slotInfo, lostSlots, adoptSlot,
     cloudLogin, pushCloud, pullCloud, startCloudSync, cloudOk
   };
 })(window);
