@@ -12,6 +12,9 @@
   // ==================== 常量 ====================
   const COLS = 8, ROWS = 8, MAX_W = 480;
   const FALLBACK_COLORS = ['#ff5c5c', '#5cff8f', '#5c8fff', '#ffd75c', '#c85cff', '#5cffee'];
+  // 冰块：普通冰一出现就是 2 层（要砸两下），厚冰 3 层
+  const ICE_BASE = 2;
+  const ICE_HARD = 3;
   // 冰块上的五道裂纹（格子内的相对坐标 0~1，每三条一组 = 一条折线）
   const ICE_CRACKS = [
     [0.24, 0.16, 0.44, 0.50, 0.28, 0.78],
@@ -255,8 +258,8 @@
     const rest = free.filter((p) => !S.board[p.r][p.c].cargo);
     let ri = 0;
     const take = () => (ri < rest.length ? rest[ri++] : null);
-    for (let k = 0; k < (d.ice || 0); k++) { const p = take(); if (!p) break; S.ice[p.r][p.c] = 1; }
-    for (let k = 0; k < (d.iceHard || 0); k++) { const p = take(); if (!p) break; S.ice[p.r][p.c] = 2; }
+    for (let k = 0; k < (d.ice || 0); k++) { const p = take(); if (!p) break; S.ice[p.r][p.c] = ICE_BASE; }
+    for (let k = 0; k < (d.iceHard || 0); k++) { const p = take(); if (!p) break; S.ice[p.r][p.c] = ICE_HARD; }
     for (let k = 0; k < (d.chain || 0); k++) { const p = take(); if (!p) break; S.chain[p.r][p.c] = 1; }
 
     for (let r = 0; r < ROWS; r++) {
@@ -678,8 +681,9 @@
         if (ice > 0) {
           ctx.save();
           roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
-          // 厚冰(2层)实一些，砸过一次(剩1层)透一些——被砸过和没被砸一眼能区分
-          ctx.fillStyle = ice > 1 ? 'rgba(150,220,255,0.60)' : 'rgba(205,240,255,0.30)';
+          // 层数越多越实：3 层（厚冰）> 2 层（新冰）> 1 层（砸过一次）
+          ctx.fillStyle = ice >= 3 ? 'rgba(130,205,250,0.72)'
+            : ice === 2 ? 'rgba(150,220,255,0.60)' : 'rgba(205,240,255,0.30)';
           ctx.fill();
           ctx.strokeStyle = ice > 1 ? 'rgba(70,165,225,0.95)' : 'rgba(150,215,245,0.75)';
           ctx.lineWidth = 2;
@@ -2367,6 +2371,7 @@
       'logout-confirm', 'logout-confirm2', 'pause-menu',
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
+      'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
@@ -2379,7 +2384,7 @@
   const MENU_PANELS = ['main-menu', 'settings-menu', 'music-settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
     'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu',
-    'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu',
+    'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu'];
@@ -3490,6 +3495,64 @@
   }
 
   // ==================== 后台分层 ====================
+  // 两边同时按住 3 秒才触发（手机上手指微动 / 滚动会让 pointer 被 cancel，
+  // 所以按「两边都按住才计时」来做，任一边松开或移动超过 12px 就取消）
+  function bindHoldTogether(elA, elB, fire) {
+    if (!elA || !elB) return;
+    const holds = { a: false, b: false };
+    const from = { a: null, b: null };
+    let timer = null;
+    let fired = false;
+    const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+    const sync = () => {
+      if (holds.a && holds.b) {
+        if (!timer && !fired) {
+          timer = setTimeout(() => {
+            timer = null;
+            fired = true;
+            try { AudioManager.playSFX('coin'); } catch (e) {}
+            fire();
+          }, 3000);
+        }
+      } else {
+        cancel();
+      }
+    };
+    const down = (w) => (e) => {
+      if (e && e.pointerType === 'mouse' && e.button !== 0) return;
+      holds[w] = true;
+      from[w] = { x: (e && e.clientX) || 0, y: (e && e.clientY) || 0 };
+      fired = false;
+      sync();
+    };
+    const up = (w) => () => {
+      holds[w] = false;
+      from[w] = null;
+      sync();
+    };
+    const move = (w) => (e) => {
+      if (!holds[w] || !from[w]) return;
+      if (Math.abs(((e && e.clientX) || 0) - from[w].x) > 12 ||
+          Math.abs(((e && e.clientY) || 0) - from[w].y) > 12) {
+        up(w)();
+      }
+    };
+    [[elA, 'a'], [elB, 'b']].forEach((pair) => {
+      const el = pair[0];
+      const w = pair[1];
+      el.addEventListener('pointerdown', down(w));
+      el.addEventListener('pointermove', move(w));
+      ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => el.addEventListener(ev, up(w)));
+      el.addEventListener('contextmenu', (e) => e.preventDefault());   // 长按不弹系统菜单
+    });
+    // 触发跳转后松手不要再触发一次点击
+    [elA, elB].forEach((el) => {
+      el.addEventListener('click', (e) => {
+        if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; }
+      }, true);
+    });
+  }
+
   // 一级：点击数量 / 全服用户；二级页各自返回一级
   function showAdminPage(which) {
     const nav = $('admin-nav');
@@ -3541,6 +3604,116 @@
     const r = collectServerUsers();
     if (u) u.textContent = r.users > 0 ? String(r.users) : '—';
     if (p) p.textContent = r.provs > 0 ? String(r.provs) : '—';
+  }
+
+  // ---------- 全服用户名单（后台隐藏页：名字 + 所在省，可按省筛） ----------
+  // 口径和上面的「用户数量」一致：本机有名字有密码的账号 + 榜上有名字的玩家
+  function collectUserList() {
+    const map = Object.create(null);
+    let localProv = '';
+    try { localProv = myProvCode(); } catch (e) { localProv = ''; }
+    const add = (name, pv) => {
+      const n = String(name || '').trim();
+      if (!n) return;
+      const k = n.toLowerCase();
+      const p = String(pv || '').toLowerCase();
+      const cur = map[k];
+      if (!cur) { map[k] = { name: n, prov: p }; return; }
+      if (p) cur.prov = p;   // 名字相同（大小写不同）只留一条，省份以有值的为准
+    };
+    try {
+      if (typeof Account !== 'undefined' && Account.list) {
+        Account.list().forEach((a) => { if (a && a.name && a.pass) add(a.name, localProv); });
+      }
+    } catch (e) {}
+    try {
+      if (typeof Board !== 'undefined' && Board.list) {
+        Board.list().forEach((e) => { if (e) add(e && e.name, e && e.pv); });
+      }
+    } catch (e) {}
+    return Object.keys(map).map((k) => map[k]);
+  }
+
+  let adminUlProv = '';   // '' = 全服；否则是省份代码
+
+  function adminUlProvName() {
+    if (!adminUlProv) return '全服';
+    const p = provByCode(adminUlProv);
+    return p ? p.name : '未定位';
+  }
+
+  function adminUlRows() {
+    const list = collectUserList();
+    const rows = adminUlProv
+      ? list.filter((u) => u.prov === adminUlProv)
+      : list.slice();
+    return rows.sort((a, b) => {
+      if (!adminUlProv && a.prov !== b.prov) return String(a.prov).localeCompare(String(b.prov));
+      return String(a.name).localeCompare(String(b.name), 'zh');
+    });
+  }
+
+  function hideAdminUlPicker() {
+    const pk = $('admin-ul-picker');
+    if (pk) pk.style.display = 'none';
+  }
+
+  function toggleAdminUlPicker() {
+    const pk = $('admin-ul-picker');
+    if (!pk) return;
+    if (pk.style.display === 'grid') { pk.style.display = 'none'; return; }
+    pk.innerHTML = '';
+    const mk = (label, val, cur) => {
+      const b = document.createElement('button');
+      b.className = 'pk-item' + (cur ? ' cur' : '');
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        adminUlProv = val;
+        hideAdminUlPicker();
+        renderAdminUserList();
+      });
+      pk.appendChild(b);
+    };
+    mk('全服', '', adminUlProv === '');
+    PROVINCES.forEach((p) => mk(p[0], p[1], p[1] === adminUlProv));
+    pk.style.display = 'grid';
+  }
+
+  function renderAdminUserList() {
+    const box = $('admin-ul-list');
+    if (!box) return;
+    const rows = adminUlRows();
+    const title = $('admin-ul-title');
+    if (title) {
+      title.textContent = '👥 全服用户 · ' + adminUlProvName() + '（' + rows.length + '）';
+    }
+    box.innerHTML = '';
+    rows.forEach((u, i) => {
+      const p = u.prov ? (provByCode(u.prov) || {}).name || u.prov : '未定位';
+      const row = document.createElement('div');
+      row.className = 'lb-row';
+      const inner = document.createElement('div');
+      inner.className = 'lb-swipe';
+      inner.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
+        '<span class="lb-name">' + escHtml(String(u.name).slice(0, 12)) + '</span>' +
+        '<span class="lb-score ul-prov">' + escHtml(p) + '</span>';
+      row.appendChild(inner);
+      box.appendChild(row);
+    });
+    if (!rows.length) {
+      const d = document.createElement('div');
+      d.className = 'lb-empty';
+      d.textContent = adminUlProv ? '这个省还没有用户' : '还没有用户';
+      box.appendChild(d);
+    }
+  }
+
+  function openAdminUserList() {
+    adminUlProv = '';
+    hideAdminUlPicker();
+    renderAdminUserList();
+    showOverlay('admin-user-list');
+    try { AudioManager.playSFX('select'); } catch (e) {}
   }
 
   // ==================== 绑定 ====================
@@ -3848,68 +4021,22 @@
       if (el) el.addEventListener('click', () => showAdminPage(null));
     });
 
+    // 全服用户名单：⇄ 换「全服 / 某个省」，换法和省榜一样
+    const adminUlSwap = $('admin-ul-swap');
+    if (adminUlSwap) adminUlSwap.addEventListener('click', toggleAdminUlPicker);
+    const adminUlBack = $('btn-admin-ul-back');
+    if (adminUlBack) adminUlBack.addEventListener('click', () => {
+      $('admin-user-list').style.display = 'none';
+      hideAdminUlPicker();
+      showOverlay('admin-menu');
+      showAdminPage('users');
+      renderAdminUsers();
+    });
+
     // 省份统计入口（隐藏）：在「📊 点击数量」页里，同时按住「🔧 后台」标题和「🌐 全网」板块 3 秒
-    // 手机上手指微动 / 滚动会让 pointer 被 cancel，所以按「两边都按住才计时」来做，
-    // 任一边松开（或移动超过 12px）就取消
-    const provHoldTitle = $('admin-title');
-    const provHoldBox = $('admin-global-sec') || $('admin-global-title');
-    if (provHoldTitle && provHoldBox) {
-      const holds = { title: false, box: false };
-      const from = { title: null, box: null };
-      let provTimer = null;
-      let provFired = false;
-      const cancelProv = () => {
-        if (provTimer) { clearTimeout(provTimer); provTimer = null; }
-      };
-      const syncProv = () => {
-        if (holds.title && holds.box) {
-          if (!provTimer && !provFired) {
-            provTimer = setTimeout(() => {
-              provTimer = null;
-              provFired = true;
-              try { AudioManager.playSFX('coin'); } catch (e) {}
-              openProvStats();
-            }, 3000);
-          }
-        } else {
-          cancelProv();
-        }
-      };
-      const down = (which) => (e) => {
-        if (e && e.pointerType === 'mouse' && e.button !== 0) return;
-        holds[which] = true;
-        from[which] = { x: (e && e.clientX) || 0, y: (e && e.clientY) || 0 };
-        provFired = false;
-        syncProv();
-      };
-      const up = (which) => () => {
-        holds[which] = false;
-        from[which] = null;
-        syncProv();
-      };
-      const move = (which) => (e) => {
-        if (!holds[which] || !from[which]) return;
-        if (Math.abs(((e && e.clientX) || 0) - from[which].x) > 12 ||
-            Math.abs(((e && e.clientY) || 0) - from[which].y) > 12) {
-          up(which)();
-        }
-      };
-      [[provHoldTitle, 'title'], [provHoldBox, 'box']].forEach((pair) => {
-        const el = pair[0];
-        const which = pair[1];
-        el.addEventListener('pointerdown', down(which));
-        el.addEventListener('pointermove', move(which));
-        ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => el.addEventListener(ev, up(which)));
-        // 长按不要弹系统菜单
-        el.addEventListener('contextmenu', (e) => e.preventDefault());
-      });
-      // 触发跳转后松手不要再触发一次点击
-      [provHoldTitle, provHoldBox].forEach((el) => {
-        el.addEventListener('click', (e) => {
-          if (provFired) { e.preventDefault(); e.stopPropagation(); provFired = false; }
-        }, true);
-      });
-    }
+    bindHoldTogether($('admin-title'), $('admin-global-sec') || $('admin-global-title'), openProvStats);
+    // 全服用户名单入口（隐藏）：在「👥 全服」页里，同时按住「🔧 后台」标题和「👥 全服」板块 3 秒
+    bindHoldTogether($('admin-title'), $('admin-user-sec-title'), openAdminUserList);
 
     // 省份统计页：搜索框 + 返回（市级视图先回省份列表，列表再关闭页面）
     const provSearch = $('prov-search');
@@ -5845,6 +5972,11 @@
     renderAdmin: renderAdmin,
     renderAdminUsers: renderAdminUsers,
     serverUsers: collectServerUsers,
+    userList: collectUserList,
+    openUserList: openAdminUserList,
+    renderUserList: renderAdminUserList,
+    setUserListProv: (p) => { adminUlProv = String(p || ''); renderAdminUserList(); },
+    iceBase: ICE_BASE,
     detonateAt: detonateAt,
     markSpecial: markSpecial,
     openProvCities: openProvCities,

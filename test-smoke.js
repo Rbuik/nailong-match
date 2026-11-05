@@ -286,6 +286,31 @@ function check(name, ok) {
   })());
   $('admin-page-users').style.display = 'none';
 
+  // 4e. 后台「全服」页：板块标题改名 + 长按弹出的全服用户名单（可按省筛）
+  check('后台一级入口还是「全服用户」', htmlSrc0.includes('id="btn-admin-users">👥 全服用户<'));
+  check('二级页板块标题改成「全服」', (() => {
+    const at = htmlSrc0.indexOf('id="admin-user-sec-title"');
+    if (at < 0) return false;
+    const seg = htmlSrc0.slice(at, at + 60);
+    return seg.indexOf('全服') >= 0 && seg.indexOf('全服用户') < 0;
+  })());
+  const ulRows = sandbox.__nl_test.userList();
+  check('名单 = 本机账号 + 榜上玩家（和用户数量同一口径）', ulRows.length === su2.users);
+  check('名单带所在省', (ulRows.filter((u) => u.name === '外省玩家')[0] || {}).prov === 'guangdong');
+  sandbox.__nl_test.openUserList();
+  check('名单页打开、标题是全服', $('admin-user-list').style.display === 'flex' &&
+    String($('admin-ul-title').textContent).indexOf('全服') >= 0);
+  check('名单列出全部用户', $('admin-ul-list').children.length === su2.users);
+  $('admin-ul-swap').dispatch('click');
+  check('⇄ 弹出「全服 + 每个省」的选择', $('admin-ul-picker').style.display === 'grid' &&
+    $('admin-ul-picker').children.length >= 30 &&
+    String($('admin-ul-picker').children[0].textContent) === '全服');
+  sandbox.__nl_test.setUserListProv('guangdong');
+  check('筛到广东省只剩外省玩家', $('admin-ul-list').children.length === 1 &&
+    String($('admin-ul-list').children[0].children[0].innerHTML).indexOf('外省玩家') >= 0);
+  sandbox.__nl_test.setUserListProv('');
+  check('切回全服又全部列出', $('admin-ul-list').children.length === su2.users);
+
   // 收尾：把测试用的假账号摘掉、恢复榜单与定位
   const accClean = JSON.parse(lsMap.get('nl2:accounts')).filter((a) => a.id !== 'utest-nopass');
   lsMap.set('nl2:accounts', JSON.stringify(accClean));
@@ -709,7 +734,11 @@ function check(name, ok) {
   let st = sandbox.__nl_test.state();
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.ice[r][c]) iceN++;
   check('冰块关铺出 10 块冰', iceN === 10);
-  check('冰块目标值按实际层数校准', st.goal.target === iceN);
+  // 冰块一出现就是 2 层（目标按层数算 = 10 块 × 2 层）
+  let iceLayers = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) iceLayers += st.ice[r][c] || 0;
+  check('每块冰一出现就是 2 层', iceLayers === iceN * 2);
+  check('冰块目标值按实际层数校准', st.goal.target === iceLayers);
 
   // 16. 货运关：货物数量 + 目标值
   const dropDef = { id: 98, theme: 'candy', moves: 20, goal: { type: 'drop', target: 4 }, cargo: 4, stars: [1, 2, 3] };
@@ -774,7 +803,7 @@ function check(name, ok) {
   st = sandbox.__nl_test.state();
   let hardCell = null;
   for (let r = 0; r < 8 && !hardCell; r++) for (let c = 0; c < 8 && !hardCell; c++) {
-    if (st.ice[r][c] === 2 && st.board[r][c]) hardCell = { r: r, c: c };
+    if (st.ice[r][c] === 3 && st.board[r][c]) hardCell = { r: r, c: c };
   }
   let hnb = null;
   [{ r: hardCell.r, c: hardCell.c + 1 }, { r: hardCell.r, c: hardCell.c - 1 }, { r: hardCell.r - 1, c: hardCell.c }, { r: hardCell.r + 1, c: hardCell.c }]
@@ -783,7 +812,7 @@ function check(name, ok) {
       return false;
     });
   await sandbox.__nl_test.resolveClear(new Set([hnb.r + ',' + hnb.c]), []);
-  check('厚冰一次相邻消除只砸一层（还剩 1 层）', st.ice[hardCell.r][hardCell.c] === 1);
+  check('厚冰一次相邻消除只砸一层（3 层还剩 2 层）', st.ice[hardCell.r][hardCell.c] === 2);
 
   // 22c. 厚冰被两侧同时消除（夹心）也只砸一层
   const hr = hardCell.r, hc = hardCell.c;
@@ -793,12 +822,12 @@ function check(name, ok) {
     st = sandbox.__nl_test.state();
     let hc2 = null;
     for (let r = 0; r < 8 && !hc2; r++) for (let c = 1; c < 7 && !hc2; c++) {
-      if (st.ice[r][c] === 2 && st.board[r][c] && st.ice[r][c - 1] === 0 && st.ice[r][c + 1] === 0 &&
+      if (st.ice[r][c] === 3 && st.board[r][c] && st.ice[r][c - 1] === 0 && st.ice[r][c + 1] === 0 &&
           st.board[r][c - 1] && st.board[r][c + 1] && !st.chain[r][c - 1] && !st.chain[r][c + 1]) hc2 = { r: r, c: c };
     }
     if (hc2) {
       await sandbox.__nl_test.resolveClear(new Set([hc2.r + ',' + (hc2.c - 1), hc2.r + ',' + (hc2.c + 1)]), []);
-      check('厚冰两侧同时消除仍只砸一层', st.ice[hc2.r][hc2.c] === 1);
+      check('厚冰两侧同时消除仍只砸一层', st.ice[hc2.r][hc2.c] === 2);
     }
   }
 

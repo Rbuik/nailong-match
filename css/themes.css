@@ -1438,6 +1438,8 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-name i.lb-me { color: #7c5cff; font-weight: 700; }
 .lb-score { font-weight: 800; color: #ff8c00; }
 .lb-score.none { font-weight: 600; font-size: 11px; color: #b0a9c0; }
+/* 后台「全服用户名单」：右边的省份标签比分数低调 */
+.ul-prov { font-weight: 700; font-size: 12px; color: #8a82a6; }
 /* 整行灰显：0 分没上榜的人（名次 / 名字也跟着变灰） */
 .lb-row.none .lb-rank,
 .lb-row.none .lb-name { color: #b0a9c0; }
