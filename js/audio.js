@@ -44,17 +44,34 @@
 
       // iOS 上「非用户手势创建的 AudioContext」即使之后 resume 也可能永远起不来，
       // 结果就是音乐关着时连音效都没声音。所以 iOS 上把创建推迟到第一次手势。
-      if (canCreate !== false && !this.ctx) {
-        const AC = global.AudioContext || global.webkitAudioContext;
-        if (AC) { try { this.ctx = new AC(); } catch (e) {} }
-      }
+      if (canCreate !== false && !this.ctx) this.ensureCtx();
       if (this.ctx && this.ctx.state === 'suspended') {
         const p = this.ctx.resume();
         if (p && typeof p.catch === 'function') p.catch(() => {});
       }
       this.masterReady = !!this.ctx;
+      this.bindGestureUnlock();
       this.startWatchdog();
       return this.masterReady;
+    },
+
+    ensureCtx() {
+      if (this.ctx) return this.ctx;
+      const AC = global.AudioContext || global.webkitAudioContext;
+      if (!AC) return null;
+      try { this.ctx = new AC(); } catch (e) { this.ctx = null; }
+      return this.ctx;
+    },
+
+    // 第一下触摸就把音频上下文叫醒：音效独立于背景音乐，
+    // 哪怕音乐一直关着，只要碰一下屏幕，之后所有音效都能正常出声。
+    _gestureBound: false,
+    bindGestureUnlock() {
+      if (this._gestureBound || typeof document === 'undefined') return;
+      this._gestureBound = true;
+      const kick = () => { this.resumeCtx(); };
+      ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach((ev) =>
+        document.addEventListener(ev, kick, { passive: true, capture: true }));
     },
 
     // ---------- 播放看门狗（修「播放几十分钟后自己停了」） ----------
@@ -107,26 +124,25 @@
     // 用户首次交互时调用（移动端自动播放限制）
     // 确保 AudioContext 处于 running（放在用户手势里调用最可靠）
     resumeCtx() {
-      if (!this.ctx) {
-        const AC = global.AudioContext || global.webkitAudioContext;
-        if (AC) { try { this.ctx = new AC(); } catch (e) {} }
-      }
+      this.ensureCtx();
       if (!this.ctx) return Promise.resolve(false);
+      const flush = () => { this.applyCustomVolume(); this._flushTones(); };
       if (this.ctx.state === 'suspended' && this.ctx.resume) {
-        const p = this.ctx.resume();
+        let p;
+        try { p = this.ctx.resume(); } catch (e) { p = null; }
         if (p && typeof p.then === 'function') {
           // 上下文真正跑起来之后再把音量接管过来：
           // 不然刚进页面时 ctx 还是 suspended，切到 WebAudio 通道的那一步会被跳过，
           // iOS 上 element.volume 又是只读的 → 第一首歌会用 100% 音量播放，
           // 直到下次拖滑块 / 切歌才恢复正常（这就是「一进来不是上次音量」的根因）。
-          p.then(() => this.applyCustomVolume()).catch(() => {});
+          p.then(flush).catch(() => {});
           return p;
         }
         if (p && typeof p.catch === 'function') p.catch(() => {});
+        setTimeout(flush, 60);
         return Promise.resolve(true);
-      } else if (this.ctx.state === 'running') {
-        this.applyCustomVolume();
       }
+      if (this.ctx.state === 'running') flush();
       return Promise.resolve(true);
     },
 
@@ -216,39 +232,56 @@
       this.playSFX('coin');
     },
 
+    // ---------- 音效发声 ----------
+    // 音效与「音乐开关」完全无关：音乐关掉时这里照样出声。
+    // 第一次点击时上下文还没跑起来（iOS 冷启动最明显），先排进队列，
+    // 等 resume 成功再补播，避免「刚进来没声音」。
+    _pendingTones: [],
     _tone(freq, type, dur, vol, delay) {
-      // 音效独立于「音乐开关」：就算背景音乐关掉，特效照样响
-      if (!this.ctx) {
-        const AC = global.AudioContext || global.webkitAudioContext;
-        if (AC) { try { this.ctx = new AC(); } catch (e) {} }
-      }
+      this.ensureCtx();
       if (!this.ctx) return;
+      if (this.ctx.state !== 'running') {
+        const now = Date.now();
+        this._pendingTones.push({ args: [freq, type, dur, vol, delay], at: now });
+        if (this._pendingTones.length > 8) this._pendingTones.shift();
+        if (this._flushTimer) clearTimeout(this._flushTimer);
+        this._flushTimer = setTimeout(() => this._flushTones(), 140);
+        this.resumeCtx();
+        return;
+      }
+      this._toneNow(freq, type, dur, vol, delay);
+    },
+
+    _flushTones() {
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      if (this._flushTimer) { clearTimeout(this._flushTimer); this._flushTimer = null; }
+      const q = this._pendingTones.splice(0);
+      const now = Date.now();
+      q.forEach((it) => {
+        if (now - it.at > 900) return;      // 太旧的丢弃，别一股脑炸出来
+        this._toneNow.apply(this, it.args);
+      });
+    },
+
+    _toneNow(freq, type, dur, vol, delay) {
+      if (!this.ctx || this.ctx.state !== 'running') return;
       delay = delay || 0;
-      const play = () => {
-        if (!this.ctx || this.ctx.state !== 'running') return;
-        try {
-          const t0 = this.ctx.currentTime + delay;
-          const osc = this.ctx.createOscillator();
-          const g = this.ctx.createGain();
-          osc.type = type;
-          osc.frequency.setValueAtTime(freq, t0);
-          // 统一响度：所有音效与音乐在同一条响度线上（原来 ×2 偏响）
-          const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
-          g.gain.setValueAtTime(0, t0);
-          g.gain.linearRampToValueAtTime(peak, t0 + 0.02);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
-          osc.connect(g);
-          g.connect(this.ctx.destination);
-          osc.start(t0);
-          osc.stop(t0 + dur + 0.02);
-        } catch (e) {}
-      };
-      if (this.ctx.state === 'running') { play(); return; }
-      // suspended 时先等上下文真正跑起来再排音符，
-      // 否则（尤其音乐关着、没人播 BGM 的时候）音符会被系统直接丢掉 → 一点音效都没有
-      const p = this.resumeCtx();
-      if (p && typeof p.then === 'function') p.then(play).catch(() => {});
-      else setTimeout(play, 60);
+      try {
+        const t0 = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, t0);
+        // 统一响度：所有音效与音乐在同一条响度线上（原来 ×2 偏响）
+        const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(peak, t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(g);
+        g.connect(this.ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.02);
+      } catch (e) {}
     },
 
     vibrate(pattern) {
@@ -299,6 +332,15 @@
         case 'coin':
           this._tone(1200, 'sine', 0.08, 0.12);
           this._tone(1600, 'sine', 0.12, 0.1, 0.06);
+          break;
+        case 'beat':
+          // 节奏关的节拍声（每 4 拍重音一次）
+          if (opts.accent) {
+            this._tone(1568, 'triangle', 0.09, 0.10);
+            this._tone(784, 'sine', 0.12, 0.06, 0.01);
+          } else {
+            this._tone(1046, 'triangle', 0.05, 0.055);
+          }
           break;
         case 'win':
           this._tone(500, 'sine', 0.15, 0.25, 0);
