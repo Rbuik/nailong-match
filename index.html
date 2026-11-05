@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261105a">
-<link rel="stylesheet" href="./css/themes.css?v=20261105a">
+<link rel="stylesheet" href="./css/style.css?v=20261105b">
+<link rel="stylesheet" href="./css/themes.css?v=20261105b">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -203,7 +203,7 @@
       <section class="rule-sec">
         <h3>✨ 特殊块怎么来</h3>
         <p><b>十字线消</b>：4 个同图案连成一条线 → 生成线消块，<b>横着连的清整行、竖着连的清整列</b>。</p>
-        <p><b>彩虹 🌈</b>：5 个同图案连成一条线 → 生成彩虹块，和任意普通方块交换，会<b>消掉全盘同图案的方块，彩虹块自己也一起消掉</b>。掉落补位后凑出的普通三连照常连消。</p>
+        <p><b>彩虹 🌈</b>：5 个同图案连成一条线（或 L / T 型）→ 生成彩虹块。彩虹块<b>自己被消除</b>的那一刻触发机关：<b>消掉全盘同图案的方块，彩虹块自己也一起消掉</b>——被普通三连消掉、被炸弹 / 线消波及都算。和普通方块交换但彩虹没被消时，只按普通三连处理，不触发。</p>
         <p><b>炸弹 💣</b>：L 型 / T 型消除（横竖两个方向同时凑成 4 连）→ 生成炸弹，爆炸清除周围 3×3 范围；背包的「开局炸弹」道具也能直接放一颗。</p>
         <p><b>结算引爆</b>：步数用完 / 时间到时，棋盘上剩下的特殊块会<b>按生成的先后顺序依次自动引爆</b>——炸得好可能直接反败为胜过关！</p>
       </section>
@@ -236,7 +236,7 @@
 
       <section class="rule-sec">
         <h3>🧊 障碍与货物</h3>
-        <p><b>冰块</b>：冻住的方块既不能交换、也不参与连消，只能靠<b>旁边消除</b>或特殊块把冰砸开；厚冰有 2 层，得砸两次。</p>
+        <p><b>冰块</b>：冻住的方块既不能交换、也不参与连消，只能靠<b>旁边消除</b>或特殊块把冰砸开；厚冰有 2 层，得砸两次，砸过一次的冰<b>裂纹更多更碎</b>，一眼能看出还剩几层。</p>
         <p><b>锁链</b>：锁住的方块第一次被消只解链、方块留下，解开之后才能正常交换和消除。</p>
         <p><b>货物（钥匙 / 奶龙）</b>：贴在某个方块上，<b>目标只有一个——把它送到最底行</b>。钥匙和奶龙会<b>一直发着呼吸光</b>，棋盘上很好认。消除它正下方的方块，它就会跟着往下掉一格，掉到最后一排就算送达。</p>
         <p>· 货物被冰块、锁链挡住时先清理障碍，否则掉不下去<br>
@@ -715,18 +715,18 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261105a"></script>
-<script src="./js/storage.js?v=20261105a"></script>
-<script src="./js/audio.js?v=20261105a"></script>
-<script src="./js/effects.js?v=20261105a"></script>
-<script src="./js/specials.js?v=20261105a"></script>
-<script src="./js/goals.js?v=20261105a"></script>
-<script src="./js/tasks.js?v=20261105a"></script>
-<script src="./js/input.js?v=20261105a"></script>
-<script src="./js/builtin-music.js?v=20261105a"></script>
-<script src="./js/music.js?v=20261105a"></script>
-<script src="./js/meta.js?v=20261105a"></script>
-<script src="./js/board.js?v=20261105a"></script>
-<script src="./js/game.js?v=20261105a"></script>
+<script src="./js/rng.js?v=20261105b"></script>
+<script src="./js/storage.js?v=20261105b"></script>
+<script src="./js/audio.js?v=20261105b"></script>
+<script src="./js/effects.js?v=20261105b"></script>
+<script src="./js/specials.js?v=20261105b"></script>
+<script src="./js/goals.js?v=20261105b"></script>
+<script src="./js/tasks.js?v=20261105b"></script>
+<script src="./js/input.js?v=20261105b"></script>
+<script src="./js/builtin-music.js?v=20261105b"></script>
+<script src="./js/music.js?v=20261105b"></script>
+<script src="./js/meta.js?v=20261105b"></script>
+<script src="./js/board.js?v=20261105b"></script>
+<script src="./js/game.js?v=20261105b"></script>
 </body>
 </html>

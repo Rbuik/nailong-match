@@ -670,24 +670,30 @@
         if (ice > 0) {
           ctx.save();
           roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
-          ctx.fillStyle = ice > 1 ? 'rgba(150,220,255,0.60)' : 'rgba(205,240,255,0.42)';
+          // 厚冰(2层)实一些，砸过一次(剩1层)透一些——被砸过和没被砸一眼能区分
+          ctx.fillStyle = ice > 1 ? 'rgba(150,220,255,0.60)' : 'rgba(205,240,255,0.30)';
           ctx.fill();
-          ctx.strokeStyle = ice > 1 ? 'rgba(70,165,225,0.95)' : 'rgba(150,215,245,0.9)';
+          ctx.strokeStyle = ice > 1 ? 'rgba(70,165,225,0.95)' : 'rgba(150,215,245,0.75)';
           ctx.lineWidth = 2;
           ctx.stroke();
+          // 白色裂纹：没被砸过只有一道小纹；砸过一次裂纹更多更碎
           ctx.strokeStyle = 'rgba(255,255,255,0.85)';
           ctx.lineWidth = 1.4;
-          ctx.beginPath();
-          ctx.moveTo(x + CELL * 0.24, y + CELL * 0.16);
-          ctx.lineTo(x + CELL * 0.44, y + CELL * 0.5);
-          ctx.lineTo(x + CELL * 0.28, y + CELL * 0.78);
-          ctx.stroke();
-          if (ice > 1) {
+          const zig = (x1, y1, x2, y2, x3, y3) => {
             ctx.beginPath();
-            ctx.moveTo(x + CELL * 0.74, y + CELL * 0.2);
-            ctx.lineTo(x + CELL * 0.56, y + CELL * 0.5);
-            ctx.lineTo(x + CELL * 0.78, y + CELL * 0.8);
+            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3);
             ctx.stroke();
+          };
+          zig(x + CELL * 0.24, y + CELL * 0.16, x + CELL * 0.44, y + CELL * 0.5, x + CELL * 0.28, y + CELL * 0.78);
+          if (ice > 1) {
+            zig(x + CELL * 0.74, y + CELL * 0.2, x + CELL * 0.56, y + CELL * 0.5, x + CELL * 0.78, y + CELL * 0.8);
+          } else {
+            // 砸过一次：满格碎裂纹
+            zig(x + CELL * 0.74, y + CELL * 0.2, x + CELL * 0.56, y + CELL * 0.5, x + CELL * 0.78, y + CELL * 0.8);
+            zig(x + CELL * 0.62, y + CELL * 0.12, x + CELL * 0.5, y + CELL * 0.42, x + CELL * 0.74, y + CELL * 0.58);
+            zig(x + CELL * 0.14, y + CELL * 0.55, x + CELL * 0.4, y + CELL * 0.62, x + CELL * 0.34, y + CELL * 0.88);
+            zig(x + CELL * 0.7, y + CELL * 0.28, x + CELL * 0.62, y + CELL * 0.72, x + CELL * 0.82, y + CELL * 0.84);
+            zig(x + CELL * 0.08, y + CELL * 0.3, x + CELL * 0.2, y + CELL * 0.45, x + CELL * 0.1, y + CELL * 0.62);
           }
           ctx.restore();
         }
@@ -1266,7 +1272,13 @@
     boomPoints.forEach((bp) => {
       FX.explosion(bp.c * CELL + CELL / 2, bp.r * CELL + CELL / 2, CELL);
       if (bp.type === T.BOMB) FX.shake(3, 0.18);
-      if (bp.type === T.RAINBOW) FX.shake(4, 0.25);
+      if (bp.type === T.RAINBOW) {
+        FX.shake(4, 0.25);
+        // 彩虹被消触发全场同图案：补一条醒目提示
+        FX.text(bp.c * CELL + CELL / 2, bp.r * CELL + CELL / 2 - CELL * 0.3,
+          '同图案消除 🌈', '#c85cff', 18);
+        AudioManager.playSFX('line');
+      }
     });
     clearSet.forEach((k) => {
       const p = Specials.parse(k);
@@ -1353,39 +1365,12 @@
     await resolveClear(expanded.cells, expanded.boomPoints);
   }
 
-  // ==================== 彩虹：消场上所有「同图案」方块 ====================
-  // 彩虹跟普通块交换时，消掉【彩虹自己图案】在全盘的每一块 + 被交换那个；
-  // 不连锁引爆同色里夹着的炸弹/线消（它们只被当作普通方块消掉），
-  // 也绝不直接碰其它图案的方块（掉落后凑出的普通三连属于正常连消）。
-  function rainbowSwapInfo(ba, bb) {
-    if (!ba || !bb) return null;
-    // 彩虹块本身有图案（type），消除目标 = 彩虹自己的图案
-    if (ba.special === T.RAINBOW && bb.special === T.NORMAL) return { color: ba.type, fromA: true };
-    if (bb.special === T.RAINBOW && ba.special === T.NORMAL) return { color: bb.type, fromA: false };
-    return null;
-  }
-
-  async function runRainbowClear(color, rainbowCell) {
-    // 彩虹自身图案全消 + 被交换的那块也一起消掉（彩虹已经在它那格）
-    const cells = new Set([kOf(rainbowCell.r, rainbowCell.c)]);
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const b = S.board[r][c];
-        if (!b) continue;
-        if (b.special === T.RAINBOW) continue;   // 其它彩虹不连坐
-        if (b.type === color) cells.add(kOf(r, c));
-      }
-    }
-
-    FX.text(rainbowCell.c * CELL + CELL / 2, rainbowCell.r * CELL + CELL / 2 - CELL * 0.3,
-      '同图案消除 🌈', '#c85cff', 18);
-    FX.burst(rainbowCell.c * CELL + CELL / 2, rainbowCell.r * CELL + CELL / 2, '#c85cff', 6);
-    AudioManager.playSFX('line');
-    Tasks.report('rainbow', 1);
-    Meta.bump('rainbows', 1);
-    if (!cells.size) { drawStatic(); return; }
-    await resolveClear(cells, []);
-  }
+  // ==================== 彩虹机关 ====================
+  // 彩虹只在【自己被消除】的那一刻触发：把自身图案的全盘同图案方块一起消掉
+  // （0.jpg 带彩虹 → 彩虹被消时全场 0.jpg 消掉）。
+  // 触发路径统一走 Specials.expandClears：被三连消掉 / 被炸弹线消波及都算；
+  // 与普通块交换但彩虹本身没被消时，只按普通三连处理，绝不触发。
+  // 不连锁引爆同图案里夹着的炸弹/线消（它们只被当作普通方块消掉）。
 
   // ==================== 特殊块的生成顺序 ====================
   // 每个特殊块生成时发一个递增编号（跟着方块一起下落/存档），
@@ -1539,18 +1524,8 @@
         return;
       }
 
-      // 彩虹 + 普通块：消掉全场所有同色方块（无视周围有没有三连）
-      const rb = rainbowSwapInfo(ba, bb);
-      if (rb) {
-        commitSnap(snap);
-        spendMove();
-        // 交换后彩虹已经挪到了对面那格
-        await runRainbowClear(rb.color, rb.fromA ? b : a);
-        // 消除后的掉落可能再凑出连消
-        await resolveBoard(null);
-        await afterTurn();
-        return;
-      }
+      // 彩虹不在这里特判：彩虹跟普通块一样只能靠「自己被消」触发全场同图案。
+      // 交换后只有对方凑出普通三连就正常消那三连，彩虹没被消就不触发。
 
       if (findMatches().size === 0) {
         await sleep(60);

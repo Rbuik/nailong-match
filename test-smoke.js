@@ -699,31 +699,66 @@ function check(name, ok) {
   await sandbox.__nl_test.resolveClear(new Set(['5,3']), []);
   check('货物被消后落到下一格', !!(st.board[6][3] && st.board[6][3].cargo === cargoObj));
 
-  // 27. 彩虹 + 普通块：消掉【彩虹自身图案】的全盘方块，彩虹自己也一起消掉
+  // 27. 彩虹 + 普通块交换、彩虹本身没被消（没凑成三连）：不触发，换回原位
   sandbox.__nl_test.start(1, { def: { id: 91, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
   const rainbowObj = { type: 0, special: Sp.TYPE.RAINBOW };
   st.board[4][4] = rainbowObj;
   st.board[4][5] = { type: 1, special: 0 };
-  // 记录交换前彩虹图案（type 0）的方块对象引用（随机补充的新块不算）
+  // 隔离邻居，保证这次交换凑不成任何三连
+  st.board[4][3] = { type: 2, special: 0 };
+  st.board[3][4] = { type: 3, special: 0 };
+  st.board[5][4] = { type: 4, special: 0 };
+  st.board[3][5] = { type: 5, special: 0 };
+  st.board[5][5] = { type: 2, special: 0 };
+  st.board[4][6] = { type: 3, special: 0 };
+  // 记录交换前彩虹图案（type 0）的方块对象引用
   const type0Objs = new Set();
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
     const b = st.board[r][c];
     if (b && b.type === 0 && b !== rainbowObj) type0Objs.add(b);
   }
-  // 彩虹和普通块交换：彩虹自己图案全消，彩虹自己也一起消掉
-  // （掉落连消可能补进同图案新块，所以全部用对象引用判断）
   await sandbox.__nl_test.swap({ r: 4, c: 4 }, { r: 4, c: 5 });
-  let origGone = true;
-  let type0Left = 0;
+  check('彩虹没被消时交换不触发（彩虹回到原位）', st.board[4][4] === rainbowObj);
+  let type0Left2 = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const b = st.board[r][c];
+    if (b && type0Objs.has(b)) type0Left2++;
+  }
+  check('彩虹不触发时什么都不消', type0Objs.size > 0 && type0Left2 === type0Objs.size);
+
+  // 27c. 彩虹作为三连的一部分被消掉：自身图案的全盘方块都消掉，彩虹也消掉
+  sandbox.__nl_test.start(1, { def: { id: 90, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  const rainbowObj2 = { type: 0, special: Sp.TYPE.RAINBOW };
+  st.board[4][4] = rainbowObj2;
+  st.board[4][5] = { type: 0, special: 0 };
+  st.board[4][6] = { type: 7, special: 0 };
+  st.board[4][7] = { type: 0, special: 0 };
+  st.board[3][4] = { type: 1, special: 0 };
+  st.board[5][4] = { type: 2, special: 0 };
+  st.board[3][5] = { type: 3, special: 0 };
+  st.board[5][5] = { type: 4, special: 0 };
+  st.board[3][6] = { type: 1, special: 0 };
+  st.board[5][6] = { type: 2, special: 0 };
+  st.board[3][7] = { type: 3, special: 0 };
+  st.board[5][7] = { type: 4, special: 0 };
+  const type0Objs2 = new Set();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const b = st.board[r][c];
+    if (b && b.type === 0 && b !== rainbowObj2) type0Objs2.add(b);
+  }
+  // 交换后凑成 (4,4)(4,5)(4,6) 三连，其中 (4,4) 是彩虹
+  await sandbox.__nl_test.swap({ r: 4, c: 6 }, { r: 4, c: 7 });
+  let r2gone = true, t0left = 0;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
     const b = st.board[r][c];
     if (!b) continue;
-    if (b === rainbowObj) origGone = false;
-    if (type0Objs.has(b)) type0Left++;
+    if (b === rainbowObj2) r2gone = false;
+    if (type0Objs2.has(b)) t0left++;
   }
-  check('彩虹交换后自己也被消除', origGone);
-  check('彩虹清掉自己图案的普通块', type0Objs.size > 0 && type0Left === 0);
+  check('彩虹被三连消掉后自己也被消除', r2gone);
+  check('彩虹触发时清掉自身图案的全盘方块', type0Objs2.size > 0 && t0left === 0);
 
   // 27b. 彩虹被普通三连 / 炸弹 / 线消波及消除时：引爆彩虹自身图案（不是场上最多的颜色）
   const rbBoard = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 1, special: 0 })));
