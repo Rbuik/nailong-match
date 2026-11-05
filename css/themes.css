@@ -251,54 +251,12 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   animation: mascot-idle 3s ease-in-out infinite;
 }
 
-.mascot-body {
-  position: relative;
-  width: 66px;
-  height: 60px;
-  border-radius: 50% 50% 46% 46%;
-  background: radial-gradient(circle at 35% 30%, #ffe680, #ffc93c 70%, #f0b429);
-  box-shadow: inset 0 -6px 12px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(240, 180, 41, 0.4);
-}
-
-.mascot-eye {
-  position: absolute;
-  top: 22px;
-  width: 8px;
-  height: 10px;
-  border-radius: 50%;
-  background: #3b2b12;
-  animation: blink 4.2s infinite;
-}
-
-.mascot-eye.left { left: 17px; }
-.mascot-eye.right { right: 17px; }
-
-.mascot-cheek {
-  position: absolute;
-  top: 34px;
-  width: 11px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(255, 120, 120, 0.55);
-}
-
-.mascot-cheek.left { left: 8px; }
-.mascot-cheek.right { right: 8px; }
-
-.mascot-mouth {
-  position: absolute;
-  left: 50%;
-  top: 34px;
-  width: 12px;
-  height: 7px;
-  margin-left: -6px;
-  border-radius: 0 0 12px 12px;
-  background: #b5651d;
-}
-
-@keyframes blink {
-  0%, 92%, 100% { transform: scaleY(1); }
-  95% { transform: scaleY(0.1); }
+.mascot-img {
+  width: 108px;
+  height: auto;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 6px 10px rgba(240, 180, 41, 0.35));
 }
 
 @keyframes mascot-idle {
@@ -1140,7 +1098,16 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 .skin-row.active { border-color: #7c5cff; background: rgba(124, 92, 255, 0.08); }
 .skin-row.locked { opacity: 0.55; }
-.skin-icon { font-size: 20px; }
+/* 色块图标：对应颜色的小方块 */
+.skin-icon {
+  width: 20px;
+  height: 20px;
+  font-size: 17px;
+  line-height: 20px;
+  text-align: center;
+  border-radius: 5px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
 .skin-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .skin-main b { font-size: 13px; color: #3d3556; }
 .skin-main i { font-size: 11px; font-style: normal; color: #8b84a0; }
@@ -1297,7 +1264,10 @@ body.frenzy .board-wrap {
   to { filter: saturate(1.35) brightness(1.04); }
 }
 
-/* ================= 皮肤（图鉴里换） ================= */
+/* ================= 棋盘配色（黄色/绿色/粉色/紫色/金色） ================= */
+body[data-skin="default"] .board-wrap {
+  box-shadow: 0 0 0 3px rgba(255, 205, 60, 0.5), 0 10px 26px rgba(255, 205, 60, 0.25);
+}
 body[data-skin="mint"] .board-wrap {
   box-shadow: 0 0 0 3px rgba(90, 200, 160, 0.45), 0 10px 26px rgba(90, 200, 160, 0.22);
 }
@@ -1323,10 +1293,11 @@ body[data-skin="gold"] .board-wrap {
 
 /* 棋盘配色只改两处：游戏里棋盘外圈的光晕 + 「目标：」那一栏的底色。
    主页奶龙、按钮、其它任何地方都不动。 */
+body[data-skin="default"] { --skin-target-bg: rgba(255, 205, 60, 0.25); }
 body[data-skin="mint"]   { --skin-target-bg: rgba(47, 168, 122, 0.22); }
 body[data-skin="sakura"] { --skin-target-bg: rgba(255, 150, 190, 0.26); }
 body[data-skin="galaxy"] { --skin-target-bg: rgba(110, 100, 205, 0.24); }
-body[data-skin="gold"]   { --skin-target-bg: rgba(240, 190, 50, 0.28); }
+body[data-skin="gold"]   { --skin-target-bg: rgba(240, 190, 50, 0.3); }
 
 /* 目标栏底色由 updateTargetBar 用这个变量上色 */
-.target-bar { background: var(--skin-target-bg, rgba(92, 200, 143, 0.15)); }
+.target-bar { background: var(--skin-target-bg, rgba(255, 205, 60, 0.25)); }
