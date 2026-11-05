@@ -2338,11 +2338,12 @@
 
   // ==================== 面板 ====================
   function hideAllOverlays() {
-    ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
+    ['main-menu', 'settings-menu', 'music-settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
       'rules-menu', 'logout-confirm', 'logout-confirm2', 'pause-menu',
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
+      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2351,11 +2352,12 @@
   }
 
   // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
-  const MENU_PANELS = ['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu',
+  const MENU_PANELS = ['main-menu', 'settings-menu', 'music-settings-menu', 'volume-menu', 'custom-music-menu',
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
     'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu', 'admin-menu',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
-    'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu', 'recover-menu'];
+    'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
+    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -2370,8 +2372,8 @@
     if (id === 'main-menu') {
       const tip = $('load-tip');
       if (tip) tip.style.visibility = '';
-      // 名字还是「奶龙玩家」→ 回到主页就把改名窗口弹出来
-      setTimeout(maybeNickGateHome, 320);
+      // 账号资料不全（缺名字 / 缺密码 / 名字含敏感词）→ 回到主页就把修复窗口弹出来
+      setTimeout(maybeAccountGate, 320);
     }
     setView(MENU_PANELS.indexOf(id) >= 0 ? 'menu' : 'game');
   }
@@ -3571,6 +3573,8 @@
     // 主页
     const play = $('btn-play');
     if (play) play.addEventListener('click', () => {
+      // 没有账号 / 资料不全：先把账号补好再玩
+      if (!ensureAccount(() => {})) return;
       AudioManager.init(Store.getSettings());
       AudioManager.unlock();
       const lv = S.menuLevel || 1;
@@ -3633,7 +3637,7 @@
         showDailyDone();
         return;
       }
-      ensureNick(() => {
+      ensureAccount(() => {
         const d = Tasks.getDailyChallenge();
         startLevel(9999, { def: d, seed: d.seed, daily: true });
       });
@@ -3660,22 +3664,13 @@
     });
     const logoutConfirm = $('btn-logout-confirm');
     if (logoutConfirm) logoutConfirm.addEventListener('click', () => {
-      // 注销 = 什么都没了：先向榜单广播「删除我」，让所有设备都把这条成绩拿掉
-      try { if (typeof Board !== 'undefined' && Board.remove) Board.remove(Meta.myUid()); } catch (e) {}
-      Store.wipeAll();
-      // meta.js 自己的一组 key（昵称 / 成就 / 好友 / 皮肤 / 身份码 / 签到转盘…）也全部清掉；
-      // 只保留后台统计（nl2:visits / nl2:net）和榜单删除墓碑（nl2:lb-del，防复活）
-      try {
-        const keep = { 'nl2:visits': 1, 'nl2:net': 1, 'nl2:lb-del': 1 };
-        const rm = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.indexOf('nl2:') === 0 && !keep[k]) rm.push(k);
-        }
-        rm.forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
-      } catch (e) {}
-      try { sessionStorage.clear(); } catch (e) {}
-      location.reload();
+      // 注销 = 退出登录：当前号的数据进本机快照（不删除、不上榜删除），回到登录页，
+      // 之后可以登录 / 切换到另一个号，也能随时切回来
+      Account.logout();
+      $('logout-confirm2').style.display = 'none';
+      S.playing = false;
+      showAuthScreen();
+      setTimeout(() => { try { location.reload(); } catch (e) {} }, 160);
     });
     const logoutCancel = $('btn-logout-cancel');
     if (logoutCancel) logoutCancel.addEventListener('click', () => {
@@ -4030,80 +4025,106 @@
 
     const volBtn = $('btn-goto-volume');
     if (volBtn) volBtn.addEventListener('click', () => {
-      $('settings-menu').style.display = 'none';
+      $('music-settings-menu').style.display = 'none';
       syncVolumeUI();
       showOverlay('volume-menu');
     });
 
-    // ==================== 找回旧账号 ====================
-    // 换手机 / 微信重登导致本地数据被清时，凭共享榜上的身份码把旧号绑回本机：
-    // 名字、总分、每关最高分会从榜单数据里恢复（金币/道具/成就只存本机，找不回）
-    const recoverBtn = $('btn-recover');
-    if (recoverBtn) recoverBtn.addEventListener('click', () => {
+    // 设置 → 音乐设置（音量 / 播放列表 / 导入 / 恢复默认都在这里面）
+    on('btn-goto-music-settings', () => {
       $('settings-menu').style.display = 'none';
-      const inp = $('recover-code');
-      if (inp) inp.value = '';
-      const hint = $('recover-uid-hint');
-      if (hint) {
-        hint.textContent = '本机当前身份码：' + Meta.myUid() + '（记下来，换设备时用它找回）';
-      }
-      const res = $('recover-result');
-      if (res) res.textContent = '';
-      showOverlay('recover-menu');
+      showOverlay('music-settings-menu');
     });
-    const recoverCancel = $('btn-recover-cancel');
-    if (recoverCancel) recoverCancel.addEventListener('click', () => {
-      $('recover-menu').style.display = 'none';
+    on('btn-back-music-settings', () => {
+      $('music-settings-menu').style.display = 'none';
       showOverlay('settings-menu');
     });
-    const recoverConfirm = $('btn-recover-confirm');
-    if (recoverConfirm) recoverConfirm.addEventListener('click', async () => {
-      const res = $('recover-result');
-      const show = (t) => { if (res) res.textContent = t; };
-      const code = String(($('recover-code') || {}).value || '').trim();
-      if (!/^[A-Za-z0-9_-]{3,24}$/.test(code)) {
-        show('身份码格式不对（一般是 u 开头 + 一串字母数字）');
-        return;
-      }
-      if (code === Meta.myUid()) { show('这就是本机当前的号，不用找回'); return; }
-      show('正在查询榜单…');
-      try { if (typeof Board !== 'undefined') await Board.sync(); } catch (e) {}
-      const old = (typeof Board !== 'undefined') ? Board.get(code) : null;
-      if (!old || !(old.score > 0)) {
-        show('没找到这个身份码的成绩（榜单数据只保留 12 小时）。确认码没输错；如果确实找不到，说明数据已过期。');
-        return;
-      }
-      let ok = true;
-      try { ok = globalThis.confirm('找到「' + old.name + '」总分 ' + old.score + '。找回会覆盖当前这个新号的进度，确定吗？'); } catch (e) { ok = true; }
-      if (!ok) { show('已取消'); return; }
-      const prevUid = Meta.myUid();
-      Meta.bindUid(code);
-      try { Meta.setNickname(String(old.name || '玩家')); } catch (e) {}
-      // 每关最高分 → 本机进度（星级按星线推算：有分保底 1 星，够 2/3 星线就给）
-      const lv = old.lv || {};
-      Object.keys(lv).forEach((k) => {
-        const n = Number(k);
-        const score = Number(lv[k]) || 0;
-        if (!(n >= 1 && n <= maxMainLevel()) || !(score > 0)) return;
-        const th = (getLevelDef(n).stars) || [Infinity, Infinity, Infinity];
-        let stars = 1;
-        if (score >= th[1]) stars = 2;
-        if (score >= th[2]) stars = 3;
-        Store.recordLevel(n, score, stars);
-      });
-      // 刚误建的新号从共享榜上撤掉
-      if (prevUid && prevUid !== code) { try { if (typeof Board !== 'undefined') Board.remove(prevUid); } catch (e) {} }
-      S.menuLevel = Math.min(Store.maxUnlockedLevel(maxMainLevel()), maxMainLevel());
-      Store.setSettings({ menuLevel: S.menuLevel });
-      refreshMenu();
-      show('找回成功，欢迎回来「' + old.name + '」！金币 / 道具 / 成就无法找回。');
-      try { publishMyScore(true); } catch (e) {}
+
+    // ==================== 账号安全 ====================
+    // 设置 → 账号安全：修改密码 / 切换账号
+    on('btn-goto-account', () => {
+      $('settings-menu').style.display = 'none';
+      const n = $('account-cur-name');
+      if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
+      showOverlay('account-menu');
     });
+    on('btn-close-account', () => {
+      $('account-menu').style.display = 'none';
+      showOverlay('settings-menu');
+    });
+
+    // 修改密码
+    on('btn-goto-password', () => {
+      ['pass-old', 'pass-new', 'pass-new2'].forEach((id) => {
+        const el = $(id);
+        if (el) { el.value = ''; el.classList.remove('error'); }
+      });
+      setPassError('');
+      $('account-menu').style.display = 'none';
+      showOverlay('password-menu');
+    });
+    on('btn-pass-cancel', () => {
+      $('password-menu').style.display = 'none';
+      showOverlay('account-menu');
+    });
+    on('btn-pass-save', () => {
+      const oldV = ($('pass-old') || {}).value || '';
+      const n1 = ($('pass-new') || {}).value || '';
+      const n2 = ($('pass-new2') || {}).value || '';
+      const fail = (m, ids) => {
+        setPassError(m, ids);
+        try { AudioManager.playSFX('invalid'); } catch (e) {}
+      };
+      if (!n1) return fail('请填写新密码', ['pass-new', 'pass-new2']);
+      if (n1 !== n2) return fail('两次输入的新密码不一样', ['pass-new2']);
+      const r = Account.setPassword(oldV, n1);
+      if (!r.ok) {
+        return fail(r.reason, r.oldBad ? ['pass-old'] : ['pass-new', 'pass-new2']);
+      }
+      $('password-menu').style.display = 'none';
+      showOverlay('account-menu');
+      toast('密码已修改，下次登录用新密码');
+      try { AudioManager.playSFX('coin'); } catch (e) {}
+    });
+
+    // 切换账号
+    on('btn-goto-switch', () => {
+      renderSwitchList();
+      $('account-menu').style.display = 'none';
+      showOverlay('switch-menu');
+    });
+    on('btn-switch-cancel', () => {
+      $('switch-menu').style.display = 'none';
+      showOverlay('account-menu');
+    });
+    // 登录其他账号：先退出当前号（数据留档），再回到登录页
+    on('btn-switch-login', () => {
+      Account.logout();
+      $('switch-menu').style.display = 'none';
+      showAuthScreen();
+    });
+
+    // ==================== 登录 / 注册 ====================
+    on('btn-auth-login', () => openAuthForm('login'));
+    on('btn-auth-register', () => openAuthForm('register'));
+    on('btn-auth-back', () => {
+      $('auth-form').style.display = 'none';
+      setAuthError('');
+      showAuthScreen();
+    });
+    on('btn-auth-submit', submitAuth);
+    ['auth-name', 'auth-pass'].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
+    });
+    on('btn-fix-save', saveFix);
+    const fixName = $('fix-name');
+    if (fixName) fixName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveFix(); });
 
     const backVol = $('btn-back-settings');
     if (backVol) backVol.addEventListener('click', () => {
       $('volume-menu').style.display = 'none';
-      showOverlay('settings-menu');
+      showOverlay('music-settings-menu');
     });
 
     const bgm = $('bgm-volume');
@@ -4174,7 +4195,9 @@
     // 遮罩点击关闭（§25）
     document.querySelectorAll('.overlay').forEach((ov) => {
       ov.addEventListener('click', (e) => {
-        if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete'].indexOf(ov.id) < 0) {
+        // 主页 / 结算 / 登录 / 补资料这些面板点遮罩不关闭（必须点按钮）
+        if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete',
+          'auth-menu', 'auth-form', 'fix-menu'].indexOf(ov.id) < 0) {
           ov.style.display = 'none';
         }
       });
@@ -4312,6 +4335,11 @@
 
   // ==================== 启动 ====================
   async function boot() {
+    // 账号：老版本的本机数据先认领成一个账号；没有登录会话的停在登录页
+    // 必须在任何启动期写 localStorage 之前跑，否则会把「启动缓存」误认成老用户数据
+    try { if (typeof Account !== 'undefined') Account.ensure(); } catch (e) {}
+    const loggedIn = (typeof Account !== 'undefined') && Account.loggedIn();
+
     // 读关卡数据（§20）
     try {
       const res = await fetch('js/levels.json', { cache: 'no-store' });
@@ -4375,7 +4403,13 @@
     if (global_Music()) global_Music().init();
     refreshMenu();
     Tasks.ensureToday();
-    showOverlay('main-menu');
+    if (loggedIn) {
+      showOverlay('main-menu');
+      claimCompensation();
+      setTimeout(() => { try { maybeAccountGate(); } catch (e) {} }, 400);
+    } else {
+      showAuthScreen();
+    }
     requestAnimationFrame(loop);
 
     // 首次交互解锁音频，并恢复上次的自定义音乐
@@ -4524,7 +4558,7 @@
       S.menuLevel = lv;
       startLevel(lv);
     };
-    ensureNick(() => {
+    ensureAccount(() => {
       if (firstOfChapter && !Meta.storySeen(chId)) showStory(chId, go);
       else go();
     });
@@ -4633,7 +4667,7 @@
   function startMode(mode) {
     const m = MODES[mode];
     if (!m) return;
-    ensureNick(() => {
+    ensureAccount(() => {
       lastMode = mode;
       const def = {
         id: 0, theme: m.theme, colors: 6, moves: m.moves, stars: [0, 0, 0],
@@ -5065,6 +5099,7 @@
   // 还没打过分的（0 分）先不上榜，免得榜里全是 0 分的空名字
   function publishMyScore(force) {
     if (typeof Board === 'undefined') return;
+    if (typeof Account !== 'undefined' && !Account.loggedIn()) return;
     const me = myBestEntry();
     if (!(me.score > 0)) return;
     try { Board.publish(me, force); } catch (e) {}
@@ -5102,41 +5137,27 @@
       // 两行显示：规则一行，「不能和别人重名」另起一行
       hint.innerHTML = forced
         ? '最多 8 个字，特殊符号只能用 - . _<br>不能和别人重名'
-        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 - . _<br>不能和别人重名';
+        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 . - _<br>不能和别人重名';
     }
     if ($('nick-input')) $('nick-input').value = Meta.isDefaultNick() ? '' : Meta.nickname();
     showOverlay('nick-menu');
     if ($('nick-input') && $('nick-input').focus) setTimeout(() => $('nick-input').focus(), 60);
   }
 
-  // 默认昵称不能玩：弹改名面板，改完才继续
-  function ensureNick(then) {
-    if (!Meta.isDefaultNick()) { then(); return; }
-    nickGateCb = then;
-    openNickMenu(true);
-  }
-
-  // 一进主页就检查：名字还是「奶龙玩家」直接把改名窗口弹出来
-  let lastNickPop = 0;
-  function maybeNickGateHome() {
-    if (!Meta.isDefaultNick()) return;
-    if (S.playing) return;
-    const nick = $('nick-menu');
-    if (nick && nick.style.display === 'flex') return;
-    if (Date.now() - lastNickPop < 8000) return;   // 防止连续刷新时反复弹
-    lastNickPop = Date.now();
-    openNickMenu(true);
-  }
-
-  // 保存昵称（force=true 时来自改名面板，改成功提示更醒目）
+  // 保存昵称（名字就是账号名，改完账号表一起更新）
   function saveNickFrom(v, force) {
-    const r = Meta.validateNick(v, takenNickNames());
+    let r;
+    if (typeof Account !== 'undefined' && Account.loggedIn()) {
+      r = Account.rename(v);
+    } else {
+      r = Meta.validateNick(v, takenNickNames());
+      if (r.ok) Meta.setNickname(r.name);
+    }
     if (!r.ok) {
       toast(r.reason);
       AudioManager.playSFX('invalid');
       return r;
     }
-    Meta.setNickname(r.name);
     toast('昵称已改为「' + r.name + '」');
     // 改名立刻同步到榜上（别人开着排行榜会实时看到新昵称）
     publishMyScore(true);
@@ -5159,6 +5180,272 @@
     if (nickForced) return;           // 强制闸不给关
     $('nick-menu').style.display = 'none';
     showOverlay('main-menu');
+  }
+
+  // ==================== 账号：登录 / 注册 / 切换 / 补全资料 ====================
+  let authMode = 'login';
+
+  function accountOk() {
+    return typeof Account !== 'undefined' && Account.loggedIn();
+  }
+
+  function setInputError(ids, on) {
+    ids.forEach((id) => {
+      const el = $(id);
+      if (!el) return;
+      if (el.classList && el.classList.toggle) el.classList.toggle('error', !!on);
+    });
+  }
+
+  function setAuthError(msg) {
+    setInputError(['auth-name', 'auth-pass'], !!msg);
+    const err = $('auth-err');
+    if (err) err.textContent = msg || '';
+  }
+
+  function setPassError(msg, ids) {
+    setInputError(ids || ['pass-old', 'pass-new', 'pass-new2'], !!msg);
+    const err = $('pass-err');
+    if (err) err.textContent = msg || '';
+  }
+
+  // 登录页：本机已有的账号可以直接点进去
+  function renderAuthAccounts() {
+    const box = $('auth-accounts');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!accountOk() && typeof Account === 'undefined') return;
+    const others = Account.list().filter((a) => a.name);
+    if (!others.length) {
+      const p = document.createElement('p');
+      p.className = 'history-hint';
+      p.textContent = '第一次来？点上面的「注册」，起个名字就能开始';
+      box.appendChild(p);
+      return;
+    }
+    const tip = document.createElement('p');
+    tip.className = 'history-hint';
+    tip.textContent = '本机账号（点一下直接进入）';
+    box.appendChild(tip);
+    others.forEach((a) => {
+      const sum = Account.summary(a);
+      const row = document.createElement('div');
+      row.className = 'acct-row';
+      row.innerHTML = '<span class="acct-main"><b>' + escHtml(a.name) + '</b>' +
+        '<i>🪙 ' + sum.coins + ' · ⭐ ' + sum.stars + '</i></span>' +
+        '<span class="acct-mark">进入</span>';
+      row.addEventListener('click', () => {
+        if (a.pass) {
+          // 有密码：跳到登录页并填好名字，输密码就能进
+          openAuthForm('login');
+          const n = $('auth-name');
+          if (n) n.value = a.name;
+          const p = $('auth-pass');
+          if (p && p.focus) setTimeout(() => p.focus(), 80);
+          setAuthError('');
+          return;
+        }
+        const r = Account.login(a.name, '');   // 没密码的老号：直接进，进去后强制补密码
+        if (r.ok) { afterAuthEnter(); return; }
+        openAuthForm('login');
+        const n = $('auth-name');
+        if (n) n.value = a.name;
+        setAuthError(r.reason || '');
+      });
+      box.appendChild(row);
+    });
+  }
+
+  function showAuthScreen() {
+    const f = $('auth-form');
+    if (f) f.style.display = 'none';
+    const fix = $('fix-menu');
+    if (fix) fix.style.display = 'none';
+    setAuthError('');
+    renderAuthAccounts();
+    showOverlay('auth-menu');
+    setView('menu');
+  }
+
+  function openAuthForm(mode) {
+    authMode = mode === 'register' ? 'register' : 'login';
+    $('auth-menu').style.display = 'none';
+    const t = $('auth-form-title');
+    if (t) t.textContent = authMode === 'register' ? '注册新账号' : '登录';
+    const sub = $('btn-auth-submit');
+    if (sub) sub.textContent = authMode === 'register' ? '注册并进入' : '登录';
+    const tip = $('auth-tip');
+    if (tip) {
+      tip.innerHTML = authMode === 'register'
+        ? '最多 8 个字，特殊符号只能用 - . _<br>密码 4~24 位，不能有空格'
+        : '';
+    }
+    ['auth-name', 'auth-pass'].forEach((id) => {
+      const el = $(id);
+      if (el) el.value = '';
+    });
+    setAuthError('');
+    showOverlay('auth-form');
+    setView('menu');
+    const n = $('auth-name');
+    if (n && n.focus) setTimeout(() => n.focus(), 60);
+  }
+
+  function submitAuth() {
+    const name = ($('auth-name') || {}).value || '';
+    const pass = ($('auth-pass') || {}).value || '';
+    const fail = (m) => {
+      setAuthError(m);
+      try { AudioManager.playSFX('invalid'); } catch (e) {}
+      return false;
+    };
+    if (!String(name).trim()) return fail('请填写名字');
+    if (!String(pass)) return fail('请填写密码');
+    if (typeof Account === 'undefined') return fail('账号功能没加载出来，请刷新页面');
+
+    if (authMode === 'register') {
+      const r = Account.register(name, pass);
+      if (!r.ok) return fail(r.reason);
+      afterAuthEnter('注册成功，欢迎「' + r.account.name + '」');
+    } else {
+      const r = Account.login(name, pass);
+      if (!r.ok) return fail(r.reason || Account.BAD_PASS);
+      afterAuthEnter();
+    }
+    return true;
+  }
+
+  function afterAuthEnter(msg) {
+    try { Account.claimGrants(); } catch (e) {}
+    if (msg) { try { toast(msg); } catch (e) {} }
+    // 换账号后内存里的 S / 音频 / 缓存全是上一个号的，直接重载最干净
+    setTimeout(() => { try { location.reload(); } catch (e) {} }, msg ? 420 : 60);
+  }
+
+  // 切换账号列表
+  function renderSwitchList() {
+    const box = $('acct-list');
+    if (!box) return;
+    box.innerHTML = '';
+    const cur = Account.current();
+    const arr = Account.list();
+    if (!arr.length) {
+      const p = document.createElement('p');
+      p.className = 'history-hint';
+      p.textContent = '本机还没有别的账号';
+      box.appendChild(p);
+      return;
+    }
+    arr.forEach((a) => {
+      const sum = Account.summary(a);
+      const mine = !!cur && cur.id === a.id;
+      const row = document.createElement('div');
+      row.className = 'acct-row' + (mine ? ' cur' : '');
+      row.innerHTML = '<span class="acct-main"><b>' + escHtml(a.name || '（还没起名字）') + '</b>' +
+        '<i>🪙 ' + sum.coins + ' · ⭐ ' + sum.stars + '</i></span>' +
+        '<span class="acct-mark">' + (mine ? '使用中' : '切换') + '</span>';
+      row.addEventListener('click', () => {
+        if (mine) { toast('现在用的就是这个账号'); return; }
+        const r = Account.switchTo(a.id);
+        if (!r.ok) { toast(r.reason || '切换失败'); return; }
+        toast('已切换到「' + a.name + '」');
+        setTimeout(() => { try { location.reload(); } catch (e) {} }, 320);
+      });
+      box.appendChild(row);
+    });
+  }
+
+  // 资料不全（缺名字 / 缺密码 / 含敏感词）→ 必须补好才能玩
+  function openFixMenu(need) {
+    need = need || Account.needsFix();
+    const acc = Account.current();
+    const title = $('fix-title');
+    const tip = $('fix-tip');
+    const rows = $('fix-pass-rows');
+    const nameIn = $('fix-name');
+    setInputError(['fix-name', 'fix-pass', 'fix-pass2'], false);
+    const err = $('fix-err');
+    if (err) err.textContent = '';
+
+    if (need.sensitive) {
+      if (title) title.textContent = '✏️ 修改名字';
+      if (tip) tip.textContent = '这个名字里有敏感词，换一个才能继续游戏';
+      if (rows) rows.style.display = 'none';
+      if (nameIn) nameIn.value = (acc && acc.name) || '';
+    } else {
+      if (title) title.textContent = '完善账号信息';
+      if (tip) tip.textContent = '名字和密码都要有才能继续游戏，填好一次以后就用它登录';
+      if (rows) rows.style.display = '';
+      if (nameIn) nameIn.value = (acc && acc.name && acc.name !== '奶龙玩家') ? acc.name : '';
+      ['fix-pass', 'fix-pass2'].forEach((id) => { const el = $(id); if (el) el.value = ''; });
+    }
+    showOverlay('fix-menu');
+    setView('menu');
+  }
+
+  function saveFix() {
+    const need = Account.needsFix();
+    const nameV = ($('fix-name') || {}).value || '';
+    const p1 = ($('fix-pass') || {}).value || '';
+    const p2 = ($('fix-pass2') || {}).value || '';
+    const fail = (m, ids) => {
+      setInputError(ids, true);
+      const err = $('fix-err');
+      if (err) err.textContent = m;
+      try { AudioManager.playSFX('invalid'); } catch (e) {}
+      return false;
+    };
+    setInputError(['fix-name', 'fix-pass', 'fix-pass2'], false);
+
+    if (need.nick || need.sensitive) {
+      const r = Account.rename(nameV);
+      if (!r.ok) return fail(r.reason, ['fix-name']);
+    }
+    if (need.pass) {
+      if (!p1) return fail('请设置密码', ['fix-pass']);
+      if (p1 !== p2) return fail('两次输入的密码不一样', ['fix-pass2']);
+      const r = Account.setPassword('', p1);
+      if (!r.ok) return fail(r.reason, ['fix-pass']);
+    }
+
+    $('fix-menu').style.display = 'none';
+    toast('账号信息已保存');
+    refreshMenu();
+    try { Account.claimGrants().forEach((g) => toast('补偿到账：+' + g.coins + ' 金币')); } catch (e) {}
+    return true;
+  }
+
+  // 回到主页时检查一次（资料不全就弹修复窗口，且没有「关闭」按钮）
+  let lastFixPop = 0;
+  function maybeAccountGate() {
+    if (!accountOk()) return false;
+    if (S.playing) return false;
+    const need = Account.needsFix();
+    if (!need.any) return false;
+    const box = $('fix-menu');
+    if (box && box.style.display === 'flex') return true;
+    if (Date.now() - lastFixPop < 3000) return true;
+    lastFixPop = Date.now();
+    openFixMenu(need);
+    return true;
+  }
+
+  // 玩之前必须先有完整账号
+  function ensureAccount(then) {
+    if (!accountOk()) { showAuthScreen(); return false; }
+    if (Account.needsFix().any) { openFixMenu(); return false; }
+    then();
+    return true;
+  }
+
+  function claimCompensation() {
+    if (!accountOk()) return;
+    try {
+      Account.claimGrants().forEach((g) => {
+        toast('补偿到账：+' + g.coins + ' 金币');
+        try { AudioManager.playSFX('coin'); } catch (e) {}
+      });
+    } catch (e) {}
   }
 
   if (document.readyState === 'loading') {

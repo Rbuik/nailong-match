@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261105e">
-<link rel="stylesheet" href="./css/themes.css?v=20261105e">
+<link rel="stylesheet" href="./css/style.css?v=20261105f">
+<link rel="stylesheet" href="./css/themes.css?v=20261105f">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -347,30 +347,100 @@
     </div>
   </div>
 
-  <!-- 设置 -->
+  <!-- 设置：只有「音乐设置」和「账号安全」两个入口 -->
   <div class="overlay" id="settings-menu" style="display:none;">
     <h2 class="title small">设置</h2>
+    <button class="btn-primary" id="btn-goto-music-settings">🎵 音乐设置</button>
+    <button class="btn-primary" id="btn-goto-account">🔐 账号安全</button>
+    <button class="btn-secondary" id="btn-close-settings">关闭</button>
+  </div>
+
+  <!-- 音乐设置：音量 / 播放列表 / 导入 / 恢复默认 -->
+  <div class="overlay" id="music-settings-menu" style="display:none;">
+    <h2 class="title small">🎵 音乐设置</h2>
     <button class="btn-primary" id="btn-goto-volume">🎵 调节音量</button>
     <button class="btn-primary" id="btn-goto-playlist">📋 播放列表</button>
     <button class="btn-primary" id="btn-goto-import">📂 导入音频</button>
     <button class="btn-secondary" id="btn-reset-bgm">恢复默认音乐</button>
-    <button class="btn-secondary" id="btn-recover">🔑 找回旧账号</button>
-    <button class="btn-secondary" id="btn-close-settings">关闭</button>
+    <button class="btn-secondary" id="btn-back-music-settings">返回</button>
   </div>
 
-  <!-- 找回旧账号：凭身份码把共享榜上的旧号绑回本机 -->
-  <div class="overlay" id="recover-menu" style="display:none;">
-    <h2 class="title small">🔑 找回旧账号</h2>
+  <!-- 账号安全：修改密码 / 切换账号 -->
+  <div class="overlay" id="account-menu" style="display:none;">
+    <h2 class="title small">🔐 账号安全</h2>
     <div class="result-box" style="width:88%;">
-      <p class="history-hint">输入旧手机上的<b>身份码</b>，找回那个号的名字和全部关卡成绩。<br>金币、道具、成就只存本机，换设备后无法找回。</p>
-      <div class="lb-form">
-        <input type="text" id="recover-code" maxlength="24" placeholder="输入身份码（如 u1234abcd）" style="text-transform:none;">
-      </div>
-      <p class="history-hint" id="recover-uid-hint"></p>
-      <p class="history-hint" id="recover-result"></p>
+      <p><span>当前账号</span><b id="account-cur-name">—</b></p>
     </div>
-    <button class="btn-primary" id="btn-recover-confirm">找回</button>
-    <button class="btn-secondary" id="btn-recover-cancel">返回</button>
+    <button class="btn-primary" id="btn-goto-password">🔑 修改密码</button>
+    <button class="btn-secondary" id="btn-goto-switch">🔄 切换账号</button>
+    <button class="btn-secondary" id="btn-close-account">返回</button>
+  </div>
+
+  <!-- 修改密码 -->
+  <div class="overlay" id="password-menu" style="display:none;">
+    <h2 class="title small">🔑 修改密码</h2>
+    <div class="auth-box">
+      <label class="auth-label" for="pass-old">原密码</label>
+      <input class="auth-input" type="password" id="pass-old" maxlength="24" placeholder="输入原密码" autocomplete="off">
+      <label class="auth-label" for="pass-new">新密码</label>
+      <input class="auth-input" type="password" id="pass-new" maxlength="24" placeholder="4~24 位，不能有空格" autocomplete="off">
+      <label class="auth-label" for="pass-new2">再输一次新密码</label>
+      <input class="auth-input" type="password" id="pass-new2" maxlength="24" placeholder="再输一次" autocomplete="off">
+      <p class="auth-err" id="pass-err"></p>
+    </div>
+    <button class="btn-primary" id="btn-pass-save">保存</button>
+    <button class="btn-secondary" id="btn-pass-cancel">返回</button>
+  </div>
+
+  <!-- 切换账号 -->
+  <div class="overlay" id="switch-menu" style="display:none;">
+    <h2 class="title small">🔄 切换账号</h2>
+    <p class="history-hint">点一个账号直接进去，数据各自独立保存</p>
+    <div class="acct-list" id="acct-list"></div>
+    <button class="btn-secondary" id="btn-switch-login">登录其他账号</button>
+    <button class="btn-secondary" id="btn-switch-cancel">返回</button>
+  </div>
+
+  <!-- 第一次进入链接 / 注销后：先选登录还是注册 -->
+  <div class="overlay auth-page" id="auth-menu" style="display:none;">
+    <h2 class="title small">奶龙消消乐</h2>
+    <p class="history-hint">登录后成绩和金币都会保存在这个账号里</p>
+    <button class="btn-primary" id="btn-auth-login">登录</button>
+    <button class="btn-primary" id="btn-auth-register">注册</button>
+    <div class="auth-acct-box" id="auth-accounts"></div>
+  </div>
+
+  <!-- 输入名字 + 密码（登录 / 注册） -->
+  <div class="overlay auth-page" id="auth-form" style="display:none;">
+    <h2 class="title small" id="auth-form-title">登录</h2>
+    <div class="auth-box">
+      <label class="auth-label" for="auth-name">名字</label>
+      <input class="auth-input" type="text" id="auth-name" maxlength="8" placeholder="输入名字" autocomplete="off">
+      <label class="auth-label" for="auth-pass">密码</label>
+      <input class="auth-input" type="password" id="auth-pass" maxlength="24" placeholder="输入密码" autocomplete="off">
+      <p class="auth-err" id="auth-err"></p>
+      <p class="auth-tip" id="auth-tip"></p>
+    </div>
+    <button class="btn-primary" id="btn-auth-submit">登录</button>
+    <button class="btn-secondary" id="btn-auth-back">返回</button>
+  </div>
+
+  <!-- 账号资料不全 / 名字含敏感词：必须补好才能玩 -->
+  <div class="overlay auth-page" id="fix-menu" style="display:none;">
+    <h2 class="title small" id="fix-title">完善账号信息</h2>
+    <p class="history-hint" id="fix-tip">名字和密码都填好才能继续游戏</p>
+    <div class="auth-box">
+      <label class="auth-label" for="fix-name" id="fix-name-label">名字</label>
+      <input class="auth-input" type="text" id="fix-name" maxlength="8" placeholder="输入名字" autocomplete="off">
+      <div id="fix-pass-rows">
+        <label class="auth-label" for="fix-pass">密码</label>
+        <input class="auth-input" type="password" id="fix-pass" maxlength="24" placeholder="设置一个密码（4~24 位）" autocomplete="off">
+        <label class="auth-label" for="fix-pass2">确认密码</label>
+        <input class="auth-input" type="password" id="fix-pass2" maxlength="24" placeholder="再输一次" autocomplete="off">
+      </div>
+      <p class="auth-err" id="fix-err"></p>
+    </div>
+    <button class="btn-primary" id="btn-fix-save">保存</button>
   </div>
 
   <!-- 音量调节 -->
@@ -507,10 +577,10 @@
     <button class="btn-secondary" id="btn-pause-home">🏠 返回主页</button>
   </div>
 
-  <!-- 注销确认（第一步） -->
+  <!-- 注销（= 退出登录）：数据留在本机，随时切回来 -->
   <div class="overlay confirm-overlay" id="logout-confirm" style="display:none;">
     <h2 class="title small">注销</h2>
-    <p class="confirm-text">是否注销并从头开始？</p>
+    <p class="confirm-text">是否注销当前账号？</p>
     <div>
       <button class="btn-primary btn-danger" id="btn-logout-yes">是</button>
       <button class="btn-primary btn-success" id="btn-logout-no">否</button>
@@ -520,7 +590,7 @@
   <!-- 注销确认（第二步） -->
   <div class="overlay confirm-overlay" id="logout-confirm2" style="display:none;">
     <h2 class="title small">注销</h2>
-    <p class="confirm-text">确定注销吗？此过程不可逆</p>
+    <p class="confirm-text">注销后回到登录页，这个号的进度和金币都还在本机，登录或切换到别的号都能再回来</p>
     <div>
       <button class="btn-primary btn-danger" id="btn-logout-confirm">确认</button>
       <button class="btn-primary btn-success" id="btn-logout-cancel">取消</button>
@@ -731,18 +801,19 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261105e"></script>
-<script src="./js/storage.js?v=20261105e"></script>
-<script src="./js/audio.js?v=20261105e"></script>
-<script src="./js/effects.js?v=20261105e"></script>
-<script src="./js/specials.js?v=20261105e"></script>
-<script src="./js/goals.js?v=20261105e"></script>
-<script src="./js/tasks.js?v=20261105e"></script>
-<script src="./js/input.js?v=20261105e"></script>
-<script src="./js/builtin-music.js?v=20261105e"></script>
-<script src="./js/music.js?v=20261105e"></script>
-<script src="./js/meta.js?v=20261105e"></script>
-<script src="./js/board.js?v=20261105e"></script>
-<script src="./js/game.js?v=20261105e"></script>
+<script src="./js/rng.js?v=20261105f"></script>
+<script src="./js/storage.js?v=20261105f"></script>
+<script src="./js/audio.js?v=20261105f"></script>
+<script src="./js/effects.js?v=20261105f"></script>
+<script src="./js/specials.js?v=20261105f"></script>
+<script src="./js/goals.js?v=20261105f"></script>
+<script src="./js/tasks.js?v=20261105f"></script>
+<script src="./js/input.js?v=20261105f"></script>
+<script src="./js/builtin-music.js?v=20261105f"></script>
+<script src="./js/music.js?v=20261105f"></script>
+<script src="./js/meta.js?v=20261105f"></script>
+<script src="./js/account.js?v=20261105f"></script>
+<script src="./js/board.js?v=20261105f"></script>
+<script src="./js/game.js?v=20261105f"></script>
 </body>
 </html>

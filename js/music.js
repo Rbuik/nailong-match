@@ -1068,7 +1068,8 @@
     if (el) el.style.display = 'none';
   }
   function hideSiblings() {
-    ['settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu', 'music-library-menu']
+    ['settings-menu', 'music-settings-menu', 'account-menu', 'switch-menu', 'password-menu',
+      'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu', 'music-library-menu']
       .forEach(hide);
   }
 
@@ -1153,9 +1154,9 @@
     on('btn-goto-import', openImport);
     on('btn-goto-history-music', openHistory);
     on('btn-goto-library', openLibrary);
-    on('btn-back-import', () => { hideSiblings(); show('settings-menu'); });
+    on('btn-back-import', () => { hideSiblings(); show('music-settings-menu'); });
     on('btn-back-history-music', () => { hideSiblings(); show('custom-music-menu'); });
-    on('btn-back-playlist', () => { hideSiblings(); show('settings-menu'); });
+    on('btn-back-playlist', () => { hideSiblings(); show('music-settings-menu'); });
     on('btn-back-library', openPlaylist);
 
     on('btn-save-bgm', saveImport);

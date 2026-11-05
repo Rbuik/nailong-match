@@ -302,12 +302,30 @@
   }
 
   // 昵称规则：1~8 字；中文 / 字母 / 数字 + 特殊符号只允许 - . _；不能重名（taken 由调用方收集）
+  // 敏感词：命中就不许用（忽略大小写 / 空格 / - . _，「黄君丽」是点名要屏蔽的）
+  const SENSITIVE = [
+    '黄君丽',
+    '傻逼', '傻b', '煞笔', '沙比', '智障', '脑残', '贱人', '婊子', '尼玛', '操你', '干你',
+    '色情', '赌博', '毒品', '诈骗'
+  ];
+
+  function plainText(v) {
+    return String(v == null ? '' : v).toLowerCase().replace(/[\s._\-]/g, '');
+  }
+
+  function hasSensitive(v) {
+    const s = plainText(v);
+    if (!s) return false;
+    return SENSITIVE.some((w) => s.indexOf(plainText(w)) >= 0);
+  }
+
   function validateNick(v, taken) {
     const s = String(v || '').trim();
     if (!s) return { ok: false, reason: '昵称不能为空' };
     if (s === '奶龙玩家') return { ok: false, reason: '不能再用「奶龙玩家」，换一个吧' };
     if (s.length > 8) return { ok: false, reason: '昵称最多 8 个字' };
     if (!/^[\u4e00-\u9fa5A-Za-z0-9._\-]+$/.test(s)) return { ok: false, reason: '特殊符号只能用 - . _ 三个' };
+    if (hasSensitive(s)) return { ok: false, reason: '改名字含敏感词，请重新输入', sensitive: true };
     if (taken && taken.indexOf(s) >= 0) return { ok: false, reason: '这个名字已经被别人用了' };
     return { ok: true, name: s };
   }
@@ -499,7 +517,8 @@
     getBest, recordBest,
     canSpin, spin, wheelState,
     signInfo, signIn, makeup, signStats,
-    weekKey, nickname, isDefaultNick, validateNick, setNickname, board, addBoard, makeCode, addFriend,
+    weekKey, nickname, isDefaultNick, validateNick, setNickname, hasSensitive, SENSITIVE,
+    board, addBoard, makeCode, addFriend,
     myUid, bindUid, friends, removeFriend, clearFriends,
     storySeen, markStory,
     renderAchievements

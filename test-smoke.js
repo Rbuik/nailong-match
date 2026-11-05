@@ -137,17 +137,25 @@ sandbox.window = sandbox;
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
-// ---------- 按顺序加载脚本 ----------
-const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'meta.js', 'board.js', 'game.js'];
-for (const s of scripts) {
-  const code = fs.readFileSync(path.join(__dirname, 'js', s), 'utf8');
+// ---------- 按顺序加载脚本（game.js 最后：它一加载就 boot） ----------
+const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'meta.js', 'account.js', 'board.js'];
+function loadScript(name) {
+  const code = fs.readFileSync(path.join(__dirname, 'js', name), 'utf8');
   try {
-    vm.runInContext(code, sandbox, { filename: s });
+    vm.runInContext(code, sandbox, { filename: name });
   } catch (e) {
-    console.error('LOAD FAIL', s, e.message);
+    console.error('LOAD FAIL', name, e.message);
     process.exit(1);
   }
 }
+scripts.forEach(loadScript);
+
+// 预置账号：把上面预置的存档认领成「测试奶龙」，并设好密码（这样 boot 直接进主页）
+sandbox.Account.ensure();
+sandbox.Account.setPassword('', '123456');
+if (!sandbox.Account.loggedIn()) { console.error('预置账号失败'); process.exit(1); }
+
+loadScript('game.js');
 
 // ---------- 等待 boot 完成再跑断言 ----------
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -188,7 +196,7 @@ function check(name, ok) {
   $('btn-close-backpack').dispatch('click');
   check('背包关闭', $('backpack-menu').style.display === 'none');
 
-  // 4. 两步注销
+  // 4. 两步注销 = 退出登录（数据留在本机，可以再切回来）
   $('btn-logout').dispatch('click');
   check('注销第一步弹窗', $('logout-confirm').style.display === 'flex');
   $('btn-logout-yes').dispatch('click');
@@ -198,9 +206,15 @@ function check(name, ok) {
   $('btn-logout').dispatch('click');
   $('btn-logout-yes').dispatch('click');
   $('btn-logout-confirm').dispatch('click');
-  check('第二步"确认"清除存档并 reload', reloaded && lsMap.get('nl2:wallet') === undefined);
-  // 注销现在连昵称 / 成就 / 好友也一起清掉（nl2:* 全清），后面的测试重新预置昵称
-  lsMap.set('nl2:mnick', JSON.stringify('测试奶龙'));
+  const accAfterLogout = sandbox.Account.list()[0];
+  check('注销后回到登录页（显示登录 / 注册）',
+    $('auth-menu').style.display === 'flex' && !sandbox.Account.loggedIn());
+  check('注销后存档还在本机（不是删号）', !!accAfterLogout && !!lsMap.get('nl2:acc:' + accAfterLogout.id));
+  const relogin = sandbox.Account.login('测试奶龙', '123456');
+  check('用名字 + 密码可以再登录回来', relogin.ok && sandbox.Store.getWallet().coins === 500);
+  // 后面的用例按「空仓库」起手，这里把钱包重置回初始状态
+  lsMap.set('nl2:wallet', JSON.stringify({ coins: 500, items: {} }));
+  $('main-menu').style.display = 'flex';
 
   // 5. 收集关目标图案：切到第 2 关（collect 目标）再开始
   lsMap.set('nl2:progress', JSON.stringify({ 1: { score: 1200, stars: 3 }, 2: { score: 900, stars: 2 } }));
@@ -530,16 +544,18 @@ function check(name, ok) {
     return inList && gone && noRevive;
   })());
 
-  // 14e. 默认昵称不能玩：改名闸拦截 btn-play
-  check('默认昵称被改名闸拦截', (() => {
-    const saved = lsMap.get('nl2:mnick');
-    lsMap.delete('nl2:mnick');
-    // Meta 缓存可能持有旧值，直接走 Meta.setNickname 恢复默认
-    M.setNickname('');
+  // 14e. 账号没有名字不能玩：补资料窗口拦下 btn-play
+  check('账号缺名字时被弹窗拦截', (() => {
+    const arr = JSON.parse(lsMap.get('nl2:accounts'));
+    const mine = arr.filter((a) => a.id === sandbox.Account.current().id)[0];
+    const old = mine.name;
+    mine.name = '';
+    lsMap.set('nl2:accounts', JSON.stringify(arr));
     $('btn-play').dispatch('click');
-    const blocked = $('nick-menu').style.display === 'flex';
-    M.setNickname('测试奶龙');
-    if (saved !== undefined) lsMap.set('nl2:mnick', saved);
+    const blocked = $('fix-menu').style.display === 'flex';
+    mine.name = old;
+    lsMap.set('nl2:accounts', JSON.stringify(arr));
+    $('fix-menu').style.display = 'none';
     return blocked;
   })());
 
@@ -792,32 +808,113 @@ function check(name, ok) {
   check('彩虹被消除时展开自身图案的全场方块',
     rbExp2.cells.has('4,4') && rbExp2.cells.has('5,5') && !rbExp2.cells.has('2,5'));
 
-  // 28. 找回旧账号：凭身份码把榜上旧号绑回本机（名字 + 每关最高分恢复）
-  check('设置里有找回旧账号入口', !!getEl('btn-recover') && !!getEl('recover-code') && htmlSrc.includes('btn-recover-confirm'));
-  check('找回旧账号：绑回身份码并恢复名字和成绩', await (async () => {
-    const prevUid = sandbox.Meta.myUid();
-    const prevNick = sandbox.Meta.nickname();
-    // rival001 已在榜单测试里 publish 过（对手 / 900 分 / lv{1:900}）
-    $('recover-code').value = 'rival001';
-    $('recover-result').textContent = '';
-    getEl('btn-recover-confirm').dispatch('click');
-    await sleep(120);   // 处理器是 async：等 Board.sync（fetch 桩拒绝）走完微任务
-    const bound = sandbox.Meta.myUid() === 'rival001';
-    const named = sandbox.Meta.nickname() === '对手';
-    const rec = sandbox.Store.getLevelRecord(1);
-    const got = (rec.score || 0) >= 900 && (rec.stars || 0) >= 1;
-    const result = String($('recover-result').textContent || '');
-    // 还原现场，不影响其它测试
-    sandbox.Meta.bindUid(prevUid);
-    sandbox.Meta.setNickname(prevNick);
-    return bound && named && got && result.indexOf('找回成功') >= 0;
-  })());
-  check('找回面板显示本机当前身份码', (() => {
-    $('btn-recover').dispatch('click');
-    const hint = String($('recover-uid-hint').textContent || '');
-    $('btn-recover-cancel').dispatch('click');
-    return hint.indexOf(sandbox.Meta.myUid()) >= 0;
-  })());
+  // 28. 设置结构：只有「音乐设置」和「账号安全」
+  check('设置只有音乐设置 / 账号安全两个入口',
+    htmlSrc.includes('btn-goto-music-settings') && htmlSrc.includes('btn-goto-account') &&
+    !htmlSrc.includes('id="btn-recover"'));
+  check('音乐设置里装音量 / 播放列表 / 导入 / 恢复默认',
+    ['btn-goto-volume', 'btn-goto-playlist', 'btn-goto-import', 'btn-reset-bgm'].every((id) =>
+      htmlSrc.indexOf(id) > htmlSrc.indexOf('id="music-settings-menu"')));
+  check('账号安全里装修改密码 + 切换账号（修改密码在上面）',
+    htmlSrc.indexOf('id="btn-goto-password"') > 0 &&
+    htmlSrc.indexOf('id="btn-goto-password"') < htmlSrc.indexOf('id="btn-goto-switch"'));
+
+  // 29. 登录页 / 登录失败提示
+  $('settings-menu').style.display = 'flex';
+  $('btn-goto-account').dispatch('click');
+  check('账号安全面板显示当前账号', $('account-menu').style.display === 'flex' &&
+    String($('account-cur-name').textContent) === '测试奶龙');
+  $('btn-goto-switch').dispatch('click');
+  check('切换账号列表有当前账号', $('switch-menu').style.display === 'flex' &&
+    $('acct-list').children.length >= 1);
+  $('btn-switch-login').dispatch('click');
+  check('「登录其他账号」→ 退出当前号并回到登录页',
+    $('auth-menu').style.display === 'flex' && !sandbox.Account.loggedIn());
+
+  $('btn-auth-login').dispatch('click');
+  $('auth-name').value = '测试奶龙';
+  $('auth-pass').value = 'wrong-pass';
+  $('btn-auth-submit').dispatch('click');
+  check('密码错：两个输入框都变红', $('auth-name').classList.contains('error') &&
+    $('auth-pass').classList.contains('error'));
+  check('密码错：下面出现红色小字提示',
+    String($('auth-err').textContent) === '名字或密码不正确，请确认后再次输入');
+
+  $('auth-pass').value = '123456';
+  $('btn-auth-submit').dispatch('click');
+  await sleep(150);
+  check('名字密码都对：直接进入', sandbox.Account.loggedIn() &&
+    sandbox.Account.current().name === '测试奶龙');
+  const coinsAtSwitchAway = sandbox.Store.getWallet().coins;
+
+  // 30. 注册：敏感词拦下，普通名字建新号
+  sandbox.Account.logout();
+  $('btn-auth-register').dispatch('click');
+  $('auth-name').value = '黄君丽';
+  $('auth-pass').value = 'ab1234';
+  $('btn-auth-submit').dispatch('click');
+  check('敏感词：输入框变红', $('auth-name').classList.contains('error'));
+  check('敏感词：提示「改名字含敏感词，请重新输入」',
+    String($('auth-err').textContent) === '改名字含敏感词，请重新输入');
+
+  $('auth-name').value = '小号';
+  $('btn-auth-submit').dispatch('click');
+  await sleep(520);
+  check('注册出来是一个新号（金币 / 进度都是空的）',
+    sandbox.Account.current().name === '小号' &&
+    sandbox.Store.getWallet().coins === 0 &&
+    Object.keys(sandbox.Store.getProgress()).length === 0);
+
+  // 31. 切换账号：切回原号，数据各自独立
+  const mainAcc = sandbox.Account.list().filter((a) => a.name === '测试奶龙')[0];
+  check('本机存了两个账号', sandbox.Account.list().length === 2);
+  const sw = sandbox.Account.switchTo(mainAcc.id);
+  check('切换回原号：金币和关卡进度都在',
+    sw.ok && sandbox.Store.getWallet().coins === coinsAtSwitchAway &&
+    (sandbox.Store.getProgress()[1] || {}).stars === 3);
+  check('切回来名字也回到原号', sandbox.Meta.nickname() === '测试奶龙');
+
+  // 32. yone 的 1360 金币补偿（只发一次）
+  const yReg = sandbox.Account.register('yone', 'yone1234');
+  const grants = sandbox.Account.claimGrants();
+  check('注册 yone 后拿到 1360 金币补偿',
+    yReg.ok && grants.length === 1 && grants[0].coins === 1360 &&
+    sandbox.Store.getWallet().coins === 1360);
+  check('补偿不会重复发', sandbox.Account.claimGrants().length === 0 &&
+    sandbox.Store.getWallet().coins === 1360);
+
+  // 33. 老账号缺名字 / 缺密码 → 弹窗补齐才能玩
+  sandbox.Account.logout();
+  lsMap.set('nl2:wallet', JSON.stringify({ coins: 10, items: {} }));
+  lsMap.set('nl2:mnick', JSON.stringify('老玩家'));
+  const ensured = sandbox.Account.ensure();
+  check('老存档会被认领成账号、但没有密码', ensured.ok &&
+    sandbox.Account.needsFix().pass === true && sandbox.Account.current().name === '老玩家');
+  $('btn-play').dispatch('click');
+  await sleep(20);
+  check('资料不全时点「开始游戏」→ 被拦下并弹出补资料窗口',
+    $('fix-menu').style.display === 'flex');
+  $('fix-name').value = '老玩家';
+  $('fix-pass').value = 'abcd1234';
+  $('fix-pass2').value = 'abcd1234';
+  $('btn-fix-save').dispatch('click');
+  check('补好名字 + 密码后不再拦', $('fix-menu').style.display === 'none' &&
+    !sandbox.Account.needsFix().any && !!sandbox.Account.current().pass);
+
+  // 34. 已存在账号的名字含敏感词 → 弹改名字窗口
+  const accList = JSON.parse(lsMap.get('nl2:accounts'));
+  const meAcc = accList.filter((a) => a.id === sandbox.Account.current().id)[0];
+  meAcc.name = '黄君丽';
+  lsMap.set('nl2:accounts', JSON.stringify(accList));
+  check('已存在账号含敏感词 → 判定需要改名', sandbox.Account.needsFix().sensitive === true);
+  $('btn-play').dispatch('click');
+  await sleep(20);
+  check('含敏感词会弹修复窗口，且只让改名字',
+    $('fix-menu').style.display === 'flex' && $('fix-pass-rows').style.display === 'none');
+  $('fix-name').value = '老玩家2';
+  $('btn-fix-save').dispatch('click');
+  check('改完名字就放行', sandbox.Account.needsFix().any === false &&
+    sandbox.Account.current().name === '老玩家2');
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
