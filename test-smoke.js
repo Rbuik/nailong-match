@@ -702,10 +702,13 @@ function check(name, ok) {
   // 27. 彩虹 + 普通块交换、彩虹本身没被消（没凑成三连）：不触发，换回原位
   sandbox.__nl_test.start(1, { def: { id: 91, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
+  // 铺一个确定性的无三连棋盘（横竖步进都不会连成 3 个），排除随机棋盘偶发三连干扰
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    st.board[r][c] = { type: (r + c * 2) % 6, special: 0 };
+  }
   const rainbowObj = { type: 0, special: Sp.TYPE.RAINBOW };
   st.board[4][4] = rainbowObj;
   st.board[4][5] = { type: 1, special: 0 };
-  // 隔离邻居，保证这次交换凑不成任何三连
   st.board[4][3] = { type: 2, special: 0 };
   st.board[3][4] = { type: 3, special: 0 };
   st.board[5][4] = { type: 4, special: 0 };
