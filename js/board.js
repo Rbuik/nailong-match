@@ -35,13 +35,13 @@
   let opened = false;
   let deleted = {};        // uid -> 注销时间戳
 
-  // file:// / 测试环境绝不往公共主题发东西（曾经的验证把测试成绩发进了真榜单）
+  // 只挡 Node / 无 location 的测试环境；file:// 和本地服务器也允许发
+  // （电脑本地打开时成绩也要能同步到手机，之前被禁导致电脑成绩永远发不出去）
+  // 测试不进这里：node 没有 location，无头验证会用桩替换 Board
   function canPublish() {
     try {
       const loc = global.location;
       if (!loc) return false;
-      if (loc.protocol === 'file:') return false;
-      if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') return false;
       return true;
     } catch (e) { return false; }
   }
@@ -235,12 +235,19 @@
     return { changed: changed, maxT: maxT };
   }
 
+  let syncCount = 0;
   function sync() {
     if (typeof fetch !== 'function') return Promise.resolve(false);
     setStatus('syncing');
-    // 多回看 5 秒，防止同一秒内发的消息被 since 截掉
-    const since = lastSync ? Math.max(0, Math.floor((lastSync - 5000) / 1000)) : 0;
-    const url = BASE + TOPIC + '/json?poll=1&since=' + (since ? since : 'all');
+    syncCount++;
+    // 游标 = 上次同步的服务器时间（多回看 5 秒防同秒消息被截）。
+    // 两个自愈手段，防止设备时钟偏差把游标卡在「未来」而永远漏消息：
+    //   1) 游标至少回看 10 分钟
+    //   2) 每 5 次同步全量拉一次（mergeOne 按最高分合并，重复消息无害）
+    const sinceSec = lastSync ? Math.floor((lastSync - 5000) / 1000) : 0;
+    const since = (!sinceSec || syncCount % 5 === 0) ? 'all'
+      : Math.max(0, Math.min(sinceSec, Math.floor(Date.now() / 1000) - 600));
+    const url = BASE + TOPIC + '/json?poll=1&since=' + since;
     return fetch(url, { cache: 'no-store' })
       .then((r) => (r && r.ok ? r.text() : ''))
       .then((txt) => {
@@ -337,7 +344,8 @@
   function startStream() {
     if (es || typeof global.EventSource === 'undefined') return;
     try {
-      es = new global.EventSource(BASE + TOPIC + '/sse?since=' + Math.floor(Date.now() / 1000));
+      // 不带 since：连接建立后服务器直接推新消息（服务器时间，不受设备时钟偏差影响）
+      es = new global.EventSource(BASE + TOPIC + '/sse');
       es.onmessage = (ev) => {
         let j;
         try { j = JSON.parse(ev.data); } catch (e) { return; }

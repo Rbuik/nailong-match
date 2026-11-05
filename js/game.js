@@ -226,6 +226,7 @@
     const d = S.levelDef || {};
     S.cargoLeft = 0;
     S.rescueLeft = 0;
+    S.iceHitMove = {};   // 「每步每格最多砸一层冰」的记账
     const free = [];
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) free.push({ r, c });
     shuffleArr(free);
@@ -269,8 +270,13 @@
   }
 
   // 砸掉一层冰（返回是否真的砸掉了）
+  // 厚冰得砸两次：同一步之内（掉落连消 / 特殊块波及都算同一步）每格最多砸一层
   function crackIceAt(r, c) {
     if (!S.ice[r] || !S.ice[r][c]) return false;
+    const k = kOf(r, c);
+    if (S.iceHitMove && S.iceHitMove[k]) return false;
+    if (!S.iceHitMove) S.iceHitMove = {};
+    S.iceHitMove[k] = 1;
     S.ice[r][c]--;
     AudioManager.playSFX('line');
     FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#9fe8ff', 5);
@@ -309,9 +315,10 @@
     for (let r = 0; r < ROWS; r++) {
       let run = 1;
       for (let c = 1; c <= COLS; c++) {
+        // 只有冰块挡三连；锁链可以参与连消（第一次被消只解链）
         const same = c < COLS && S.board[r][c] && S.board[r][c - 1]
           && S.board[r][c].type === S.board[r][c - 1].type
-          && !isLocked(r, c) && !isLocked(r, c - 1);
+          && !isIced(r, c) && !isIced(r, c - 1);
         if (same) run++;
         else {
           if (run >= 3) for (let k = c - run; k < c; k++) set.add(kOf(r, k));
@@ -324,7 +331,7 @@
       for (let r = 1; r <= ROWS; r++) {
         const same = r < ROWS && S.board[r][c] && S.board[r - 1][c]
           && S.board[r][c].type === S.board[r - 1][c].type
-          && !isLocked(r, c) && !isLocked(r - 1, c);
+          && !isIced(r, c) && !isIced(r - 1, c);
         if (same) run++;
         else {
           if (run >= 3) for (let k = r - run; k < r; k++) set.add(kOf(k, c));
@@ -1490,6 +1497,8 @@
   async function trySwap(a, b) {
     if (S.busy || !S.playing || S.paused) return;
     if (!inB(a.r, a.c) || !inB(b.r, b.c)) return;
+    // 新的一步：冰块「每步每格最多砸一层」的记账从头算
+    S.iceHitMove = {};
     if (Math.abs(a.r - b.r) + Math.abs(a.c - b.c) !== 1) {
       S.selected = null;
       drawStatic();
@@ -2501,6 +2510,8 @@
       toast('先开始一局游戏，道具在局内使用');
       return false;
     }
+    // 道具算一步：冰块「每步每格最多砸一层」记账从头算
+    S.iceHitMove = {};
     const wallet = Store.getWallet();
     if ((wallet.items[key] || 0) <= 0) {
       toast('道具数量不足');
@@ -5047,9 +5058,10 @@
     }
     const hint = $('nick-menu') && $('nick-menu').querySelector('.history-hint');
     if (hint) {
-      hint.textContent = forced
-        ? '最多 8 个字，特殊符号只能用 - . _，不能和别人重名'
-        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 - . _，不能和别人重名';
+      // 两行显示：规则一行，「不能和别人重名」另起一行
+      hint.innerHTML = forced
+        ? '最多 8 个字，特殊符号只能用 - . _<br>不能和别人重名'
+        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 - . _<br>不能和别人重名';
     }
     if ($('nick-input')) $('nick-input').value = Meta.isDefaultNick() ? '' : Meta.nickname();
     showOverlay('nick-menu');

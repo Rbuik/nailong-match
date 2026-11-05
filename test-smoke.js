@@ -613,6 +613,39 @@ function check(name, ok) {
   check('相邻消除砸掉一层冰', st.ice[iceCell.r][iceCell.c] === iceBeforeVal - 1);
   check('冰块目标进度推进', (st.goal.iceCleared || 0) >= iceBefore + 1);
 
+  // 22b. 厚冰：一次相邻消除只能砸掉 1 层（2 层厚冰必须砸两次）
+  sandbox.__nl_test.start(1, { def: { id: 97, theme: 'candy', moves: 20, goal: { type: 'ice', target: 8 }, iceHard: 4, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  let hardCell = null;
+  for (let r = 0; r < 8 && !hardCell; r++) for (let c = 0; c < 8 && !hardCell; c++) {
+    if (st.ice[r][c] === 2 && st.board[r][c]) hardCell = { r: r, c: c };
+  }
+  let hnb = null;
+  [{ r: hardCell.r, c: hardCell.c + 1 }, { r: hardCell.r, c: hardCell.c - 1 }, { r: hardCell.r - 1, c: hardCell.c }, { r: hardCell.r + 1, c: hardCell.c }]
+    .some((p) => {
+      if (p.r >= 0 && p.r < 8 && p.c >= 0 && p.c < 8 && st.board[p.r][p.c] && !st.ice[p.r][p.c] && !st.chain[p.r][p.c]) { hnb = p; return true; }
+      return false;
+    });
+  await sandbox.__nl_test.resolveClear(new Set([hnb.r + ',' + hnb.c]), []);
+  check('厚冰一次相邻消除只砸一层（还剩 1 层）', st.ice[hardCell.r][hardCell.c] === 1);
+
+  // 22c. 厚冰被两侧同时消除（夹心）也只砸一层
+  const hr = hardCell.r, hc = hardCell.c;
+  if (hc >= 1 && hc <= 6 && st.ice[hr][hc - 1] === 0 && st.ice[hr][hc + 1] === 0 &&
+      !st.chain[hr][hc - 1] && !st.chain[hr][hc + 1]) {
+    sandbox.__nl_test.start(1, { def: { id: 98, theme: 'candy', moves: 20, goal: { type: 'ice', target: 8 }, iceHard: 4, stars: [1, 2, 3] } });
+    st = sandbox.__nl_test.state();
+    let hc2 = null;
+    for (let r = 0; r < 8 && !hc2; r++) for (let c = 1; c < 7 && !hc2; c++) {
+      if (st.ice[r][c] === 2 && st.board[r][c] && st.ice[r][c - 1] === 0 && st.ice[r][c + 1] === 0 &&
+          st.board[r][c - 1] && st.board[r][c + 1] && !st.chain[r][c - 1] && !st.chain[r][c + 1]) hc2 = { r: r, c: c };
+    }
+    if (hc2) {
+      await sandbox.__nl_test.resolveClear(new Set([hc2.r + ',' + (hc2.c - 1), hc2.r + ',' + (hc2.c + 1)]), []);
+      check('厚冰两侧同时消除仍只砸一层', st.ice[hc2.r][hc2.c] === 1);
+    }
+  }
+
   // 23. 锁链：第一次被消只解锁，方块留下
   sandbox.__nl_test.start(1, { def: { id: 95, theme: 'candy', moves: 20, goal: { type: 'score', target: 5000 }, chain: 3, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
@@ -621,6 +654,26 @@ function check(name, ok) {
   await sandbox.__nl_test.resolveClear(new Set([chainCell.r + ',' + chainCell.c]), []);
   check('锁链被消一次即解锁', st.chain[chainCell.r][chainCell.c] === 0);
   check('解锁时方块保留', !!st.board[chainCell.r][chainCell.c]);
+
+  // 23b. 锁链参与同色三连：交换凑成带锁链格的三连也能消（解链不消块）
+  sandbox.__nl_test.start(1, { def: { id: 92, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, chain: 1, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  let cc2 = null;
+  for (let r = 0; r < 8 && !cc2; r++) for (let c = 2; c < 6 && !cc2; c++) {
+    if (st.chain[r][c] && st.board[r][c] && !st.ice[r][c] &&
+        st.board[r][c - 1] && st.board[r][c - 2] && !st.chain[r][c - 1] && !st.chain[r][c - 2] && !st.ice[r][c - 1] && !st.ice[r][c - 2] &&
+        st.board[r][c + 1] && !st.chain[r][c + 1] && !st.ice[r][c + 1]) cc2 = { r: r, c: c };
+  }
+  if (cc2) {
+    // 摆成 …type5, type0, [锁链type0], type0 …，交换左边两格凑成三连
+    st.board[cc2.r][cc2.c] = { type: 0, special: 0 };
+    st.board[cc2.r][cc2.c + 1] = { type: 0, special: 0 };
+    st.board[cc2.r][cc2.c - 1] = { type: 5, special: 0 };
+    st.board[cc2.r][cc2.c - 2] = { type: 0, special: 0 };
+    await sandbox.__nl_test.swap({ r: cc2.r, c: cc2.c - 2 }, { r: cc2.r, c: cc2.c - 1 });
+    check('锁链格参与三连：交换凑成也能解链', st.chain[cc2.r][cc2.c] === 0);
+    check('解链时锁链格方块保留', !!st.board[cc2.r][cc2.c]);
+  }
 
   // 24. 货物：落到底行即送达并推进目标
   sandbox.__nl_test.start(1, { def: { id: 94, theme: 'candy', moves: 20, goal: { type: 'drop', target: 2 }, cargo: 2, stars: [1, 2, 3] } });
