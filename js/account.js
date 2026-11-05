@@ -29,9 +29,44 @@
   };
 
   // 一次性补偿（换设备 / 找回账号时丢过金币的补偿）
+  // 奖励不直接进钱包，而是塞进这个账号的邮箱，玩家自己点「领取」才到账
   const GRANTS = [
-    { id: 'yone-coins-1360', name: 'yone', coins: 1360 }
+    {
+      id: 'gift-yone-1360', name: 'yone', coins: 1360,
+      title: '给你的小礼物',
+      body: '谢谢你来玩奶龙消消乐，附件里的金币是给你的一点心意。\n\n点下面的按钮就能收进钱包，别忘了用哦。'
+    },
+    {
+      id: 'gift-ii-666', name: 'ii', coins: 666,
+      title: '给你的小礼物',
+      body: '谢谢你来玩奶龙消消乐，附件里的金币是给你的一点心意。\n\n点下面的按钮就能收进钱包，别忘了用哦。'
+    }
   ];
+
+  function stamp() {
+    const d = new Date();
+    const p = (n) => (n < 10 ? '0' + n : String(n));
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+      ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  // 把奖励发到这个账号的邮箱（金币作附件）；没有邮箱模块就直接进钱包，至少不丢
+  function deliverGrant(g) {
+    if (global.Mail && Mail.sendMail) {
+      return !!Mail.sendMail({
+        id: g.id,
+        at: stamp(),
+        icon: '🎁',
+        title: g.title || '系统奖励',
+        from: '系统',
+        body: g.body || '附件里的金币点下面的按钮就能收进钱包。',
+        coins: g.coins || 0,
+        items: g.items || null
+      });
+    }
+    if (g.coins && global.Store && Store.addCoins) Store.addCoins(g.coins);
+    return true;
+  }
 
   function read(k, fb) {
     try {
@@ -341,7 +376,7 @@
       const key = g.id + ':' + acc.id;
       if (claimed.indexOf(key) >= 0) return;
       if (nameKey(acc.name) !== nameKey(g.name)) return;
-      Store.addCoins(g.coins);
+      if (!deliverGrant(g)) return;
       claimed.push(key);
       got.push(g);
     });

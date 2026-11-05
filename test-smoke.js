@@ -222,6 +222,10 @@ function check(name, ok) {
   check('「全服用户」页有用户数量 / 省份数量',
     htmlSrc0.indexOf('id="admin-page-users"') > 0 && htmlSrc0.includes('id="admin-users"') &&
     htmlSrc0.includes('id="admin-provs"'));
+  check('全服用户页没有说明文字、也没有直接进省份统计的按钮',
+    !htmlSrc0.includes('榜上有成绩的玩家') && !htmlSrc0.includes('btn-admin-users-to-stats'));
+  check('省份统计入口回到隐藏手势（后台标题 + 全网同时按住）',
+    htmlSrc0.includes('id="admin-title"'));
   $('admin-menu').style.display = 'flex';
   $('btn-admin-hits').dispatch('click');
   check('点「点击数量」进二级页', $('admin-page-hits').style.display === 'flex' && $('admin-nav').style.display === 'none');
@@ -234,6 +238,55 @@ function check(name, ok) {
   $('btn-admin-users-back').dispatch('click');
   check('「全服用户」返回一级', $('admin-page-users').style.display === 'none' && $('admin-nav').style.display === 'flex');
   $('admin-menu').style.display = 'none';
+
+  // 4d. 全服用户口径：有名字 + 有密码的账号才算（不在榜上也算），省份按账号所在省
+  const realBoardList = sandbox.Board.list;
+  const realNet = lsMap.get('nl2:net');
+  sandbox.Board.list = () => [];                 // 先把榜清空，单看「本机账号」
+  sandbox.Store.patchNet({ geo: { region: '四川省', city: '成都市', country: '中国' } });
+  const namedWithPass = () => sandbox.Account.list().filter((a) => a.name && a.pass).length;
+  let su = sandbox.__nl_test.serverUsers();
+  check('用户数量 = 本机有名字有密码的账号数（一个成绩都没发也算）',
+    su.users === namedWithPass() && su.users >= 1);
+  check('省份数量 = 账号所在的省（本机四川 → 1 个省）', su.provs === 1);
+
+  // 没密码 / 没名字的账号都不算用户
+  const accArr = JSON.parse(lsMap.get('nl2:accounts'));
+  accArr.push({ id: 'utest-nopass', name: '没密码的号', pass: '', created: Date.now() });
+  lsMap.set('nl2:accounts', JSON.stringify(accArr));
+  check('没密码的账号不算用户', sandbox.__nl_test.serverUsers().users === su.users);
+  const accArr2 = JSON.parse(lsMap.get('nl2:accounts'));
+  accArr2[accArr2.length - 1].pass = 'v1$x$y';
+  lsMap.set('nl2:accounts', JSON.stringify(accArr2));
+  check('补上密码就算一个用户（还是没上榜）', sandbox.__nl_test.serverUsers().users === su.users + 1);
+  const accArr3 = JSON.parse(lsMap.get('nl2:accounts'));
+  accArr3[accArr3.length - 1].name = '';
+  lsMap.set('nl2:accounts', JSON.stringify(accArr3));
+  check('名字空了的账号不算用户', sandbox.__nl_test.serverUsers().users === su.users);
+
+  // 榜上别的省的玩家：算一个用户、省份 +1（同名不重复算）
+  sandbox.Board.list = () => [
+    { uid: 'x-other', name: '外省玩家', score: 10, level: 1, ts: 1, pv: 'guangdong' },
+    { uid: 'x-dup', name: (sandbox.Account.current() || {}).name, score: 5, level: 1, ts: 1, pv: 'sichuan' }
+  ];
+  const su2 = sandbox.__nl_test.serverUsers();
+  check('榜上别的玩家算用户，和本机同名的只算一次', su2.users === su.users + 1);
+  check('外省玩家的省份也算进去（四川 + 广东 = 2 个省）', su2.provs === 2);
+
+  check('后台面板显示的就是这份数', (() => {
+    $('admin-page-users').style.display = 'flex';
+    sandbox.__nl_test.renderAdminUsers();
+    const r = sandbox.__nl_test.serverUsers();
+    return String($('admin-users').textContent) === String(r.users) &&
+      String($('admin-provs').textContent) === String(r.provs);
+  })());
+  $('admin-page-users').style.display = 'none';
+
+  // 收尾：把测试用的假账号摘掉、恢复榜单与定位
+  const accClean = JSON.parse(lsMap.get('nl2:accounts')).filter((a) => a.id !== 'utest-nopass');
+  lsMap.set('nl2:accounts', JSON.stringify(accClean));
+  sandbox.Board.list = realBoardList;
+  if (realNet === undefined) lsMap.delete('nl2:net'); else lsMap.set('nl2:net', realNet);
 
   // 后面的用例按「空仓库」起手，这里把钱包重置回初始状态
   lsMap.set('nl2:wallet', JSON.stringify({ coins: 500, items: {} }));
@@ -918,14 +971,40 @@ function check(name, ok) {
     (sandbox.Store.getProgress()[1] || {}).stars === 3);
   check('切回来名字也回到原号', sandbox.Meta.nickname() === '测试奶龙');
 
-  // 32. yone 的 1360 金币补偿（只发一次）
+  // 32. yone 的 1360 金币奖励：发到邮箱，自己领
+  const coinsBeforeYone = sandbox.Store.getWallet().coins;
   const yReg = sandbox.Account.register('yone', 'yone1234');
+  const coinsFresh = sandbox.Store.getWallet().coins;
   const grants = sandbox.Account.claimGrants();
-  check('注册 yone 后拿到 1360 金币补偿',
-    yReg.ok && grants.length === 1 && grants[0].coins === 1360 &&
-    sandbox.Store.getWallet().coins === 1360);
-  check('补偿不会重复发', sandbox.Account.claimGrants().length === 0 &&
-    sandbox.Store.getWallet().coins === 1360);
+  const yMail = sandbox.Mail.get('gift-yone-1360');
+  check('注册 yone 后奖励进邮箱（1360 金币作附件）',
+    yReg.ok && grants.length === 1 && !!yMail && yMail.coins === 1360 &&
+    yMail.hasGift === true);
+  check('邮件里的金币不会自动进钱包', coinsFresh === sandbox.Store.getWallet().coins);
+  check('奖励邮件不会重复发', sandbox.Account.claimGrants().length === 0);
+  check('在邮箱里领取后才到账',
+    sandbox.Mail.claim('gift-yone-1360').ok === true &&
+    sandbox.Store.getWallet().coins === coinsFresh + 1360);
+
+  // 32b. ii 的 666 金币（同样走邮箱，只发一次，名字大小写不敏感）
+  const iiReg = sandbox.Account.register('II', 'ii123456');
+  const coinsIi = sandbox.Store.getWallet().coins;
+  const iiGrant = sandbox.Account.claimGrants();
+  const iiMail = sandbox.Mail.get('gift-ii-666');
+  check('注册 ii 后邮箱收到 666 金币的奖励',
+    iiReg.ok && iiGrant.length === 1 && !!iiMail && iiMail.coins === 666 &&
+    sandbox.Store.getWallet().coins === coinsIi);
+  check('ii 的奖励不会重复发', sandbox.Account.claimGrants().length === 0);
+  check('ii 领取后 666 金币到账',
+    sandbox.Mail.claim('gift-ii-666').ok === true &&
+    sandbox.Store.getWallet().coins === coinsIi + 666);
+  check('别的账号看不到发给 ii 的邮件', (() => {
+    const main = sandbox.Account.list().filter((a) => a.name === '测试奶龙')[0];
+    sandbox.Account.switchTo(main.id);
+    const seen = sandbox.Mail.list().filter((m) => m.id === 'gift-ii-666').length;
+    sandbox.Account.switchTo(sandbox.Account.list().filter((a) => a.name === 'II')[0].id);
+    return seen === 0;
+  })());
 
   // 33. 老账号缺名字 / 缺密码 → 弹窗补齐才能玩
   sandbox.Account.logout();

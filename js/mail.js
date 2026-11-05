@@ -7,7 +7,8 @@
 
   const KEY = 'nl2:mail';
 
-  // 系统邮件：以后要发新公告 / 补偿，往这里加一条就行（id 唯一）
+  // 系统邮件：以后要发新公告 / 奖励，往这里加一条就行（id 唯一）
+  // 想只发给某个人，加 to: '名字' 即可（不写 to 就是全服都看得到）
   const SYSTEM_MAILS = [
     {
       id: 'welcome-2026-11',
@@ -52,19 +53,59 @@
 
   function state() {
     const s = read(KEY, null);
-    if (!s || typeof s !== 'object') return { read: {}, claimed: {} };
+    if (!s || typeof s !== 'object') return { read: {}, claimed: {}, extra: [] };
     return {
       read: s.read && typeof s.read === 'object' ? s.read : {},
-      claimed: s.claimed && typeof s.claimed === 'object' ? s.claimed : {}
+      claimed: s.claimed && typeof s.claimed === 'object' ? s.claimed : {},
+      extra: Array.isArray(s.extra) ? s.extra : []
     };
   }
 
   function save(s) { return write(KEY, s); }
 
+  // 当前账号的名字（只发给某个人的邮件靠它过滤）
+  function myName() {
+    try {
+      if (global.Account && Account.current && Account.current()) {
+        const n = Account.current().name || '';
+        if (n) return String(n).trim().toLowerCase();
+      }
+    } catch (e) {}
+    try {
+      if (global.Meta && Meta.nickname) return String(Meta.nickname() || '').trim().toLowerCase();
+    } catch (e) {}
+    return '';
+  }
+
+  function visible(m) {
+    if (!m || !m.to) return true;
+    return String(m.to).trim().toLowerCase() === myName();
+  }
+
+  function normalize(m) {
+    return {
+      id: m.id,
+      at: m.at || '',
+      icon: m.icon || '📮',
+      title: m.title || '系统邮件',
+      from: m.from || '系统',
+      body: m.body || '',
+      coins: m.coins || 0,
+      items: m.items || null
+    };
+  }
+
   // 列表：最新的排前面，带上「已读 / 已领取」状态
   function list() {
     const s = state();
-    return SYSTEM_MAILS.map((m) => ({
+    const all = SYSTEM_MAILS.filter(visible).concat(s.extra.filter(visible).map(normalize));
+    const seen = Object.create(null);
+    const uniq = all.filter((m) => {
+      if (!m || !m.id || seen[m.id]) return false;
+      seen[m.id] = true;
+      return true;
+    });
+    return uniq.map((m) => ({
       id: m.id,
       at: m.at,
       icon: m.icon || '📮',
@@ -77,6 +118,17 @@
       claimed: !!s.claimed[m.id],
       hasGift: !!(m.coins || m.items)
     })).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+  }
+
+  // 发一封邮件到当前账号的邮箱（奖励走这里，金币作为附件，等用户自己领）
+  function sendMail(m) {
+    if (!m || !m.id) return null;
+    const s = state();
+    if (s.extra.filter((x) => x && x.id === m.id)[0]) return normalize(m);
+    const clean = normalize(m);
+    s.extra.push(clean);
+    save(s);
+    return clean;
   }
 
   function get(id) {
@@ -123,5 +175,5 @@
     return { ok: true, coins: coins, items: items };
   }
 
-  global.Mail = { list, get, unread, hasGift, markRead, claim, SYSTEM_MAILS };
+  global.Mail = { list, get, unread, hasGift, markRead, claim, sendMail, SYSTEM_MAILS };
 })(window);

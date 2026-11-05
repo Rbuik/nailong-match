@@ -3478,15 +3478,47 @@
     if (users) users.style.display = which === 'users' ? 'flex' : 'none';
   }
 
-  // 全服用户：用户数量 = 共享榜上有成绩的玩家数；省份数量 = 有点击记录的省份数
+  // 全服用户口径：
+  //   · 用户 = 有名字 + 有密码的账号（名字按小写去重；没上榜的也算）
+  //   · 省份 = 这些账号所在的省（本机账号取本机定位的省；榜上玩家取发成绩时带上去的省）
+  function collectServerUsers() {
+    const names = Object.create(null);
+    const provs = Object.create(null);
+    let localProv = '';
+    try { localProv = myProvCode(); } catch (e) { localProv = ''; }
+    // 本机账号表：名字和密码都有才算一个用户
+    try {
+      if (typeof Account !== 'undefined' && Account.list) {
+        Account.list().forEach((a) => {
+          if (!a || !a.name || !a.pass) return;
+          const k = String(a.name).trim().toLowerCase();
+          if (!k) return;
+          names[k] = true;
+          if (localProv) provs[localProv] = true;
+        });
+      }
+    } catch (e) {}
+    // 共享榜：榜上的玩家也是账号（没在本机的那些）
+    try {
+      if (typeof Board !== 'undefined' && Board.list) {
+        Board.list().forEach((e) => {
+          const n = String((e && e.name) || '').trim();
+          if (!n) return;
+          names[n.toLowerCase()] = true;
+          const pv = String((e && e.pv) || '').toLowerCase();
+          if (pv) provs[pv] = true;
+        });
+      }
+    } catch (e) {}
+    return { users: Object.keys(names).length, provs: Object.keys(provs).length };
+  }
+
   function renderAdminUsers() {
     const u = $('admin-users');
     const p = $('admin-provs');
-    let n = 0;
-    try { n = (typeof Board !== 'undefined' && Board.count) ? Board.count() : 0; } catch (e) { n = 0; }
-    if (u) u.textContent = n > 0 ? String(n) : '—';
-    const provs = provRows.filter((r) => r.n > 0).length;
-    if (p) p.textContent = provs > 0 ? String(provs) : '—';
+    const r = collectServerUsers();
+    if (u) u.textContent = r.users > 0 ? String(r.users) : '—';
+    if (p) p.textContent = r.provs > 0 ? String(r.provs) : '—';
   }
 
   // ==================== 绑定 ====================
@@ -3793,60 +3825,68 @@
       const el = $(id);
       if (el) el.addEventListener('click', () => showAdminPage(null));
     });
-    const adminUsersStats = $('btn-admin-users-to-stats');
-    if (adminUsersStats) adminUsersStats.addEventListener('click', () => openProvStats());
 
-    // 长按「🌐 全网」板块 3 秒 → 省份统计页
-    // 手机上手指微动/页面滚动都会让 pointer 系列事件被 cancel，
-    // 所以这里同时接 pointer 与 touch，并给 12px 的容差，只认「按住不动 3 秒」
-    const globalSec = $('admin-global-sec') || $('admin-global-title');
-    if (globalSec) {
-      let pressTimer = null;
-      let startX = 0, startY = 0, fired = false;
-      const cancel = () => {
-        if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    // 省份统计入口（隐藏）：在「📊 点击数量」页里，同时按住「🔧 后台」标题和「🌐 全网」板块 3 秒
+    // 手机上手指微动 / 滚动会让 pointer 被 cancel，所以按「两边都按住才计时」来做，
+    // 任一边松开（或移动超过 12px）就取消
+    const provHoldTitle = $('admin-title');
+    const provHoldBox = $('admin-global-sec') || $('admin-global-title');
+    if (provHoldTitle && provHoldBox) {
+      const holds = { title: false, box: false };
+      const from = { title: null, box: null };
+      let provTimer = null;
+      let provFired = false;
+      const cancelProv = () => {
+        if (provTimer) { clearTimeout(provTimer); provTimer = null; }
       };
-      const begin = (x, y) => {
-        cancel();
-        fired = false;
-        startX = x; startY = y;
-        pressTimer = setTimeout(() => {
-          pressTimer = null;
-          fired = true;
-          try { AudioManager.playSFX('coin'); } catch (e) {}
-          openProvStats();
-        }, 3000);
+      const syncProv = () => {
+        if (holds.title && holds.box) {
+          if (!provTimer && !provFired) {
+            provTimer = setTimeout(() => {
+              provTimer = null;
+              provFired = true;
+              try { AudioManager.playSFX('coin'); } catch (e) {}
+              openProvStats();
+            }, 3000);
+          }
+        } else {
+          cancelProv();
+        }
       };
-      const move = (x, y) => {
-        if (!pressTimer) return;
-        if (Math.abs(x - startX) > 12 || Math.abs(y - startY) > 12) cancel();
+      const down = (which) => (e) => {
+        if (e && e.pointerType === 'mouse' && e.button !== 0) return;
+        holds[which] = true;
+        from[which] = { x: (e && e.clientX) || 0, y: (e && e.clientY) || 0 };
+        provFired = false;
+        syncProv();
       };
-      const end = () => { cancel(); };
-
-      globalSec.addEventListener('pointerdown', (e) => {
-        if (e.pointerType === 'mouse' && e.button !== 0) return;
-        begin(e.clientX, e.clientY);
+      const up = (which) => () => {
+        holds[which] = false;
+        from[which] = null;
+        syncProv();
+      };
+      const move = (which) => (e) => {
+        if (!holds[which] || !from[which]) return;
+        if (Math.abs(((e && e.clientX) || 0) - from[which].x) > 12 ||
+            Math.abs(((e && e.clientY) || 0) - from[which].y) > 12) {
+          up(which)();
+        }
+      };
+      [[provHoldTitle, 'title'], [provHoldBox, 'box']].forEach((pair) => {
+        const el = pair[0];
+        const which = pair[1];
+        el.addEventListener('pointerdown', down(which));
+        el.addEventListener('pointermove', move(which));
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => el.addEventListener(ev, up(which)));
+        // 长按不要弹系统菜单
+        el.addEventListener('contextmenu', (e) => e.preventDefault());
       });
-      globalSec.addEventListener('pointermove', (e) => move(e.clientX, e.clientY));
-      ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) =>
-        globalSec.addEventListener(ev, end));
-
-      globalSec.addEventListener('touchstart', (e) => {
-        const t = e.touches && e.touches[0];
-        if (t) begin(t.clientX, t.clientY);
-      }, { passive: true });
-      globalSec.addEventListener('touchmove', (e) => {
-        const t = e.touches && e.touches[0];
-        if (t) move(t.clientX, t.clientY);
-      }, { passive: true });
-      ['touchend', 'touchcancel'].forEach((ev) => globalSec.addEventListener(ev, end, { passive: true }));
-
-      // 长按不要弹系统菜单
-      globalSec.addEventListener('contextmenu', (e) => e.preventDefault());
-      // 已经触发跳转后，松手不要再触发一次点击
-      globalSec.addEventListener('click', (e) => {
-        if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; }
-      }, true);
+      // 触发跳转后松手不要再触发一次点击
+      [provHoldTitle, provHoldBox].forEach((el) => {
+        el.addEventListener('click', (e) => {
+          if (provFired) { e.preventDefault(); e.stopPropagation(); provFired = false; }
+        }, true);
+      });
     }
 
     // 省份统计页：搜索框 + 返回（市级视图先回省份列表，列表再关闭页面）
@@ -5494,7 +5534,9 @@
     $('fix-menu').style.display = 'none';
     toast('账号信息已保存');
     refreshMenu();
-    try { Account.claimGrants().forEach((g) => toast('补偿到账：+' + g.coins + ' 金币')); } catch (e) {}
+    try {
+      if (Account.claimGrants().length) { toast('📮 邮箱收到一封新邮件'); refreshMailBadge(); }
+    } catch (e) {}
     return true;
   }
 
@@ -5604,13 +5646,15 @@
     refreshMailBadge();
   }
 
+  // 奖励直接送到邮箱（不弹金币数字，玩家自己去邮箱领）
   function claimCompensation() {
     if (!accountOk()) return;
     try {
-      Account.claimGrants().forEach((g) => {
-        toast('补偿到账：+' + g.coins + ' 金币');
-        try { AudioManager.playSFX('coin'); } catch (e) {}
-      });
+      if (Account.claimGrants().length) {
+        refreshMailBadge();
+        toast('📮 邮箱收到一封新邮件');
+        try { AudioManager.playSFX('select'); } catch (e) {}
+      }
     } catch (e) {}
   }
 
@@ -5638,6 +5682,8 @@
     hud: updateHUD,
     openProvStats: openProvStats,
     renderAdmin: renderAdmin,
+    renderAdminUsers: renderAdminUsers,
+    serverUsers: collectServerUsers,
     detonateAt: detonateAt,
     markSpecial: markSpecial,
     openProvCities: openProvCities,
