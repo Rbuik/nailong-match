@@ -11,6 +11,7 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/3.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
+<link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
 <link rel="stylesheet" href="./css/style.css">
 <link rel="stylesheet" href="./css/themes.css">
 </head>
@@ -96,13 +97,7 @@
     </div>
 
     <div class="mascot" aria-hidden="true">
-      <div class="mascot-body">
-        <div class="mascot-eye left"></div>
-        <div class="mascot-eye right"></div>
-        <div class="mascot-cheek left"></div>
-        <div class="mascot-cheek right"></div>
-        <div class="mascot-mouth"></div>
-      </div>
+      <img class="mascot-img" src="./assets/nailong.png" alt="奶龙" draggable="false">
     </div>
 
     <h1 class="title">奶龙消消乐</h1>
@@ -195,7 +190,7 @@
       <section class="rule-sec">
         <h3>✨ 特殊块怎么来</h3>
         <p><b>十字线消</b>：4 个同图案连成一条线 → 生成线消块，<b>横着连的清整行、竖着连的清整列</b>。</p>
-        <p><b>彩虹 🌈</b>：5 个同图案连成一条线 → 生成彩虹块，和任意普通方块交换，会消掉全盘同图案的方块。<b>彩虹块本身不会消失</b>——交换后它还留在棋盘上，同一个彩虹可以反复用，直到拿它去和别的特殊块合体。</p>
+        <p><b>彩虹 🌈</b>：5 个同图案连成一条线 → 生成彩虹块，和任意普通方块交换，会<b>消掉全盘同图案的方块，彩虹块自己也一起消掉</b>。掉落补位后凑出的普通三连照常连消。</p>
         <p><b>炸弹 💣</b>：L 型 / T 型消除（横竖两个方向同时凑成 4 连）→ 生成炸弹，爆炸清除周围 3×3 范围；背包的「开局炸弹」道具也能直接放一颗。</p>
         <p><b>结算引爆</b>：步数用完 / 时间到时，棋盘上剩下的特殊块会<b>按生成的先后顺序依次自动引爆</b>——炸得好可能直接反败为胜过关！</p>
       </section>
@@ -316,7 +311,7 @@
       <section class="rule-sec">
         <h3>🏅 成就、配色与排行榜</h3>
         <p><b>成就</b>：共 19 枚，覆盖通关数、星星数、连击、彩虹 / 炸弹 / 线消、冰块、货物、果冻、三星次数、三个模式的高分和签到天数。达成时会弹提示，成就面板里能看到每一枚的条件和「已获得 / 未获得」。</p>
-        <p><b>棋盘配色</b>：5 款配色按累计星星解锁——原味（默认）、薄荷 12 星、樱花 30 星、星夜 60 星、黄金 100 星。换上后只改<b>游戏里棋盘外圈的光晕</b>和<b>「目标：」那一栏的底色</b>，<b>不影响分数、步数和难度</b>。</p>
+        <p><b>棋盘配色</b>：5 款配色按累计星星解锁——黄色（默认）、绿色 12 星、粉色 30 星、紫色 60 星、金色 100 星。换上后只改<b>游戏里棋盘外圈的光晕</b>和<b>「目标：」那一栏的底色</b>，<b>不影响分数、步数和难度</b>。</p>
         <p><b>排行榜</b>：全部时间的总榜，实时更新，最多显示 20 名；别人打完分，你这边开着排行榜就会立刻刷新。</p>
         <p><b>好友</b>：好友加进来后<b>一直留在榜上</b>，只有你自己能删——左滑好友行可以删除。好友改名或分数变了，让他重新复制成绩码，你粘进来会自动更新同一条（不会重复）；<b>自己的码不能加自己</b>。</p>
       </section>
@@ -629,11 +624,6 @@
   <!-- 奶龙图鉴 -->
   <div class="overlay" id="collection-menu" style="display:none;">
     <h2 class="title small">🎨 棋盘配色 <span class="sub-count">⭐ <b id="skin-stars">0</b></span></h2>
-    <div class="skin-intro">
-      <p><b>这是什么：</b>棋盘的配色方案，一共 5 款，按累计星星解锁。</p>
-      <p><b>用在哪：</b>只换游戏界面里<b>棋盘外圈的光晕</b>和<b>「目标：」那一栏的底色</b>，别的地方都不变。</p>
-      <p>只改颜色，<b>不影响分数、步数和难度</b>；点卡片随时换，也能换回「原味」。</p>
-    </div>
     <div class="skin-list" id="skin-list"></div>
     <button class="btn-secondary" id="btn-close-skins">返回</button>
   </div>
@@ -653,7 +643,7 @@
 
   <!-- 排行榜 -->
   <div class="overlay" id="leaderboard-menu" style="display:none;">
-    <h2 class="title small">📊 排行榜 <span class="sub-count" id="lb-week">全部时间</span></h2>
+    <h2 class="title small">📊 排行榜</h2>
     <div class="lb-list" id="lb-list"></div>
     <div class="lb-form">
       <input type="text" id="lb-nick" maxlength="8" placeholder="昵称（最多 8 字）">
