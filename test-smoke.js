@@ -21,6 +21,10 @@ function makeEl(id) {
     },
     children: [],
     childNodes: [],
+    _attrs: {},
+    getAttribute(k) { return this._attrs[k] === undefined ? null : this._attrs[k]; },
+    setAttribute(k, v) { this._attrs[k] = String(v); },
+    removeAttribute(k) { delete this._attrs[k]; },
     firstChild: null,
     value: '0.5',
     textContent: '',
@@ -1055,7 +1059,7 @@ function check(name, ok) {
 
   const coinsBeforeMail = sandbox.Store.getWallet().coins;
   const giftIdx = mailListAll.findIndex((m) => m.id === giftMail.id);
-  $('mail-list').children[giftIdx].dispatch('click');
+  $('mail-list').children[giftIdx].children[1].dispatch('click');
   check('点邮件进详情页，正文有内容',
     $('mail-view').style.display === 'flex' && $('mail-view-body').textContent.length > 10);
   check('打开邮件即标为已读', sandbox.Mail.get(giftMail.id).read === true);
@@ -1075,6 +1079,52 @@ function check(name, ok) {
   check('换个账号，邮箱领取状态是各自独立的', sandbox.Mail.get(giftMail.id).claimed === false);
   sandbox.Account.switchTo(sandbox.Account.list().filter((a) => a.name === '老玩家2')[0].id);
   check('切回来奖励还是已领取', sandbox.Mail.get(giftMail.id).claimed === true);
+
+  // 35b. 左滑删除 + 一键已读 / 一键删除
+  $('main-menu').style.display = 'flex';
+  $('btn-mail').dispatch('click');
+  const wraps = $('mail-list').children;
+  check('每封邮件都套了可左滑的容器', wraps.length >= 3 && wraps[0].classList.contains('mail-swipe'));
+  const row0 = wraps[0].children[1];
+  row0.dispatch('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 300, clientY: 40, button: 0, preventDefault() {} });
+  row0.dispatch('pointermove', { pointerId: 1, clientX: 200, clientY: 44, cancelable: true, preventDefault() {} });
+  row0.dispatch('pointerup', { pointerId: 1, clientX: 200, clientY: 44 });
+  check('左滑超过一半 → 露出删除键', wraps[0].classList.contains('open'));
+  // 真实手指：按下 → 抬起 → click（滑动后的这一下不算点击）
+  row0.dispatch('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 240, clientY: 40, button: 0, preventDefault() {} });
+  row0.dispatch('pointerup', { pointerId: 1, clientX: 240, clientY: 40 });
+  row0.dispatch('click');
+  check('再点一下收回删除键，不会误开邮件',
+    !wraps[0].classList.contains('open') && $('mail-view').style.display !== 'flex');
+
+  const leftBefore = sandbox.Mail.list().length;
+  $('btn-mail-read-all').dispatch('click');
+  check('一键已读：全部标为已读、角标消失',
+    sandbox.Mail.unread() === 0 && $('mail-badge').style.display === 'none');
+
+  // 单封删除：删掉的邮件不再出现
+  const victim = sandbox.Mail.list()[0];
+  const rmR = sandbox.Mail.remove(victim.id);
+  check('删除单封邮件', rmR.ok && sandbox.Mail.get(victim.id) === null &&
+    sandbox.Mail.list().length === leftBefore - 1);
+
+  // 一键删除：未领奖励的邮件不删
+  sandbox.Mail.sendMail({ id: 'utest-gift', at: '2026-11-05 20:30', title: '测试奖励', coins: 50 });
+  $('btn-mail-del-all').dispatch('click');
+  check('一键删除先变成「再点一次确认」',
+    $('btn-mail-del-all').textContent.indexOf('确认') >= 0 &&
+    sandbox.Mail.list().length === leftBefore);
+  $('btn-mail-del-all').dispatch('click');
+  check('确认后清空邮箱，但保留没领奖励的那封',
+    sandbox.Mail.list().length === 1 && !!sandbox.Mail.get('utest-gift') &&
+    $('btn-mail-list') !== null);
+  sandbox.Mail.claim('utest-gift');
+  sandbox.Mail.removeAll();
+  $('btn-mail').dispatch('click');       // 重新渲染列表
+  check('奖励领完就能一键删干净', sandbox.Mail.list().length === 0 &&
+    $('mail-list').children.length === 1 &&
+    String($('mail-list').children[0].textContent).indexOf('暂时还没有邮件') >= 0);
+  $('btn-mail-close').dispatch('click');
 
   // 36. 注销账号 = 彻底删除
   const purgeId = sandbox.Account.current().id;

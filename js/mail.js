@@ -53,11 +53,12 @@
 
   function state() {
     const s = read(KEY, null);
-    if (!s || typeof s !== 'object') return { read: {}, claimed: {}, extra: [] };
+    if (!s || typeof s !== 'object') return { read: {}, claimed: {}, extra: [], hidden: {} };
     return {
       read: s.read && typeof s.read === 'object' ? s.read : {},
       claimed: s.claimed && typeof s.claimed === 'object' ? s.claimed : {},
-      extra: Array.isArray(s.extra) ? s.extra : []
+      extra: Array.isArray(s.extra) ? s.extra : [],
+      hidden: s.hidden && typeof s.hidden === 'object' ? s.hidden : {}
     };
   }
 
@@ -98,7 +99,9 @@
   // 列表：最新的排前面，带上「已读 / 已领取」状态
   function list() {
     const s = state();
-    const all = SYSTEM_MAILS.filter(visible).concat(s.extra.filter(visible).map(normalize));
+    const alive = (m) => m && m.id && !s.hidden[m.id];
+    const all = SYSTEM_MAILS.filter(visible).filter(alive)
+      .concat(s.extra.filter(visible).filter(alive).map(normalize));
     const seen = Object.create(null);
     const uniq = all.filter((m) => {
       if (!m || !m.id || seen[m.id]) return false;
@@ -175,5 +178,47 @@
     return { ok: true, coins: coins, items: items };
   }
 
-  global.Mail = { list, get, unread, hasGift, markRead, claim, sendMail, SYSTEM_MAILS };
+  // 删除一封（系统邮件写死在代码里，只能记进 hidden 藏起来；本机发的直接从 extra 拿走）
+  function remove(id) {
+    const m = get(id);
+    if (!m) return { ok: false, reason: '邮件不存在' };
+    const s = state();
+    s.hidden[id] = Date.now();
+    s.extra = s.extra.filter((x) => !x || x.id !== id);
+    save(s);
+    return { ok: true, id: id };
+  }
+
+  // 一键已读：把当前能看到的全部标为已读
+  function markAllRead() {
+    const s = state();
+    let n = 0;
+    list().forEach((m) => {
+      if (s.read[m.id]) return;
+      s.read[m.id] = Date.now();
+      n++;
+    });
+    if (n) save(s);
+    return n;
+  }
+
+  // 一键删除：不删还没领奖励的邮件（免得把金币一起删掉）
+  function removeAll() {
+    const s = state();
+    const keepGift = [];
+    let n = 0;
+    list().forEach((m) => {
+      if (m.hasGift && !m.claimed) { keepGift.push(m.id); return; }
+      s.hidden[m.id] = Date.now();
+      s.extra = s.extra.filter((x) => !x || x.id !== m.id);
+      n++;
+    });
+    if (n) save(s);
+    return { removed: n, kept: keepGift.length };
+  }
+
+  global.Mail = {
+    list, get, unread, hasGift, markRead, claim, sendMail, remove, markAllRead, removeAll,
+    SYSTEM_MAILS
+  };
 })(window);

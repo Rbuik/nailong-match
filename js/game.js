@@ -3964,6 +3964,41 @@
       showOverlay('mail-menu');
       AudioManager.playSFX('select');
     });
+    // ✅ 一键已读
+    on('btn-mail-read-all', () => {
+      const n = (typeof Mail !== 'undefined') ? Mail.markAllRead() : 0;
+      renderMailList();
+      refreshMailBadge();
+      toast(n > 0 ? '已把 ' + n + ' 封邮件标为已读' : '没有未读邮件');
+      AudioManager.playSFX('select');
+    });
+    // 🗑️ 一键删除：先点一下变「再点一次确认」，3 秒内再点才真删
+    let delAllTimer = null;
+    on('btn-mail-del-all', () => {
+      const btn = $('btn-mail-del-all');
+      if (!btn) return;
+      if (btn.getAttribute('data-arm') !== '1') {
+        btn.setAttribute('data-arm', '1');
+        btn.textContent = '再点一次确认删除';
+        if (delAllTimer) clearTimeout(delAllTimer);
+        delAllTimer = setTimeout(() => {
+          btn.setAttribute('data-arm', '0');
+          btn.textContent = '🗑️ 一键删除';
+          delAllTimer = null;
+        }, 3000);
+        return;
+      }
+      btn.setAttribute('data-arm', '0');
+      btn.textContent = '🗑️ 一键删除';
+      if (delAllTimer) { clearTimeout(delAllTimer); delAllTimer = null; }
+      const r = (typeof Mail !== 'undefined') ? Mail.removeAll() : { removed: 0, kept: 0 };
+      renderMailList();
+      refreshMailBadge();
+      if (r.removed > 0) toast('已删除 ' + r.removed + ' 封邮件' + (r.kept ? '（有奖励的保留）' : ''));
+      else if (r.kept > 0) toast('有奖励的邮件要先领取才能删除');
+      else toast('没有可删除的邮件');
+      AudioManager.playSFX('select');
+    });
     on('btn-mail-close', () => {
       $('mail-menu').style.display = 'none';
       showOverlay('main-menu');
@@ -5580,10 +5615,91 @@
     }
   }
 
+  // 左滑打开的邮件行：同一时间只允许一行打开
+  let mailSwipeOpen = null;
+  function closeMailSwipe(except) {
+    if (mailSwipeOpen && mailSwipeOpen !== except) {
+      mailSwipeOpen.classList.remove('open');
+      mailSwipeOpen = null;
+    }
+  }
+
+  // 左滑露出「删除」，右滑 / 点一下收回
+  function attachMailSwipe(wrap, row, m) {
+    const DEL = 78;                 // 删除键宽度（和 CSS 里一致）
+    let sx = 0, sy = 0, base = 0, dx = 0;
+    let tracking = false, moved = false, pid = null;
+
+    const setX = (x) => { row.style.transform = x ? 'translateX(' + x + 'px)' : ''; };
+    const isOpen = () => wrap.classList.contains('open');
+
+    row.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      closeMailSwipe(wrap);
+      tracking = true;
+      moved = false;
+      pid = e.pointerId;
+      sx = e.clientX; sy = e.clientY;
+      base = isOpen() ? -DEL : 0;
+      dx = 0;
+      row.style.transition = 'none';
+    });
+
+    row.addEventListener('pointermove', (e) => {
+      if (!tracking || (pid !== null && e.pointerId !== pid)) return;
+      const mx = e.clientX - sx;
+      const my = e.clientY - sy;
+      if (!moved) {
+        // 竖着滑动优先当作滚动列表，不抢
+        if (Math.abs(my) > Math.abs(mx) && Math.abs(my) > 8) { tracking = false; setX(base); row.style.transition = ''; return; }
+        if (Math.abs(mx) <= 6) return;
+        moved = true;
+      }
+      dx = Math.max(-DEL - 16, Math.min(0, base + mx));
+      setX(dx);
+      if (e.cancelable) e.preventDefault();
+    });
+
+    const finish = () => {
+      if (!tracking) return;
+      tracking = false;
+      row.style.transition = '';
+      const open = (base + dx) < -DEL / 2;
+      wrap.classList.toggle('open', open);
+      mailSwipeOpen = open ? wrap : (mailSwipeOpen === wrap ? null : mailSwipeOpen);
+      setX(open ? -DEL : 0);
+    };
+    ['pointerup', 'pointercancel'].forEach((ev) => row.addEventListener(ev, finish));
+
+    row.addEventListener('click', (e) => {
+      if (moved) { moved = false; e.stopPropagation(); e.preventDefault(); return; }
+      if (isOpen()) { closeMailSwipe(); wrap.classList.remove('open'); mailSwipeOpen = null; setX(0); return; }
+      openMail(m.id);
+    });
+
+    const del = wrap.querySelector('.mail-del');
+    if (del) del.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (m.hasGift && !m.claimed) {
+        toast('先领取附件再删除这封邮件');
+        wrap.classList.remove('open');
+        mailSwipeOpen = null;
+        setX(0);
+        return;
+      }
+      Mail.remove(m.id);
+      toast('邮件已删除');
+      refreshMailBadge();
+      renderMailList();
+      AudioManager.playSFX('select');
+    });
+  }
+
   function renderMailList() {
     const box = $('mail-list');
     if (!box) return;
     box.innerHTML = '';
+    mailSwipeOpen = null;
     const arr = (typeof Mail !== 'undefined') ? Mail.list() : [];
     if (!arr.length) {
       const p = document.createElement('p');
@@ -5593,6 +5709,8 @@
       return;
     }
     arr.forEach((m) => {
+      const wrap = document.createElement('div');
+      wrap.classList.add('mail-swipe');
       const row = document.createElement('div');
       row.className = 'mail-row' + (m.read ? '' : ' unread');
       let flag = '';
@@ -5605,8 +5723,14 @@
         '<span class="m-main"><b class="m-title">' + escHtml(m.title) + '</b>' +
         '<i class="m-sub">' + escHtml(m.from) + ' · ' + escHtml(m.at) + '</i></span>' +
         flag + (m.read ? '' : '<span class="m-dot"></span>');
-      row.addEventListener('click', () => openMail(m.id));
-      box.appendChild(row);
+      const del = document.createElement('button');
+      del.className = 'mail-del';
+      del.type = 'button';
+      del.textContent = '删除';
+      wrap.appendChild(del);
+      wrap.appendChild(row);
+      attachMailSwipe(wrap, row, m);
+      box.appendChild(wrap);
     });
   }
 

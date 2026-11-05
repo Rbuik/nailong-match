@@ -1675,7 +1675,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(40, 40, 48, 0.18); }
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
+  padding-bottom: 2px;
 }
 
 .mail-list::-webkit-scrollbar { width: 6px; }
@@ -1698,7 +1699,60 @@ body[data-skin="black"]   { --skin-target-bg: rgba(40, 40, 48, 0.18); }
 }
 
 .mail-row:active { transform: scale(0.985); }
-.mail-row.unread { border-color: rgba(124, 92, 255, 0.5); background: rgba(124, 92, 255, 0.05); }
+.mail-row.unread { border-color: rgba(124, 92, 255, 0.5); background: #f7f4ff; }
+
+/* 左滑删除：整行右滑盖住下面的红色「删除」键 */
+.mail-swipe {
+  position: relative;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.mail-swipe .mail-row {
+  position: relative;
+  z-index: 1;
+  background: #fff;
+  transition: transform 0.18s ease;
+  touch-action: pan-y;
+}
+
+.mail-del {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 78px;
+  border: none;
+  border-radius: 0 14px 14px 0;
+  background: #ff5c5c;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  cursor: pointer;
+}
+
+.mail-del:active { background: #e64545; }
+
+/* 邮箱底部：一键已读 / 一键删除（返回上面一排） */
+.mail-tools {
+  display: flex;
+  gap: 10px;
+  width: 88%;
+  max-width: 380px;
+  margin-bottom: 10px;
+}
+
+.mail-tools .btn-secondary {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  margin-bottom: 0;
+  padding: 12px 0;
+  font-size: 15px;
+}
 
 .mail-row .m-ico {
   flex: 0 0 30px;
