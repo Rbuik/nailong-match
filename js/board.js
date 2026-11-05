@@ -35,13 +35,20 @@
   let opened = false;
   let deleted = {};        // uid -> 注销时间戳
 
-  // 只挡 Node / 无 location 的测试环境；file:// 和本地服务器也允许发
-  // （电脑本地打开时成绩也要能同步到手机，之前被禁导致电脑成绩永远发不出去）
-  // 测试不进这里：node 没有 location，无头验证会用桩替换 Board
+  // 只允许「正式部署的站点」往公共频道发成绩：
+  // ① 必须是 http(s) 页面（node / 无 location 的测试环境直接不发）
+  // ② localhost / 127.0.0.1 / 带端口号的地址一律不发——本地调试和无头截图测试
+  //    都跑在这类地址上，之前放开导致测试成绩（截图奶龙）混进了真榜单
+  // file:// 仍然放行：电脑本地双击打开时成绩也要能同步到手机
   function canPublish() {
     try {
       const loc = global.location;
-      if (!loc) return false;
+      if (!loc || !loc.protocol) return false;
+      if (loc.protocol !== 'https:' && loc.protocol !== 'http:') return false;
+      const h = String(loc.hostname || '').toLowerCase();
+      if (!h || h === 'localhost' || h === '127.0.0.1' || h === '0.0.0.0' ||
+          h === '::1' || h.indexOf('localhost') >= 0) return false;
+      if (loc.port) return false;   // 本地调试服务器都带端口
       return true;
     } catch (e) { return false; }
   }

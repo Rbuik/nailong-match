@@ -116,7 +116,13 @@ const sandbox = {
   sessionStorage: sessionStorageStub,
   document: documentStub,
   navigator: { userAgent: 'node' },
-  location: { reload: () => { reloaded = true; } },
+  // 模拟正式站点（canPublish 只放行部署站点；fetch 已被桩拦住，不会真发网络请求）
+  location: {
+    protocol: 'https:',
+    hostname: 'rbuik.github.io',
+    port: '',
+    reload: () => { reloaded = true; }
+  },
   requestAnimationFrame: noop,
   Image: class { set src(v) { setTimeout(() => this.onerror && this.onerror(), 0); } },
   Audio: class { constructor() {} play() {} },
