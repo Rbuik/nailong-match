@@ -586,7 +586,7 @@
     ctx.arc(cx, cy, CELL * 0.3, 0, Math.PI * 2);
     ctx.fillStyle = isN ? 'rgba(255,196,86,0.30)' : 'rgba(255,255,255,0.30)';
     ctx.fill();
-    ctx.strokeStyle = isN ? 'rgba(255,140,0,0.9)' : 'rgba(124,92,255,0.9)';
+    ctx.strokeStyle = 'rgba(35,35,35,0.9)';
     ctx.lineWidth = 2;
     ctx.stroke();
     if (isN && NAILONG_IMG.complete && NAILONG_IMG.naturalWidth) {
@@ -3561,8 +3561,10 @@
         showDailyDone();
         return;
       }
-      const d = Tasks.getDailyChallenge();
-      startLevel(9999, { def: d, seed: d.seed, daily: true });
+      ensureNick(() => {
+        const d = Tasks.getDailyChallenge();
+        startLevel(9999, { def: d, seed: d.seed, daily: true });
+      });
     });
     const dailyDoneHome = $('btn-daily-done-home');
     if (dailyDoneHome) dailyDoneHome.addEventListener('click', () => {
@@ -3804,6 +3806,25 @@
     on('btn-lb-save', saveNick);
     on('btn-lb-add', addFriendFromInput);
     on('btn-lb-copy', copyMyCode);
+    on('btn-lb-all', () => { lbTab = 'all'; renderLeaderboard(); });
+    on('btn-lb-prov', () => { lbTab = 'prov'; if (!lbProv) lbProv = myProvCode(); renderLeaderboard(); });
+    const provSelEl = $('lb-prov-sel');
+    if (provSelEl) provSelEl.addEventListener('change', () => { lbProv = provSelEl.value; renderLeaderboard(); });
+
+    // 强制改名面板
+    const nickSave = $('btn-nick-save');
+    if (nickSave) nickSave.addEventListener('click', () => {
+      const r = saveNickFrom($('nick-input') ? $('nick-input').value : '', true);
+      if (r.ok) {
+        $('nick-menu').style.display = 'none';
+        const cb = nickGateCb; nickGateCb = null;
+        if (cb) cb();
+      }
+    });
+    const nickInput = $('nick-input');
+    if (nickInput) nickInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && nickSave) nickSave.click();
+    });
 
     on('btn-story-go', closeStory);
     on('btn-story-skip', closeStory);
@@ -4298,8 +4319,10 @@
       S.menuLevel = lv;
       startLevel(lv);
     };
-    if (firstOfChapter && !Meta.storySeen(chId)) showStory(chId, go);
-    else go();
+    ensureNick(() => {
+      if (firstOfChapter && !Meta.storySeen(chId)) showStory(chId, go);
+      else go();
+    });
   }
 
   // ---------- 提示：花一次机会高亮一组可走的交换 ----------
@@ -4405,17 +4428,19 @@
   function startMode(mode) {
     const m = MODES[mode];
     if (!m) return;
-    lastMode = mode;
-    const def = {
-      id: 0, theme: m.theme, colors: 6, moves: m.moves, stars: [0, 0, 0],
-      goal: { type: m.time ? 'timed' : 'score', target: 999999 }
-    };
-    if (m.time) def.goal.time = m.time;
-    ['chapters-menu', 'modes-menu', 'main-menu'].forEach((id) => {
-      const el = $(id);
-      if (el) el.style.display = 'none';
+    ensureNick(() => {
+      lastMode = mode;
+      const def = {
+        id: 0, theme: m.theme, colors: 6, moves: m.moves, stars: [0, 0, 0],
+        goal: { type: m.time ? 'timed' : 'score', target: 999999 }
+      };
+      if (m.time) def.goal.time = m.time;
+      ['chapters-menu', 'modes-menu', 'main-menu'].forEach((id) => {
+        const el = $(id);
+        if (el) el.style.display = 'none';
+      });
+      startLevel(1, { def: def, mode: mode });
     });
-    startLevel(1, { def: def, mode: mode });
   }
 
   function endModeRun() {
@@ -4528,11 +4553,22 @@
       const s = all[k].score || 0;
       if (s > best.score) best = { score: s, level: Number(k) || 0 };
     });
-    return { uid: Meta.myUid(), name: Meta.nickname(), score: best.score, level: best.level, ts: Date.now(), me: true };
+    return { uid: Meta.myUid(), name: Meta.nickname(), score: best.score, level: best.level, ts: Date.now(), pv: myProvCode(), me: true };
   }
 
   // 排行榜：自己的本周最佳 + 好友（好友永久保留，手动删除才消失）
   let lbOpenRow = null;
+  let lbTab = 'all';        // 'all' 总榜 | 'prov' 省榜
+  let lbProv = '';          // 省榜当前选中的省份代码
+
+  // 自己所在的省（定位成功才有；拿不到就空，省榜里归「未定位」）
+  function myProvCode() {
+    try {
+      const geo = Store.getNet().geo;
+      const p = matchProvince(geo && geo.region);
+      return p ? p.code : '';
+    } catch (e) { return ''; }
+  }
 
   function closeLbOpenRow(except) {
     if (lbOpenRow && lbOpenRow !== except) {
@@ -4590,6 +4626,26 @@
     if (!box) return;
     const me = myBestEntry();
 
+    // 页签与省份选择器的显隐
+    const tabAll = $('btn-lb-all');
+    const tabProv = $('btn-lb-prov');
+    const provSel = $('lb-prov-sel');
+    if (tabAll) tabAll.classList.toggle('active', lbTab === 'all');
+    if (tabProv) tabProv.classList.toggle('active', lbTab === 'prov');
+    if (provSel) {
+      provSel.style.display = lbTab === 'prov' ? 'block' : 'none';
+      if (provSel.options && !provSel.options.length) {
+        PROVINCES.forEach((pr) => {
+          const op = document.createElement('option');
+          op.value = pr[1];
+          op.textContent = pr[0];
+          provSel.appendChild(op);
+        });
+      }
+      if (!lbProv) lbProv = myProvCode() || PROVINCES[0][1];
+      provSel.value = lbProv;
+    }
+
     // 三份数据合并：全网（公共中转）+ 本机导入的好友 + 自己
     // 同一个 uid 只留一条：分数取最高，昵称取时间最新的
     const friendUids = {};
@@ -4613,20 +4669,31 @@
       if ((r.score || 0) > cur.score) cur.score = r.score;
     });
 
+    // raw 条目带上省份代码（ Board 条目 / 好友 / 自己）
+    const pvByUid = {};
+    Meta.friends().forEach((f) => { if (f.pv) pvByUid[f.uid] = f.pv; });
+    if (typeof Board !== 'undefined') Board.list().forEach((e) => { if (e.pv) pvByUid[e.uid] = e.pv; });
+    pvByUid[me.uid] = myProvCode();
+
     const rows = Object.keys(byId).map((k) => {
       const r = byId[k];
       return {
         uid: r.uid,
         name: r.name,
         score: r.score,
+        pv: pvByUid[r.uid] || '',
         me: r.uid === me.uid,
         friend: !!friendUids[r.uid] && r.uid !== me.uid
       };
     }).sort((a, b) => b.score - a.score);
 
+    // 省榜：只显示所选省份的玩家（条目没带省份的老数据归不进省榜）
+    let shown = rows;
+    if (lbTab === 'prov') shown = rows.filter((r) => r.pv === lbProv);
+
     box.innerHTML = '';
     lbOpenRow = null;
-    rows.slice(0, 20).forEach((r, i) => {
+    shown.slice(0, 20).forEach((r, i) => {
       const row = document.createElement('div');
       row.className = 'lb-row' + (r.me ? ' me' : '');
       const inner = document.createElement('div');
@@ -4652,10 +4719,12 @@
       }
       box.appendChild(row);
     });
-    if (!rows.length) {
+    if (!shown.length) {
       const d = document.createElement('div');
       d.className = 'lb-empty';
-      d.textContent = '还没有成绩，通关一局就会自动上榜';
+      d.textContent = lbTab === 'prov'
+        ? '该省还没有上榜成绩（可能对方没定位到省）'
+        : '还没有成绩，通关一局就会自动上榜';
       box.appendChild(d);
     }
     if ($('lb-nick')) $('lb-nick').value = Meta.nickname();
@@ -4701,14 +4770,46 @@
     AudioManager.playSFX('coin');
   }
 
-  function saveNick() {
-    const v = $('lb-nick') ? $('lb-nick').value : '';
-    Meta.setNickname(v);
-    toast('昵称已改为「' + Meta.nickname() + '」');
+  // 名字已被谁占用：全网榜 + 本机好友（自己的除外）
+  function takenNickNames() {
+    const mine = Meta.myUid();
+    const taken = [];
+    if (typeof Board !== 'undefined') {
+      Board.list().forEach((e) => { if (e.uid !== mine) taken.push(e.name); });
+    }
+    Meta.friends().forEach((f) => { taken.push(f.name); });
+    return taken;
+  }
+
+  let nickGateCb = null;
+  // 默认昵称不能玩：弹改名面板，改完才继续
+  function ensureNick(then) {
+    if (!Meta.isDefaultNick()) { then(); return; }
+    nickGateCb = then;
+    if ($('nick-input')) $('nick-input').value = '';
+    showOverlay('nick-menu');
+    if ($('nick-input') && $('nick-input').focus) $('nick-input').focus();
+  }
+
+  // 保存昵称（force=true 时来自改名面板，改成功提示更醒目）
+  function saveNickFrom(v, force) {
+    const r = Meta.validateNick(v, takenNickNames());
+    if (!r.ok) {
+      toast(r.reason);
+      AudioManager.playSFX('invalid');
+      return r;
+    }
+    Meta.setNickname(r.name);
+    toast('昵称已改为「' + r.name + '」');
     // 改名立刻同步到榜上（别人开着排行榜会实时看到新昵称）
     publishMyScore(true);
     renderLeaderboard();
     refreshMenu();
+    return r;
+  }
+
+  function saveNick() {
+    saveNickFrom($('lb-nick') ? $('lb-nick').value : '', false);
   }
 
   if (document.readyState === 'loading') {
