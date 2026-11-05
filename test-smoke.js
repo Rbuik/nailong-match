@@ -388,28 +388,34 @@ function check(name, ok) {
   check('昵称不能用默认名', !M.validateNick('奶龙玩家', []).ok);
   check('昵称只允许 - . _ 特殊符号', !M.validateNick('a@b', []).ok && M.validateNick('a-b.c', []).ok && M.validateNick('a_b', []).ok);
   check('昵称不能重名', !M.validateNick('阿呆', ['阿呆']).ok);
-  check('省榜 / 局榜标题右边是 ⇄ 更换符号，列表页不再有页签', (() => {
+  check('省榜 / 局榜 ⇄ 弹出全量列表直接挑选', (() => {
     $('btn-leaderboard').dispatch('click');
     $('btn-lb-hub-prov').dispatch('click');
     const provShown = $('lb-prov-swap').style.display === 'inline-block' && $('lb-level-swap').style.display === 'none';
-    // 点 ⇄ 直接换省：标题里的省名跟着变
-    const t1 = String($('lb-view-title').textContent);
+    // 点 ⇄ → 弹出全部省份面板；点最后一个省 → 标题直接变、面板收起
     $('lb-prov-swap').dispatch('click');
+    const opened = $('lb-picker').style.display === 'grid';
+    const chips = ($('lb-picker').children || []).length;
+    const t1 = String($('lb-view-title').textContent);
+    ($('lb-picker').children || [])[chips - 1].dispatch('click');
+    const closed = $('lb-picker').style.display === 'none';
     const t2 = String($('lb-view-title').textContent);
-    const provChanged = t1 !== t2 && t2.indexOf('省') >= 0;
+    const provChanged = opened && closed && chips >= 20 && t1 !== t2 && t2.indexOf('省') >= 0;
     $('btn-lb-view-back').dispatch('click');
     $('btn-lb-hub-level').dispatch('click');
     const lvShown = $('lb-level-swap').style.display === 'inline-block' && $('lb-prov-swap').style.display === 'none';
-    const lt1 = String($('lb-view-title').textContent);
     $('lb-level-swap').dispatch('click');
+    const lvOpened = $('lb-picker').style.display === 'grid';
+    const lvChips = ($('lb-picker').children || []).length;
+    const lt1 = String($('lb-view-title').textContent);
+    ($('lb-picker').children || [])[lvChips - 1].dispatch('click');
     const lt2 = String($('lb-view-title').textContent);
-    const lvChanged = lt1 !== lt2 && lt2.indexOf('关') >= 0;
     $('btn-lb-view-back').dispatch('click');
     $('btn-lb-hub-all').dispatch('click');
     const noneShown = $('lb-prov-swap').style.display === 'none' && $('lb-level-swap').style.display === 'none';
     $('btn-lb-view-back').dispatch('click');
     $('btn-close-lb').dispatch('click');
-    return provShown && provChanged && lvShown && lvChanged && noneShown &&
+    return provShown && provChanged && lvShown && lvOpened && lvChips >= 10 && lt1 !== lt2 && noneShown &&
       htmlSrc.indexOf('lb-tabs') < 0 && htmlSrc.indexOf('btn-lb-all') < 0 && htmlSrc.indexOf('lb-prov-sel') < 0;
   })());
 

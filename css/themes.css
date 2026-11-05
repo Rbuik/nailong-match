@@ -1282,7 +1282,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 .history-item .h-score { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
 .history-item .h-stars .lb-medal { font-size: 13px; margin-right: 1px; }
 
-/* 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：点一下直接换省 / 换关 */
+/* 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：只有一个符号，没有圆圈底 */
 .lb-title-row {
   display: flex;
   align-items: center;
@@ -1293,17 +1293,50 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-swap {
   width: 34px;
   height: 34px;
-  border-radius: 50%;
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  background: #fff;
-  font-size: 16px;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  font-size: 20px;
   font-weight: 700;
   color: #7c5cff;
   line-height: 1;
   padding: 0;
   cursor: pointer;
 }
-.lb-swap:active { transform: scale(0.92); }
+.lb-swap:active { transform: scale(0.88); }
+
+/* ⇄ 弹出的选择面板：全部省份 / 关卡一格一格直接挑 */
+.lb-picker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 82%;
+  max-height: 56vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 14px;
+  padding: 12px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  z-index: 30;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
+}
+.pk-item {
+  padding: 10px 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  background: rgba(0, 0, 0, 0.03);
+  font-size: 13px;
+  font-weight: 700;
+  color: #3d3556;
+  cursor: pointer;
+}
+.pk-item.cur {
+  background: rgba(124, 92, 255, 0.15);
+  color: #7c5cff;
+  border-color: #7c5cff;
+}
 
 /* 结算页「还有剩余步数　是否继续游戏」：一行写完不换行 */
 #btn-clear-continue {

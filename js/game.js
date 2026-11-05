@@ -3887,6 +3887,7 @@
       if (tab === 'level') {
         lbLevel = Math.max(1, Math.min(lbLevel || 1, maxMainLevel()));
       }
+      hideLbPicker();
       renderLeaderboard();
       showOverlay('lb-view');
     };
@@ -3895,27 +3896,20 @@
     on('btn-lb-hub-level', () => openLbView('level'));
     on('btn-close-lb', () => {
       $('leaderboard-menu').style.display = 'none';
+      hideLbPicker();
       if (typeof Board !== 'undefined') Board.close();
       showOverlay('main-menu');
     });
     on('btn-lb-view-back', () => {
       $('lb-view').style.display = 'none';
+      hideLbPicker();
       showOverlay('leaderboard-menu');
     });
-    // 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：点一下直接换下一个省 / 关
+    // 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：点一下弹出全部省份 / 关卡，直接挑一个
     const provSwap = $('lb-prov-swap');
-    if (provSwap) provSwap.addEventListener('click', () => {
-      if (lbTab !== 'prov') return;
-      const idx = PROVINCES.findIndex((p) => p[1] === lbProv);
-      lbProv = PROVINCES[(idx + 1) % PROVINCES.length][1];
-      renderLeaderboard();
-    });
+    if (provSwap) provSwap.addEventListener('click', () => { if (lbTab === 'prov') toggleLbPicker('prov'); });
     const lvSwap = $('lb-level-swap');
-    if (lvSwap) lvSwap.addEventListener('click', () => {
-      if (lbTab !== 'level') return;
-      lbLevel = lbLevel >= maxMainLevel() ? 1 : lbLevel + 1;
-      renderLeaderboard();
-    });
+    if (lvSwap) lvSwap.addEventListener('click', () => { if (lbTab === 'level') toggleLbPicker('level'); });
 
     // 主页键（左上角）：改名入口
     on('btn-home-menu', () => {
@@ -4853,6 +4847,42 @@
     row.addEventListener('pointercancel', finish);
   }
 
+  // ⇄ 弹出的选择面板：列出全部省份 / 关卡，点一个直接切换
+  function hideLbPicker() {
+    const pk = $('lb-picker');
+    if (pk) pk.style.display = 'none';
+  }
+
+  function toggleLbPicker(kind) {
+    const pk = $('lb-picker');
+    if (!pk) return;
+    // 再点一次同一个 ⇄ 收起
+    if (pk.style.display && pk.style.display !== 'none' && pk.dataset.kind === kind) {
+      pk.style.display = 'none';
+      return;
+    }
+    pk.dataset.kind = kind;
+    pk.innerHTML = '';
+    const mk = (label, val, cur) => {
+      const b = document.createElement('button');
+      b.className = 'pk-item' + (cur ? ' cur' : '');
+      b.textContent = label;
+      b.addEventListener('click', () => {
+        if (kind === 'prov') lbProv = val;
+        else lbLevel = val;
+        hideLbPicker();
+        renderLeaderboard();
+      });
+      pk.appendChild(b);
+    };
+    if (kind === 'prov') {
+      PROVINCES.forEach((p) => mk(p[0], p[1], p[1] === lbProv));
+    } else {
+      for (let i = 1; i <= maxMainLevel(); i++) mk('第 ' + i + ' 关', i, i === lbLevel);
+    }
+    pk.style.display = 'grid';
+  }
+
   function renderLeaderboard() {
     const box = $('lb-list');
     if (!box) return;
@@ -4998,8 +5028,8 @@
     const hint = $('nick-menu') && $('nick-menu').querySelector('.history-hint');
     if (hint) {
       hint.textContent = forced
-        ? '「奶龙玩家」不能用来玩，起一个自己的名字吧：最多 8 个字，特殊符号只能用 - . _，不能和别人重名。'
-        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 - . _，不能和别人重名。';
+        ? '最多 8 个字，特殊符号只能用 - . _，不能和别人重名'
+        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 - . _，不能和别人重名';
     }
     if ($('nick-input')) $('nick-input').value = Meta.isDefaultNick() ? '' : Meta.nickname();
     showOverlay('nick-menu');
