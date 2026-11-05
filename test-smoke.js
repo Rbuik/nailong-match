@@ -305,10 +305,10 @@ function check(name, ok) {
     for (let c = 0; c < 8; c++) bd[r][c] = { type: (r + c) % 3, special: 0 };
   }
   bd[3][4].special = Sp.TYPE.LINE_H;
-  const exp = Sp.expandClears(bd, 8, 8, new Set(['3,4']), {});
+  const rbExp = Sp.expandClears(bd, 8, 8, new Set(['3,4']), {});
   let rowOk = true, colOk = true;
-  for (let c = 0; c < 8; c++) if (!exp.cells.has('3,' + c)) rowOk = false;
-  for (let r = 0; r < 8; r++) if (!exp.cells.has(r + ',4')) colOk = false;
+  for (let c = 0; c < 8; c++) if (!rbExp.cells.has('3,' + c)) rowOk = false;
+  for (let r = 0; r < 8; r++) if (!rbExp.cells.has(r + ',4')) colOk = false;
   check('十字线消清整行 + 整列', rowOk && colOk);
 
   // 13. 主页上一关 / 下一关
@@ -671,6 +671,16 @@ function check(name, ok) {
   }
   check('彩虹交换后自己也被消除', origGone);
   check('彩虹清掉自己图案的普通块', type0Objs.size > 0 && type0Left === 0);
+
+  // 27b. 彩虹被普通三连 / 炸弹 / 线消波及消除时：引爆彩虹自身图案（不是场上最多的颜色）
+  const rbBoard = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 1, special: 0 })));
+  rbBoard[2][2] = { type: 0, special: Sp.TYPE.RAINBOW };   // 0.jpg 带彩虹
+  rbBoard[4][4] = { type: 0, special: 0 };
+  rbBoard[5][5] = { type: 0, special: 0 };
+  // 场上 type 1 占绝大多数（旧逻辑会引爆 type 1）——新逻辑必须引爆 type 0
+  const rbExp2 = Sp.expandClears(rbBoard, 8, 8, new Set(['2,2']), {});
+  check('彩虹被消除时展开自身图案的全场方块',
+    rbExp2.cells.has('4,4') && rbExp2.cells.has('5,5') && !rbExp2.cells.has('2,5'));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

@@ -210,8 +210,11 @@
 
       let color = null;
       if (block.special === TYPE.RAINBOW) {
-        // 彩虹：优先取场上最多的颜色
-        color = opts.rainbowColor != null ? opts.rainbowColor : dominantColor(board, R, C);
+        // 彩虹块被消除时（无论三连 / 炸弹 / 线消波及），触发的是
+        // 「彩虹自身图案」的全场消除：0.jpg 带彩虹 → 全场 0.jpg 都消掉。
+        // 只有彩虹块没有图案时才退回场上最多的颜色。
+        if (block.type != null && block.type >= 0) color = block.type;
+        else color = opts.rainbowColor != null ? opts.rainbowColor : dominantColor(board, R, C);
         if (color != null) jellyColor = color;
       }
 
