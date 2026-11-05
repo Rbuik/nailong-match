@@ -305,7 +305,8 @@ function check(name, ok) {
   $('btn-play').dispatch('click');
   await sleep(30);
   const barHtml = $('target-bar').innerHTML;
-  check('收集关目标栏使用图案 img', barHtml.includes('goal-chip') && barHtml.includes('./assets/0.webp'));
+  // 收集目标每次随机两种，不能再写死 0 号图案
+  check('收集关目标栏使用图案 img', /goal-chip/.test(barHtml) && /assets\/\d\.webp/.test(barHtml));
 
   // 6. 中央倍数横幅元素存在
   check('中央横幅存在（倍数显示）', !!getEl('center-banner') && !!getEl('center-banner-text'));
@@ -549,9 +550,28 @@ function check(name, ok) {
     const noneShown = $('lb-prov-swap').style.display === 'none' && $('lb-level-swap').style.display === 'none';
     $('btn-lb-view-back').dispatch('click');
     $('btn-close-lb').dispatch('click');
-    return provShown && provChanged && lvShown && lvOpened && lvChips >= 10 && lt1 !== lt2 && noneShown &&
+    // 局榜选关面板只列已解锁的关（此时打通到第 10 关，所以正好 10 个选项）
+    const lbUnlocked = sandbox.Store.maxUnlockedLevel(40);
+    return provShown && provChanged && lvShown && lvOpened && lt1 !== lt2 && noneShown &&
+      lvChips === lbUnlocked && lbUnlocked < 40 &&
       htmlSrc.indexOf('lb-tabs') < 0 && htmlSrc.indexOf('btn-lb-all') < 0 && htmlSrc.indexOf('lb-prov-sel') < 0;
   })());
+
+  // 14c-2. 收集关每次随机两种方块 + 冰块五道裂纹
+  check('收集关每次开局随机换两种方块（数量照关卡定义）', (() => {
+    const pairs = new Set();
+    for (let i = 0; i < 30; i++) {
+      sandbox.__nl_test.start(2);
+      const t = sandbox.__nl_test.state().goal.target;
+      const keys = Object.keys(t);
+      if (keys.length !== 2) return false;
+      if (keys.some((k) => !(Number(k) >= 0 && Number(k) <= 5))) return false;
+      if (keys.some((k) => t[k] !== 12)) return false;
+      pairs.add(keys.slice().sort().join('+'));
+    }
+    return pairs.size > 1;   // 30 局里出现过多于一种组合 → 真的随机
+  })());
+  check('冰块一出现就是五道裂纹', sandbox.__nl_test.iceCracks.length === 5);
 
   // 14d. 局榜排名与奖牌：我一关 1200，对手 900 → 我第一，拿金牌
   check('局榜按单关最高分排名', (() => {

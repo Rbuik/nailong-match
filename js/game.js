@@ -12,6 +12,14 @@
   // ==================== 常量 ====================
   const COLS = 8, ROWS = 8, MAX_W = 480;
   const FALLBACK_COLORS = ['#ff5c5c', '#5cff8f', '#5c8fff', '#ffd75c', '#c85cff', '#5cffee'];
+  // 冰块上的五道裂纹（格子内的相对坐标 0~1，每三条一组 = 一条折线）
+  const ICE_CRACKS = [
+    [0.24, 0.16, 0.44, 0.50, 0.28, 0.78],
+    [0.74, 0.20, 0.56, 0.50, 0.78, 0.80],
+    [0.62, 0.12, 0.50, 0.42, 0.74, 0.58],
+    [0.14, 0.55, 0.40, 0.62, 0.34, 0.88],
+    [0.70, 0.28, 0.62, 0.72, 0.82, 0.84]
+  ];
   const T = Specials.TYPE;
 
   const COMBO_WINDOW = 2500;   // 跨步连击窗口（ms）
@@ -676,25 +684,16 @@
           ctx.strokeStyle = ice > 1 ? 'rgba(70,165,225,0.95)' : 'rgba(150,215,245,0.75)';
           ctx.lineWidth = 2;
           ctx.stroke();
-          // 白色裂纹：没被砸过只有一道小纹；砸过一次裂纹更多更碎
+          // 白色裂纹：冰块一出现就是五道裂（厚冰/薄冰只靠透明度区分）
           ctx.strokeStyle = 'rgba(255,255,255,0.85)';
           ctx.lineWidth = 1.4;
-          const zig = (x1, y1, x2, y2, x3, y3) => {
+          ICE_CRACKS.forEach((p) => {
             ctx.beginPath();
-            ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.lineTo(x3, y3);
+            ctx.moveTo(x + CELL * p[0], y + CELL * p[1]);
+            ctx.lineTo(x + CELL * p[2], y + CELL * p[3]);
+            ctx.lineTo(x + CELL * p[4], y + CELL * p[5]);
             ctx.stroke();
-          };
-          zig(x + CELL * 0.24, y + CELL * 0.16, x + CELL * 0.44, y + CELL * 0.5, x + CELL * 0.28, y + CELL * 0.78);
-          if (ice > 1) {
-            zig(x + CELL * 0.74, y + CELL * 0.2, x + CELL * 0.56, y + CELL * 0.5, x + CELL * 0.78, y + CELL * 0.8);
-          } else {
-            // 砸过一次：满格碎裂纹
-            zig(x + CELL * 0.74, y + CELL * 0.2, x + CELL * 0.56, y + CELL * 0.5, x + CELL * 0.78, y + CELL * 0.8);
-            zig(x + CELL * 0.62, y + CELL * 0.12, x + CELL * 0.5, y + CELL * 0.42, x + CELL * 0.74, y + CELL * 0.58);
-            zig(x + CELL * 0.14, y + CELL * 0.55, x + CELL * 0.4, y + CELL * 0.62, x + CELL * 0.34, y + CELL * 0.88);
-            zig(x + CELL * 0.7, y + CELL * 0.28, x + CELL * 0.62, y + CELL * 0.72, x + CELL * 0.82, y + CELL * 0.84);
-            zig(x + CELL * 0.08, y + CELL * 0.3, x + CELL * 0.2, y + CELL * 0.45, x + CELL * 0.1, y + CELL * 0.62);
-          }
+          });
           ctx.restore();
         }
 
@@ -1769,6 +1768,25 @@
     document.documentElement.style.setProperty('--board-grid', themes.grid);
   }
 
+  // 收集关：每次开局随机挑方块来收（数量照关卡定义），不再永远固定同两种
+  // 返回浅拷贝，别改到 levels.json / 每日挑战的原始定义
+  function randomCollectDef(def) {
+    const g = def.goal;
+    const keys = Object.keys(g.target || {});
+    if (!keys.length) return def;
+    const want = keys.map((k) => g.target[k]);
+    const pool = [];
+    for (let i = 0; i < typeCount(); i++) pool.push(String(i));
+    const rnd = (n) => (S.rng ? S.rng.int(n) : randInt(n));
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = rnd(i + 1);
+      const t = pool[i]; pool[i] = pool[j]; pool[j] = t;
+    }
+    const target = {};
+    keys.forEach((k, i) => { target[pool[i % pool.length]] = want[i]; });
+    return Object.assign({}, def, { goal: Object.assign({}, g, { target: target }) });
+  }
+
   function startLevel(level, opts) {
     opts = opts || {};
     // 每日挑战当天已满三星 → 不再开局，改为显示今日战绩
@@ -1784,6 +1802,9 @@
     S.rng = opts.seed != null ? RNG.source(opts.seed) : null;
     S.chapter = S.levelDef.chapter || (S.level ? Math.ceil(S.level / 10) : 0);
 
+    if (S.levelDef.goal && S.levelDef.goal.type === 'collect') {
+      S.levelDef = randomCollectDef(S.levelDef);
+    }
     S.goal = Goals.create(S.levelDef.goal);
     S.score = 0;
     S.levelStartScore = 0;
@@ -4041,7 +4062,7 @@
       lbTab = tab;
       if (tab === 'prov' && !lbProv) lbProv = myProvCode() || PROVINCES[0][1];
       if (tab === 'level') {
-        lbLevel = Math.max(1, Math.min(lbLevel || 1, maxMainLevel()));
+        lbLevel = clampLbLevel(lbLevel);
       }
       hideLbPicker();
       renderLeaderboard();
@@ -5008,6 +5029,17 @@
   let lbProv = '';          // 省榜当前选中的省份代码
   let lbLevel = 1;          // 局榜当前选中的关卡
 
+  // 局榜只能看本账号已解锁的关卡（进度是按账号存的，切号后上限也跟着变）
+  function unlockedLbMax() {
+    const max = maxMainLevel();
+    let u = max;
+    try { u = Store.maxUnlockedLevel(max); } catch (e) { u = max; }
+    return Math.max(1, Math.min(u, max));
+  }
+  function clampLbLevel(lv) {
+    return Math.max(1, Math.min(lv || 1, unlockedLbMax()));
+  }
+
   // 自己所在的省（定位成功才有；拿不到就空，省榜里归「未定位」）
   function myProvCode() {
     try {
@@ -5143,7 +5175,9 @@
     if (kind === 'prov') {
       PROVINCES.forEach((p) => mk(p[0], p[1], p[1] === lbProv));
     } else {
-      for (let i = 1; i <= maxMainLevel(); i++) mk('第 ' + i + ' 关', i, i === lbLevel);
+      // 只列这个账号已经解锁的关卡（没解锁的关还没打过，列出来也是空榜）
+      const maxLv = unlockedLbMax();
+      for (let i = 1; i <= maxLv; i++) mk('第 ' + i + ' 关', i, i === lbLevel);
     }
     pk.style.display = 'grid';
   }
@@ -5155,6 +5189,8 @@
 
     // 省榜 / 局榜的 ⇄ 更换符号显隐（总榜没有）；榜单类型由入口决定
     if (lbTab === 'prov' && !lbProv) lbProv = myProvCode() || PROVINCES[0][1];
+    // 关卡上限跟着账号解锁进度走，超出的自动夹回来
+    if (lbTab === 'level') lbLevel = clampLbLevel(lbLevel);
     const provSwapBtn = $('lb-prov-swap');
     if (provSwapBtn) provSwapBtn.style.display = lbTab === 'prov' ? 'inline-block' : 'none';
     const lvSwapBtn = $('lb-level-swap');
@@ -5824,6 +5860,7 @@
     collectCargo: collectCargo,
     crackIceAt: crackIceAt,
     iceTotal: iceTotal,
+    iceCracks: ICE_CRACKS,
     endModeRun: endModeRun,
     drawStatic: drawStatic,
     resetProvCounted: () => { provCounted = false; }
