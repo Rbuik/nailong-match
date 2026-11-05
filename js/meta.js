@@ -269,6 +269,20 @@
     return r;
   }
 
+  // 补签（300 金币 / 天）：只补连续天数，不发当日奖励
+  function makeup() {
+    if (!global.Store) return { ok: false };
+    const r = Store.makeupSign();
+    if (r.ok) bump('checkin', 1);
+    return r;
+  }
+
+  // 福利中心底部展示：连续签到 N 天 + 可补签天数
+  function signStats() {
+    if (!global.Store || !Store.signStats) return { streak: 0, signedToday: true, missed: 0, canMakeup: false, day: 0 };
+    return Store.signStats();
+  }
+
   // ==================== 排行榜（本地 + 好友成绩码） ====================
   function weekKey(d) {
     d = d || new Date();
@@ -476,7 +490,7 @@
     currentSkin, applySkin, unlockSkin, renderSkins,
     getBest, recordBest,
     canSpin, spin, wheelState,
-    signInfo, signIn,
+    signInfo, signIn, makeup, signStats,
     weekKey, nickname, isDefaultNick, validateNick, setNickname, board, addBoard, makeCode, addFriend,
     myUid, friends, removeFriend, clearFriends,
     storySeen, markStory,

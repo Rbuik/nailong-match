@@ -65,7 +65,9 @@ const localStorageStub = {
   getItem: (k) => (lsMap.has(k) ? lsMap.get(k) : null),
   setItem: (k, v) => lsMap.set(k, String(v)),
   removeItem: (k) => lsMap.delete(k),
-  clear: () => lsMap.clear()
+  clear: () => lsMap.clear(),
+  get length() { return lsMap.size; },
+  key: (i) => { const ks = Array.from(lsMap.keys()); return i < ks.length ? ks[i] : null; }
 };
 // ---------- sessionStorage 桩（刷新后留在原页面用） ----------
 const ssMap = new Map();
@@ -191,6 +193,8 @@ function check(name, ok) {
   $('btn-logout-yes').dispatch('click');
   $('btn-logout-confirm').dispatch('click');
   check('第二步"确认"清除存档并 reload', reloaded && lsMap.get('nl2:wallet') === undefined);
+  // 注销现在连昵称 / 成就 / 好友也一起清掉（nl2:* 全清），后面的测试重新预置昵称
+  lsMap.set('nl2:mnick', JSON.stringify('测试奶龙'));
 
   // 5. 收集关目标图案：切到第 2 关（collect 目标）再开始
   lsMap.set('nl2:progress', JSON.stringify({ 1: { score: 1200, stars: 3 }, 2: { score: 900, stars: 2 } }));
@@ -261,6 +265,16 @@ function check(name, ok) {
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));
   check('规则含成就配色排行榜说明', htmlSrc.includes('成就、配色与排行榜') && htmlSrc.includes('总榜 → 省榜 → 局榜') && htmlSrc.includes('奖牌'));
   check('规则主线为 40 关 4 章节', htmlSrc.includes('主线共 <b>40 关</b>') && htmlSrc.includes('糖果城堡'));
+  check('规则含补签说明', htmlSrc.includes('补签') && htmlSrc.includes('300 金币'));
+  check('结算页有继续游戏按钮且在进入下一关上面',
+    htmlSrc.includes('btn-clear-continue') && htmlSrc.indexOf('btn-clear-continue') < htmlSrc.indexOf('id="btn-next-level"'));
+  check('主页关卡记录在更多玩法前面（已交换）',
+    htmlSrc.indexOf('btn-history') >= 0 && htmlSrc.indexOf('btn-history') < htmlSrc.indexOf('btn-modes'));
+  check('福利中心底部有连续签到与补签',
+    htmlSrc.includes('welfare-streak') && htmlSrc.includes('btn-welfare-makeup') &&
+    htmlSrc.indexOf('welfare-streak') > htmlSrc.indexOf('btn-wheel'));
+  check('省榜 / 局榜选择器在标题右边', htmlSrc.includes('lb-title-row') &&
+    htmlSrc.indexOf('lb-view-title') < htmlSrc.indexOf('lb-prov-sel'));
   $('btn-close-rules').dispatch('click');
   check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
 
@@ -444,20 +458,42 @@ function check(name, ok) {
     return ok;
   })());
 
-  // 14d4. 刷新后留在原页面（不是每次都弹回主页）
-  check('刷新后留在刷新前那一页', (() => {
-    $('btn-achievements').dispatch('click');
-    const savedView = JSON.parse(ssMap.get('nl2:lastView') || '{}');
-    if (savedView.id !== 'achievements-menu') return false;
-    // 模拟刷新：主页重新盖住、面板被收掉，再按存档恢复
-    $('main-menu').style.display = 'flex';
-    $('achievements-menu').style.display = 'none';
-    const restored = sandbox.__nl_test.restoreView();
-    const ok = restored === true &&
-      $('achievements-menu').style.display === 'flex' && $('main-menu').style.display === 'none';
-    $('btn-close-ach').dispatch('click');
-    const homeOk = JSON.parse(ssMap.get('nl2:lastView') || '{}').id === 'main-menu';
-    return ok && homeOk;
+  // 14d4.（已撤销）刷新恢复功能：刷新后统一回到主页
+
+  // 14d4a. 福利中心：连续签到天数 + 补签（300 金币 / 天，不发奖励）
+  check('福利中心显示连续签到并可补签', (() => {
+    const Store = sandbox.Store;
+    const today = Store.todayKey();
+    const savedTasks = lsMap.get('nl2:tasks');
+    const savedWallet = lsMap.get('nl2:wallet');
+    // 本周期从 2 天前开始，只签了今天 → 漏了前天和昨天，可补 2 天
+    lsMap.set('nl2:tasks', JSON.stringify({ date: today, list: [], signDay: 1, signDate: today, dates: [today], cycleStart: Store.todayKey(new Date(Date.now() - 2 * 86400000)) }));
+    lsMap.set('nl2:wallet', JSON.stringify({ coins: 1000, items: {} }));
+    $('btn-welfare').dispatch('click');
+    const streakTxt = String($('welfare-streak').textContent);
+    const mkBtn = $('btn-welfare-makeup');
+    const enabled = mkBtn.disabled !== true && String(mkBtn.textContent).indexOf('补签') >= 0;
+    mkBtn.dispatch('click');
+    const coins = sandbox.Store.getWallet().coins;
+    const st = sandbox.Store.signStats();
+    $('btn-close-welfare').dispatch('click');
+    if (savedTasks !== undefined) lsMap.set('nl2:tasks', savedTasks);
+    if (savedWallet !== undefined) lsMap.set('nl2:wallet', savedWallet);
+    return streakTxt.indexOf('连续签到 1 天') >= 0 && enabled &&
+      coins === 700 && st.streak === 2 && st.day === 2;
+  })());
+
+  // 14d4b. 注销：Board.remove 把人从榜单拿掉，旧消息 / 老快照不再复活
+  check('注销后从排行榜消失且不复活', (() => {
+    const e = { uid: 'udeltest001', name: '要删的人', score: 5000, level: 3, ts: Date.now() - 60000, pv: '', lv: {} };
+    sandbox.Board.publish(e, true);
+    const inList = sandbox.Board.list().some((r) => r.uid === 'udeltest001');
+    sandbox.Board.remove('udeltest001');
+    const gone = !sandbox.Board.list().some((r) => r.uid === 'udeltest001');
+    // ts 早于注销时间的旧消息一律不收
+    sandbox.Board.publish(Object.assign({}, e, { name: '复活尝试' }), true);
+    const noRevive = !sandbox.Board.list().some((r) => r.uid === 'udeltest001');
+    return inList && gone && noRevive;
   })());
 
   // 14e. 默认昵称不能玩：改名闸拦截 btn-play

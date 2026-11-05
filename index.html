@@ -121,8 +121,8 @@
 
     <div class="menu-grid">
       <button class="btn-mini" id="btn-chapters">🗺️ 章节地图</button>
-      <button class="btn-mini" id="btn-modes">🎮 更多玩法</button>
       <button class="btn-mini" id="btn-history">🏆 关卡记录</button>
+      <button class="btn-mini" id="btn-modes">🎮 更多玩法</button>
       <button class="btn-mini" id="btn-daily">📅 每日挑战</button>
       <button class="btn-mini" id="btn-goto-tasks">🎯 每日任务</button>
       <button class="btn-mini" id="btn-welfare">🎁 福利中心</button>
@@ -317,7 +317,7 @@
 
       <section class="rule-sec">
         <h3>🎁 福利中心</h3>
-        <p><b>签到</b>：每天 1 次，7 天一轮，金币 50 → 80 → 120 → 180 → 250 → 350 → 500，第 7 天额外送 1 个彩虹道具；断签就从第 1 天重新算。</p>
+        <p><b>签到</b>：每天 1 次，7 天一轮，金币 50 → 80 → 120 → 180 → 250 → 350 → 500，第 7 天额外送 1 个彩虹道具；断签就从第 1 天重新算。漏签的日子可以在福利中心花 <b>300 金币</b>补签（只补连续天数，不发当日奖励），补上后连续天数照常累计。</p>
         <p><b>每日转盘</b>：每天免费转 1 次，奖品是 50～300 金币，或者「洗牌 +1」「撤回 +1」道具。</p>
       </section>
 
@@ -331,7 +331,6 @@
           · <b>局榜</b>：先选<b>某一关</b>，只比这一局的最高分</p>
         <p>不再有成绩码：谁打完分都直接上共享榜，别人打完分你这边开着榜单就会立刻刷新，最多显示 20 名。<b>0 分不算上榜</b>，分数那一栏会写「未上榜」。</p>
         <p><b>奖牌</b>：前三名挂 🥇 🥈 🥉，<b>榜单上只有自己一个人也算名次</b>（拿了第一就有金牌）。主页显示在「本关最高分」的<b>分数左边</b>，关卡记录里显示在<b>星星的左边</b>。</p>
-        <p><b>刷新不丢地方</b>：中途刷新页面（手机上常常是下拉刷新 / 切回来重载）不会退回主页，还停在你原来那一页；如果当时正在玩，会直接接着上次的棋盘继续。</p>
         <p><b>昵称</b>：默认的「奶龙玩家」不能拿来玩，主页一检测到就会弹出改名窗口。想改名随时点左上角的 <b>🏠 主页键</b>（<b>📖 规则键在它右边</b>），里面有「✏️ 改名」。昵称最多 8 个字，中文、字母、数字都可以，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，并且<b>不能和榜上的人重名</b>。</p>
       </section>
 
@@ -526,6 +525,7 @@
       <p><span id="clear-moves-label">剩余步数</span><b id="clear-moves">0</b></p>
       <p><span>金币奖励</span><b id="clear-coins">+0</b></p>
     </div>
+    <button class="btn-secondary" id="btn-clear-continue" style="display:none;">还有剩余步数，是否继续游戏</button>
     <button class="btn-primary" id="btn-next-level">进入下一关</button>
     <button class="btn-secondary" id="btn-clear-home">返回主页</button>
   </div>
@@ -657,6 +657,8 @@
       <div class="wheel-result" id="wheel-result">每天可以转一次</div>
     </div>
     <button class="btn-primary" id="btn-wheel">转盘抽奖</button>
+    <p class="welfare-streak" id="welfare-streak">连续签到 0 天</p>
+    <button class="btn-secondary" id="btn-welfare-makeup">补签 1 天（300 金币）</button>
     <button class="btn-secondary" id="btn-close-welfare">返回</button>
   </div>
 
@@ -680,9 +682,11 @@
 
   <!-- 排行榜列表（总榜 / 省榜 / 局榜；进来只看排名，不再有页签切换） -->
   <div class="overlay" id="lb-view" style="display:none;">
-    <h2 class="title small" id="lb-view-title">🏆 总榜</h2>
-    <select class="lb-prov-sel" id="lb-prov-sel" style="display:none;"></select>
-    <select class="lb-prov-sel" id="lb-level-sel" style="display:none;"></select>
+    <div class="lb-title-row">
+      <h2 class="title small" id="lb-view-title">🏆 总榜</h2>
+      <select class="lb-prov-sel" id="lb-prov-sel" style="display:none;"></select>
+      <select class="lb-prov-sel" id="lb-level-sel" style="display:none;"></select>
+    </div>
     <div class="lb-list" id="lb-list"></div>
     <button class="btn-secondary lb-back" id="btn-lb-view-back">返回</button>
   </div>

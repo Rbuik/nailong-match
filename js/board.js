@@ -12,6 +12,11 @@
   // 新主题从零开始，谁的历史缓存都不带
   const TOPIC = 'nailong-lb-9k2v7h4q';
   const CACHE = 'nl2:lbshare2';
+  // 注销墓碑：玩家注销后广播 t:'d'，所有设备把这个人从榜单里拿掉，
+  // 并把 uid 记进本墓碑表，防止旧消息 / 别人手里的快照把已注销的人「复活」。
+  // 存在独立的 key（nl2:lb-del）里，注销清档时不清掉它。
+  const DELKEY = 'nl2:lb-del';
+  const DEL_MAX_AGE = 30 * 864e5;        // 墓碑保留 30 天（中转消息只留 12h，足够盖住）
   const MAX = 60;                        // 榜单最多保留 60 人
   const PUB_MIN_MS = 6e3;                // 自己的成绩最快 6 秒发一次
   const SNAP_MIN_MS = 90e3;              // 合成快照最小间隔
@@ -28,6 +33,7 @@
   let lastPub = 0;
   let lastSnap = 0;
   let opened = false;
+  let deleted = {};        // uid -> 注销时间戳
 
   // file:// / 测试环境绝不往公共主题发东西（曾经的验证把测试成绩发进了真榜单）
   function canPublish() {
@@ -53,6 +59,28 @@
   function save() {
     try {
       if (global.localStorage) localStorage.setItem(CACHE, JSON.stringify({ ts: lastSync, list: entries }));
+    } catch (e) {}
+  }
+
+  // ---------- 注销墓碑 ----------
+  function loadDel() {
+    try {
+      const raw = global.localStorage && localStorage.getItem(DELKEY);
+      const j = raw ? JSON.parse(raw) : null;
+      if (j && typeof j === 'object') deleted = j;
+    } catch (e) {}
+  }
+
+  function saveDel() {
+    try {
+      if (!global.localStorage) return;
+      const now = Date.now();
+      const out = {};
+      Object.keys(deleted).forEach((k) => {
+        if (now - deleted[k] < DEL_MAX_AGE) out[k] = deleted[k];
+      });
+      deleted = out;
+      localStorage.setItem(DELKEY, JSON.stringify(deleted));
     } catch (e) {}
   }
 
@@ -109,6 +137,8 @@
   function mergeOne(raw) {
     const e = clean(raw);
     if (!e) return false;
+    // 已注销的人：旧消息 / 老快照一律不收，只有注销之后的新消息（重新注册）才放行
+    if (deleted[e.uid] && e.ts <= deleted[e.uid]) return false;
     const i = findIdx(e.uid);
     if (i < 0) {
       entries.push(e);
@@ -163,6 +193,15 @@
         if (!entries[i].lv) entries[i].lv = {};
         if (mergeLv(entries[i].lv, cleanLv(row[1]))) changed = true;
       });
+    } else if (msg.t === 'd' && msg.u) {
+      // 注销广播：把这个人从榜单拿掉，并记进墓碑表
+      const uid = String(msg.u);
+      if (/^[A-Za-z0-9_-]{3,24}$/.test(uid)) {
+        const ts = Number(msg.ts) || Date.now();
+        if (ts > (deleted[uid] || 0)) { deleted[uid] = ts; saveDel(); }
+        const i = findIdx(uid);
+        if (i >= 0 && entries[i].ts <= ts) { entries.splice(i, 1); changed = true; }
+      }
     } else {
       if (mergeOne(msg)) changed = true;
     }
@@ -231,7 +270,8 @@
     if (entries.length < 2) return;
     if (Date.now() - lastSnap < SNAP_MIN_MS) return;
     lastSnap = Date.now();
-    const top = entries.slice().sort(byScore).slice(0, 30);
+    // 已注销的人不再写进快照，免得其他设备把他「复活」
+    const top = entries.filter((e) => !deleted[e.uid]).sort(byScore).slice(0, 30);
     post(JSON.stringify({
       t: 's',
       d: top.map((e) => [e.uid, e.name, e.score, e.level, e.ts, e.pv || ''])
@@ -267,6 +307,23 @@
     post(JSON.stringify({
       t: 'e', u: e.uid, n: e.name, s: e.score, l: e.level, ts: now, pv: e.pv || '', lv: e.lv || {}
     }));
+    return true;
+  }
+
+  // ---------- 注销：从榜单上把自己抹掉 ----------
+  function remove(uid) {
+    uid = String(uid || '');
+    if (!/^[A-Za-z0-9_-]{3,24}$/.test(uid)) return false;
+    const ts = Date.now();
+    deleted[uid] = Math.max(deleted[uid] || 0, ts);
+    saveDel();
+    const i = findIdx(uid);
+    if (i >= 0) {
+      entries.splice(i, 1);
+      save();
+      emit();
+    }
+    post(JSON.stringify({ t: 'd', u: uid, ts: ts }));
     return true;
   }
 
@@ -314,9 +371,10 @@
   }
 
   load();
+  loadDel();
 
   global.Board = {
-    open, close, publish, sync,
+    open, close, publish, sync, remove,
     list: () => entries.slice().sort(byScore),
     get: (uid) => { const i = findIdx(String(uid || '')); return i < 0 ? null : entries[i]; },
     count: () => entries.length,

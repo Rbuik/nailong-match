@@ -201,7 +201,7 @@
   }
 
   function getTaskState() {
-    return read(K.tasks, { date: '', list: [], signDay: 0, signDate: '', lastLogin: '' });
+    return read(K.tasks, { date: '', list: [], signDay: 0, signDate: '', lastLogin: '', dates: [], cycleStart: '' });
   }
 
   function setTaskState(s) {
@@ -214,23 +214,101 @@
     { coins: 250 }, { coins: 350 }, { coins: 500, item: 'rainbow', itemN: 1 }
   ];
 
+  // 补签：一次补 1 天，花 300 金币（只补连续天数，不发当日奖励）
+  const MAKEUP_COST = 300;
+
+  function dparse(k) {
+    const p = String(k || '').split('-').map(Number);
+    return new Date(p[0] || 1970, (p[1] || 1) - 1, p[2] || 1);
+  }
+
+  // 兼容旧存档：只有 signDay/signDate 时，按它们推导出本周期已签的日期表
+  function normSign(s) {
+    if (!Array.isArray(s.dates)) s.dates = [];
+    if (!s.cycleStart) s.cycleStart = '';
+    if (!s.dates.length && s.signDate) {
+      const n = Math.max(1, Math.min(s.signDay || 1, SIGN_REWARDS.length));
+      const end = dparse(s.signDate);
+      const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (n - 1));
+      s.cycleStart = todayKey(start);
+      s.dates = [];
+      for (let i = 0; i < n; i++) {
+        s.dates.push(todayKey(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)));
+      }
+    }
+    return s;
+  }
+
   function signIn() {
-    const s = getTaskState();
+    const s = normSign(getTaskState());
     const today = todayKey();
     if (s.signDate === today) return { ok: false, reason: 'already', day: s.signDay };
 
     const yesterday = todayKey(new Date(Date.now() - 86400000));
-    let day = s.signDate === yesterday ? s.signDay + 1 : 1;
-    if (day > SIGN_REWARDS.length) day = 1;
+    let day;
+    // 昨天签过且本轮还没满 7 天 → 连续；否则（断签 / 本轮已满）从第 1 天重新算
+    if (s.dates.length >= SIGN_REWARDS.length || s.dates.indexOf(yesterday) < 0) {
+      day = 1;
+      s.dates = [];
+      s.cycleStart = today;
+    } else {
+      day = s.dates.length + 1;
+    }
 
     const reward = SIGN_REWARDS[day - 1];
     addCoins(reward.coins);
     if (reward.item) addItem(reward.item, reward.itemN);
 
-    s.signDay = day;
+    s.dates.push(today);
+    s.signDay = s.dates.length;
     s.signDate = today;
     setTaskState(s);
     return { ok: true, day, reward };
+  }
+
+  // 补签：把本周期里最早漏掉的那一天补上（300 金币 / 天，不发当日奖励）
+  function makeupSign() {
+    const s = normSign(getTaskState());
+    if (!s.dates.length) return { ok: false, reason: 'none' };
+    if (s.dates.length >= SIGN_REWARDS.length) return { ok: false, reason: 'full' };
+
+    const yest = new Date(); yest.setDate(yest.getDate() - 1);
+    const start = dparse(s.cycleStart || s.dates[0]);
+    let miss = null;
+    for (let d = new Date(start); d <= yest; d.setDate(d.getDate() + 1)) {
+      const k = todayKey(d);
+      if (s.dates.indexOf(k) < 0) { miss = k; break; }
+    }
+    if (!miss) return { ok: false, reason: 'none' };
+
+    const w = getWallet();
+    if ((w.coins || 0) < MAKEUP_COST) return { ok: false, reason: 'poor', need: MAKEUP_COST - (w.coins || 0) };
+    if (!spendCoins(MAKEUP_COST)) return { ok: false, reason: 'poor', need: MAKEUP_COST };
+
+    s.dates.push(miss);
+    s.dates.sort();
+    s.signDay = s.dates.length;
+    setTaskState(s);
+    return { ok: true, day: s.signDay, date: miss };
+  }
+
+  // 福利中心展示用：连续天数 + 可补签天数
+  function signStats() {
+    const s = normSign(getTaskState());
+    const today = todayKey();
+    const yesterday = todayKey(new Date(Date.now() - 86400000));
+    const signedToday = s.signDate === today;
+    let streak = 0;
+    if (signedToday || s.dates.indexOf(yesterday) >= 0) streak = s.signDay || s.dates.length;
+    let missed = 0;
+    if (s.dates.length && s.dates.length < SIGN_REWARDS.length) {
+      const start = dparse(s.cycleStart || s.dates[0]);
+      const yd = dparse(yesterday);
+      for (let d = new Date(start); d <= yd; d.setDate(d.getDate() + 1)) {
+        if (s.dates.indexOf(todayKey(d)) < 0) missed++;
+      }
+    }
+    return { streak: streak, signedToday: signedToday, missed: missed, canMakeup: missed > 0, day: s.signDay || 0 };
   }
 
   function canSignIn() {
@@ -317,7 +395,7 @@
     getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
-    getTaskState, setTaskState, signIn, canSignIn, todayKey, dayIndex,
+    getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex,
     getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet, countStart,
     COUNT_START,
     saveRun, loadRun, clearRun, wipeAll

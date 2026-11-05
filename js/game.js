@@ -96,6 +96,7 @@
     hintUntil: 0,
     mode: 'main',       // main / endless / sprint / rhythm
     reviveUsed: false,  // 本局是否已用过「再来 3 步」
+    wonContinued: false,// 过关后是否正在续玩剩余步数
     chapter: 1,
     beat: 0,            // 节奏关：节拍计数
     beatStamp: 0        // 节奏关：上一次节拍时间
@@ -1613,7 +1614,15 @@
 
     S.busy = false;
 
-    if (S.goal && Goals.isComplete(S.goal)) {
+    // 过关后续玩剩余步数：目标早已达成，不再重复判胜；
+    // 等步数真正用完再弹一次结算（金币照发，成就 / 任务 / 榜单不重复计）
+    if (S.wonContinued) {
+      if (S.moves <= 0) {
+        await sleep(220);
+        levelWin(true);
+        return;
+      }
+    } else if (S.goal && Goals.isComplete(S.goal)) {
       await sleep(220);
       levelWin();
       return;
@@ -1798,6 +1807,7 @@
     S.hintCells = null;
     S.hintUntil = 0;
     S.reviveUsed = false;
+    S.wonContinued = false;   // 过关后是否正在续玩剩余步数
     S.frenzyUntil = 0;
     S.cargoLeft = 0;
     S.rescueLeft = 0;
@@ -2045,9 +2055,11 @@
   }
 
   // ==================== 结算 ====================
-  function levelWin() {
+  // again = 续玩剩余步数后的第二次结算（金币照发，成就 / 任务 / 榜单不重复计）
+  function levelWin(again) {
     if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     S.playing = false;
+    S.wonContinued = false;
     stopTimer();
     stopBeatLoop();
     Input.setEnabled(false);
@@ -2064,21 +2076,23 @@
     if (!S.daily) Store.markPlayed(S.level);
     if (S.daily) refreshMenu();
 
-    // 金币产出（§7）
+    // 金币产出（§7）；续玩后的第二次结算也照发金币
     const coins = Math.max(10, Math.floor(S.score / 100));
     Store.addCoins(coins);
-    Tasks.report('play', 1);
-    Tasks.report('score', S.score);
+    if (!again) {
+      Tasks.report('play', 1);
+      Tasks.report('score', S.score);
 
-    // 成就统计
-    Meta.bump('wins', 1);
-    Meta.bump('scoreTotal', S.score);
-    Meta.bump('starsGot', stars);
-    if (stars >= 3) Meta.bump('perfect', 1);
-    if (S.maxCombo >= 4) Meta.setMax('maxCombo', S.maxCombo);
-    const newAch = Meta.check();
-    if (newAch.length) setTimeout(() => toast('🏅 ' + newAch[0].a.name + ' 升到「' + newAch[0].label + '」阶'), 1200);
-    try { recordMyScore(); } catch (e) {}
+      // 成就统计
+      Meta.bump('wins', 1);
+      Meta.bump('scoreTotal', S.score);
+      Meta.bump('starsGot', stars);
+      if (stars >= 3) Meta.bump('perfect', 1);
+      if (S.maxCombo >= 4) Meta.setMax('maxCombo', S.maxCombo);
+      const newAch = Meta.check();
+      if (newAch.length) setTimeout(() => toast('🏅 ' + newAch[0].a.name + ' 升到「' + newAch[0].label + '」阶'), 1200);
+      try { recordMyScore(); } catch (e) {}
+    }
 
     // 星星音效稍等一下，和逐颗弹出对齐
     setTimeout(() => AudioManager.playSFX('star', { stars }), 180);
@@ -2103,6 +2117,13 @@
       // 每日挑战没有"下一关"
       const nxt = $('btn-next-level');
       if (nxt) nxt.style.display = S.daily ? 'none' : 'inline-block';
+      // 主线限步关还有剩余步数 → 给一个「继续游戏」的入口（限时关 / 每日挑战不给）
+      const cont = $('btn-clear-continue');
+      if (cont) {
+        const canCont = !S.daily && !S.timerOn && S.moves > 0;
+        cont.style.display = canCont ? 'inline-block' : 'none';
+        cont.textContent = '还有剩余步数 ' + S.moves + ' 步，是否继续游戏';
+      }
       box.style.display = 'flex';
 
       // 等面板真正显示出来再起动画（setTimeout 比 rAF 稳，后台标签页也照常跑）
@@ -2336,80 +2357,6 @@
 
   function setView(view) {
     document.body.dataset.view = view;
-    if (view === 'game') saveViewState('game');
-  }
-
-  // ==================== 刷新后留在原页面 ====================
-  // 手机上刷新（下拉刷新 / 切回前台后重载）默认会退回主页，很打断。
-  // 这里把「当前看的是哪一页」记进 sessionStorage，刷新完原样打开；
-  // 如果当时正在玩，直接从本局存档续上。
-  const VIEW_KEY = 'nl2:lastView';
-  const VIEW_RESTORE = {
-    'settings-menu': () => { showOverlay('settings-menu'); syncVolumeUI(); },
-    'rules-menu': () => { applyRuleFont(ruleFontLevel()); showOverlay('rules-menu'); },
-    'tasks-menu': () => { renderTasks(); showOverlay('tasks-menu'); },
-    'shop-menu': () => { renderShop(); showOverlay('shop-menu'); },
-    'history-menu': () => { renderHistory(); showOverlay('history-menu'); scrollHistoryToCurrent(); },
-    'backpack-menu': () => { renderBackpack(); showOverlay('backpack-menu'); },
-    'achievements-menu': () => { renderAchPanel(); showOverlay('achievements-menu'); },
-    'collection-menu': () => { renderSkinPanel(); showOverlay('collection-menu'); },
-    'welfare-menu': () => { renderWelfare(); showOverlay('welfare-menu'); },
-    'chapters-menu': () => { renderChapterMap(); showOverlay('chapters-menu'); },
-    'modes-menu': () => { renderModeList(); showOverlay('modes-menu'); },
-    'home-menu': () => {
-      const n = $('home-nick');
-      if (n) n.textContent = Meta.nickname();
-      showOverlay('home-menu');
-    },
-    'leaderboard-menu': () => {
-      showOverlay('leaderboard-menu');
-      if (typeof Board !== 'undefined') Board.open(myBestEntry());
-    },
-    'lb-view': (st) => {
-      if (typeof Board !== 'undefined') Board.open(myBestEntry());
-      lbTab = st.tab || 'all';
-      lbProv = st.prov || '';
-      lbLevel = Math.max(1, Number(st.level) || 1);
-      renderLeaderboard();
-      showOverlay('lb-view');
-    },
-    'custom-music-menu': () => { if (global_Music()) global_Music().openImport(); },
-    'music-history-menu': () => { if (global_Music()) global_Music().openHistory(); },
-    'playlist-menu': () => { if (global_Music()) global_Music().openPlaylist(); },
-    'music-library-menu': () => { if (global_Music()) global_Music().openLibrary(); }
-  };
-
-  function saveViewState(id) {
-    try {
-      sessionStorage.setItem(VIEW_KEY, JSON.stringify({
-        id: id, tab: lbTab, prov: lbProv, level: lbLevel
-      }));
-    } catch (e) {}
-  }
-
-  // 返回 true = 已经恢复到刷新前那一页
-  function restoreView() {
-    let st = null;
-    try { st = JSON.parse(sessionStorage.getItem(VIEW_KEY) || 'null'); } catch (e) { st = null; }
-    if (!st || !st.id) return false;
-
-    // 刷新前在玩：把这一局的存档续上，直接回到棋盘
-    if (st.id === 'game') {
-      const run = Store.loadRun();
-      if (!run || !run.board || !run.board.length) return false;
-      const main = $('main-menu');
-      if (main) main.style.display = 'none';
-      if (!loadRun()) return false;
-      setView('game');
-      return true;
-    }
-
-    const open = VIEW_RESTORE[st.id];
-    if (!open) return false;
-    const main = $('main-menu');
-    if (main) main.style.display = 'none';
-    try { open(st); } catch (e) { return false; }
-    return true;
   }
 
   function showOverlay(id) {
@@ -2424,7 +2371,6 @@
       // 名字还是「奶龙玩家」→ 回到主页就把改名窗口弹出来
       setTimeout(maybeNickGateHome, 320);
     }
-    if (id === 'main-menu' || VIEW_RESTORE[id]) saveViewState(id);
     setView(MENU_PANELS.indexOf(id) >= 0 ? 'menu' : 'game');
   }
 
@@ -3710,7 +3656,21 @@
     });
     const logoutConfirm = $('btn-logout-confirm');
     if (logoutConfirm) logoutConfirm.addEventListener('click', () => {
+      // 注销 = 什么都没了：先向榜单广播「删除我」，让所有设备都把这条成绩拿掉
+      try { if (typeof Board !== 'undefined' && Board.remove) Board.remove(Meta.myUid()); } catch (e) {}
       Store.wipeAll();
+      // meta.js 自己的一组 key（昵称 / 成就 / 好友 / 皮肤 / 身份码 / 签到转盘…）也全部清掉；
+      // 只保留后台统计（nl2:visits / nl2:net）和榜单删除墓碑（nl2:lb-del，防复活）
+      try {
+        const keep = { 'nl2:visits': 1, 'nl2:net': 1, 'nl2:lb-del': 1 };
+        const rm = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.indexOf('nl2:') === 0 && !keep[k]) rm.push(k);
+        }
+        rm.forEach((k) => { try { localStorage.removeItem(k); } catch (e) {} });
+      } catch (e) {}
+      try { sessionStorage.clear(); } catch (e) {}
       location.reload();
     });
     const logoutCancel = $('btn-logout-cancel');
@@ -3914,6 +3874,7 @@
     on('btn-welfare', () => { renderWelfare(); showOverlay('welfare-menu'); });
     on('btn-close-welfare', () => { $('welfare-menu').style.display = 'none'; showOverlay('main-menu'); });
     on('btn-welfare-signin', doSignIn);
+    on('btn-welfare-makeup', doMakeup);
     on('btn-wheel', doWheel);
     // 排行榜：先进「选榜单」，再进列表
     on('btn-leaderboard', () => {
@@ -3989,6 +3950,18 @@
       }
       S.menuLevel = S.level + 1;
       playLevel(S.level + 1);
+    });
+    // 过关后还剩步数：点「继续游戏」回到棋盘，用剩下的步数接着刷分
+    const contBtn = $('btn-clear-continue');
+    if (contBtn) contBtn.addEventListener('click', () => {
+      if (S.daily || S.timerOn || !(S.moves > 0)) return;
+      $('level-clear').style.display = 'none';
+      S.wonContinued = true;
+      S.playing = true;
+      S.busy = false;
+      Input.setEnabled(true);
+      setView('game');
+      toast('剩 ' + S.moves + ' 步，继续！');
     });
     const home1 = $('btn-clear-home');
     if (home1) home1.addEventListener('click', () => {
@@ -4329,8 +4302,7 @@
     if (global_Music()) global_Music().init();
     refreshMenu();
     Tasks.ensureToday();
-    // 刷新前停在哪一页，刷新后还是那一页（不然每次都弹回主页）
-    if (!restoreView()) showOverlay('main-menu');
+    showOverlay('main-menu');
     requestAnimationFrame(loop);
 
     // 首次交互解锁音频，并恢复上次的自定义音乐
@@ -4674,6 +4646,20 @@
     if (wb) wb.disabled = w.used;
     if ($('wheel-result') && w.used) $('wheel-result').textContent = '今日已抽到：' + (w.result || '—');
     if (wb && !w.used) $('wheel-result') && ($('wheel-result').textContent = '每天可以转一次');
+    // 底部：连续签到天数 + 补签
+    const st = Meta.signStats();
+    const stEl = $('welfare-streak');
+    if (stEl) {
+      stEl.textContent = '连续签到 ' + st.streak + ' 天' +
+        (st.canMakeup ? '（还可补签 ' + st.missed + ' 天）' : '');
+    }
+    const mk = $('btn-welfare-makeup');
+    if (mk) {
+      mk.disabled = !st.canMakeup;
+      mk.textContent = st.canMakeup
+        ? '补签 1 天（' + (Store.MAKEUP_COST || 300) + ' 金币）'
+        : '暂无可补签的日子';
+    }
   }
 
   function doSignIn() {
@@ -4686,6 +4672,20 @@
     } else {
       toast('今天已经签过了');
     }
+  }
+
+  function doMakeup() {
+    const r = Meta.makeup();
+    if (!r.ok) {
+      if (r.reason === 'poor') toast('金币不够：补签 1 天需要 ' + (Store.MAKEUP_COST || 300) + ' 金币');
+      else if (r.reason === 'full') toast('本轮 7 天已经签满啦');
+      else toast('没有可以补签的日子');
+      return;
+    }
+    toast('补签成功：连续签到 ' + r.day + ' 天');
+    AudioManager.playSFX('coin');
+    renderWelfare();
+    updateHUD();
   }
 
   function doWheel() {
@@ -5114,8 +5114,6 @@
     iceTotal: iceTotal,
     endModeRun: endModeRun,
     drawStatic: drawStatic,
-    restoreView: restoreView,
-    saveViewState: saveViewState,
     resetProvCounted: () => { provCounted = false; }
   };
 })();
