@@ -7,7 +7,8 @@
 
   const K = {
     stats: 'nl2:mstats',        // 累计计数（成就用）
-    ach: 'nl2:mach',            // 已解锁成就 id
+    ach: 'nl2:mach',            // 已解锁成就 id（满级「彩」）
+    acht: 'nl2:macht',          // 成就阶数 { id: 1~4 }，0/缺省为灰
     skin: 'nl2:mskin',          // 当前皮肤
     skins: 'nl2:mskins',        // 已解锁皮肤
     wheel: 'nl2:mwheel',        // { date, result }
@@ -54,26 +55,30 @@
   }
 
   // ==================== 成就 ====================
+  // 每枚成就都有 5 阶：灰（未解锁）→ 铜 → 银 → 金 → 彩（满级）
+  // tiers 依次是「铜 / 银 / 金 / 彩」四道门槛，进度达到哪一档就升到哪个颜色
+  const ACH_TIERS = ['灰', '铜', '银', '金', '彩'];
+
   const ACHIEVEMENTS = [
-    { id: 'first', icon: '🌱', name: '初次消除', desc: '通关第 1 关', test: (c) => c.cleared >= 1 },
-    { id: 'stars10', icon: '⭐', name: '星星收集者', desc: '累计 10 颗星', test: (c) => c.stars >= 10 },
-    { id: 'stars30', icon: '🌟', name: '星空旅人', desc: '累计 30 颗星', test: (c) => c.stars >= 30 },
-    { id: 'stars60', icon: '✨', name: '披星戴月', desc: '累计 60 颗星', test: (c) => c.stars >= 60 },
-    { id: 'combo6', icon: '🔥', name: '连击狂人', desc: '单局打出 6 连击', test: (c) => c.maxCombo >= 6 },
-    { id: 'rainbow10', icon: '🌈', name: '彩虹猎人', desc: '累计造出 10 个彩虹', test: (c) => c.rainbows >= 10 },
-    { id: 'bomb50', icon: '💣', name: '爆破专家', desc: '累计引爆 50 个炸弹', test: (c) => c.bombs >= 50 },
-    { id: 'line100', icon: '➡️', name: '线消达人', desc: '累计触发 100 次线消', test: (c) => c.lines >= 100 },
-    { id: 'ice100', icon: '🧊', name: '冰块终结者', desc: '累计敲碎 100 层冰', test: (c) => c.ice >= 100 },
-    { id: 'cargo50', icon: '🔑', name: '快递小哥', desc: '累计送达 50 件货物', test: (c) => c.cargo >= 50 },
-    { id: 'rescue30', icon: '🐲', name: '奶龙守护者', desc: '累计护送 30 只奶龙', test: (c) => c.rescue >= 30 },
-    { id: 'jelly200', icon: '🟪', name: '果冻清道夫', desc: '累计清除 200 格果冻', test: (c) => c.jelly >= 200 },
-    { id: 'perfect10', icon: '👑', name: '十全十美', desc: '累计 10 次三星通关', test: (c) => c.perfect >= 10 },
-    { id: 'lv20', icon: '🏅', name: '过半征程', desc: '通关 20 个主线关', test: (c) => c.cleared >= 20 },
-    { id: 'lv40', icon: '🏆', name: '通关大师', desc: '通关全部主线关', test: (c) => c.cleared >= 40 },
-    { id: 'endless', icon: '♾️', name: '无尽旅人', desc: '无尽模式拿到 20000 分', test: (c) => c.endless >= 20000 },
-    { id: 'sprint', icon: '⏱️', name: '冲刺高手', desc: '60 秒冲刺拿到 8000 分', test: (c) => c.sprint >= 8000 },
-    { id: 'rhythm', icon: '🎧', name: '节拍感', desc: '节奏关拿到 6000 分', test: (c) => c.rhythm >= 6000 },
-    { id: 'checkin7', icon: '📅', name: '签到达人', desc: '累计签到 7 天', test: (c) => c.checkin >= 7 }
+    { id: 'first',    icon: '🌱', name: '初次消除',   desc: '累计通关次数',     key: 'wins',      tiers: [1, 10, 50, 100] },
+    { id: 'stars10',  icon: '⭐', name: '星星收集者', desc: '累计星星',         key: 'stars',     tiers: [10, 20, 35, 60] },
+    { id: 'stars30',  icon: '🌟', name: '星空旅人',   desc: '累计星星',         key: 'stars',     tiers: [30, 45, 60, 90] },
+    { id: 'stars60',  icon: '✨', name: '披星戴月',   desc: '累计星星',         key: 'stars',     tiers: [60, 80, 100, 120] },
+    { id: 'combo6',   icon: '🔥', name: '连击狂人',   desc: '单局最高连击',     key: 'maxCombo',  tiers: [4, 6, 8, 10] },
+    { id: 'rainbow10',icon: '🌈', name: '彩虹猎人',   desc: '累计造出彩虹',     key: 'rainbows',  tiers: [3, 10, 25, 50] },
+    { id: 'bomb50',   icon: '💣', name: '爆破专家',   desc: '累计引爆炸弹',     key: 'bombs',     tiers: [10, 50, 100, 200] },
+    { id: 'line100',  icon: '➡️', name: '线消达人',   desc: '累计触发线消',     key: 'lines',     tiers: [20, 100, 200, 400] },
+    { id: 'ice100',   icon: '🧊', name: '冰块终结者', desc: '累计敲碎冰层',     key: 'ice',       tiers: [20, 100, 250, 500] },
+    { id: 'cargo50',  icon: '🔑', name: '快递小哥',   desc: '累计送达货物',     key: 'cargo',     tiers: [10, 50, 100, 200] },
+    { id: 'rescue30', icon: '🐲', name: '奶龙守护者', desc: '累计护送奶龙',     key: 'rescue',    tiers: [5, 30, 60, 120] },
+    { id: 'jelly200', icon: '🟪', name: '果冻清道夫', desc: '累计清除果冻',     key: 'jelly',     tiers: [50, 200, 400, 800] },
+    { id: 'perfect10',icon: '👑', name: '十全十美',   desc: '累计三星通关',     key: 'perfect',   tiers: [3, 10, 25, 50] },
+    { id: 'lv20',     icon: '🏅', name: '过半征程',   desc: '通关主线关数',     key: 'cleared',   tiers: [5, 10, 15, 20] },
+    { id: 'lv40',     icon: '🏆', name: '通关大师',   desc: '通关主线关数',     key: 'cleared',   tiers: [10, 20, 30, 40] },
+    { id: 'endless',  icon: '♾️', name: '无尽旅人',   desc: '无尽模式最高分',   key: 'endless',   tiers: [5000, 20000, 50000, 100000] },
+    { id: 'sprint',   icon: '⏱️', name: '冲刺高手',   desc: '60 秒冲刺最高分',  key: 'sprint',    tiers: [2000, 8000, 20000, 40000] },
+    { id: 'rhythm',   icon: '🎧', name: '节拍感',     desc: '节奏关最高分',     key: 'rhythm',    tiers: [1500, 6000, 15000, 30000] },
+    { id: 'checkin7', icon: '📅', name: '签到达人',   desc: '累计签到天数',     key: 'checkin',   tiers: [1, 3, 7, 14] }
   ];
 
   function unlockedIds() {
@@ -81,27 +86,75 @@
     return Array.isArray(a) ? a : [];
   }
 
-  // 用最新数据检查所有成就，返回本次新解锁的成就对象
-  function check(extra) {
-    const list = unlockedIds();
+  // 已升到的阶：{ 成就id: 1~4 }；0 / 缺省 = 灰色未解锁
+  // 老存档只有「已获得 id 数组」，一律按满级（彩）算
+  function tiersMap() {
+    const t = read(K.acht, {});
+    const map = (t && typeof t === 'object') ? t : {};
+    unlockedIds().forEach((id) => { map[id] = 4; });
+    return map;
+  }
+
+  function tierOf(id) {
+    const v = Math.round(Number(tiersMap()[id] || 0));
+    return Math.max(0, Math.min(4, v));
+  }
+
+  function saveTier(id, tier) {
+    const map = read(K.acht, {});
+    const m = (map && typeof map === 'object') ? map : {};
+    if ((m[id] || 0) >= tier) return;
+    m[id] = tier;
+    write(K.acht, m);
+  }
+
+  // 成就判定的数据源（累计计数 + 存档里的星星 / 通关数 + 各模式最佳）
+  function achContext(extra) {
     const st = stats();
     const best = getBest();
-    const ctx = Object.assign({}, st, {
+    return Object.assign({}, st, {
       stars: (global.Store && Store.totalStars) ? Store.totalStars() : 0,
       cleared: clearedCount(),
       endless: best.endless || 0,
       sprint: best.sprint || 0,
       rhythm: best.rhythm || 0
     }, extra || {});
+  }
+
+  function valueOf(a, ctx) {
+    const v = Number(ctx[a.key]);
+    return isFinite(v) ? v : 0;
+  }
+
+  // 当前值 → 阶（0 灰 / 1 铜 / 2 银 / 3 金 / 4 彩）
+  function tierByValue(a, ctx) {
+    const v = valueOf(a, ctx);
+    let t = 0;
+    for (let i = 0; i < a.tiers.length; i++) if (v >= a.tiers[i]) t = i + 1;
+    return t;
+  }
+
+  // 用最新数据检查所有成就，返回本次「升阶」的成就（按新阶从高到低）
+  function check(extra) {
+    const ctx = achContext(extra);
     const got = [];
     ACHIEVEMENTS.forEach((a) => {
-      if (list.indexOf(a.id) >= 0) return;
-      let ok = false;
-      try { ok = !!a.test(ctx); } catch (e) { ok = false; }
-      if (ok) { list.push(a.id); got.push(a); }
+      const t = tierByValue(a, ctx);
+      const cur = tierOf(a.id);
+      if (t > cur) {
+        saveTier(a.id, t);
+        got.push({ id: a.id, a: a, tier: t, label: ACH_TIERS[t] });
+      }
     });
-    if (got.length) write(K.ach, list);
-    return got;
+    if (got.length) {
+      // 同步旧字段（有些地方还在读「已获得数组」）
+      const list = unlockedIds();
+      ACHIEVEMENTS.forEach((a) => {
+        if (tierOf(a.id) >= 4 && list.indexOf(a.id) < 0) list.push(a.id);
+      });
+      write(K.ach, list);
+    }
+    return got.sort((x, y) => y.tier - x.tier);
   }
 
   function clearedCount() {
@@ -375,16 +428,21 @@
   // ==================== 渲染：成就墙 ====================
   function renderAchievements(box) {
     if (!box) return;
-    const list = unlockedIds();
+    const ctx = achContext();
     box.innerHTML = '';
     ACHIEVEMENTS.forEach((a) => {
-      const got = list.indexOf(a.id) >= 0;
+      const tier = tierByValue(a, ctx);
+      const cur = valueOf(a, ctx);
+      const next = a.tiers[Math.min(tier, 3)];
       const row = document.createElement('div');
-      row.className = 'ach-row' + (got ? ' got' : '');
+      row.className = 'ach-row t' + tier;
+      const prog = tier >= 4
+        ? '已满级'
+        : cur + ' / ' + next + '（下一个：' + ACH_TIERS[tier + 1] + '）';
       row.innerHTML =
         '<span class="ach-icon">' + a.icon + '</span>' +
-        '<span class="ach-main"><b>' + a.name + '</b><i>' + a.desc + '</i></span>' +
-        '<span class="ach-mark">' + (got ? '已获得' : '未获得') + '</span>';
+        '<span class="ach-main"><b>' + a.name + '</b><i>' + a.desc + ' · ' + prog + '</i></span>' +
+        '<span class="ach-mark t' + tier + '">' + ACH_TIERS[tier] + '</span>';
       box.appendChild(row);
     });
   }
@@ -409,8 +467,9 @@
   }
 
   global.Meta = {
-    ACHIEVEMENTS, SKINS, WHEEL,
+    ACHIEVEMENTS, ACH_TIERS, SKINS, WHEEL,
     stats, bump, setMax, check, unlockedIds, clearedCount,
+    tierOf, tiersMap, achContext, tierByValue,
     currentSkin, applySkin, unlockSkin, renderSkins,
     getBest, recordBest,
     canSpin, spin, wheelState,

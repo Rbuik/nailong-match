@@ -581,14 +581,47 @@
   NAILONG_IMG.src = './assets/nailong.png';
   function drawCargoBadge(cx, cy, kind) {
     const isN = kind === 'nailong';
+    // 会呼吸的光晕：一眼就能在棋盘里找到钥匙 / 奶龙
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const pulse = 0.5 + 0.5 * Math.sin(now / 1000 * 3.4);
+    const rgb = isN ? '255,190,70' : '120,205,255';
     ctx.save();
+
+    // 1) 柔光圈（径向渐变，一眼就能看到）
+    const glowR = CELL * (0.46 + 0.05 * pulse);
+    const grad = ctx.createRadialGradient(cx, cy, CELL * 0.18, cx, cy, glowR);
+    grad.addColorStop(0, 'rgba(' + rgb + ',' + (0.30 + 0.30 * pulse).toFixed(3) + ')');
+    grad.addColorStop(0.55, 'rgba(' + rgb + ',' + (0.16 + 0.18 * pulse).toFixed(3) + ')');
+    grad.addColorStop(1, 'rgba(' + rgb + ',0)');
+    ctx.beginPath();
+    ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // 2) 亮环
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL * (0.34 + 0.03 * pulse), 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.55 + 0.35 * pulse).toFixed(3) + ')';
+    ctx.lineWidth = 3.5;
+    ctx.shadowColor = 'rgba(' + rgb + ',0.95)';
+    ctx.shadowBlur = CELL * (0.26 + 0.22 * pulse);
+    ctx.stroke();
+
+    // 2) 圆底（30% 透明，带同色柔光）
     ctx.beginPath();
     ctx.arc(cx, cy, CELL * 0.3, 0, Math.PI * 2);
     ctx.fillStyle = isN ? 'rgba(255,196,86,0.30)' : 'rgba(255,255,255,0.30)';
+    ctx.shadowColor = 'rgba(' + rgb + ',0.9)';
+    ctx.shadowBlur = CELL * (0.10 + 0.14 * pulse);
     ctx.fill();
+
+    // 3) 黑色描边（先把光晕关掉，否则描边会被光吃淡）
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'rgba(0,0,0,0)';
     ctx.strokeStyle = 'rgba(35,35,35,0.9)';
     ctx.lineWidth = 2;
     ctx.stroke();
+
     if (isN && NAILONG_IMG.complete && NAILONG_IMG.naturalWidth) {
       const s = CELL * 0.46;
       ctx.beginPath();
@@ -2051,7 +2084,7 @@
     if (stars >= 3) Meta.bump('perfect', 1);
     if (S.maxCombo >= 4) Meta.setMax('maxCombo', S.maxCombo);
     const newAch = Meta.check();
-    if (newAch.length) setTimeout(() => toast('🏆 解锁成就：' + newAch[0].name), 1200);
+    if (newAch.length) setTimeout(() => toast('🏅 ' + newAch[0].a.name + ' 升到「' + newAch[0].label + '」阶'), 1200);
     try { recordMyScore(); } catch (e) {}
 
     // 星星音效稍等一下，和逐颗弹出对齐
@@ -2212,6 +2245,7 @@
     Store.addCoins(coins);
     Tasks.report('play', 1);
     Tasks.report('score', S.score);
+    try { recordMyScore(); } catch (e) {}   // 没通关也刷一次局榜 / 总榜
 
     AudioManager.playSFX(passed ? 'star' : 'gameover', { stars: Math.max(1, stars) });
     updateHUD();
@@ -2292,7 +2326,7 @@
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
       'rules-menu', 'logout-confirm', 'logout-confirm2', 'pause-menu',
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
-      'leaderboard-menu', 'modes-menu', 'revive-menu', 'mode-over',
+      'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2305,7 +2339,7 @@
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
     'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu', 'admin-menu',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
-    'leaderboard-menu', 'modes-menu', 'story-menu', 'daily-done'];
+    'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -2320,6 +2354,8 @@
     if (id === 'main-menu') {
       const tip = $('load-tip');
       if (tip) tip.style.visibility = '';
+      // 名字还是「奶龙玩家」→ 回到主页就把改名窗口弹出来
+      setTimeout(maybeNickGateHome, 320);
     }
     setView(MENU_PANELS.indexOf(id) >= 0 ? 'menu' : 'game');
   }
@@ -2580,7 +2616,9 @@
       row.className = 'history-item' + (locked ? ' locked' : '');
       if (i === (S.menuLevel || 0)) row.classList.add('current');
       // 三列等宽左对齐：关卡名 | 星星（固定宽） | 分数（固定宽）
-      const starStr = '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
+      const medal = locked ? '' : medalForLevel(i);
+      const starStr = (medal ? '<em class="lb-medal">' + medal + '</em>' : '') +
+        '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
         '<span class="star-off">' + '⭐'.repeat(3 - rec.stars) + '</span>';
       // 已解锁的关卡在同样的位置、同样的字号标出模式；未解锁显示「未解锁」
       let tag = ' <small class="lock-tag">未解锁</small>';
@@ -3793,34 +3831,62 @@
     on('btn-close-welfare', () => { $('welfare-menu').style.display = 'none'; showOverlay('main-menu'); });
     on('btn-welfare-signin', doSignIn);
     on('btn-wheel', doWheel);
+    // 排行榜：先进「选榜单」，再进列表
     on('btn-leaderboard', () => {
-      renderLeaderboard();
       showOverlay('leaderboard-menu');
       if (typeof Board !== 'undefined') Board.open(myBestEntry());   // 拉全网 + 开实时推送
     });
+    const openLbView = (tab) => {
+      lbTab = tab;
+      if (tab === 'prov' && !lbProv) lbProv = myProvCode() || PROVINCES[0][1];
+      if (tab === 'level') {
+        lbLevel = Math.max(1, Math.min(lbLevel || 1, maxMainLevel()));
+      }
+      renderLeaderboard();
+      showOverlay('lb-view');
+    };
+    on('btn-lb-hub-all', () => openLbView('all'));
+    on('btn-lb-hub-prov', () => openLbView('prov'));
+    on('btn-lb-hub-level', () => openLbView('level'));
     on('btn-close-lb', () => {
       $('leaderboard-menu').style.display = 'none';
       if (typeof Board !== 'undefined') Board.close();
       showOverlay('main-menu');
     });
-    on('btn-lb-save', saveNick);
-    on('btn-lb-add', addFriendFromInput);
-    on('btn-lb-copy', copyMyCode);
+    on('btn-lb-view-back', () => {
+      $('lb-view').style.display = 'none';
+      showOverlay('leaderboard-menu');
+    });
     on('btn-lb-all', () => { lbTab = 'all'; renderLeaderboard(); });
     on('btn-lb-prov', () => { lbTab = 'prov'; if (!lbProv) lbProv = myProvCode(); renderLeaderboard(); });
+    on('btn-lb-level', () => { lbTab = 'level'; renderLeaderboard(); });
     const provSelEl = $('lb-prov-sel');
     if (provSelEl) provSelEl.addEventListener('change', () => { lbProv = provSelEl.value; renderLeaderboard(); });
-
-    // 强制改名面板
-    const nickSave = $('btn-nick-save');
-    if (nickSave) nickSave.addEventListener('click', () => {
-      const r = saveNickFrom($('nick-input') ? $('nick-input').value : '', true);
-      if (r.ok) {
-        $('nick-menu').style.display = 'none';
-        const cb = nickGateCb; nickGateCb = null;
-        if (cb) cb();
-      }
+    const lvSelEl = $('lb-level-sel');
+    if (lvSelEl) lvSelEl.addEventListener('change', () => {
+      lbLevel = Math.max(1, Math.min(Number(lvSelEl.value) || 1, maxMainLevel()));
+      renderLeaderboard();
     });
+
+    // 主页键（左上角）：改名入口
+    on('btn-home-menu', () => {
+      const n = $('home-nick');
+      if (n) n.textContent = Meta.nickname();
+      showOverlay('home-menu');
+    });
+    on('btn-close-home-menu', () => {
+      $('home-menu').style.display = 'none';
+      showOverlay('main-menu');
+    });
+    on('btn-goto-rename', () => {
+      $('home-menu').style.display = 'none';
+      openNickMenu(false);
+    });
+
+    // 改名面板
+    const nickSave = $('btn-nick-save');
+    if (nickSave) nickSave.addEventListener('click', saveNick);
+    on('btn-nick-cancel', cancelNick);
     const nickInput = $('nick-input');
     if (nickInput) nickInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && nickSave) nickSave.click();
@@ -4061,6 +4127,13 @@
       // 没通关（0 星）但有成绩 → 红色提示「这关还没过」
       high.classList.toggle('fail', !!(rec && rec.score > 0 && rec.stars === 0));
     }
+    // 这一局在「局榜」里排前三 → 分数旁边挂奖牌
+    const medalEl = $('menu-high-medal');
+    if (medalEl) {
+      const m = medalForLevel(S.menuLevel);
+      medalEl.textContent = m;
+      medalEl.style.display = m ? 'inline-block' : 'none';
+    }
 
     const stars = $('menu-total-stars');
     if (stars) stars.textContent = Store.totalStars();
@@ -4157,13 +4230,16 @@
       Meta.check();
     } catch (e) {}
 
-    // 排行榜：别人成绩一变就重绘（只在面板开着的时候）
+    // 排行榜：别人成绩一变就重绘（列表开着就刷列表，主页开着就刷奖牌）
     if (typeof Board !== 'undefined') {
       Board.onChange(() => {
-        const lb = $('leaderboard-menu');
-        if (lb && lb.style.display === 'flex') renderLeaderboard();
+        const view = $('lb-view');
+        if (view && view.style.display === 'flex') renderLeaderboard();
+        if (!S.playing) { try { refreshMenu(); } catch (e) {} }
       });
       publishMyScore();
+      // 主页要显示局榜奖牌：后台悄悄同步一次，不用先打开排行榜
+      setTimeout(() => { try { Board.sync(); } catch (e) {} }, 1500);
     }
 
     attachUI();
@@ -4456,7 +4532,7 @@
     Meta.bump('modes', 1);
     Meta.setMax('maxCombo', S.maxCombo);
     const got = Meta.check();
-    if (got.length) setTimeout(() => toast('🏆 解锁成就：' + got[0].name), 1000);
+    if (got.length) setTimeout(() => toast('🏅 ' + got[0].a.name + ' 升到「' + got[0].label + '」阶'), 1000);
     if ($('mode-over-title')) $('mode-over-title').textContent = (MODES[mode] || {}).name + ' 结束';
     if ($('mode-over-score')) $('mode-over-score').textContent = '0';
     if ($('mode-over-best')) $('mode-over-best').textContent = r.best;
@@ -4469,8 +4545,10 @@
 
   // ---------- 成就墙 ----------
   function renderAchPanel() {
+    try { Meta.check(); } catch (e) {}      // 先把阶数刷新到最新
     Meta.renderAchievements($('ach-list'));
-    const n = Meta.unlockedIds().length;
+    // 至少到「铜」才算解锁（灰色 = 还没开始）
+    const n = Meta.ACHIEVEMENTS.filter((a) => Meta.tierOf(a.id) >= 1).length;
     if ($('ach-total')) $('ach-total').textContent = n + ' / ' + Meta.ACHIEVEMENTS.length;
   }
 
@@ -4545,7 +4623,19 @@
     Meta.check();
   }
 
-  // ---------- 排行榜（本地 + 好友成绩码） ----------
+  // ---------- 排行榜：总榜 / 省榜 / 局榜 ----------
+  // 我每一关的历史最高分（局榜就是用这张表排名）
+  function myLevelMap() {
+    const all = Store.getProgress();
+    const out = {};
+    Object.keys(all).forEach((k) => {
+      const lv = Number(k);
+      const s = (all[k] && all[k].score) || 0;
+      if (lv >= 1 && s > 0) out[String(lv)] = s;
+    });
+    return out;
+  }
+
   function myBestEntry() {
     const all = Store.getProgress();
     let best = { score: 0, level: 0 };
@@ -4553,13 +4643,20 @@
       const s = all[k].score || 0;
       if (s > best.score) best = { score: s, level: Number(k) || 0 };
     });
-    return { uid: Meta.myUid(), name: Meta.nickname(), score: best.score, level: best.level, ts: Date.now(), pv: myProvCode(), me: true };
+    const lv = myLevelMap();
+    // 总分 = 各关最高分之和（和「局榜」的口径完全一致，不会两套数打架）
+    const total = Object.keys(lv).reduce((n, k) => n + lv[k], 0);
+    return {
+      uid: Meta.myUid(), name: Meta.nickname(),
+      score: Math.max(best.score, total), level: best.level,
+      ts: Date.now(), pv: myProvCode(), lv: lv, me: true
+    };
   }
 
-  // 排行榜：自己的本周最佳 + 好友（好友永久保留，手动删除才消失）
-  let lbOpenRow = null;
-  let lbTab = 'all';        // 'all' 总榜 | 'prov' 省榜
+  // 排行榜：先选榜单（总榜 / 省榜 / 局榜），再进列表
+  let lbTab = 'all';        // 'all' 总榜 | 'prov' 省榜 | 'level' 局榜
   let lbProv = '';          // 省榜当前选中的省份代码
+  let lbLevel = 1;          // 局榜当前选中的关卡
 
   // 自己所在的省（定位成功才有；拿不到就空，省榜里归「未定位」）
   function myProvCode() {
@@ -4569,6 +4666,50 @@
       return p ? p.code : '';
     } catch (e) { return ''; }
   }
+
+  // 每一关的榜单：全网 + 本机好友 + 自己，同一个人只留一条（取最高）
+  function levelRows(lv) {
+    const key = String(lv);
+    const mine = Meta.myUid();
+    const map = {};
+    const push = (uid, name, sc, ts, pv) => {
+      if (!uid || !(sc > 0)) return;
+      const cur = map[uid];
+      if (!cur) { map[uid] = { uid: uid, name: name || '玩家', score: sc, ts: ts || 0, pv: pv || '' }; return; }
+      if (sc > cur.score) cur.score = sc;
+      if ((ts || 0) >= (cur.ts || 0)) { cur.name = name || cur.name; cur.ts = ts || 0; }
+      if (!cur.pv && pv) cur.pv = pv;
+    };
+    if (typeof Board !== 'undefined') {
+      Board.list().forEach((e) => { if (e.lv) push(e.uid, e.name, e.lv[key], e.ts, e.pv); });
+    }
+    Meta.friends().forEach((f) => { if (f.lv) push(f.uid, f.name, f.lv[key], f.ts, f.pv); });
+    push(mine, Meta.nickname(), myLevelMap()[key], Date.now(), myProvCode());
+    return Object.keys(map).map((k) => {
+      const r = map[k];
+      r.me = r.uid === mine;
+      return r;
+    }).sort((a, b) => b.score - a.score);
+  }
+
+  // 我在这一局排第几（1 起；没有成绩返回 0）
+  function levelRank(lv) {
+    const mine = Meta.myUid();
+    const rows = levelRows(lv);
+    const myScore = myLevelMap()[String(lv)] || 0;
+    if (!(myScore > 0) || rows.length < 2) return 0;
+    for (let i = 0; i < rows.length; i++) if (rows[i].uid === mine) return i + 1;
+    return 0;
+  }
+
+  // 前三名奖牌：同一局至少 2 人上榜才发（只有自己一人不算比赛）
+  function medalForLevel(lv) {
+    const r = levelRank(lv);
+    if (!r || r > 3) return '';
+    return ['🥇', '🥈', '🥉'][r - 1];
+  }
+
+  let lbOpenRow = null;
 
   function closeLbOpenRow(except) {
     if (lbOpenRow && lbOpenRow !== except) {
@@ -4626,12 +4767,15 @@
     if (!box) return;
     const me = myBestEntry();
 
-    // 页签与省份选择器的显隐
+    // 页签、省份选择器、关卡选择器的显隐
     const tabAll = $('btn-lb-all');
     const tabProv = $('btn-lb-prov');
+    const tabLv = $('btn-lb-level');
     const provSel = $('lb-prov-sel');
+    const lvSel = $('lb-level-sel');
     if (tabAll) tabAll.classList.toggle('active', lbTab === 'all');
     if (tabProv) tabProv.classList.toggle('active', lbTab === 'prov');
+    if (tabLv) tabLv.classList.toggle('active', lbTab === 'level');
     if (provSel) {
       provSel.style.display = lbTab === 'prov' ? 'block' : 'none';
       if (provSel.options && !provSel.options.length) {
@@ -4645,14 +4789,34 @@
       if (!lbProv) lbProv = myProvCode() || PROVINCES[0][1];
       provSel.value = lbProv;
     }
+    if (lvSel) {
+      lvSel.style.display = lbTab === 'level' ? 'block' : 'none';
+      if (lvSel.options && !lvSel.options.length) {
+        for (let i = 1; i <= maxMainLevel(); i++) {
+          const op = document.createElement('option');
+          op.value = String(i);
+          op.textContent = '第 ' + i + ' 关';
+          lvSel.appendChild(op);
+        }
+      }
+      lvSel.value = String(lbLevel);
+    }
+    const titleEl = $('lb-view-title');
+    if (titleEl) {
+      const provName = (provByCode(lbProv) || {}).name || '省榜';
+      titleEl.textContent = lbTab === 'level'
+        ? '🎯 局榜 · 第 ' + lbLevel + ' 关'
+        : lbTab === 'prov'
+          ? '🗺️ 省榜 · ' + provName
+          : '🏆 总榜';
+    }
 
-    // 三份数据合并：全网（公共中转）+ 本机导入的好友 + 自己
-    // 同一个 uid 只留一条：分数取最高，昵称取时间最新的
+    // 总榜：三份数据合并（全网 + 本机好友 + 自己），同 uid 只留一条
     const friendUids = {};
     Meta.friends().forEach((f) => { friendUids[f.uid] = true; });
     const raw = [];
     if (typeof Board !== 'undefined') raw.push.apply(raw, Board.list());
-    Meta.friends().forEach((f) => raw.push({ uid: f.uid, name: f.name, score: f.score, ts: f.ts }));
+    Meta.friends().forEach((f) => raw.push({ uid: f.uid, name: f.name, score: f.score, ts: f.ts, pv: f.pv }));
     raw.push(me);
 
     const byId = {};
@@ -4662,34 +4826,32 @@
       if (!(r.score > 0) && r.uid !== me.uid) return;
       const cur = byId[r.uid];
       if (!cur) {
-        byId[r.uid] = { uid: r.uid, name: r.name, score: r.score || 0, ts: r.ts || 0 };
+        byId[r.uid] = { uid: r.uid, name: r.name, score: r.score || 0, ts: r.ts || 0, pv: r.pv || '' };
         return;
       }
-      if ((r.ts || 0) >= (cur.ts || 0)) cur.name = r.name;
+      if ((r.ts || 0) >= (cur.ts || 0)) { cur.name = r.name; if (r.pv) cur.pv = r.pv; }
       if ((r.score || 0) > cur.score) cur.score = r.score;
     });
+    byId[me.uid] = { uid: me.uid, name: Meta.nickname(), score: me.score, ts: Date.now(), pv: myProvCode() };
 
-    // raw 条目带上省份代码（ Board 条目 / 好友 / 自己）
-    const pvByUid = {};
-    Meta.friends().forEach((f) => { if (f.pv) pvByUid[f.uid] = f.pv; });
-    if (typeof Board !== 'undefined') Board.list().forEach((e) => { if (e.pv) pvByUid[e.uid] = e.pv; });
-    pvByUid[me.uid] = myProvCode();
-
-    const rows = Object.keys(byId).map((k) => {
+    const totalRows = Object.keys(byId).map((k) => {
       const r = byId[k];
       return {
-        uid: r.uid,
-        name: r.name,
-        score: r.score,
-        pv: pvByUid[r.uid] || '',
+        uid: r.uid, name: r.name, score: r.score, pv: r.pv || '',
         me: r.uid === me.uid,
         friend: !!friendUids[r.uid] && r.uid !== me.uid
       };
     }).sort((a, b) => b.score - a.score);
 
-    // 省榜：只显示所选省份的玩家（条目没带省份的老数据归不进省榜）
-    let shown = rows;
-    if (lbTab === 'prov') shown = rows.filter((r) => r.pv === lbProv);
+    // 省榜：只显示所选省份的玩家；局榜：只看这一关的最高分
+    let shown;
+    if (lbTab === 'level') {
+      shown = levelRows(lbLevel).map((r) => Object.assign({ friend: false }, r));
+    } else if (lbTab === 'prov') {
+      shown = totalRows.filter((r) => r.pv === lbProv);
+    } else {
+      shown = totalRows;
+    }
 
     box.innerHTML = '';
     lbOpenRow = null;
@@ -4698,7 +4860,8 @@
       row.className = 'lb-row' + (r.me ? ' me' : '');
       const inner = document.createElement('div');
       inner.className = 'lb-swipe';
-      inner.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
+      const rank = i < 3 && shown.length >= 2 ? ['🥇', '🥈', '🥉'][i] : String(i + 1);
+      inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
         '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
         (r.me ? '<i class="lb-me">我</i>' : r.friend ? '<i>好友</i>' : '') + '</span>' +
         '<span class="lb-score">' + (r.score || 0) + '</span>';
@@ -4722,12 +4885,13 @@
     if (!shown.length) {
       const d = document.createElement('div');
       d.className = 'lb-empty';
-      d.textContent = lbTab === 'prov'
-        ? '该省还没有上榜成绩（可能对方没定位到省）'
-        : '还没有成绩，通关一局就会自动上榜';
+      d.textContent = lbTab === 'level'
+        ? '这一局还没有人上榜，打完这一关就是第一名'
+        : lbTab === 'prov'
+          ? '该省还没有上榜成绩（可能对方没定位到省）'
+          : '还没有成绩，通关一局就会自动上榜';
       box.appendChild(d);
     }
-    if ($('lb-nick')) $('lb-nick').value = Meta.nickname();
   }
 
   // 自己的成绩变了就立刻发到榜上（最快 6 秒一次，节流在 Board 里做）
@@ -4741,35 +4905,6 @@
 
   function recordMyScore() { publishMyScore(); }
 
-  function copyMyCode() {
-    const me = myBestEntry();
-    const code = Meta.makeCode(me);
-    if (!code) { toast('生成失败'); return; }
-    const done = () => toast('成绩码已复制，发给朋友贴上就行');
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(code).then(done).catch(() => {
-        if ($('lb-code')) { $('lb-code').value = code; toast('已填入输入框，手动复制一下'); }
-      });
-    } else if ($('lb-code')) {
-      $('lb-code').value = code;
-      toast('已填入输入框，手动复制一下');
-    }
-  }
-
-  function addFriendFromInput() {
-    const raw = $('lb-code') ? $('lb-code').value : '';
-    const r = Meta.addFriend(raw);
-    if (!r.ok) { toast(r.reason || '成绩码无效'); AudioManager.playSFX('invalid'); return; }
-    // 好友的成绩也放进共享榜，别人点开排行榜同样能看到
-    if (typeof Board !== 'undefined' && r.entry && r.entry.uid) {
-      try { Board.publish({ uid: r.entry.uid, name: r.entry.name, score: r.entry.score, level: r.entry.level }, true); } catch (e) {}
-    }
-    toast(r.updated ? ('已更新好友：' + r.entry.name + ' ' + r.entry.score) : ('已加入好友：' + r.entry.name + ' ' + r.entry.score));
-    if ($('lb-code')) $('lb-code').value = '';
-    renderLeaderboard();
-    AudioManager.playSFX('coin');
-  }
-
   // 名字已被谁占用：全网榜 + 本机好友（自己的除外）
   function takenNickNames() {
     const mine = Meta.myUid();
@@ -4782,13 +4917,44 @@
   }
 
   let nickGateCb = null;
+  let nickForced = false;
+
+  // 打开改名面板：forced=true 是「默认昵称不能玩」的强制闸（不能关），
+  // forced=false 是从主页键里主动改（可以「稍后再说」）
+  function openNickMenu(forced) {
+    nickForced = !!forced;
+    const title = $('nick-title');
+    if (title) title.textContent = forced ? '✏️ 先起个昵称' : '✏️ 修改昵称';
+    const cancel = $('btn-nick-cancel');
+    if (cancel) cancel.style.display = forced ? 'none' : 'inline-block';
+    const hint = $('nick-menu') && $('nick-menu').querySelector('.history-hint');
+    if (hint) {
+      hint.textContent = forced
+        ? '「奶龙玩家」不能用来玩，起一个自己的名字吧：最多 8 个字，特殊符号只能用 - 和 .，不能和别人重名。'
+        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 - 和 .，不能和别人重名。';
+    }
+    if ($('nick-input')) $('nick-input').value = Meta.isDefaultNick() ? '' : Meta.nickname();
+    showOverlay('nick-menu');
+    if ($('nick-input') && $('nick-input').focus) setTimeout(() => $('nick-input').focus(), 60);
+  }
+
   // 默认昵称不能玩：弹改名面板，改完才继续
   function ensureNick(then) {
     if (!Meta.isDefaultNick()) { then(); return; }
     nickGateCb = then;
-    if ($('nick-input')) $('nick-input').value = '';
-    showOverlay('nick-menu');
-    if ($('nick-input') && $('nick-input').focus) $('nick-input').focus();
+    openNickMenu(true);
+  }
+
+  // 一进主页就检查：名字还是「奶龙玩家」直接把改名窗口弹出来
+  let lastNickPop = 0;
+  function maybeNickGateHome() {
+    if (!Meta.isDefaultNick()) return;
+    if (S.playing) return;
+    const nick = $('nick-menu');
+    if (nick && nick.style.display === 'flex') return;
+    if (Date.now() - lastNickPop < 8000) return;   // 防止连续刷新时反复弹
+    lastNickPop = Date.now();
+    openNickMenu(true);
   }
 
   // 保存昵称（force=true 时来自改名面板，改成功提示更醒目）
@@ -4809,7 +4975,19 @@
   }
 
   function saveNick() {
-    saveNickFrom($('lb-nick') ? $('lb-nick').value : '', false);
+    const r = saveNickFrom($('nick-input') ? $('nick-input').value : '', true);
+    if (r.ok) {
+      $('nick-menu').style.display = 'none';
+      const cb = nickGateCb; nickGateCb = null;
+      if (cb) cb();
+      else showOverlay('main-menu');
+    }
+  }
+
+  function cancelNick() {
+    if (nickForced) return;           // 强制闸不给关
+    $('nick-menu').style.display = 'none';
+    showOverlay('main-menu');
   }
 
   if (document.readyState === 'loading') {

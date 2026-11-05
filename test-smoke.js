@@ -250,7 +250,7 @@ function check(name, ok) {
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('200 金币'));
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));
-  check('规则含成就配色排行榜说明', htmlSrc.includes('成就、配色与排行榜') && htmlSrc.includes('成绩码') && htmlSrc.includes('一直留在榜上'));
+  check('规则含成就配色排行榜说明', htmlSrc.includes('成就、配色与排行榜') && htmlSrc.includes('总榜 → 省榜 → 局榜') && htmlSrc.includes('奖牌'));
   check('规则主线为 40 关 4 章节', htmlSrc.includes('主线共 <b>40 关</b>') && htmlSrc.includes('糖果城堡'));
   $('btn-close-rules').dispatch('click');
   check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
@@ -314,8 +314,15 @@ function check(name, ok) {
   check('更多玩法面板打开', $('modes-menu').style.display === 'flex');
   $('btn-close-modes').dispatch('click');
 
+  // 14. 排行榜：先进「选榜单」，再进列表
   $('btn-leaderboard').dispatch('click');
   check('排行榜面板打开', $('leaderboard-menu').style.display === 'flex');
+  check('排行榜只有总榜 / 省榜 / 局榜三个入口',
+    !!getEl('btn-lb-hub-all') && !!getEl('btn-lb-hub-prov') && !!getEl('btn-lb-hub-level'));
+  check('排行榜不再有成绩码 / 改名入口',
+    htmlSrc.indexOf('lb-code') < 0 && htmlSrc.indexOf('lb-nick') < 0 && htmlSrc.indexOf('btn-lb-copy') < 0);
+  $('btn-lb-hub-all').dispatch('click');
+  check('点总榜才进排行榜列表', $('lb-view').style.display === 'flex' && $('lb-list').children.length >= 1);
 
   // 14b. 好友：自己的码加不进 / 好友永久保留 / 同 uid 更新不重复 / 左滑删除按钮
   const M = sandbox.Meta;
@@ -332,7 +339,7 @@ function check(name, ok) {
   check('好友行渲染删除按钮', (() => {
     M.addFriend(mk('t-f2', '阿呆3号', 700));
     sandbox.__nl_test.refreshMenu();
-    $('btn-leaderboard').dispatch('click');
+    $('btn-lb-hub-all').dispatch('click');
     let dels = 0, meRow = false;
     ($('lb-list').children || []).forEach((row) => {
       if (String(row.className || '').split(' ').indexOf('me') >= 0) meRow = true;
@@ -340,23 +347,45 @@ function check(name, ok) {
     });
     return dels >= 1 && meRow;
   })());
+  $('btn-lb-view-back').dispatch('click');
   $('btn-close-lb').dispatch('click');
 
-  // 14c. 昵称规则与省榜页签
+  // 14c. 昵称规则 + 省榜 / 局榜选择器
   check('昵称不能用默认名', !M.validateNick('奶龙玩家', []).ok);
   check('昵称只允许 - 和 . 特殊符号', !M.validateNick('a@b', []).ok && M.validateNick('a-b.c', []).ok);
   check('昵称不能重名', !M.validateNick('阿呆', ['阿呆']).ok);
-  check('省榜页签切换', (() => {
+  check('省榜 / 局榜选择器', (() => {
     $('btn-leaderboard').dispatch('click');
-    $('btn-lb-prov').dispatch('click');
-    const selShown = $('lb-prov-sel').style.display === 'block';
+    $('btn-lb-hub-prov').dispatch('click');
+    const provShown = $('lb-prov-sel').style.display === 'block' && $('lb-level-sel').style.display === 'none';
+    $('btn-lb-hub-level').dispatch('click');
+    const lvShown = $('lb-level-sel').style.display === 'block' && $('lb-prov-sel').style.display === 'none';
     $('btn-lb-all').dispatch('click');
-    const selHidden = $('lb-prov-sel').style.display === 'none';
+    const noneShown = $('lb-prov-sel').style.display === 'none' && $('lb-level-sel').style.display === 'none';
+    $('btn-lb-view-back').dispatch('click');
     $('btn-close-lb').dispatch('click');
-    return selShown && selHidden;
+    return provShown && lvShown && noneShown;
   })());
 
-  // 14d. 默认昵称不能玩：改名闸拦截 btn-play
+  // 14d. 局榜排名与奖牌：我一关 1200，对手 900 → 我第一，拿金牌
+  check('局榜按单关最高分排名', (() => {
+    sandbox.Board.publish({ uid: 'rival001', name: '对手', score: 900, level: 1, lv: { 1: 900 } }, true);
+    sandbox.Board.publish({ uid: 'rival002', name: '对手2', score: 800, level: 1, lv: { 1: 800 } }, true);
+    // 切到第 1 关（测试里默认停在第 2 关）
+    $('btn-prev-level').dispatch('click');
+    $('btn-prev-level').dispatch('click');
+    sandbox.__nl_test.refreshMenu();
+    const medal = getEl('menu-high-medal').textContent;
+    $('btn-history').dispatch('click');
+    let rowsWithMedal = 0;
+    ($('history-list').children || []).forEach((r) => {
+      if (String(r.innerHTML || '').indexOf('🥇') >= 0) rowsWithMedal++;
+    });
+    $('btn-history-back').dispatch('click');
+    return medal === '🥇' && rowsWithMedal >= 1;
+  })());
+
+  // 14e. 默认昵称不能玩：改名闸拦截 btn-play
   check('默认昵称被改名闸拦截', (() => {
     const saved = lsMap.get('nl2:mnick');
     lsMap.delete('nl2:mnick');
@@ -367,6 +396,28 @@ function check(name, ok) {
     M.setNickname('测试奶龙');
     if (saved !== undefined) lsMap.set('nl2:mnick', saved);
     return blocked;
+  })());
+
+  // 14f. 成就五阶：灰 → 铜 → 银 → 金 → 彩（按进度依次解锁）
+  check('成就按进度依次升阶', (() => {
+    const savedStats = lsMap.get('nl2:mstats');
+    const savedAcht = lsMap.get('nl2:macht');
+    const savedAch = lsMap.get('nl2:mach');
+    lsMap.delete('nl2:macht');
+    lsMap.delete('nl2:mach');
+    lsMap.set('nl2:mstats', JSON.stringify({ wins: 2 }));
+    M.check();
+    const t1 = M.tierOf('first');       // 2 ≥ 1 → 铜
+    lsMap.set('nl2:mstats', JSON.stringify({ wins: 12 }));
+    M.check();
+    const t2 = M.tierOf('first');       // 12 ≥ 10 → 银
+    lsMap.set('nl2:mstats', JSON.stringify({ wins: 200 }));
+    M.check();
+    const t3 = M.tierOf('first');       // 200 ≥ 100 → 彩
+    if (savedStats === undefined) lsMap.delete('nl2:mstats'); else lsMap.set('nl2:mstats', savedStats);
+    if (savedAcht === undefined) lsMap.delete('nl2:macht'); else lsMap.set('nl2:macht', savedAcht);
+    if (savedAch === undefined) lsMap.delete('nl2:mach'); else lsMap.set('nl2:mach', savedAch);
+    return t1 === 1 && t2 === 2 && t3 === 4;
   })());
 
   // 15. 冰块关：铺冰 + 目标值校准 + 冰上格子不可交换

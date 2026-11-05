@@ -252,7 +252,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 
 .mascot-img {
-  width: 108px;
+  width: 84px;
   height: auto;
   user-select: none;
   -webkit-user-drag: none;
@@ -298,6 +298,23 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   top: 18px;
   left: 18px;
   z-index: 20;
+}
+
+/* 主页左上角：主页键在上，规则键在下 */
+.top-left-group {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.top-left-group .corner-btn {
+  position: static;
+  top: auto;
+  left: auto;
 }
 
 .rules-box {
@@ -1050,19 +1067,50 @@ body.m-dragging .m-item { cursor: grabbing; }
   border-radius: 12px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.07);
-  opacity: 0.62;
+  transition: background 0.2s ease, border-color 0.2s ease;
 }
-.ach-row.got {
-  opacity: 1;
-  border-color: rgba(255, 180, 0, 0.5);
-  background: linear-gradient(120deg, #fffaf0, #fff);
+/* 五阶：灰（未解锁）→ 铜 → 银 → 金 → 彩（满级） */
+.ach-row.t0 { opacity: 0.55; }
+.ach-row.t0 .ach-icon { filter: grayscale(1); opacity: 0.6; }
+.ach-row.t1 { border-color: #c08050; background: linear-gradient(120deg, #fbf0e4, #fff); }
+.ach-row.t2 { border-color: #a8b3c4; background: linear-gradient(120deg, #f0f4fa, #fff); }
+.ach-row.t3 { border-color: #e3b322; background: linear-gradient(120deg, #fff8e2, #fff); }
+.ach-row.t4 {
+  border-color: transparent;
+  background: linear-gradient(120deg, #ffe6ef, #e8f4ff 45%, #fff8e2);
+  box-shadow: 0 3px 14px rgba(160, 120, 255, 0.22);
 }
-.ach-icon { font-size: 20px; }
-.ach-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.ach-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  background: #eceaf3;
+}
+.ach-row.t1 .ach-icon { background: linear-gradient(135deg, #f0c79b, #b9762f); }
+.ach-row.t2 .ach-icon { background: linear-gradient(135deg, #f2f6fb, #9aa8bd); }
+.ach-row.t3 .ach-icon { background: linear-gradient(135deg, #ffe89a, #e0a800); }
+.ach-row.t4 .ach-icon { background: linear-gradient(135deg, #ffb3d1, #a6d8ff 45%, #ffe08a); }
+.ach-main { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ach-main b { font-size: 13px; color: #3d3556; }
 .ach-main i { font-size: 11px; font-style: normal; color: #8b84a0; }
-.ach-mark { font-size: 11px; color: #b0a9c0; }
-.ach-row.got .ach-mark { color: #e6a23c; font-weight: 700; }
+.ach-mark {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 8px;
+  color: #fff;
+  background: #c7c3d4;
+}
+.ach-mark.t1 { background: linear-gradient(135deg, #d3a06b, #a8641f); }
+.ach-mark.t2 { background: linear-gradient(135deg, #c3ccda, #8c99ac); }
+.ach-mark.t3 { background: linear-gradient(135deg, #ffd85e, #d99b00); }
+.ach-mark.t4 { background: linear-gradient(135deg, #ff9fc4, #8ec9ff 50%, #ffd666); color: #4a3a6b; }
 
 /* ================= 图鉴 / 皮肤 ================= */
 .skin-intro {
@@ -1164,6 +1212,46 @@ body.m-dragging .m-item { cursor: grabbing; }
   scrollbar-width: none;            /* Firefox：滑榜时不露灰条 */
 }
 .lb-list::-webkit-scrollbar { display: none; }
+
+/* 排行榜入口：先选榜单（总榜 / 省榜 / 局榜），再进列表 */
+.lb-hub {
+  width: 90%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 16px;
+}
+.lb-hub-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+  padding: 13px 16px;
+  border-radius: 14px;
+  border: 1px solid rgba(124, 92, 255, 0.18);
+  background: linear-gradient(120deg, #f6f2ff, #fff);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.lb-hub-btn:active { transform: scale(0.98); box-shadow: 0 2px 10px rgba(124, 92, 255, 0.2); }
+.lb-hub-btn b { font-size: 15px; color: #3d3556; }
+.lb-hub-btn i { font-style: normal; font-size: 11px; color: #8b84a0; }
+
+/* 奖牌（主页本关最高分 / 关卡记录） */
+.lb-medal {
+  font-style: normal;
+  font-size: 15px;
+  line-height: 1;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+.menu-high-wrap { display: inline-flex; align-items: center; gap: 2px; }
+
+/* 关卡记录的星星列要放得下奖牌 */
+.history-item { grid-template-columns: minmax(0, 1fr) 70px 52px; }
+.history-item .h-stars { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.history-item .h-stars .lb-medal { font-size: 13px; margin-left: 0; }
 
 /* 总榜 / 省榜 页签 */
 .lb-tabs {
