@@ -2003,7 +2003,8 @@
     if (S.goal.type === 'collect') {
       // 收集模式：显示对应棋子的准确图案（assets/{type}.webp），不用颜色区分
       const parts = Object.keys(S.goal.target || {}).map((c) => {
-        const cur = Math.min(S.goal.byColor[c] || 0, S.goal.target[c]);
+        // 收集满了以后继续累计，数字不封顶（20/12 这种也能看到）
+        const cur = S.goal.byColor[c] || 0;
         return '<span class="goal-chip"><img class="goal-icon" src="./assets/' + c + '.webp" alt="图案' + c + '">' +
           cur + '/' + S.goal.target[c] + '</span>';
       }).join('');

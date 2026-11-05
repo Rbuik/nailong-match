@@ -147,7 +147,7 @@
     if (!state) return '';
     if (state.type === 'collect') {
       const parts = Object.keys(state.target || {}).map(
-        (c) => `${Math.min(state.byColor[c] || 0, state.target[c])}/${state.target[c]}`
+        (c) => `${state.byColor[c] || 0}/${state.target[c]}`
       );
       return `目标：收集 ${parts.join(' · ')}`;
     }
