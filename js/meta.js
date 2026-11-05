@@ -329,6 +329,14 @@
     return u;
   }
 
+  // 找回旧账号：把共享榜上的身份码绑回本机（设置 → 找回旧账号）
+  function bindUid(uid) {
+    const s = String(uid || '').trim();
+    if (!/^[A-Za-z0-9_-]{3,24}$/.test(s)) return false;
+    write(K.uid, s);
+    return true;
+  }
+
   function friends() {
     let list = read(K.friends, null);
     if (!Array.isArray(list)) {
@@ -492,7 +500,7 @@
     canSpin, spin, wheelState,
     signInfo, signIn, makeup, signStats,
     weekKey, nickname, isDefaultNick, validateNick, setNickname, board, addBoard, makeCode, addFriend,
-    myUid, friends, removeFriend, clearFriends,
+    myUid, bindUid, friends, removeFriend, clearFriends,
     storySeen, markStory,
     renderAchievements
   };

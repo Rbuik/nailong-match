@@ -792,6 +792,33 @@ function check(name, ok) {
   check('彩虹被消除时展开自身图案的全场方块',
     rbExp2.cells.has('4,4') && rbExp2.cells.has('5,5') && !rbExp2.cells.has('2,5'));
 
+  // 28. 找回旧账号：凭身份码把榜上旧号绑回本机（名字 + 每关最高分恢复）
+  check('设置里有找回旧账号入口', !!getEl('btn-recover') && !!getEl('recover-code') && htmlSrc.includes('btn-recover-confirm'));
+  check('找回旧账号：绑回身份码并恢复名字和成绩', await (async () => {
+    const prevUid = sandbox.Meta.myUid();
+    const prevNick = sandbox.Meta.nickname();
+    // rival001 已在榜单测试里 publish 过（对手 / 900 分 / lv{1:900}）
+    $('recover-code').value = 'rival001';
+    $('recover-result').textContent = '';
+    getEl('btn-recover-confirm').dispatch('click');
+    await sleep(120);   // 处理器是 async：等 Board.sync（fetch 桩拒绝）走完微任务
+    const bound = sandbox.Meta.myUid() === 'rival001';
+    const named = sandbox.Meta.nickname() === '对手';
+    const rec = sandbox.Store.getLevelRecord(1);
+    const got = (rec.score || 0) >= 900 && (rec.stars || 0) >= 1;
+    const result = String($('recover-result').textContent || '');
+    // 还原现场，不影响其它测试
+    sandbox.Meta.bindUid(prevUid);
+    sandbox.Meta.setNickname(prevNick);
+    return bound && named && got && result.indexOf('找回成功') >= 0;
+  })());
+  check('找回面板显示本机当前身份码', (() => {
+    $('btn-recover').dispatch('click');
+    const hint = String($('recover-uid-hint').textContent || '');
+    $('btn-recover-cancel').dispatch('click');
+    return hint.indexOf(sandbox.Meta.myUid()) >= 0;
+  })());
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });

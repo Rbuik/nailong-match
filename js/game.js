@@ -2355,7 +2355,7 @@
     'music-history-menu', 'playlist-menu', 'music-library-menu', 'rename-menu',
     'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu', 'rules-menu', 'admin-menu',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
-    'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu'];
+    'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu', 'recover-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -4034,6 +4034,72 @@
       syncVolumeUI();
       showOverlay('volume-menu');
     });
+
+    // ==================== 找回旧账号 ====================
+    // 换手机 / 微信重登导致本地数据被清时，凭共享榜上的身份码把旧号绑回本机：
+    // 名字、总分、每关最高分会从榜单数据里恢复（金币/道具/成就只存本机，找不回）
+    const recoverBtn = $('btn-recover');
+    if (recoverBtn) recoverBtn.addEventListener('click', () => {
+      $('settings-menu').style.display = 'none';
+      const inp = $('recover-code');
+      if (inp) inp.value = '';
+      const hint = $('recover-uid-hint');
+      if (hint) {
+        hint.textContent = '本机当前身份码：' + Meta.myUid() + '（记下来，换设备时用它找回）';
+      }
+      const res = $('recover-result');
+      if (res) res.textContent = '';
+      showOverlay('recover-menu');
+    });
+    const recoverCancel = $('btn-recover-cancel');
+    if (recoverCancel) recoverCancel.addEventListener('click', () => {
+      $('recover-menu').style.display = 'none';
+      showOverlay('settings-menu');
+    });
+    const recoverConfirm = $('btn-recover-confirm');
+    if (recoverConfirm) recoverConfirm.addEventListener('click', async () => {
+      const res = $('recover-result');
+      const show = (t) => { if (res) res.textContent = t; };
+      const code = String(($('recover-code') || {}).value || '').trim();
+      if (!/^[A-Za-z0-9_-]{3,24}$/.test(code)) {
+        show('身份码格式不对（一般是 u 开头 + 一串字母数字）');
+        return;
+      }
+      if (code === Meta.myUid()) { show('这就是本机当前的号，不用找回'); return; }
+      show('正在查询榜单…');
+      try { if (typeof Board !== 'undefined') await Board.sync(); } catch (e) {}
+      const old = (typeof Board !== 'undefined') ? Board.get(code) : null;
+      if (!old || !(old.score > 0)) {
+        show('没找到这个身份码的成绩（榜单数据只保留 12 小时）。确认码没输错；如果确实找不到，说明数据已过期。');
+        return;
+      }
+      let ok = true;
+      try { ok = globalThis.confirm('找到「' + old.name + '」总分 ' + old.score + '。找回会覆盖当前这个新号的进度，确定吗？'); } catch (e) { ok = true; }
+      if (!ok) { show('已取消'); return; }
+      const prevUid = Meta.myUid();
+      Meta.bindUid(code);
+      try { Meta.setNickname(String(old.name || '玩家')); } catch (e) {}
+      // 每关最高分 → 本机进度（星级按星线推算：有分保底 1 星，够 2/3 星线就给）
+      const lv = old.lv || {};
+      Object.keys(lv).forEach((k) => {
+        const n = Number(k);
+        const score = Number(lv[k]) || 0;
+        if (!(n >= 1 && n <= maxMainLevel()) || !(score > 0)) return;
+        const th = (getLevelDef(n).stars) || [Infinity, Infinity, Infinity];
+        let stars = 1;
+        if (score >= th[1]) stars = 2;
+        if (score >= th[2]) stars = 3;
+        Store.recordLevel(n, score, stars);
+      });
+      // 刚误建的新号从共享榜上撤掉
+      if (prevUid && prevUid !== code) { try { if (typeof Board !== 'undefined') Board.remove(prevUid); } catch (e) {} }
+      S.menuLevel = Math.min(Store.maxUnlockedLevel(maxMainLevel()), maxMainLevel());
+      Store.setSettings({ menuLevel: S.menuLevel });
+      refreshMenu();
+      show('找回成功，欢迎回来「' + old.name + '」！金币 / 道具 / 成就无法找回。');
+      try { publishMyScore(true); } catch (e) {}
+    });
+
     const backVol = $('btn-back-settings');
     if (backVol) backVol.addEventListener('click', () => {
       $('volume-menu').style.display = 'none';

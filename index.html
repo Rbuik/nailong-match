@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261105d">
-<link rel="stylesheet" href="./css/themes.css?v=20261105d">
+<link rel="stylesheet" href="./css/style.css?v=20261105e">
+<link rel="stylesheet" href="./css/themes.css?v=20261105e">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -354,7 +354,23 @@
     <button class="btn-primary" id="btn-goto-playlist">📋 播放列表</button>
     <button class="btn-primary" id="btn-goto-import">📂 导入音频</button>
     <button class="btn-secondary" id="btn-reset-bgm">恢复默认音乐</button>
+    <button class="btn-secondary" id="btn-recover">🔑 找回旧账号</button>
     <button class="btn-secondary" id="btn-close-settings">关闭</button>
+  </div>
+
+  <!-- 找回旧账号：凭身份码把共享榜上的旧号绑回本机 -->
+  <div class="overlay" id="recover-menu" style="display:none;">
+    <h2 class="title small">🔑 找回旧账号</h2>
+    <div class="result-box" style="width:88%;">
+      <p class="history-hint">输入旧手机上的<b>身份码</b>，找回那个号的名字和全部关卡成绩。<br>金币、道具、成就只存本机，换设备后无法找回。</p>
+      <div class="lb-form">
+        <input type="text" id="recover-code" maxlength="24" placeholder="输入身份码（如 u1234abcd）" style="text-transform:none;">
+      </div>
+      <p class="history-hint" id="recover-uid-hint"></p>
+      <p class="history-hint" id="recover-result"></p>
+    </div>
+    <button class="btn-primary" id="btn-recover-confirm">找回</button>
+    <button class="btn-secondary" id="btn-recover-cancel">返回</button>
   </div>
 
   <!-- 音量调节 -->
@@ -715,18 +731,18 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261105d"></script>
-<script src="./js/storage.js?v=20261105d"></script>
-<script src="./js/audio.js?v=20261105d"></script>
-<script src="./js/effects.js?v=20261105d"></script>
-<script src="./js/specials.js?v=20261105d"></script>
-<script src="./js/goals.js?v=20261105d"></script>
-<script src="./js/tasks.js?v=20261105d"></script>
-<script src="./js/input.js?v=20261105d"></script>
-<script src="./js/builtin-music.js?v=20261105d"></script>
-<script src="./js/music.js?v=20261105d"></script>
-<script src="./js/meta.js?v=20261105d"></script>
-<script src="./js/board.js?v=20261105d"></script>
-<script src="./js/game.js?v=20261105d"></script>
+<script src="./js/rng.js?v=20261105e"></script>
+<script src="./js/storage.js?v=20261105e"></script>
+<script src="./js/audio.js?v=20261105e"></script>
+<script src="./js/effects.js?v=20261105e"></script>
+<script src="./js/specials.js?v=20261105e"></script>
+<script src="./js/goals.js?v=20261105e"></script>
+<script src="./js/tasks.js?v=20261105e"></script>
+<script src="./js/input.js?v=20261105e"></script>
+<script src="./js/builtin-music.js?v=20261105e"></script>
+<script src="./js/music.js?v=20261105e"></script>
+<script src="./js/meta.js?v=20261105e"></script>
+<script src="./js/board.js?v=20261105e"></script>
+<script src="./js/game.js?v=20261105e"></script>
 </body>
 </html>
