@@ -82,6 +82,16 @@
     _lastTick: 0,
     _stuckCount: 0,
     _stopped: false,   // 用户主动停掉自定义音乐时置位，看门狗不再强行拉起
+    bgmAllowed: true,  // 登录页 / 注册页不允许 BGM，进主界面后再放开
+
+    // 场景级 BGM 开关：关掉时立即静音，且看门狗 / unlock 都不会再把音乐拉起来
+    gateBGM(on) {
+      this.bgmAllowed = !!on;
+      if (!on) {
+        try { if (this._custom) this._custom.pause(); } catch (e) {}
+        if (this._bgmTimer) { clearInterval(this._bgmTimer); this._bgmTimer = null; }
+      }
+    },
     startWatchdog() {
       if (this._watchdog) return;
       this._watchdog = setInterval(() => {
@@ -93,11 +103,11 @@
           const a = this._custom;
           if (!a) {
             // 没在播自定义音乐：默认合成 BGM 的定时器丢了就重启
-            if (!this._stopped && !this._bgmTimer) this.startBGM();
+            if (!this._stopped && this.bgmAllowed && !this._bgmTimer) this.startBGM();
             return;
           }
           if (a.paused) {
-            if (!a.ended) {
+            if (this.bgmAllowed && !a.ended) {
               const p = a.play();
               if (p && typeof p.catch === 'function') p.catch(() => {});
             }
@@ -148,7 +158,7 @@
 
     unlock() {
       this.resumeCtx();
-      if (this.musicOn) {
+      if (this.musicOn && this.bgmAllowed) {
         if (this._custom) {
           if (this._custom.paused) {
             const p = this._custom.play();
@@ -369,6 +379,7 @@
 
     // ---------- 合成 BGM ----------
     startBGM() {
+      if (!this.bgmAllowed) return;   // 登录页等场景不放音乐
       if (this._custom) return;
       if (this._bgmTimer) clearInterval(this._bgmTimer);
       this._bgmTimer = setInterval(() => this._bgmNote(), 250);
@@ -642,6 +653,7 @@
         if (this._bgmTimer) { clearInterval(this._bgmTimer); this._bgmTimer = null; }
         this.setDrum(false);
       } else {
+        if (!this.bgmAllowed) return;   // 登录页等场景不放音乐
         this._stopped = false;
         if (this._custom) this._custom.play().catch(() => {});
         else this.startBGM();

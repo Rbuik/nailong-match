@@ -4706,6 +4706,7 @@
       claimCompensation();
       setTimeout(() => { try { maybeAccountGate(); } catch (e) {} }, 400);
     } else {
+      AudioManager.gateBGM(false);   // 登录页不放背景音乐
       showAuthScreen();
     }
     requestAnimationFrame(loop);
@@ -5563,6 +5564,7 @@
   }
 
   function showAuthScreen() {
+    AudioManager.gateBGM(false);     // 登录页不放背景音乐
     const f = $('auth-form');
     if (f) f.style.display = 'none';
     const fix = $('fix-menu');
@@ -5575,6 +5577,7 @@
 
   function openAuthForm(mode) {
     authMode = mode === 'register' ? 'register' : 'login';
+    AudioManager.gateBGM(false);     // 登录 / 注册页不放背景音乐
     $('auth-menu').style.display = 'none';
     const t = $('auth-form-title');
     if (t) t.textContent = authMode === 'register' ? '注册新账号' : '登录';
@@ -5678,6 +5681,7 @@
   // 资料不全（缺名字 / 缺密码 / 含敏感词）→ 必须补好才能玩
   function openFixMenu(need) {
     need = need || Account.needsFix();
+    AudioManager.gateBGM(false);     // 补资料页不放背景音乐
     const acc = Account.current();
     const title = $('fix-title');
     const tip = $('fix-tip');
