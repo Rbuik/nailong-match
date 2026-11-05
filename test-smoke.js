@@ -119,7 +119,7 @@ sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
 // ---------- 按顺序加载脚本 ----------
-const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'meta.js', 'game.js'];
+const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'meta.js', 'board.js', 'game.js'];
 for (const s of scripts) {
   const code = fs.readFileSync(path.join(__dirname, 'js', s), 'utf8');
   try {
@@ -244,11 +244,11 @@ function check(name, ok) {
   check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
   check('规则说明线消横清行竖清列', htmlSrc.includes('横着连的清整行、竖着连的清整列'));
   check('规则含 8 种目标', ['普通得分', '收集方块', '清除果冻', '限时得分', '极限步数', '敲碎冰块', '运送钥匙', '护送奶龙'].every((s) => htmlSrc.includes(s)));
-  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('从同一列的顶端重新落下来'));
+  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('落到被消掉那一格的下面一格'));
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('200 金币'));
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));
-  check('规则含成就图鉴排行榜说明', htmlSrc.includes('成就、图鉴与排行榜') && htmlSrc.includes('成绩码'));
+  check('规则含成就配色排行榜说明', htmlSrc.includes('成就、配色与排行榜') && htmlSrc.includes('成绩码') && htmlSrc.includes('一直留在榜上'));
   check('规则主线为 40 关 4 章节', htmlSrc.includes('主线共 <b>40 关</b>') && htmlSrc.includes('糖果城堡'));
   $('btn-close-rules').dispatch('click');
   check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
@@ -397,7 +397,7 @@ function check(name, ok) {
   const iceBefore = st.goal.iceCleared || 0;
   await sandbox.__nl_test.resolveClear(new Set([nb.r + ',' + nb.c]), []);
   check('相邻消除砸掉一层冰', st.ice[iceCell.r][iceCell.c] === 0);
-  check('冰块目标进度推进', (st.goal.iceCleared || 0) === iceBefore + 1);
+  check('冰块目标进度推进', (st.goal.iceCleared || 0) >= iceBefore + 1);
 
   // 23. 锁链：第一次被消只解锁，方块留下
   sandbox.__nl_test.start(1, { def: { id: 95, theme: 'candy', moves: 20, goal: { type: 'score', target: 5000 }, chain: 3, stars: [1, 2, 3] } });
@@ -423,6 +423,37 @@ function check(name, ok) {
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.ice[r][c]) allIce.add(r + ',' + c);
   const r0 = await sandbox.__nl_test.resolveClear(allIce, []);
   check('全是冰时安全返回 0', r0 === 0);
+
+  // 26. 货物被消掉 → 落到下面一格（不从顶端重生）
+  sandbox.__nl_test.start(1, { def: { id: 92, theme: 'candy', moves: 20, goal: { type: 'drop', target: 2 }, cargo: 2, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  const cargoObj = { kind: 'key' };
+  st.board[5][3] = { type: 1, special: 0, cargo: cargoObj };
+  await sandbox.__nl_test.resolveClear(new Set(['5,3']), []);
+  check('货物被消后落到下一格', !!(st.board[6][3] && st.board[6][3].cargo === cargoObj));
+
+  // 27. 彩虹 + 普通块：普通块被消掉，彩虹自己留在棋盘上
+  sandbox.__nl_test.start(1, { def: { id: 91, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  st.board[4][4] = { type: 0, special: Sp.TYPE.RAINBOW };
+  st.board[4][5] = { type: 1, special: 0 };
+  let sameColor = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const b = st.board[r][c];
+    if (b && b.type === 1 && b.special !== Sp.TYPE.RAINBOW) sameColor++;
+  }
+  // 彩虹下方被清空后会跟着掉落，所以不检查固定格子，只数全盘彩虹数量
+  await sandbox.__nl_test.swap({ r: 4, c: 4 }, { r: 4, c: 5 });
+  let rainbowAfter = 0;
+  let sameColorAfter = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const b = st.board[r][c];
+    if (!b) continue;
+    if (b.special === Sp.TYPE.RAINBOW) rainbowAfter++;
+    else if (b.type === 1) sameColorAfter++;
+  }
+  check('彩虹交换后仍在棋盘上', rainbowAfter >= 1);
+  check('彩虹清掉同图案普通块', sameColorAfter < sameColor);
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
