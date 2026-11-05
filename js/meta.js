@@ -114,11 +114,11 @@
 
   // ==================== 皮肤（图鉴） ====================
   const SKINS = [
-    { id: 'default', name: '原味奶龙', icon: '🧸', stars: 0, desc: '默认外观' },
-    { id: 'mint', name: '薄荷清凉', icon: '🌿', stars: 12, desc: '棋盘泛一层薄荷绿光' },
-    { id: 'sakura', name: '樱花软糖', icon: '🌸', stars: 30, desc: '粉粉嫩嫩的樱花描边' },
-    { id: 'galaxy', name: '星夜流萤', icon: '🌌', stars: 60, desc: '深色描边 + 星点光晕' },
-    { id: 'gold', name: '黄金奶龙', icon: '🏆', stars: 100, desc: '全套金光，通关才算拥有' }
+    { id: 'default', name: '原味', icon: '🧸', stars: 0, desc: '默认配色' },
+    { id: 'mint', name: '薄荷清凉', icon: '🌿', stars: 12, desc: '棋盘泛薄荷绿光，目标栏淡绿底' },
+    { id: 'sakura', name: '樱花软糖', icon: '🌸', stars: 30, desc: '樱花粉光晕，目标栏粉底' },
+    { id: 'galaxy', name: '星夜流萤', icon: '🌌', stars: 60, desc: '深紫光晕 + 星点，目标栏淡紫底' },
+    { id: 'gold', name: '黄金奶龙', icon: '🏆', stars: 100, desc: '金色光晕，目标栏浅金底' }
   ];
 
   function currentSkin() {
@@ -272,10 +272,10 @@
     return { week: b.week, list: Array.isArray(b.list) ? b.list : [] };
   }
 
-  // 成绩码：把自己的成绩发给朋友，对方粘贴进来即可同榜
+  // 成绩码：把自己的成绩发给朋友，对方粘贴进来即可同榜（不设有效期，随时都能加）
   function makeCode(entry) {
     try {
-      const payload = { v: 2, u: myUid(), n: entry.name, s: entry.score, l: entry.level || 0, w: weekKey() };
+      const payload = { v: 2, u: myUid(), n: entry.name, s: entry.score, l: entry.level || 0 };
       return 'NL1-' + btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/=+$/, '');
     } catch (e) { return ''; }
   }
@@ -302,7 +302,6 @@
     const e = readCode(code);
     if (!e) return { ok: false, reason: '码不对' };
     if (e.uid && e.uid === myUid()) return { ok: false, reason: '这是你自己的成绩码，不用加' };
-    if (e.week && e.week !== weekKey()) return { ok: false, reason: '这是上周的成绩码，让对方重新复制一次' };
     const list = friends();
     let idx = -1;
     if (e.uid) idx = list.findIndex((x) => x.uid === e.uid);
