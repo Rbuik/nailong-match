@@ -305,14 +305,10 @@
 
   function findMatches() {
     const set = new Set();
-    // 彩虹块不参与普通三消（它只能被交换消耗或和特殊块合体），
-    // 否则掉落凑巧排进同色三连就会被白白清掉
-    const isRainbow = (b) => b && b.special === T.RAINBOW;
     for (let r = 0; r < ROWS; r++) {
       let run = 1;
       for (let c = 1; c <= COLS; c++) {
         const same = c < COLS && S.board[r][c] && S.board[r][c - 1]
-          && !isRainbow(S.board[r][c]) && !isRainbow(S.board[r][c - 1])
           && S.board[r][c].type === S.board[r][c - 1].type
           && !isLocked(r, c) && !isLocked(r, c - 1);
         if (same) run++;
@@ -326,7 +322,6 @@
       let run = 1;
       for (let r = 1; r <= ROWS; r++) {
         const same = r < ROWS && S.board[r][c] && S.board[r - 1][c]
-          && !isRainbow(S.board[r][c]) && !isRainbow(S.board[r - 1][c])
           && S.board[r][c].type === S.board[r - 1][c].type
           && !isLocked(r, c) && !isLocked(r - 1, c);
         if (same) run++;
@@ -581,6 +576,9 @@
   const JELLY_BLOCK_SCALE = 0.76;
 
   // 货物徽标（钥匙 / 奶龙）：圆底 30% 透明度，不挡下面的图案
+  // 奶龙用抠图 assets/nailong.png（加载完成前先用 🐲 兜底）
+  const NAILONG_IMG = new Image();
+  NAILONG_IMG.src = './assets/nailong.png';
   function drawCargoBadge(cx, cy, kind) {
     const isN = kind === 'nailong';
     ctx.save();
@@ -591,10 +589,18 @@
     ctx.strokeStyle = isN ? 'rgba(255,140,0,0.9)' : 'rgba(124,92,255,0.9)';
     ctx.lineWidth = 2;
     ctx.stroke();
-    ctx.font = Math.round(CELL * 0.36) + 'px serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(isN ? '🐲' : '🔑', cx, cy + 1);
+    if (isN && NAILONG_IMG.complete && NAILONG_IMG.naturalWidth) {
+      const s = CELL * 0.46;
+      ctx.beginPath();
+      ctx.arc(cx, cy, CELL * 0.26, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(NAILONG_IMG, cx - s / 2, cy - s / 2, s, s);
+    } else {
+      ctx.font = Math.round(CELL * 0.36) + 'px serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(isN ? '🐲' : '🔑', cx, cy + 1);
+    }
     ctx.restore();
   }
 
@@ -1297,9 +1303,9 @@
   }
 
   // ==================== 彩虹：消场上所有「同图案」方块 ====================
-  // 彩虹跟普通块交换时，只消除被交换那个图案在全盘的每一块 + 彩虹自身；
+  // 彩虹跟普通块交换时，消掉被交换那个图案在全盘的每一块 + 彩虹自身；
   // 不连锁引爆同色里夹着的炸弹/线消（它们只被当作普通方块消掉），
-  // 也绝不会碰到其它图案的方块。
+  // 也绝不直接碰其它图案的方块（掉落后凑出的普通三连属于正常连消）。
   function rainbowSwapInfo(ba, bb) {
     if (!ba || !bb) return null;
     if (ba.special === T.RAINBOW && bb.special === T.NORMAL) return { color: bb.type, fromA: true };
@@ -1308,15 +1314,13 @@
   }
 
   async function runRainbowClear(color, rainbowCell) {
-    // 彩虹只是个「引子」：清掉全盘同图案的普通方块，彩虹自己留在棋盘上，可以继续用。
-    // （只有拿彩虹去和别的特殊块合体时才会被消耗）
-    const cells = new Set();
+    // 同图案全消 + 彩虹自己也一起消掉
+    const cells = new Set([kOf(rainbowCell.r, rainbowCell.c)]);
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const b = S.board[r][c];
         if (!b) continue;
-        if (r === rainbowCell.r && c === rainbowCell.c) continue;
-        if (b.special === T.RAINBOW) continue;
+        if (b.special === T.RAINBOW) continue;   // 其它彩虹不连坐
         if (b.type === color) cells.add(kOf(r, c));
       }
     }
@@ -4655,10 +4659,6 @@
       box.appendChild(d);
     }
     if ($('lb-nick')) $('lb-nick').value = Meta.nickname();
-    if ($('lb-week')) {
-      const st = typeof Board !== 'undefined' ? Board.statusText() : '仅本机';
-      $('lb-week').textContent = '全部时间 · ' + st + ' · ' + rows.length + ' 人';
-    }
   }
 
   // 自己的成绩变了就立刻发到榜上（最快 6 秒一次，节流在 Board 里做）
