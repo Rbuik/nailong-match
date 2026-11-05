@@ -273,8 +273,8 @@ function check(name, ok) {
   check('福利中心底部有连续签到与补签',
     htmlSrc.includes('welfare-streak') && htmlSrc.includes('btn-welfare-makeup') &&
     htmlSrc.indexOf('welfare-streak') > htmlSrc.indexOf('btn-wheel'));
-  check('省榜 / 局榜选择器在标题右边', htmlSrc.includes('lb-title-row') &&
-    htmlSrc.indexOf('lb-view-title') < htmlSrc.indexOf('lb-prov-sel'));
+  check('省榜 / 局榜更换符号在标题右边', htmlSrc.includes('lb-title-row') && htmlSrc.includes('lb-swap') &&
+    htmlSrc.indexOf('lb-view-title') < htmlSrc.indexOf('lb-prov-swap'));
   $('btn-close-rules').dispatch('click');
   check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
 
@@ -388,20 +388,29 @@ function check(name, ok) {
   check('昵称不能用默认名', !M.validateNick('奶龙玩家', []).ok);
   check('昵称只允许 - . _ 特殊符号', !M.validateNick('a@b', []).ok && M.validateNick('a-b.c', []).ok && M.validateNick('a_b', []).ok);
   check('昵称不能重名', !M.validateNick('阿呆', ['阿呆']).ok);
-  check('省榜 / 局榜选择器，列表页不再有页签', (() => {
+  check('省榜 / 局榜标题右边是 ⇄ 更换符号，列表页不再有页签', (() => {
     $('btn-leaderboard').dispatch('click');
     $('btn-lb-hub-prov').dispatch('click');
-    const provShown = $('lb-prov-sel').style.display === 'block' && $('lb-level-sel').style.display === 'none';
+    const provShown = $('lb-prov-swap').style.display === 'inline-block' && $('lb-level-swap').style.display === 'none';
+    // 点 ⇄ 直接换省：标题里的省名跟着变
+    const t1 = String($('lb-view-title').textContent);
+    $('lb-prov-swap').dispatch('click');
+    const t2 = String($('lb-view-title').textContent);
+    const provChanged = t1 !== t2 && t2.indexOf('省') >= 0;
     $('btn-lb-view-back').dispatch('click');
     $('btn-lb-hub-level').dispatch('click');
-    const lvShown = $('lb-level-sel').style.display === 'block' && $('lb-prov-sel').style.display === 'none';
+    const lvShown = $('lb-level-swap').style.display === 'inline-block' && $('lb-prov-swap').style.display === 'none';
+    const lt1 = String($('lb-view-title').textContent);
+    $('lb-level-swap').dispatch('click');
+    const lt2 = String($('lb-view-title').textContent);
+    const lvChanged = lt1 !== lt2 && lt2.indexOf('关') >= 0;
     $('btn-lb-view-back').dispatch('click');
     $('btn-lb-hub-all').dispatch('click');
-    const noneShown = $('lb-prov-sel').style.display === 'none' && $('lb-level-sel').style.display === 'none';
+    const noneShown = $('lb-prov-swap').style.display === 'none' && $('lb-level-swap').style.display === 'none';
     $('btn-lb-view-back').dispatch('click');
     $('btn-close-lb').dispatch('click');
-    return provShown && lvShown && noneShown &&
-      htmlSrc.indexOf('lb-tabs') < 0 && htmlSrc.indexOf('btn-lb-all') < 0;
+    return provShown && provChanged && lvShown && lvChanged && noneShown &&
+      htmlSrc.indexOf('lb-tabs') < 0 && htmlSrc.indexOf('btn-lb-all') < 0 && htmlSrc.indexOf('lb-prov-sel') < 0;
   })());
 
   // 14d. 局榜排名与奖牌：我一关 1200，对手 900 → 我第一，拿金牌

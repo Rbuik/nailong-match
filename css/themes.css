@@ -1282,7 +1282,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 .history-item .h-score { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
 .history-item .h-stars .lb-medal { font-size: 13px; margin-right: 1px; }
 
-/* 榜单里省份 / 关卡选择器：跟在标题「省榜 XX省 / 局榜 XX关」的右边 */
+/* 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：点一下直接换省 / 换关 */
 .lb-title-row {
   display: flex;
   align-items: center;
@@ -1290,17 +1290,27 @@ body.m-dragging .m-item { cursor: grabbing; }
   flex-wrap: wrap;
   gap: 8px;
 }
-.lb-prov-sel {
-  width: auto;
-  min-width: 120px;
-  max-width: 46vw;
-  padding: 6px 10px;
-  border-radius: 10px;
+.lb-swap {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
   border: 1px solid rgba(0, 0, 0, 0.12);
   background: #fff;
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
-  color: #3d3556;
+  color: #7c5cff;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.lb-swap:active { transform: scale(0.92); }
+
+/* 结算页「还有剩余步数　是否继续游戏」：一行写完不换行 */
+#btn-clear-continue {
+  width: auto;
+  padding: 14px 20px;
+  white-space: nowrap;
+  font-size: 14px;
 }
 .lb-row {
   position: relative;
@@ -1348,6 +1358,10 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-name i.lb-me { color: #7c5cff; font-weight: 700; }
 .lb-score { font-weight: 800; color: #ff8c00; }
 .lb-score.none { font-weight: 600; font-size: 11px; color: #b0a9c0; }
+/* 整行灰显：0 分没上榜的人（名次 / 名字也跟着变灰） */
+.lb-row.none .lb-rank,
+.lb-row.none .lb-name { color: #b0a9c0; }
+.lb-row.none .lb-name .lb-me { background: rgba(176, 169, 192, 0.25); }
 .lb-empty { padding: 18px; text-align: center; font-size: 12px; color: #9a93ad; }
 .lb-tip {
   width: 88%;

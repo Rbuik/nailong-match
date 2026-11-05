@@ -211,7 +211,7 @@
   // ==================== 新障碍：冰块 / 锁链 / 货物 ====================
   // 冰块：冻住的格子既不能交换也不能参与连消，只能靠相邻消除（或特殊块）砸开
   // 锁链：可以参与连消，但第一次被消只解链、方块留下
-  // 货物：钥匙🔑 / 礼物🎁 / 奶龙🐲 贴在方块上，跟着方块下落，落到最底行才算送达
+  // 货物：钥匙🔑 / 礼物🎁 / 奶龙（抠图）贴在方块上，跟着方块下落，落到最底行才算送达
   function isIced(r, c) {
     return !!(S.ice[r] && S.ice[r][c] > 0);
   }
@@ -578,7 +578,7 @@
 
   // 货物（钥匙 / 奶龙）：只有图案本身在发光（没有光圈、没有圆底、没有描边环）
   // 钥匙蓝光、奶龙金光，亮度随呼吸节奏起伏，棋盘上扫一眼就能找到
-  // 奶龙用抠图 assets/nailong.png（加载完成前先用 🐲 兜底）
+  // 奶龙用抠图 assets/nailong.png（加载完成前先用文字「奶龙」兜底）
   const NAILONG_IMG = new Image();
   NAILONG_IMG.src = './assets/nailong.png';
   function drawCargoBadge(cx, cy, kind) {
@@ -605,7 +605,7 @@
       ctx.shadowBlur = CELL * 0.10;
       ctx.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
     } else {
-      const t = isN ? '🐲' : '🔑';
+      const t = isN ? '奶龙' : '🔑';
       const px = Math.round(CELL * 0.54);
       ctx.font = px + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
       ctx.lineJoin = 'round';
@@ -1305,7 +1305,7 @@
         n++;
         if (kind === 'nailong') res++;
         FX.text(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2,
-          kind === 'nailong' ? '奶龙送达 🐲' : '送达 🔑', '#2fa84f', 16);
+          kind === 'nailong' ? '奶龙送达！' : '送达 🔑', '#2fa84f', 16);
         FX.burst(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2, '#7cf29a', 5);
         AudioManager.playSFX('coin');
       }
@@ -2122,7 +2122,7 @@
       if (cont) {
         const canCont = !S.daily && !S.timerOn && S.moves > 0;
         cont.style.display = canCont ? 'inline-block' : 'none';
-        cont.textContent = '还有剩余步数 ' + S.moves + ' 步，是否继续游戏';
+        cont.textContent = '还有剩余步数　是否继续游戏';
       }
       box.style.display = 'flex';
 
@@ -3902,11 +3902,18 @@
       $('lb-view').style.display = 'none';
       showOverlay('leaderboard-menu');
     });
-    const provSelEl = $('lb-prov-sel');
-    if (provSelEl) provSelEl.addEventListener('change', () => { lbProv = provSelEl.value; renderLeaderboard(); });
-    const lvSelEl = $('lb-level-sel');
-    if (lvSelEl) lvSelEl.addEventListener('change', () => {
-      lbLevel = Math.max(1, Math.min(Number(lvSelEl.value) || 1, maxMainLevel()));
+    // 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：点一下直接换下一个省 / 关
+    const provSwap = $('lb-prov-swap');
+    if (provSwap) provSwap.addEventListener('click', () => {
+      if (lbTab !== 'prov') return;
+      const idx = PROVINCES.findIndex((p) => p[1] === lbProv);
+      lbProv = PROVINCES[(idx + 1) % PROVINCES.length][1];
+      renderLeaderboard();
+    });
+    const lvSwap = $('lb-level-swap');
+    if (lvSwap) lvSwap.addEventListener('click', () => {
+      if (lbTab !== 'level') return;
+      lbLevel = lbLevel >= maxMainLevel() ? 1 : lbLevel + 1;
       renderLeaderboard();
     });
 
@@ -4851,34 +4858,12 @@
     if (!box) return;
     const me = myBestEntry();
 
-    // 省份选择器 / 关卡选择器的显隐（榜单类型由入口决定，列表页里不再有页签）
-    const provSel = $('lb-prov-sel');
-    const lvSel = $('lb-level-sel');
-    if (provSel) {
-      provSel.style.display = lbTab === 'prov' ? 'block' : 'none';
-      if (provSel.options && !provSel.options.length) {
-        PROVINCES.forEach((pr) => {
-          const op = document.createElement('option');
-          op.value = pr[1];
-          op.textContent = pr[0];
-          provSel.appendChild(op);
-        });
-      }
-      if (!lbProv) lbProv = myProvCode() || PROVINCES[0][1];
-      provSel.value = lbProv;
-    }
-    if (lvSel) {
-      lvSel.style.display = lbTab === 'level' ? 'block' : 'none';
-      if (lvSel.options && !lvSel.options.length) {
-        for (let i = 1; i <= maxMainLevel(); i++) {
-          const op = document.createElement('option');
-          op.value = String(i);
-          op.textContent = '第 ' + i + ' 关';
-          lvSel.appendChild(op);
-        }
-      }
-      lvSel.value = String(lbLevel);
-    }
+    // 省榜 / 局榜的 ⇄ 更换符号显隐（总榜没有）；榜单类型由入口决定
+    if (lbTab === 'prov' && !lbProv) lbProv = myProvCode() || PROVINCES[0][1];
+    const provSwapBtn = $('lb-prov-swap');
+    if (provSwapBtn) provSwapBtn.style.display = lbTab === 'prov' ? 'inline-block' : 'none';
+    const lvSwapBtn = $('lb-level-swap');
+    if (lvSwapBtn) lvSwapBtn.style.display = lbTab === 'level' ? 'inline-block' : 'none';
     const titleEl = $('lb-view-title');
     if (titleEl) {
       const provName = (provByCode(lbProv) || {}).name || '省榜';
@@ -4935,11 +4920,11 @@
     lbOpenRow = null;
     shown.slice(0, 20).forEach((r, i) => {
       const row = document.createElement('div');
-      row.className = 'lb-row' + (r.me ? ' me' : '');
+      // 0 分不上榜：整行灰显（名次留空、分数位置写「未上榜」）
+      const onBoard = (r.score || 0) > 0;
+      row.className = 'lb-row' + (r.me ? ' me' : '') + (onBoard ? '' : ' none');
       const inner = document.createElement('div');
       inner.className = 'lb-swipe';
-      // 0 分不上榜：名次留空、分数位置写「未上榜」
-      const onBoard = (r.score || 0) > 0;
       const rank = !onBoard ? '—' : (i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1));
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
         '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
