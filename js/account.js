@@ -390,18 +390,57 @@
   // 两种情形都用这一个入口：
   //   1) 本机已有这个号 → 重设密码后直接进去（数据一点不动，等于「忘了密码」）
   //   2) 本机没有、但共享榜上有这个名字 → 建一个本地账号，id 用榜上的身份码，
-  //      这样榜单认人（分数归你）；本机进度因为从来没存过，只能从空开始
-  function restore(name, pass, boardUid) {
+  //      这样榜单认人（分数归你）
+  // 共享榜快照里带着「每关最高分（lv）」，找回时把它种回本地进度：
+  // 每关恢复 score、给 1 星（有分说明打到过），主线解锁跟着恢复到最高打到的那关。
+  // 金币 / 星星总数 / 邮箱榜单里没有，恢复不了。
+
+  // 从榜上条目重建本地进度。只在本机进度为空时才种（不会覆盖现有数据）。
+  function seedProgressFromBoard(entry) {
+    if (!entry || !entry.lv) return 0;
+    let cur = null;
+    try { cur = JSON.parse(raw('nl2:progress') || 'null'); } catch (e) { cur = null; }
+    if (cur && typeof cur === 'object' && Object.keys(cur).length) return 0;
+    const prog = {};
+    let seeded = 0;
+    Object.keys(entry.lv).forEach((k) => {
+      const lv = Number(k);
+      const sc = Math.max(0, Math.round(Number(entry.lv[k]) || 0));
+      if (!(lv >= 1) || sc <= 0) return;
+      prog[String(lv)] = { score: sc, stars: 1, recorded: true };
+      seeded++;
+    });
+    if (!seeded) return 0;
+    write('nl2:progress', prog);
+    return seeded;
+  }
+
+  function restore(name, pass, boardUid, boardEntry) {
     const n = String(name == null ? '' : name).trim();
     if (!n) return { ok: false, reason: '请填写名字' };
     const p = checkPass(pass);
     if (!p.ok) return p;
+
+    const uid = String(boardUid == null ? '' : boardUid).trim();
+    const uidOk = /^[A-Za-z0-9_-]{3,24}$/.test(uid);
 
     const acc = findByName(n);
     if (acc) {
       const arr = list();
       const i = arr.findIndex((x) => x.id === acc.id);
       if (i < 0) return { ok: false, reason: '账号不存在' };
+      let rebind = false;
+      // 之前找回时榜没同步到、id 用错的：这次把账号 id 迁回榜上身份码
+      if (uidOk && acc.id !== uid && !find(uid)) {
+        try {
+          const oldSlot = raw(K.slot + acc.id);
+          if (oldSlot != null) write(K.slot + uid, oldSlot);
+          try { localStorage.removeItem(K.slot + acc.id); } catch (e0) {}
+        } catch (e) {}
+        arr[i].id = uid;
+        acc.id = uid;
+        rebind = true;
+      }
       arr[i].pass = hash(p.pass);
       arr[i].last = Date.now();
       saveList(arr);
@@ -409,12 +448,14 @@
       wipeActive();
       loadSlot(acc.id);
       write(K.cur, acc.id);
+      if (rebind) write('nl2:muid', uid);
+      const seeded = seedProgressFromBoard(boardEntry);
+      saveCurrent();
       syncNick(arr[i]);
-      return { ok: true, existing: true, account: arr[i] };
+      return { ok: true, existing: true, rebind: rebind, seeded: seeded, account: arr[i] };
     }
 
-    const uid = String(boardUid == null ? '' : boardUid).trim();
-    if (!/^[A-Za-z0-9_-]{3,24}$/.test(uid)) return { ok: false, reason: '没找到这个玩家' };
+    if (!uidOk) return { ok: false, reason: '没找到这个玩家' };
     if (find(uid)) return { ok: false, reason: '这个身份已经被本机另一个账号占用了' };
 
     saveCurrent();                 // 建新号之前，先把当前账号的数据存好
@@ -433,8 +474,10 @@
     write(K.cur, uid);
     loadSlot(uid);
     write('nl2:muid', uid);   // 榜单靠这个身份码认人，找回就是把身份码绑回来
+    const seeded = seedProgressFromBoard(boardEntry);
+    saveCurrent();
     syncNick(na);
-    return { ok: true, created: true, account: na };
+    return { ok: true, created: true, seeded: seeded, account: na };
   }
 
   // ---------- 存档码：把账号表 + 每个账号的进度打成一段可复制的文本 ----------
@@ -501,6 +544,41 @@
       if (s && s.keys) { write(K.slot + id, s); slots++; }
     });
     return { ok: true, added: added, updated: updated, count: valid.length, slots: slots };
+  }
+
+  // 用服务器上验证过的账号进入：把下发的存档铺成本机账号（本机只当离线缓存）
+  function adoptCloud(info) {
+    info = info || {};
+    const uid = String(info.uid || '').trim();
+    const nick = String(info.nick || '').trim();
+    const slot = info.slot && typeof info.slot === 'object' ? info.slot : null;
+    if (!uid) return { ok: false, reason: '服务器没有返回身份码' };
+    let arr = list();
+    // 名字在本机被另一个账号占着 → 以云端这个号为准，把旧的腾开
+    const same = findByName(nick);
+    if (same && same.id !== uid) arr = arr.filter((a) => a.id !== same.id);
+    let acc = arr.filter((a) => a.id === uid)[0];
+    if (!acc) {
+      acc = { id: uid, name: nick, pass: '', created: Date.now(), last: Date.now(), cloud: true };
+      arr.push(acc);
+    } else {
+      acc.name = nick || acc.name;
+      acc.last = Date.now();
+      acc.cloud = true;
+      acc.pass = '';          // 本机不再保存密码，校验交给服务器
+    }
+    saveList(arr);
+    if (currentId() && currentId() !== uid) saveCurrent();
+    write(K.cur, uid);
+    wipeActive();
+    if (slot && slot.keys) {
+      Object.keys(slot.keys).forEach((k) => {
+        try { localStorage.setItem(k, slot.keys[k]); } catch (e) {}
+      });
+    }
+    if (!raw('nl2:muid')) write('nl2:muid', uid);
+    syncNick(acc);
+    return { ok: true, account: acc };
   }
 
   // ---------- 列表展示用摘要 ----------

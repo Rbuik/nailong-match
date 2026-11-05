@@ -5780,7 +5780,7 @@
     if (n && n.focus) setTimeout(() => n.focus(), 60);
   }
 
-  function submitRecover() {
+  async function submitRecover() {
     const name = ($('recover-name') || {}).value || '';
     const p1 = ($('recover-pass') || {}).value || '';
     const p2 = ($('recover-pass2') || {}).value || '';
@@ -5798,16 +5798,25 @@
     if (p1 !== p2) return fail('两次输入的密码不一样', ['recover-pass2']);
     if (typeof Account === 'undefined' || !Account.restore) return fail('账号功能没加载出来，请刷新页面');
 
-    // 本机没有这个号时，去共享榜里找同名玩家的身份码
-    let uid = '';
-    try {
-      const k = String(name).trim().toLowerCase();
-      const hit = (Board.list() || []).filter((e) => e && e.name &&
-        String(e.name).trim().toLowerCase() === k)[0];
-      if (hit && hit.uid) uid = hit.uid;
-    } catch (e) {}
+    // 本机没有这个号时，去共享榜里找同名玩家的身份码。
+    // 榜还没同步下来时先等一下（换设备 / 清缓存后第一次打开，历史要拉一次才有）
+    const lookBoard = () => {
+      try {
+        const k = String(name).trim().toLowerCase();
+        return (Board.list() || []).filter((e) => e && e.name &&
+          String(e.name).trim().toLowerCase() === k)[0] || null;
+      } catch (e) { return null; }
+    };
+    let hit = lookBoard();
+    if (!hit && typeof Board !== 'undefined' && Board.sync) {
+      try { Board.sync(); } catch (e0) {}
+      for (let t = 0; t < 10 && !hit; t++) {
+        await new Promise((res) => setTimeout(res, 300));
+        hit = lookBoard();
+      }
+    }
 
-    const r = Account.restore(name, p1, uid);
+    const r = await Account.restore(name, p1, hit && hit.uid, hit);
     if (!r.ok) {
       if (String(r.reason || '').indexOf('没找到') >= 0) {
         return fail('没找到这个名字的玩家，请检查名字，或直接注册一个新号', ['recover-name']);
@@ -5815,8 +5824,11 @@
       return fail(r.reason || '找回失败');
     }
     afterAuthEnter(r.created
-      ? '已建好「' + r.account.name + '」，榜单成绩归你，进度从零开始'
-      : '密码已重设，欢迎回来「' + r.account.name + '」');
+      ? '已找回「' + r.account.name + '」' +
+        (r.seeded ? '：恢复 ' + r.seeded + ' 条关卡成绩' : '') +
+        '，榜单身份已绑定（金币和邮箱榜单里没有，恢复不了）'
+      : '密码已重设，欢迎回来「' + r.account.name + '」' +
+        (r.seeded ? '，并恢复 ' + r.seeded + ' 条关卡成绩' : ''));
     return true;  }
 
   function submitAuth() {

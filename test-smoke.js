@@ -1064,6 +1064,30 @@ function check(name, ok) {
       sandbox.Meta.myUid() === 'x-board-uid';
   })());
 
+  // 31b-2. 找回时把榜上的每关成绩种回本地进度（yone 案：绑了身份但进去是空号）
+  check('榜上建号：每关最高分恢复到本地进度（每关 1 星）', (() => {
+    const entry = { uid: 'x-board-uid', name: '榜上玩家', score: 300, lv: { '1': 100, '3': 200 } };
+    const r = sandbox.Account.restore('榜上玩家', 'abcd1234', 'x-board-uid', entry);
+    const prog = sandbox.Store.getProgress();
+    return r.ok === true && r.seeded === 2 &&
+      prog['1'] && prog['1'].score === 100 && prog['1'].stars === 1 &&
+      prog['3'] && prog['3'].score === 200;
+  })());
+  check('本地已有进度时不会被榜上数据覆盖', (() => {
+    sandbox.Store.recordLevel('1', 999, 3);
+    const entry = { uid: 'x-board-uid', name: '榜上玩家', score: 300, lv: { '1': 100 } };
+    const r = sandbox.Account.restore('榜上玩家', 'abcd1234', 'x-board-uid', entry);
+    return r.ok === true && r.seeded === 0 && sandbox.Store.getProgress()['1'].score === 999;
+  })());
+  check('本机号 id 和榜上身份不一致时自动迁回（旧数据跟着搬）', (() => {
+    const entry = { uid: 'rebind-uid-9', name: '找回号乙', score: 500, lv: { '2': 500 } };
+    const r = sandbox.Account.restore('找回号乙', 'abcd1234', 'rebind-uid-9', entry);
+    const ok = r.ok === true && sandbox.Account.currentId() === 'rebind-uid-9' &&
+      sandbox.Meta.myUid() === 'rebind-uid-9';
+    sandbox.Account.login('榜上玩家', 'abcd1234');   // 切回去，后面存档码测试默认当前号是它
+    return ok;
+  })());
+
   // 31c. 存档码：微信清掉 localStorage 后能整份搬回来
   check('登录页有「用存档码恢复」入口和面板',
     htmlSrc0.includes('id="btn-auth-backup"') && htmlSrc0.includes('id="backup-menu"') &&
