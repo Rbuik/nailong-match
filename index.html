@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261105h">
-<link rel="stylesheet" href="./css/themes.css?v=20261105h">
+<link rel="stylesheet" href="./css/style.css?v=20261105i">
+<link rel="stylesheet" href="./css/themes.css?v=20261105i">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -86,7 +86,10 @@
   <!-- 主页 -->
   <div class="overlay" id="main-menu">
     <div class="top-left-group">
-      <button id="btn-home-menu" class="music-btn corner-btn" title="主页"><span class="icon">🏠</span></button>
+      <div class="corner-col">
+        <button id="btn-home-menu" class="music-btn corner-btn" title="主页"><span class="icon">🏠</span></button>
+        <button id="btn-mail" class="music-btn corner-btn" title="邮箱"><span class="icon">📮</span><i class="mail-badge" id="mail-badge" style="display:none;">0</i></button>
+      </div>
       <button id="btn-rules" class="music-btn corner-btn" title="玩法规则"><span class="icon">📖</span></button>
     </div>
     <div class="top-right-group">
@@ -137,7 +140,7 @@
       <span>如遇方块没有加载出来请耐心等待</span>
     </div>
 
-    <button id="btn-mail" title="邮箱"><span class="mail-ico">📮</span>邮箱<i class="mail-badge" id="mail-badge" style="display:none;">0</i></button>
+
   </div>
 
   <!-- 主页键（左上角）：改名等主页相关设置 -->
@@ -154,27 +157,50 @@
   <div class="overlay" id="admin-menu" style="display:none;">
     <h2 class="title small">🔧 后台</h2>
 
-    <div class="admin-sec" id="admin-global-sec">
-      <div class="admin-sec-title" id="admin-global-title">🌐 全网</div>
-      <div class="result-box">
-        <p><span>点击</span><b id="admin-global">—</b></p>
-      </div>
+    <!-- 一级：点进去看哪一块 -->
+    <div class="admin-nav" id="admin-nav">
+      <button class="btn-primary" id="btn-admin-hits">📊 点击数量</button>
+      <button class="btn-primary" id="btn-admin-users">👥 全服用户</button>
+      <button class="btn-secondary" id="btn-admin-close">关闭</button>
     </div>
 
-    <div class="admin-sec">
-      <div class="admin-sec-title">📱 本机</div>
-      <div class="result-box">
-        <p><span>点击</span><b id="admin-visits">0</b></p>
-        <p><span>设备</span><b id="admin-device">—</b></p>
-        <p><span>地址</span><b id="admin-loc">—</b></p>
-        <p><span>星星</span><b id="admin-stars">0</b></p>
-        <p><span>总分</span><b id="admin-score">0</b></p>
+    <!-- 二级：点击数量（原来的后台内容：全网 / 本机） -->
+    <div class="admin-page" id="admin-page-hits" style="display:none;">
+      <div class="admin-sec" id="admin-global-sec">
+        <div class="admin-sec-title" id="admin-global-title">🌐 全网</div>
+        <div class="result-box">
+          <p><span>点击</span><b id="admin-global">—</b></p>
+        </div>
       </div>
+
+      <div class="admin-sec">
+        <div class="admin-sec-title">📱 本机</div>
+        <div class="result-box">
+          <p><span>点击</span><b id="admin-visits">0</b></p>
+          <p><span>设备</span><b id="admin-device">—</b></p>
+          <p><span>地址</span><b id="admin-loc">—</b></p>
+          <p><span>星星</span><b id="admin-stars">0</b></p>
+          <p><span>总分</span><b id="admin-score">0</b></p>
+        </div>
+      </div>
+
+      <p class="admin-start-note">统计自 2026-11-05 00:00:00 起</p>
+      <button class="btn-secondary" id="btn-admin-hits-back">返回</button>
     </div>
 
-    <p class="admin-start-note">统计自 2026-11-05 00:00:00 起</p>
-
-    <button class="btn-primary" id="btn-admin-close">关闭</button>
+    <!-- 二级：全服用户（用户数量 / 省份数量） -->
+    <div class="admin-page" id="admin-page-users" style="display:none;">
+      <div class="admin-sec">
+        <div class="admin-sec-title">👥 全服用户</div>
+        <div class="result-box">
+          <p><span>用户数量</span><b id="admin-users">—</b></p>
+          <p><span>省份数量</span><b id="admin-provs">—</b></p>
+        </div>
+      </div>
+      <p class="admin-start-note">用户 = 榜上有成绩的玩家，省份 = 有玩家点击过的省</p>
+      <button class="btn-secondary" id="btn-admin-users-back">返回</button>
+      <button class="btn-secondary" id="btn-admin-users-to-stats">🗺️ 省份统计</button>
+    </div>
   </div>
 
   <!-- 省份统计（后台长按「🌐 全网」3 秒打开；点省份可进市级统计） -->
@@ -243,7 +269,7 @@
 
       <section class="rule-sec">
         <h3>📮 邮箱</h3>
-        <p>主页右下角的 <b>📮 邮箱键</b>收系统发来的公告和奖励。有还没看过的新邮件时，键上会亮一个<b>红色角标</b>，数字就是没读的封数。</p>
+        <p>左上角 <b>🏠 主页键下面的 📮 邮箱键</b>收系统发来的公告和奖励。有还没看过的新邮件时，键上会亮一个<b>红色角标</b>，数字就是没读的封数。</p>
         <p>点开一封邮件能看完整正文；带奖励的邮件底部有「领取」按钮，金币直接进钱包，<b>每封只能领一次</b>。已读和领取记录<b>跟着账号走</b>，切换账号不会串。</p>
       </section>
 
@@ -855,20 +881,20 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261105h"></script>
-<script src="./js/storage.js?v=20261105h"></script>
-<script src="./js/audio.js?v=20261105h"></script>
-<script src="./js/effects.js?v=20261105h"></script>
-<script src="./js/specials.js?v=20261105h"></script>
-<script src="./js/goals.js?v=20261105h"></script>
-<script src="./js/tasks.js?v=20261105h"></script>
-<script src="./js/mail.js?v=20261105h"></script>
-<script src="./js/input.js?v=20261105h"></script>
-<script src="./js/builtin-music.js?v=20261105h"></script>
-<script src="./js/music.js?v=20261105h"></script>
-<script src="./js/meta.js?v=20261105h"></script>
-<script src="./js/account.js?v=20261105h"></script>
-<script src="./js/board.js?v=20261105h"></script>
-<script src="./js/game.js?v=20261105h"></script>
+<script src="./js/rng.js?v=20261105i"></script>
+<script src="./js/storage.js?v=20261105i"></script>
+<script src="./js/audio.js?v=20261105i"></script>
+<script src="./js/effects.js?v=20261105i"></script>
+<script src="./js/specials.js?v=20261105i"></script>
+<script src="./js/goals.js?v=20261105i"></script>
+<script src="./js/tasks.js?v=20261105i"></script>
+<script src="./js/mail.js?v=20261105i"></script>
+<script src="./js/input.js?v=20261105i"></script>
+<script src="./js/builtin-music.js?v=20261105i"></script>
+<script src="./js/music.js?v=20261105i"></script>
+<script src="./js/meta.js?v=20261105i"></script>
+<script src="./js/account.js?v=20261105i"></script>
+<script src="./js/board.js?v=20261105i"></script>
+<script src="./js/game.js?v=20261105i"></script>
 </body>
 </html>

@@ -204,6 +204,37 @@ function check(name, ok) {
     htmlSrc0.indexOf('id="btn-logout"') > htmlSrc0.indexOf('id="btn-goto-switch"') &&
     htmlSrc0.indexOf('id="btn-logout"') < htmlSrc0.indexOf('id="btn-close-account"'));
   check('注销确认文案说明会删除全部数据', htmlSrc0.includes('全部数据') && htmlSrc0.includes('不可恢复'));
+  // 4b. 邮箱键放在 🏠 下面（左上角竖排，📮 图标）
+  check('邮箱键在 🏠 下面、用 📮、带未读角标',
+    htmlSrc0.indexOf('class="corner-col"') < htmlSrc0.indexOf('id="btn-mail"') &&
+    htmlSrc0.indexOf('id="btn-home-menu"') < htmlSrc0.indexOf('id="btn-mail"') &&
+    htmlSrc0.indexOf('id="btn-mail"') < htmlSrc0.indexOf('id="btn-rules"') &&
+    /id="btn-mail"[^>]*>\s*<span class="icon">📮<\/span>/.test(htmlSrc0));
+  check('主页底部不再有邮箱按钮', !htmlSrc0.includes('class="mail-ico"'));
+
+  // 4c. 后台分层：一级「点击数量 / 全服用户」
+  check('后台一级有「点击数量」和「全服用户」',
+    htmlSrc0.includes('id="btn-admin-hits"') && htmlSrc0.includes('id="btn-admin-users"') &&
+    htmlSrc0.indexOf('id="btn-admin-hits"') < htmlSrc0.indexOf('id="btn-admin-close"'));
+  check('「点击数量」页还是原来的后台内容（全网 / 本机）',
+    htmlSrc0.indexOf('id="admin-page-hits"') > 0 && htmlSrc0.includes('admin-global-sec') &&
+    htmlSrc0.includes('id="admin-visits"'));
+  check('「全服用户」页有用户数量 / 省份数量',
+    htmlSrc0.indexOf('id="admin-page-users"') > 0 && htmlSrc0.includes('id="admin-users"') &&
+    htmlSrc0.includes('id="admin-provs"'));
+  $('admin-menu').style.display = 'flex';
+  $('btn-admin-hits').dispatch('click');
+  check('点「点击数量」进二级页', $('admin-page-hits').style.display === 'flex' && $('admin-nav').style.display === 'none');
+  $('btn-admin-hits-back').dispatch('click');
+  check('「点击数量」返回一级', $('admin-page-hits').style.display === 'none' && $('admin-nav').style.display === 'flex');
+  $('btn-admin-users').dispatch('click');
+  check('点「全服用户」进二级页', $('admin-page-users').style.display === 'flex' && $('admin-nav').style.display === 'none');
+  check('全服用户页把用户数 / 省份数填上了',
+    !!$('admin-users').textContent && !!$('admin-provs').textContent);
+  $('btn-admin-users-back').dispatch('click');
+  check('「全服用户」返回一级', $('admin-page-users').style.display === 'none' && $('admin-nav').style.display === 'flex');
+  $('admin-menu').style.display = 'none';
+
   // 后面的用例按「空仓库」起手，这里把钱包重置回初始状态
   lsMap.set('nl2:wallet', JSON.stringify({ coins: 500, items: {} }));
   $('main-menu').style.display = 'flex';

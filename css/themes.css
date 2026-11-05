@@ -308,6 +308,14 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   z-index: 20;
   display: flex;
   flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* 左上角竖排：🏠 在上、📮 邮箱在它下面 */
+.corner-col {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 10px;
 }
@@ -472,6 +480,22 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .load-tip .load-tip-x:active { transform: scale(0.88); }
 
 /* 后台面板：分「全网 / 本机」两块 */
+/* 后台一级菜单：点击数量 / 全服用户 */
+.admin-nav {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* 后台二级页：整页竖排居中 */
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
 .admin-sec {
   width: 86%;
   margin-bottom: 10px;

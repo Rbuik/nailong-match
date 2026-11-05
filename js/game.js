@@ -3467,6 +3467,28 @@
     $('admin-score').textContent = totalBestScore();
   }
 
+  // ==================== 后台分层 ====================
+  // 一级：点击数量 / 全服用户；二级页各自返回一级
+  function showAdminPage(which) {
+    const nav = $('admin-nav');
+    const hits = $('admin-page-hits');
+    const users = $('admin-page-users');
+    if (nav) nav.style.display = which ? 'none' : 'flex';
+    if (hits) hits.style.display = which === 'hits' ? 'flex' : 'none';
+    if (users) users.style.display = which === 'users' ? 'flex' : 'none';
+  }
+
+  // 全服用户：用户数量 = 共享榜上有成绩的玩家数；省份数量 = 有点击记录的省份数
+  function renderAdminUsers() {
+    const u = $('admin-users');
+    const p = $('admin-provs');
+    let n = 0;
+    try { n = (typeof Board !== 'undefined' && Board.count) ? Board.count() : 0; } catch (e) { n = 0; }
+    if (u) u.textContent = n > 0 ? String(n) : '—';
+    const provs = provRows.filter((r) => r.n > 0).length;
+    if (p) p.textContent = provs > 0 ? String(provs) : '—';
+  }
+
   // ==================== 绑定 ====================
   function attachUI() {    // 画布输入
     Input.attach(canvas, {
@@ -3710,7 +3732,7 @@
     // ==================== 隐藏后台：同时按住奶龙图案 + 注销键 3 秒 ====================
     const adminMascot = (typeof document.querySelector === 'function')
       ? document.querySelector('#main-menu .mascot') : null;
-    const adminLogout = $('btn-mail');   // 隐藏手势改成「奶龙图案 + 主页右下角 📮 邮箱键」按住 3 秒
+    const adminLogout = $('btn-home-menu');   // 隐藏手势：奶龙图案 + 左上角 🏠 主页键，同时按住 3 秒
     if (adminMascot && adminLogout) {
       let holds = 0;
       let holdTimer = null;
@@ -3718,12 +3740,13 @@
       const openAdmin = () => {
         holdTimer = null;
         holds = 0;
-        suppressLogout = true; // 松手时不要误触「打开邮箱」
+        suppressLogout = true; // 松手时不要误触「打开主页面板」
         renderAdmin();
         fetchGeoFast().then(renderAdmin);
         // 省份合计刷新后，后台「全网」跟着更新（两边数字始终一致）
         refreshProvStatsThrottled().then(renderAdmin);
         AudioManager.playSFX('select');
+        showAdminPage(null);
         showOverlay('admin-menu');
         upgradeDeviceModel();
       };
@@ -3752,6 +3775,26 @@
     if (adminClose) adminClose.addEventListener('click', () => {
       $('admin-menu').style.display = 'none';
     });
+    // 一级 → 点击数量（原后台内容）
+    const adminHits = $('btn-admin-hits');
+    if (adminHits) adminHits.addEventListener('click', () => {
+      showAdminPage('hits');
+      renderAdmin();
+      refreshProvStatsThrottled().then(renderAdmin);
+    });
+    // 一级 → 全服用户（用户数量 / 省份数量）
+    const adminUsers = $('btn-admin-users');
+    if (adminUsers) adminUsers.addEventListener('click', () => {
+      showAdminPage('users');
+      renderAdminUsers();
+      refreshProvStatsThrottled().then(renderAdminUsers);
+    });
+    ['btn-admin-hits-back', 'btn-admin-users-back'].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener('click', () => showAdminPage(null));
+    });
+    const adminUsersStats = $('btn-admin-users-to-stats');
+    if (adminUsersStats) adminUsersStats.addEventListener('click', () => openProvStats());
 
     // 长按「🌐 全网」板块 3 秒 → 省份统计页
     // 手机上手指微动/页面滚动都会让 pointer 系列事件被 cancel，
