@@ -2372,8 +2372,8 @@
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
-      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'recover-menu',
-      'backup-menu', 'lost-menu', 'fix-menu',
+      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
+      'lost-menu', 'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2388,8 +2388,8 @@
     'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
-    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'recover-menu',
-    'backup-menu', 'lost-menu', 'fix-menu'];
+    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
+    'lost-menu', 'fix-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -4450,22 +4450,6 @@
       const el = $(id);
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
     });
-    // 忘记密码 / 找回账号 + 存档码
-    on('btn-auth-recover', openRecoverMenu);
-    on('btn-auth-backup', () => openBackupMenu('auth'));
-    on('btn-goto-backup', () => openBackupMenu('account'));
-    on('btn-backup-gen', genBackupCode);
-    on('btn-backup-copy', copyBackupCode);
-    on('btn-backup-import', doImportBackup);
-    on('btn-backup-back', () => {
-      $('backup-menu').style.display = 'none';
-      if (backupFrom === 'auth') showAuthScreen();
-      else {
-        const n = $('account-cur-name');
-        if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
-        showOverlay('account-menu');
-      }
-    });
     // 找回本机旧存档（账号表里没有、快照还在的号）
     on('btn-switch-lost', () => openLostMenu('switch'));
     on('btn-auth-lost', () => openLostMenu('auth'));
@@ -4473,15 +4457,6 @@
       $('lost-menu').style.display = 'none';
       if (lostFrom === 'auth') showAuthScreen();
       else { showOverlay('switch-menu'); renderSwitchList(); }
-    });
-    on('btn-recover-submit', submitRecover);
-    on('btn-recover-back', () => {
-      $('recover-menu').style.display = 'none';
-      showAuthScreen();
-    });
-    ['recover-name', 'recover-pass', 'recover-pass2'].forEach((id) => {
-      const el = $(id);
-      if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitRecover(); });
     });
     on('btn-fix-save', saveFix);
     const fixName = $('fix-name');
@@ -4563,7 +4538,7 @@
       ov.addEventListener('click', (e) => {
         // 主页 / 结算 / 登录 / 补资料这些面板点遮罩不关闭（必须点按钮）
         if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete',
-          'auth-menu', 'auth-form', 'recover-menu', 'backup-menu', 'lost-menu', 'fix-menu'].indexOf(ov.id) < 0) {
+          'auth-menu', 'auth-form', 'lost-menu', 'fix-menu'].indexOf(ov.id) < 0) {
           ov.style.display = 'none';
         }
       });
@@ -5603,7 +5578,7 @@
     if (!others.length) return;
     const tip = document.createElement('p');
     tip.className = 'history-hint';
-    tip.textContent = '本机账号（点一下直接进入）';
+    tip.textContent = '本机账号';
     box.appendChild(tip);
     others.forEach((a) => {
       const sum = Account.summary(a);
@@ -5639,10 +5614,6 @@
     if (f) f.style.display = 'none';
     const fix = $('fix-menu');
     if (fix) fix.style.display = 'none';
-    const rec = $('recover-menu');
-    if (rec) rec.style.display = 'none';
-    const bk = $('backup-menu');
-    if (bk) bk.style.display = 'none';
     const lost = $('lost-menu');
     if (lost) lost.style.display = 'none';
     setAuthError('');
@@ -5676,162 +5647,7 @@
     if (n && n.focus) setTimeout(() => n.focus(), 60);
   }
 
-  // 💾 存档码：微信里丢存档 / 换设备时，把账号和进度搬回来
-  let backupFrom = 'account';
-
-  function openBackupMenu(from) {
-    backupFrom = from === 'auth' ? 'auth' : 'account';
-    ['backup-code', 'backup-input'].forEach((id) => {
-      const el = $(id);
-      if (el) el.value = '';
-    });
-    const err = $('backup-err');
-    if (err) err.textContent = '';
-    if (backupFrom === 'auth') {
-      if ($('auth-menu')) $('auth-menu').style.display = 'none';
-      if ($('auth-form')) $('auth-form').style.display = 'none';
-    } else if ($('account-menu')) {
-      $('account-menu').style.display = 'none';
-    }
-    showOverlay('backup-menu');
-    setView('menu');
-  }
-
-  function genBackupCode() {
-    if (typeof Account === 'undefined' || !Account.exportBackup) { toast('账号功能没加载出来，请刷新页面'); return false; }
-    const code = Account.exportBackup();
-    const box = $('backup-code');
-    if (box) box.value = code;
-    const err = $('backup-err');
-    if (err) err.textContent = '';
-    toast('存档码已生成，点「复制」存到备忘录');
-    return true;
-  }
-
-  function selectCopy(box) {
-    try {
-      if (box && box.focus) box.focus();
-      if (box && box.select) box.select();
-      if (document.execCommand) document.execCommand('copy');
-      toast('已复制，粘贴到备忘录存好');
-    } catch (e) {
-      toast('复制失败，请长按文本框手动复制');
-    }
-  }
-
-  function copyBackupCode() {
-    const box = $('backup-code');
-    const code = (box && box.value) || '';
-    if (!code) { toast('先点「生成」'); return; }
-    try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(code).then(() => toast('已复制，粘贴到备忘录存好'))
-          .catch(() => selectCopy(box));
-        return;
-      }
-    } catch (e) {}
-    selectCopy(box);
-  }
-
-  function doImportBackup() {
-    const box = $('backup-input');
-    const err = $('backup-err');
-    const code = (box && box.value) || '';
-    if (typeof Account === 'undefined' || !Account.importBackup) { toast('账号功能没加载出来，请刷新页面'); return false; }
-    const r = Account.importBackup(code);
-    if (!r.ok) {
-      if (err) err.textContent = r.reason;
-      try { AudioManager.playSFX('invalid'); } catch (e) {}
-      return false;
-    }
-    if (err) err.textContent = '';
-    toast('已恢复 ' + r.count + ' 个账号，用原来的密码登录');
-    $('backup-menu').style.display = 'none';
-    setTimeout(() => { try { location.reload(); } catch (e) {} }, 700);
-    return true;
-  }
-
   // 找回账号 / 忘记密码：本机有就重设密码，本机没有但榜上有就用榜上身份建号
-  function openRecoverMenu() {
-    if ($('auth-menu')) $('auth-menu').style.display = 'none';
-    if ($('auth-form')) $('auth-form').style.display = 'none';
-    ['recover-name', 'recover-pass', 'recover-pass2'].forEach((id) => {
-      const el = $(id);
-      if (el) el.value = '';
-    });
-    setInputError(['recover-name', 'recover-pass', 'recover-pass2'], false);
-    const err = $('recover-err');
-    if (err) err.textContent = '';
-    // 先把本机已有的账号亮出来，免得「想切回原来的号」却输了个新名字、建出个新号
-    const hint = $('recover-hint');
-    if (hint) {
-      let names = [];
-      try {
-        names = (Account.list() || []).filter((a) => a && a.name)
-          .map((a) => a.name + '（🪙 ' + Account.summary(a).coins + ' · ⭐ ' + Account.summary(a).stars + '）');
-      } catch (e) { names = []; }
-      hint.innerHTML = names.length
-        ? '本机现有的账号：' + names.map((x) => escHtml(x)).join('、') +
-          '<br>想切回原来的号，请用「设置 → 🔐 账号安全 → 切换账号」。'
-        : '';
-    }
-    showOverlay('recover-menu');
-    setView('menu');
-    const n = $('recover-name');
-    if (n && n.focus) setTimeout(() => n.focus(), 60);
-  }
-
-  async function submitRecover() {
-    const name = ($('recover-name') || {}).value || '';
-    const p1 = ($('recover-pass') || {}).value || '';
-    const p2 = ($('recover-pass2') || {}).value || '';
-    const err = $('recover-err');
-    const fail = (m, ids) => {
-      setInputError(ids || ['recover-name', 'recover-pass', 'recover-pass2'], true);
-      if (err) err.textContent = m;
-      try { AudioManager.playSFX('invalid'); } catch (e) {}
-      return false;
-    };
-    setInputError(['recover-name', 'recover-pass', 'recover-pass2'], false);
-    if (err) err.textContent = '';
-    if (!String(name).trim()) return fail('请填写名字', ['recover-name']);
-    if (!p1) return fail('请设置新密码', ['recover-pass']);
-    if (p1 !== p2) return fail('两次输入的密码不一样', ['recover-pass2']);
-    if (typeof Account === 'undefined' || !Account.restore) return fail('账号功能没加载出来，请刷新页面');
-
-    // 本机没有这个号时，去共享榜里找同名玩家的身份码。
-    // 榜还没同步下来时先等一下（换设备 / 清缓存后第一次打开，历史要拉一次才有）
-    const lookBoard = () => {
-      try {
-        const k = String(name).trim().toLowerCase();
-        return (Board.list() || []).filter((e) => e && e.name &&
-          String(e.name).trim().toLowerCase() === k)[0] || null;
-      } catch (e) { return null; }
-    };
-    let hit = lookBoard();
-    if (!hit && typeof Board !== 'undefined' && Board.sync) {
-      try { Board.sync(); } catch (e0) {}
-      for (let t = 0; t < 10 && !hit; t++) {
-        await new Promise((res) => setTimeout(res, 300));
-        hit = lookBoard();
-      }
-    }
-
-    const r = await Account.restore(name, p1, hit && hit.uid, hit);
-    if (!r.ok) {
-      if (String(r.reason || '').indexOf('没找到') >= 0) {
-        return fail('没找到这个名字的玩家，请检查名字，或直接注册一个新号', ['recover-name']);
-      }
-      return fail(r.reason || '找回失败');
-    }
-    afterAuthEnter(r.created
-      ? '已找回「' + r.account.name + '」' +
-        (r.seeded ? '：恢复 ' + r.seeded + ' 条关卡成绩' : '') +
-        '，榜单身份已绑定（金币和邮箱榜单里没有，恢复不了）'
-      : '密码已重设，欢迎回来「' + r.account.name + '」' +
-        (r.seeded ? '，并恢复 ' + r.seeded + ' 条关卡成绩' : ''));
-    return true;  }
-
   async function submitAuth() {
     const name = ($('auth-name') || {}).value || '';
     const pass = ($('auth-pass') || {}).value || '';
@@ -5963,7 +5779,7 @@
 
   function openLostMenu(from) {
     lostFrom = from === 'auth' ? 'auth' : 'switch';
-    ['switch-menu', 'auth-menu', 'auth-form', 'recover-menu'].forEach((id) => {
+    ['switch-menu', 'auth-menu', 'auth-form'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
     });
