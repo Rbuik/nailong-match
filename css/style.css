@@ -294,3 +294,60 @@ input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
 @media (max-width: 340px) {
   .tool-btn .text { display: none; }
 }
+
+/* ================= 节奏关：节拍条 ================= */
+.beat-bar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 14px;
+  box-sizing: border-box;
+  margin-top: 2px;
+}
+.beat-bar .beat-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #8a7fb5;
+}
+.beat-bar .beat-track {
+  position: relative;
+  flex: 1;
+  height: 8px;
+  border-radius: 6px;
+  background: rgba(124, 92, 255, 0.14);
+}
+.beat-fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #b3a4ff, #7c5cff);
+}
+.beat-dot {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 12px; height: 12px;
+  margin-left: -6px; margin-top: -6px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #7c5cff;
+  box-sizing: border-box;
+  transition: background 0.1s, border-color 0.1s;
+}
+.beat-dot.hot { background: #ff8c00; border-color: #ff8c00; }
+.beat-dot.pulse { animation: beatPop 0.22s ease-out; }
+@keyframes beatPop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.9); }
+  100% { transform: scale(1); }
+}
+.beat-hit {
+  min-width: 58px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #ff8c00;
+  text-align: right;
+}
