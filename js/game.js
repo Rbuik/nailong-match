@@ -305,10 +305,15 @@
 
   function findMatches() {
     const set = new Set();
+    // 彩虹块不参与普通三消（它只能被交换消耗或和特殊块合体），
+    // 否则掉落凑巧排进同色三连就会被白白清掉
+    const isRainbow = (b) => b && b.special === T.RAINBOW;
     for (let r = 0; r < ROWS; r++) {
       let run = 1;
       for (let c = 1; c <= COLS; c++) {
-        const same = c < COLS && S.board[r][c] && S.board[r][c - 1] && S.board[r][c].type === S.board[r][c - 1].type
+        const same = c < COLS && S.board[r][c] && S.board[r][c - 1]
+          && !isRainbow(S.board[r][c]) && !isRainbow(S.board[r][c - 1])
+          && S.board[r][c].type === S.board[r][c - 1].type
           && !isLocked(r, c) && !isLocked(r, c - 1);
         if (same) run++;
         else {
@@ -320,7 +325,9 @@
     for (let c = 0; c < COLS; c++) {
       let run = 1;
       for (let r = 1; r <= ROWS; r++) {
-        const same = r < ROWS && S.board[r][c] && S.board[r - 1][c] && S.board[r][c].type === S.board[r - 1][c].type
+        const same = r < ROWS && S.board[r][c] && S.board[r - 1][c]
+          && !isRainbow(S.board[r][c]) && !isRainbow(S.board[r - 1][c])
+          && S.board[r][c].type === S.board[r - 1][c].type
           && !isLocked(r, c) && !isLocked(r - 1, c);
         if (same) run++;
         else {
@@ -573,32 +580,43 @@
   // 果冻格上的方块缩放系数（留出果冻边）
   const JELLY_BLOCK_SCALE = 0.76;
 
+  // 货物徽标（钥匙 / 奶龙）：圆底 30% 透明度，不挡下面的图案
+  function drawCargoBadge(cx, cy, kind) {
+    const isN = kind === 'nailong';
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, CELL * 0.3, 0, Math.PI * 2);
+    ctx.fillStyle = isN ? 'rgba(255,196,86,0.30)' : 'rgba(255,255,255,0.30)';
+    ctx.fill();
+    ctx.strokeStyle = isN ? 'rgba(255,140,0,0.9)' : 'rgba(124,92,255,0.9)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.font = Math.round(CELL * 0.36) + 'px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(isN ? '🐲' : '🔑', cx, cy + 1);
+    ctx.restore();
+  }
+
   // 静态重绘（无动画）
   // 冰块 / 锁链 / 货物徽标 / 提示高亮：统一在方块画完之后叠一层
-  function drawCellOverlays() {
+  // opts.skip：这些格子先不画覆盖层（动画里要自己画在移动中的位置）
+  // opts.cargoAt：这些格子的货物改画在指定 y（跟随下落）
+  function drawCellOverlays(opts) {
+    opts = opts || {};
+    const skip = opts.skip || null;
+    const cargoAt = opts.cargoAt || null;
     const now = performance.now();
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const x = c * CELL, y = r * CELL;
         const b = S.board[r] && S.board[r][c];
+        const k = kOf(r, c);
 
         // 货物：贴在方块上的钥匙 / 奶龙
-        if (b && b.cargo) {
-          const isN = b.cargo.kind === 'nailong';
-          const cx = x + CELL / 2, cy = y + CELL / 2;
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(cx, cy, CELL * 0.3, 0, Math.PI * 2);
-          ctx.fillStyle = isN ? 'rgba(255,196,86,0.94)' : 'rgba(255,255,255,0.94)';
-          ctx.fill();
-          ctx.strokeStyle = isN ? '#ff8c00' : '#7c5cff';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-          ctx.font = Math.round(CELL * 0.36) + 'px serif';
-          ctx.textAlign = 'center';
-          ctx.textBaseline = 'middle';
-          ctx.fillText(isN ? '🐲' : '🔑', cx, cy + 1);
-          ctx.restore();
+        if (b && b.cargo && !(skip && skip[k])) {
+          const cy = (cargoAt && cargoAt[k] != null) ? cargoAt[k] : y;
+          drawCargoBadge(x + CELL / 2, cy + CELL / 2, b.cargo.kind);
         }
 
         // 冰块
@@ -857,6 +875,13 @@
       const bScale = jellyAt(b.r, b.c) ? JELLY_BLOCK_SCALE : 1;
       drawBlock(ax + (bx - ax) * e, ay + (by - ay) * e, ta, { scale: aScale + (bScale - aScale) * e });
       drawBlock(bx + (ax - bx) * e, by + (ay - by) * e, tb, { scale: bScale + (aScale - bScale) * e });
+      // 覆盖层（冰块 / 锁链 / 货物）必须每帧都画，否则交换时它们会「闪一下不见了」
+      const skip = {};
+      skip[kOf(a.r, a.c)] = 1;
+      skip[kOf(b.r, b.c)] = 1;
+      drawCellOverlays({ skip: skip });
+      if (ta && ta.cargo) drawCargoBadge(ax + (bx - ax) * e + CELL / 2, ay + (by - ay) * e + CELL / 2, ta.cargo.kind);
+      if (tb && tb.cargo) drawCargoBadge(bx + (ax - bx) * e + CELL / 2, by + (ay - by) * e + CELL / 2, tb.cargo.kind);
       FX.render(ctx);
       ctx.restore();
     });
@@ -892,6 +917,7 @@
       const shake = FX.getShakeOffset();
       ctx.translate(shake.x, shake.y);
       drawJellyLayer();
+      const cargoAt = {};        // 货物跟着方块一起往下掉，不能停在原位闪一下
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
           if (!S.board[r][c]) continue;
@@ -900,11 +926,13 @@
           if (fromR !== undefined && fromR !== r) {
             const y = (fromR * CELL) + (r * CELL - fromR * CELL) * e;
             drawBlock(c * CELL, y, S.board[r][c], opts);
+            if (S.board[r][c].cargo) cargoAt[kOf(r, c)] = y;
           } else {
             drawBlock(c * CELL, r * CELL, S.board[r][c], opts);
           }
         }
       }
+      drawCellOverlays({ cargoAt: cargoAt });
       FX.render(ctx);
       ctx.restore();
     });
@@ -951,6 +979,55 @@
   }
   function beatBonus() {
     return beatMult() > 1;
+  }
+
+  // 节拍条：光点从左走到最右端 = 一个节拍；拍点会「滴答」一声并闪一下。
+  // 以前只有分数暗地里 ×1.5，玩家根本不知道拍子在哪，现在看得见也听得见。
+  let beatTimer = null;
+  let beatIdx = -1;
+  const BEAT_HIT_PHASE = 0.27;   // ±170ms / 620ms
+
+  function stopBeatLoop() {
+    if (beatTimer) { clearInterval(beatTimer); beatTimer = null; }
+    const bar = $('beat-bar');
+    if (bar) bar.style.display = 'none';
+    beatIdx = -1;
+  }
+
+  function startBeatLoop() {
+    const bar = $('beat-bar');
+    const on = S.mode === 'rhythm' && S.playing && !S.paused;
+    if (bar) bar.style.display = on ? 'flex' : 'none';
+    if (!on) { stopBeatLoop(); return; }
+    if (beatTimer) return;
+    beatIdx = -1;
+    tickBeat();
+    beatTimer = setInterval(tickBeat, 40);
+  }
+
+  function tickBeat() {
+    if (!(S.mode === 'rhythm' && S.playing && !S.paused)) { stopBeatLoop(); return; }
+    const now = performance.now();
+    const idx = Math.floor(now / BEAT_MS);
+    const phase = (now % BEAT_MS) / BEAT_MS;
+    const fill = $('beat-fill');
+    const dot = $('beat-dot');
+    const hitEl = $('beat-hit');
+    if (fill) fill.style.width = Math.round(phase * 100) + '%';
+    if (dot) {
+      dot.style.left = Math.round(phase * 100) + '%';
+      dot.classList.toggle('hot', phase > 1 - BEAT_HIT_PHASE || phase < BEAT_HIT_PHASE);
+    }
+    if (idx !== beatIdx) {
+      beatIdx = idx;
+      AudioManager.playSFX('beat', { accent: idx % 4 === 0 });
+      if (dot) {
+        dot.classList.remove('pulse');
+        void dot.offsetWidth;
+        dot.classList.add('pulse');
+      }
+    }
+    if (hitEl) hitEl.textContent = (phase > 1 - BEAT_HIT_PHASE || phase < BEAT_HIT_PHASE) ? '就是现在！' : '';
   }
 
   function bumpCombo() {
@@ -1098,7 +1175,7 @@
       const b = S.board[p.r][p.c];
       if (b) {
         colors[b.type] = (colors[b.type] || 0) + 1;
-        if (b.cargo) kickedCargo.push({ c: p.c, cargo: b.cargo });
+        if (b.cargo) kickedCargo.push({ r: p.r, c: p.c, cargo: b.cargo });
       }
       if (S.jelly[p.r] && S.jelly[p.r][p.c]) jellyHit++;
     });
@@ -1160,9 +1237,14 @@
 
     // 掉落 + 补充
     const fallFrom = dropAndFill();
-    // 被消掉的货物从同列最上方重新掉下来（不白丢）
-    kickedCargo.forEach((d) => {
-      if (S.board[0][d.c]) S.board[0][d.c].cargo = d.cargo;
+    // 被消掉的货物往下掉一格：落在「被消掉那一格的下面一格」，不从顶端重新开始。
+    // 同一列有多个货物时从下往上放，避免互相抢格子。
+    kickedCargo.sort((x, y) => y.r - x.r).forEach((d) => {
+      let tr = Math.min(ROWS - 1, d.r + 1);
+      while (tr < ROWS - 1 && S.board[tr] && S.board[tr][d.c] && S.board[tr][d.c].cargo) tr++;
+      const cell = S.board[tr] && S.board[tr][d.c];
+      if (cell && !cell.cargo) cell.cargo = d.cargo;
+      else if (S.board[0][d.c] && !S.board[0][d.c].cargo) S.board[0][d.c].cargo = d.cargo;
     });
     await animateDrop(fallFrom);
     S.landAnims = [];
@@ -1226,21 +1308,27 @@
   }
 
   async function runRainbowClear(color, rainbowCell) {
-    const cells = new Set([kOf(rainbowCell.r, rainbowCell.c)]);
+    // 彩虹只是个「引子」：清掉全盘同图案的普通方块，彩虹自己留在棋盘上，可以继续用。
+    // （只有拿彩虹去和别的特殊块合体时才会被消耗）
+    const cells = new Set();
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         const b = S.board[r][c];
-        if (b && b.type === color && !(r === rainbowCell.r && c === rainbowCell.c)) {
-          cells.add(kOf(r, c));
-        }
+        if (!b) continue;
+        if (r === rainbowCell.r && c === rainbowCell.c) continue;
+        if (b.special === T.RAINBOW) continue;
+        if (b.type === color) cells.add(kOf(r, c));
       }
     }
-    const boomPoints = [{ r: rainbowCell.r, c: rainbowCell.c, type: T.RAINBOW }];
 
     FX.text(rainbowCell.c * CELL + CELL / 2, rainbowCell.r * CELL + CELL / 2 - CELL * 0.3,
       '同图案消除 🌈', '#c85cff', 18);
+    FX.burst(rainbowCell.c * CELL + CELL / 2, rainbowCell.r * CELL + CELL / 2, '#c85cff', 6);
     AudioManager.playSFX('line');
-    await resolveClear(cells, boomPoints);
+    Tasks.report('rainbow', 1);
+    Meta.bump('rainbows', 1);
+    if (!cells.size) { drawStatic(); return; }
+    await resolveClear(cells, []);
   }
 
   // ==================== 特殊块的生成顺序 ====================
@@ -1717,6 +1805,7 @@
 
     if (S.timerOn) startTimer();
     else stopTimer();
+    startBeatLoop();
   }
 
   let timerId = null;
@@ -1741,6 +1830,27 @@
   }
 
   // ==================== 暂停 ====================
+  // 从游戏界面点「规则 / 设置」时静默暂停：遮罩盖住棋盘，计时和节拍先停住，
+  // 关掉面板自动接上，不会白掉时间。
+  let quietPaused = false;
+  function quietPauseGame() {
+    if (!S.playing || S.paused) return;
+    S.paused = true;
+    quietPaused = true;
+    stopTimer();
+    stopBeatLoop();
+  }
+  function quietResumeGame() {
+    if (!quietPaused) return;
+    quietPaused = false;
+    S.paused = false;
+    setView('game');
+    if (!S.playing) return;
+    if (S.timerOn) startTimer();
+    startBeatLoop();
+    drawStatic();
+  }
+
   function updatePauseHint() {
     const el = $('pause-hint');
     if (!el) return;
@@ -1753,6 +1863,7 @@
     if (!S.playing || S.paused || S.busy) return;
     S.paused = true;
     stopTimer();
+    stopBeatLoop();
     Input.setEnabled(false);
     S.selected = null;
     S.dragTo = null;
@@ -1780,6 +1891,7 @@
     setView('game');
     Input.setEnabled(true);
     if (S.timerOn && S.playing) startTimer();
+    startBeatLoop();
     drawStatic();
   }
 
@@ -1907,6 +2019,7 @@
     if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     S.playing = false;
     stopTimer();
+    stopBeatLoop();
     Input.setEnabled(false);
 
     const remainRatio = S.timerOn
@@ -2078,6 +2191,7 @@
     if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     S.playing = false;
     stopTimer();
+    stopBeatLoop();
     Input.setEnabled(false);
 
     const remainRatio = S.timerOn ? S.timeLeft / (S.levelDef.goal.time || 1) : S.moves / (S.levelDef.moves || 1);
@@ -2555,17 +2669,53 @@
     TR: '土耳其', MX: '墨西哥', CH: '瑞士', SE: '瑞典', PL: '波兰', KP: '朝鲜', MN: '蒙古'
   };
 
+  // 有的库（ipapi.is）只给英文国名不给国家码，这里先翻成码再取中文
+  const COUNTRY_NAME_TO_CODE = {
+    china: 'CN', 'hong kong': 'HK', 'hong kong sar': 'HK', macau: 'MO', macao: 'MO', taiwan: 'TW',
+    'united states': 'US', 'united states of america': 'US', japan: 'JP', 'south korea': 'KR',
+    'korea, republic of': 'KR', 'republic of korea': 'KR', singapore: 'SG', malaysia: 'MY',
+    thailand: 'TH', vietnam: 'VN', 'viet nam': 'VN', philippines: 'PH', indonesia: 'ID',
+    india: 'IN', 'united kingdom': 'GB', germany: 'DE', france: 'FR', canada: 'CA',
+    australia: 'AU', 'new zealand': 'NZ', russia: 'RU', 'russian federation': 'RU', brazil: 'BR'
+  };
+
+  // 英文国名 → 国家码（懒加载一次，之后走缓存）
+  let _enRegionMap = null;
+  function enRegionToCode(name) {
+    const key = String(name || '').trim().toLowerCase();
+    if (!key) return '';
+    if (COUNTRY_NAME_TO_CODE[key]) return COUNTRY_NAME_TO_CODE[key];
+    if (!_enRegionMap) {
+      _enRegionMap = {};
+      try {
+        const en = new Intl.DisplayNames(['en'], { type: 'region' });
+        for (let a = 65; a <= 90; a++) {
+          for (let b = 65; b <= 90; b++) {
+            const code = String.fromCharCode(a) + String.fromCharCode(b);
+            try {
+              const n = en.of(code);
+              if (n && n !== code) _enRegionMap[String(n).toLowerCase()] = code;
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+    }
+    return _enRegionMap[key] || '';
+  }
+
   function countryLabel(geo) {
-    const cc = String((geo && geo.countryCode) || '').toUpperCase();
-    if (cc && COUNTRY_CN[cc]) return COUNTRY_CN[cc];
+    let cc = String((geo && geo.countryCode) || '').toUpperCase();
+    if (!cc && geo && geo.country) cc = enRegionToCode(geo.country);
     if (cc) {
+      if (COUNTRY_CN[cc]) return COUNTRY_CN[cc];
       try {
         const n = new Intl.DisplayNames(['zh-CN'], { type: 'region' }).of(cc);
         if (n) return n;
       } catch (e) {}
       return cc;
     }
-    return String((geo && geo.country) || '');
+    const raw = String((geo && geo.country) || '');
+    return /[\u4e00-\u9fa5]/.test(raw) ? raw : '';
   }
 
   // 省份名单：计数器 key 只支持英文字母，这里存「全名 → 拼音代号」
@@ -2984,27 +3134,29 @@
     if (sub) sub.textContent = '正在统计…';
     if (list) list.innerHTML = '<li class="prov-empty">正在统计…</li>';
 
-    const render = (rows) => {
+    const render = (rows, loading) => {
       if (!provCityView || provCityView.code !== row.code) return;
       cityCache[row.code] = rows;
       const citySum = rows.reduce((s, r) => s + r.n, 0);
       // 移动网络下 IP 库经常只到省、给不出市 → 差额单列一行，保证「各市相加 = 该省总数」
       const rest = Math.max(0, (row.n || 0) - citySum);
       if (sub) {
-        sub.textContent = row.n
-          ? ('共 ' + rows.length + ' 个市 · ' + row.n + ' 次点击')
-          : '暂无市级点击记录';
+        sub.textContent = loading
+          ? '正在统计…'
+          : row.n ? ('共 ' + rows.length + ' 个市 · ' + row.n + ' 次点击') : '暂无市级点击记录';
       }
       if (list) {
         let html = rows.map((r) => '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('');
         if (rest > 0) {
-          html += '<li class="prov-unknown"><span>未定位到市</span><b>' + rest + '</b></li>';
+          // 市级数据还没回来时先说「加载中…」，别一上来就显示「未定位到市」
+          html += '<li class="prov-unknown"><span>' + (loading ? '加载中…' : '未定位到市') + '</span><b>' + rest + '</b></li>';
         }
-        list.innerHTML = html || '<li class="prov-empty">暂无市级点击记录</li>';
+        list.innerHTML = html || (loading ? '<li class="prov-empty">加载中…</li>' : '<li class="prov-empty">暂无市级点击记录</li>');
       }
     };
 
-    if (cityCache[row.code]) render(cityCache[row.code]);   // 先画缓存
+    if (cityCache[row.code]) render(cityCache[row.code], false);   // 先画缓存
+    else render([], true);                                          // 没缓存就先显示加载中
     const cities = CITY_TABLE[row.code] || [];
     const cacheKey = 'nl2:cityVals:' + row.code;
     let saved = {};
@@ -3022,7 +3174,7 @@
       .then((rows) => {
         try { localStorage.setItem(cacheKey, JSON.stringify(saved)); } catch (e) {}
         // 读失败（0 不可信的判断做不了，简单起见 0 直接不显示）
-        render(rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n));
+        render(rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n), false);
       });
   }
 
@@ -3190,18 +3342,30 @@
     return sum;
   }
 
-  // 地址统一成「中国-四川省-成都市」：城市没有「市」尾巴的自动补上
+  // 地址统一成「中国-四川省-成都市」：全中文，城市没「市」尾巴的自动补上
   function formatRegion(geo) {
     if (!geo) return '';
     const country = countryLabel(geo);
     const p = matchProvince(geo.region);
     const city = p ? matchCity(p.code, geo.city) : null;
-    const parts = [country];
-    if (p) parts.push(p.name);
-    else if (geo.region) parts.push(String(geo.region));
-    if (city) parts.push(city.name);
-    else if (geo.city && p) parts.push(String(geo.city));
-    return parts.filter(Boolean).join('-');
+    const parts = [];
+    if (country) parts.push(country);
+    if (p) {
+      parts.push(p.name);
+    } else {
+      const reg = String(geo.region || '').trim();
+      if (/[\u4e00-\u9fa5]/.test(reg)) parts.push(reg);   // 中文省名原样用，英文不显示
+    }
+    if (city) {
+      parts.push(city.name);
+    } else {
+      const raw = String(geo.city || '').trim();
+      // 只显示中文城市名（Chengdu 这种英文名宁可不显示，等市级统计补上）
+      if (/[\u4e00-\u9fa5]/.test(raw)) {
+        parts.push(/[市地区盟县州区]$/.test(raw) ? raw : raw + '市');
+      }
+    }
+    return parts.join('-');
   }
 
   function renderAdmin() {
@@ -3365,7 +3529,8 @@
     const rulesClose = $('btn-close-rules');
     if (rulesClose) rulesClose.addEventListener('click', () => {
       $('rules-menu').style.display = 'none';
-      showOverlay('main-menu');
+      if (quietPaused) quietResumeGame();
+      else showOverlay('main-menu');
     });
     const hist = $('btn-history');
     if (hist) hist.addEventListener('click', () => {
@@ -3589,6 +3754,20 @@
 
     on('btn-hint', useHint);
 
+    // 游戏界面第一排：🎵 音乐开关 → 🎒 背包 → 📖 规则 → ⚙️ 设置
+    on('btn-rules-game', () => {
+      quietPauseGame();
+      applyRuleFont(ruleFontLevel());
+      showOverlay('rules-menu');
+      AudioManager.playSFX('select');
+    });
+    on('btn-settings-game', () => {
+      quietPauseGame();
+      showOverlay('settings-menu');
+      syncVolumeUI();
+      AudioManager.playSFX('select');
+    });
+
     on('btn-chapters', () => { renderChapterMap(); showOverlay('chapters-menu'); });
     on('btn-close-chapters', () => { $('chapters-menu').style.display = 'none'; showOverlay('main-menu'); });
 
@@ -3608,8 +3787,16 @@
     on('btn-close-welfare', () => { $('welfare-menu').style.display = 'none'; showOverlay('main-menu'); });
     on('btn-welfare-signin', doSignIn);
     on('btn-wheel', doWheel);
-    on('btn-leaderboard', () => { renderLeaderboard(); showOverlay('leaderboard-menu'); });
-    on('btn-close-lb', () => { $('leaderboard-menu').style.display = 'none'; showOverlay('main-menu'); });
+    on('btn-leaderboard', () => {
+      renderLeaderboard();
+      showOverlay('leaderboard-menu');
+      if (typeof Board !== 'undefined') Board.open(myBestEntry());   // 拉全网 + 开实时推送
+    });
+    on('btn-close-lb', () => {
+      $('leaderboard-menu').style.display = 'none';
+      if (typeof Board !== 'undefined') Board.close();
+      showOverlay('main-menu');
+    });
     on('btn-lb-save', saveNick);
     on('btn-lb-add', addFriendFromInput);
     on('btn-lb-copy', copyMyCode);
@@ -3685,7 +3872,10 @@
       });
     });
     const closeSettings = $('btn-close-settings');
-    if (closeSettings) closeSettings.addEventListener('click', () => $('settings-menu').style.display = 'none');
+    if (closeSettings) closeSettings.addEventListener('click', () => {
+      $('settings-menu').style.display = 'none';
+      if (quietPaused) quietResumeGame();
+    });
 
     const volBtn = $('btn-goto-volume');
     if (volBtn) volBtn.addEventListener('click', () => {
@@ -3916,7 +4106,11 @@
     // 后台统计：全网计数 +1、城市定位（失败不影响游戏）
     // 本机这一下必须算进全网：定位没回来就等它，最多重试 3 次，绝不丢
     setTimeout(() => { attributeClick(0); }, 300);
-    AudioManager.init(settings);
+    // iOS / iPadOS：AudioContext 必须在手势里创建，否则之后 resume 也起不来，
+    // 表现就是「上次把音乐关掉，这次进来连音效都没了」
+    const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '') ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    AudioManager.init(settings, !IS_IOS);
     AudioManager.musicOn = settings.music !== false;
     ['btn-music-home', 'btn-music-game'].forEach((id) => {
       const el = $(id);
@@ -3938,6 +4132,15 @@
       Meta.check();
     } catch (e) {}
 
+    // 排行榜：别人成绩一变就重绘（只在面板开着的时候）
+    if (typeof Board !== 'undefined') {
+      Board.onChange(() => {
+        const lb = $('leaderboard-menu');
+        if (lb && lb.style.display === 'flex') renderLeaderboard();
+      });
+      publishMyScore();
+    }
+
     attachUI();
     if (global_Music()) global_Music().init();
     refreshMenu();
@@ -3951,10 +4154,6 @@
     // 2) 不允许的（iOS、微信 iOS）会在第一次触屏 / 滚动 / 点击的瞬间接上，
     //    事件不解绑，没播起来就下次交互继续试。
     let musicTaken = false;
-    // iOS / iPadOS：AudioContext 必须在手势里创建，否则之后 resume 也起不来，
-    // 表现就是「上次把音乐关掉，这次进来连音效都没了」
-    const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '') ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
     const tryPlayMusic = (gesture) => {
       AudioManager.init(Store.getSettings(), gesture === true || !IS_IOS);
       AudioManager.unlock();                 // 恢复 AudioContext + 默认背景音乐
@@ -4218,6 +4417,7 @@
   function endModeRun() {
     S.playing = false;
     stopTimer();
+    stopBeatLoop();
     Input.setEnabled(false);
     document.body.classList.remove('frenzy');
     const mode = S.mode === 'main' ? 'endless' : S.mode;
@@ -4324,7 +4524,7 @@
       const s = all[k].score || 0;
       if (s > best.score) best = { score: s, level: Number(k) || 0 };
     });
-    return { name: Meta.nickname(), score: best.score, level: best.level, ts: Date.now(), me: true };
+    return { uid: Meta.myUid(), name: Meta.nickname(), score: best.score, level: best.level, ts: Date.now(), me: true };
   }
 
   // 排行榜：自己的本周最佳 + 好友（好友永久保留，手动删除才消失）
@@ -4385,19 +4585,43 @@
     const box = $('lb-list');
     if (!box) return;
     const me = myBestEntry();
-    const rows = Meta.friends().map((f) => ({
-      uid: f.uid, name: f.name, score: f.score || 0, friend: true
-    })).concat([me]);
-    rows.sort((a, b) => (b.score || 0) - (a.score || 0));
+
+    // 三份数据合并：全网（公共中转）+ 本机导入的好友 + 自己
+    // 同一个 uid 只留一条：分数取最高，昵称取时间最新的
+    const friendUids = {};
+    Meta.friends().forEach((f) => { friendUids[f.uid] = true; });
+    const raw = [];
+    if (typeof Board !== 'undefined') raw.push.apply(raw, Board.list());
+    Meta.friends().forEach((f) => raw.push({ uid: f.uid, name: f.name, score: f.score, ts: f.ts }));
+    raw.push(me);
+
+    const byId = {};
+    raw.forEach((r) => {
+      if (!r || !r.uid) return;
+      // 0 分的（还没通关过）不占榜位
+      if (!(r.score > 0) && r.uid !== me.uid) return;
+      const cur = byId[r.uid];
+      if (!cur) {
+        byId[r.uid] = { uid: r.uid, name: r.name, score: r.score || 0, ts: r.ts || 0 };
+        return;
+      }
+      if ((r.ts || 0) >= (cur.ts || 0)) cur.name = r.name;
+      if ((r.score || 0) > cur.score) cur.score = r.score;
+    });
+
+    const rows = Object.keys(byId).map((k) => {
+      const r = byId[k];
+      return {
+        uid: r.uid,
+        name: r.name,
+        score: r.score,
+        me: r.uid === me.uid,
+        friend: !!friendUids[r.uid] && r.uid !== me.uid
+      };
+    }).sort((a, b) => b.score - a.score);
 
     box.innerHTML = '';
     lbOpenRow = null;
-    if (!rows.length) {
-      const d = document.createElement('div');
-      d.className = 'lb-empty';
-      d.textContent = '还没有成绩，通关一局就会自动上榜';
-      box.appendChild(d);
-    }
     rows.slice(0, 20).forEach((r, i) => {
       const row = document.createElement('div');
       row.className = 'lb-row' + (r.me ? ' me' : '');
@@ -4405,7 +4629,7 @@
       inner.className = 'lb-swipe';
       inner.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
         '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
-        (r.me ? '<i class="lb-me">我</i>' : '<i>好友</i>') + '</span>' +
+        (r.me ? '<i class="lb-me">我</i>' : r.friend ? '<i>好友</i>' : '') + '</span>' +
         '<span class="lb-score">' + (r.score || 0) + '</span>';
       row.appendChild(inner);
       if (r.friend) {
@@ -4424,12 +4648,29 @@
       }
       box.appendChild(row);
     });
+    if (!rows.length) {
+      const d = document.createElement('div');
+      d.className = 'lb-empty';
+      d.textContent = '还没有成绩，通关一局就会自动上榜';
+      box.appendChild(d);
+    }
     if ($('lb-nick')) $('lb-nick').value = Meta.nickname();
-    if ($('lb-week')) $('lb-week').textContent = Meta.weekKey();
+    if ($('lb-week')) {
+      const st = typeof Board !== 'undefined' ? Board.statusText() : '仅本机';
+      $('lb-week').textContent = '全部时间 · ' + st + ' · ' + rows.length + ' 人';
+    }
   }
 
-  // 自己的成绩始终按「当前最好成绩」实时算，不写进榜单列表，避免重复行
-  function recordMyScore() {}
+  // 自己的成绩变了就立刻发到榜上（最快 6 秒一次，节流在 Board 里做）
+  // 还没打过分的（0 分）先不上榜，免得榜里全是 0 分的空名字
+  function publishMyScore(force) {
+    if (typeof Board === 'undefined') return;
+    const me = myBestEntry();
+    if (!(me.score > 0)) return;
+    try { Board.publish(me, force); } catch (e) {}
+  }
+
+  function recordMyScore() { publishMyScore(); }
 
   function copyMyCode() {
     const me = myBestEntry();
@@ -4450,6 +4691,10 @@
     const raw = $('lb-code') ? $('lb-code').value : '';
     const r = Meta.addFriend(raw);
     if (!r.ok) { toast(r.reason || '成绩码无效'); AudioManager.playSFX('invalid'); return; }
+    // 好友的成绩也放进共享榜，别人点开排行榜同样能看到
+    if (typeof Board !== 'undefined' && r.entry && r.entry.uid) {
+      try { Board.publish({ uid: r.entry.uid, name: r.entry.name, score: r.entry.score, level: r.entry.level }, true); } catch (e) {}
+    }
     toast(r.updated ? ('已更新好友：' + r.entry.name + ' ' + r.entry.score) : ('已加入好友：' + r.entry.name + ' ' + r.entry.score));
     if ($('lb-code')) $('lb-code').value = '';
     renderLeaderboard();
@@ -4460,6 +4705,8 @@
     const v = $('lb-nick') ? $('lb-nick').value : '';
     Meta.setNickname(v);
     toast('昵称已改为「' + Meta.nickname() + '」');
+    // 改名立刻同步到榜上（别人开着排行榜会实时看到新昵称）
+    publishMyScore(true);
     renderLeaderboard();
     refreshMenu();
   }
