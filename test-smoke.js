@@ -264,7 +264,7 @@ function check(name, ok) {
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('200 金币'));
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));
   check('规则含成就配色排行榜说明', htmlSrc.includes('成就、配色与排行榜') && htmlSrc.includes('总榜 → 省榜 → 局榜') && htmlSrc.includes('奖牌'));
-  check('规则主线为 40 关 4 章节', htmlSrc.includes('主线共 <b>40 关</b>') && htmlSrc.includes('糖果城堡'));
+  check('规则页不剧透总章节数 / 总关数', !htmlSrc.includes('主线共 <b>40 关</b>') && !htmlSrc.includes('40 关') && !htmlSrc.includes('4 个章节'));
   check('规则含补签说明', htmlSrc.includes('补签') && htmlSrc.includes('300 金币'));
   check('结算页有继续游戏按钮且在进入下一关上面',
     htmlSrc.includes('btn-clear-continue') && htmlSrc.indexOf('btn-clear-continue') < htmlSrc.indexOf('id="btn-next-level"'));
@@ -318,7 +318,20 @@ function check(name, ok) {
   // 沙箱里没有网络，关卡数据用磁盘上的真实 levels.json 顶替，和线上走同一条渲染路径
   sandbox.__nl_test.state().data = JSON.parse(fs.readFileSync(path.join('js', 'levels.json'), 'utf8'));
   $('btn-chapters').dispatch('click');
-  check('章节地图渲染出 4 章', $('chapters-list').children.length === 4);
+  const chJson = JSON.parse(fs.readFileSync(path.join('js', 'levels.json'), 'utf8'));
+  const chKids = $('chapters-list').children;
+  const countCh = () => chKids.filter((c) => String(c.className || '').indexOf('chapter-card') === 0).length;
+  const moreOf = () => chKids.filter((c) => String(c.className || '') === 'chapter-more')[0];
+  const maxU0 = sandbox.Store.maxUnlockedLevel(40);
+  check('章节地图只显示已解锁的章节（未玩到的章节不提前露出）',
+    countCh() === chJson.chapters.filter((c) => maxU0 >= c.from).length && countCh() < chJson.chapters.length);
+  check('章节地图最底下写「更多章节等待解锁…」',
+    !!moreOf() && String(moreOf().textContent).indexOf('更多章节等待解锁') >= 0 &&
+    chKids[chKids.length - 1] === moreOf());
+  // 打通第一章之后，第二章才会出现在地图上
+  for (let i = 1; i <= 10; i++) sandbox.Store.recordLevel(i, 900, 1);
+  $('btn-chapters').dispatch('click');
+  check('打通第一章后第二章才出现', countCh() === 2);
   $('btn-close-chapters').dispatch('click');
 
   $('btn-achievements').dispatch('click');

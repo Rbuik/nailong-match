@@ -1024,6 +1024,16 @@ body.m-dragging .m-item { cursor: grabbing; }
 .level-chip.locked { opacity: 0.45; cursor: default; }
 .level-chip:active { transform: scale(0.94); }
 .chapter-lock { margin-top: 8px; font-size: 12px; color: #9a93ad; text-align: center; }
+/* 章节地图最底下：后面还有章节，数量不剧透 */
+.chapter-more {
+  margin: 2px 0 0;
+  padding: 10px 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #9a93ad;
+  text-align: center;
+  letter-spacing: 0.5px;
+}
 
 /* ================= 剧情过场 ================= */
 .story-card {
