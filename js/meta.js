@@ -113,13 +113,16 @@
   }
 
   // ==================== 皮肤（图鉴） ====================
-  // 颜色依次：黄、绿、粉、紫、金；icon 是对应颜色的方块色块
+  // 颜色依次：黄、红、橙、绿、青、蓝、紫、黑；icon 是对应颜色的方块色块
   const SKINS = [
-    { id: 'default', name: '黄色', icon: '■', color: '#ffd94a', stars: 0, desc: '默认配色' },
-    { id: 'mint', name: '绿色', icon: '■', color: '#3ecf8e', stars: 12, desc: '绿色光晕，目标栏淡绿底' },
-    { id: 'sakura', name: '粉色', icon: '■', color: '#ff8fc0', stars: 30, desc: '粉色光晕，目标栏粉底' },
-    { id: 'galaxy', name: '紫色', icon: '■', color: '#9a8cf0', stars: 60, desc: '紫色光晕，目标栏淡紫底' },
-    { id: 'gold', name: '金色', icon: '■', color: '#f0a30a', stars: 100, desc: '金色光晕，目标栏浅金底' }
+    { id: 'default', name: '黄色', icon: '■', color: '#ffd94a', stars: 0,   desc: '默认配色' },
+    { id: 'red',     name: '红色', icon: '■', color: '#ff5a5a', stars: 10,  desc: '红色光晕，目标栏淡红底' },
+    { id: 'orange',  name: '橙色', icon: '■', color: '#ff9a3c', stars: 20,  desc: '橙色光晕，目标栏淡橙底' },
+    { id: 'mint',    name: '绿色', icon: '■', color: '#3ecf8e', stars: 35,  desc: '绿色光晕，目标栏淡绿底' },
+    { id: 'cyan',    name: '青色', icon: '■', color: '#4ecbff', stars: 55,  desc: '青色光晕，目标栏淡青底' },
+    { id: 'blue',    name: '蓝色', icon: '■', color: '#5c8fff', stars: 80,  desc: '蓝色光晕，目标栏淡蓝底' },
+    { id: 'galaxy',  name: '紫色', icon: '■', color: '#9a8cf0', stars: 110, desc: '紫色光晕，目标栏淡紫底' },
+    { id: 'black',   name: '黑色', icon: '■', color: '#3a3a44', stars: 150, desc: '黑色光晕，目标栏淡灰底' }
   ];
 
   function currentSkin() {
@@ -227,6 +230,21 @@
     return n || '奶龙玩家';
   }
 
+  function isDefaultNick() {
+    return nickname() === '奶龙玩家';
+  }
+
+  // 昵称规则：1~8 字；中文 / 字母 / 数字 + 特殊符号只允许 - 和 .；不能重名（taken 由调用方收集）
+  function validateNick(v, taken) {
+    const s = String(v || '').trim();
+    if (!s) return { ok: false, reason: '昵称不能为空' };
+    if (s === '奶龙玩家') return { ok: false, reason: '不能再用「奶龙玩家」，换一个吧' };
+    if (s.length > 8) return { ok: false, reason: '昵称最多 8 个字' };
+    if (!/^[\u4e00-\u9fa5A-Za-z0-9.\-]+$/.test(s)) return { ok: false, reason: '特殊符号只能用 - 和 .' };
+    if (taken && taken.indexOf(s) >= 0) return { ok: false, reason: '这个名字已经被别人用了' };
+    return { ok: true, name: s };
+  }
+
   function setNickname(n) {
     const v = String(n || '').trim().slice(0, 8);
     write(K.nick, v || '奶龙玩家');
@@ -276,7 +294,7 @@
   // 成绩码：把自己的成绩发给朋友，对方粘贴进来即可同榜（不设有效期，随时都能加）
   function makeCode(entry) {
     try {
-      const payload = { v: 2, u: myUid(), n: entry.name, s: entry.score, l: entry.level || 0 };
+      const payload = { v: 2, u: myUid(), n: entry.name, s: entry.score, l: entry.level || 0, p: entry.pv || '' };
       return 'NL1-' + btoa(unescape(encodeURIComponent(JSON.stringify(payload)))).replace(/=+$/, '');
     } catch (e) { return ''; }
   }
@@ -293,6 +311,7 @@
         name: String(p.n || '好友').slice(0, 8),
         score: Math.max(0, Math.round(p.s)),
         level: p.l || 0,
+        pv: /^[a-z]{2,20}$/.test(String(p.p || '').toLowerCase()) ? String(p.p).toLowerCase() : '',
         week: p.w || ''
       };
     } catch (e) { return null; }
@@ -309,10 +328,10 @@
     if (idx < 0 && !e.uid) idx = list.findIndex((x) => x.name === e.name);
     let updated = false;
     if (idx >= 0) {
-      list[idx] = { uid: e.uid || list[idx].uid, name: e.name, score: e.score, level: e.level, ts: Date.now() };
+      list[idx] = { uid: e.uid || list[idx].uid, name: e.name, score: e.score, level: e.level, pv: e.pv || list[idx].pv || '', ts: Date.now() };
       updated = true;
     } else {
-      list.push({ uid: e.uid || ('n' + Date.now()), name: e.name, score: e.score, level: e.level, ts: Date.now() });
+      list.push({ uid: e.uid || ('n' + Date.now()), name: e.name, score: e.score, level: e.level, pv: e.pv || '', ts: Date.now() });
     }
     saveFriends(list);
     return { ok: true, entry: e, updated: updated };
@@ -396,7 +415,7 @@
     getBest, recordBest,
     canSpin, spin, wheelState,
     signInfo, signIn,
-    weekKey, nickname, setNickname, board, addBoard, makeCode, addFriend,
+    weekKey, nickname, isDefaultNick, validateNick, setNickname, board, addBoard, makeCode, addFriend,
     myUid, friends, removeFriend, clearFriends,
     storySeen, markStory,
     renderAchievements
