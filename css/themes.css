@@ -1321,22 +1321,12 @@ body[data-skin="gold"] .board-wrap {
   box-shadow: 0 0 0 3px rgba(230, 170, 20, 0.6), 0 12px 30px rgba(230, 170, 20, 0.35);
 }
 
-/* 皮肤不只换棋盘光晕：主页奶龙配色 + 主按钮投影跟着变 */
-body[data-skin="mint"]   { --skin-glow: rgba(47, 168, 122, 0.45); --skin-m1: #b9f5d8; --skin-m2: #4fd39a; --skin-m3: #2fa87a; }
-body[data-skin="sakura"] { --skin-glow: rgba(255, 120, 170, 0.45); --skin-m1: #ffe0ee; --skin-m2: #ffa7c9; --skin-m3: #f07ba8; }
-body[data-skin="galaxy"] { --skin-glow: rgba(90, 80, 190, 0.5);   --skin-m1: #cfd0ff; --skin-m2: #8a86e8; --skin-m3: #6159c9; }
-body[data-skin="gold"]   { --skin-glow: rgba(230, 170, 20, 0.55); --skin-m1: #fff3b0; --skin-m2: #ffd257; --skin-m3: #e0a800; }
+/* 棋盘配色只改两处：游戏里棋盘外圈的光晕 + 「目标：」那一栏的底色。
+   主页奶龙、按钮、其它任何地方都不动。 */
+body[data-skin="mint"]   { --skin-target-bg: rgba(47, 168, 122, 0.22); }
+body[data-skin="sakura"] { --skin-target-bg: rgba(255, 150, 190, 0.26); }
+body[data-skin="galaxy"] { --skin-target-bg: rgba(110, 100, 205, 0.24); }
+body[data-skin="gold"]   { --skin-target-bg: rgba(240, 190, 50, 0.28); }
 
-body[data-skin="mint"] .btn-primary,
-body[data-skin="sakura"] .btn-primary,
-body[data-skin="galaxy"] .btn-primary,
-body[data-skin="gold"] .btn-primary {
-  box-shadow: 0 6px 18px var(--skin-glow);
-}
-body[data-skin="mint"] .mascot-body,
-body[data-skin="sakura"] .mascot-body,
-body[data-skin="galaxy"] .mascot-body,
-body[data-skin="gold"] .mascot-body {
-  background: radial-gradient(circle at 35% 30%, var(--skin-m1), var(--skin-m2) 70%, var(--skin-m3));
-  box-shadow: inset 0 -6px 12px rgba(0, 0, 0, 0.08), 0 6px 16px var(--skin-glow);
-}
+/* 目标栏底色由 updateTargetBar 用这个变量上色 */
+.target-bar { background: var(--skin-target-bg, rgba(92, 200, 143, 0.15)); }
