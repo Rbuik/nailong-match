@@ -5564,13 +5564,7 @@
     box.innerHTML = '';
     if (!accountOk() && typeof Account === 'undefined') return;
     const others = Account.list().filter((a) => a.name);
-    if (!others.length) {
-      const p = document.createElement('p');
-      p.className = 'history-hint';
-      p.textContent = '第一次来？点上面的「注册」，起个名字就能开始';
-      box.appendChild(p);
-      return;
-    }
+    if (!others.length) return;
     const tip = document.createElement('p');
     tip.className = 'history-hint';
     tip.textContent = '本机账号（点一下直接进入）';
