@@ -137,8 +137,9 @@
   function mergeOne(raw) {
     const e = clean(raw);
     if (!e) return false;
-    // 已注销的人：旧消息 / 老快照一律不收，只有注销之后的新消息（重新注册）才放行
-    if (deleted[e.uid] && e.ts <= deleted[e.uid]) return false;
+    // 已注销的人：墓碑保留期内该 uid 一律不收（重新玩会生成新 uid，
+    // 旧 uid 只可能来自没退出的旧页面 / 别人手里的旧快照，统统拒绝）
+    if (deleted[e.uid]) return false;
     const i = findIdx(e.uid);
     if (i < 0) {
       entries.push(e);
