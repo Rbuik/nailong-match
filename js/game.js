@@ -1375,58 +1375,11 @@
   // 与普通块交换但彩虹本身没被消时，只按普通三连处理，绝不触发。
   // 不连锁引爆同图案里夹着的炸弹/线消（它们只被当作普通方块消掉）。
 
-  // ==================== 特殊块的生成顺序 ====================
-  // 每个特殊块生成时发一个递增编号（跟着方块一起下落/存档），
-  // 步数或时间耗尽时按这个顺序依次引爆。
-  function nextSpecSeq() {
-    S.specSeq = (S.specSeq || 0) + 1;
-    return S.specSeq;
-  }
-
+  // ==================== 特殊块的生成 ====================
   function markSpecial(r, c, type) {
     const b = S.board[r] && S.board[r][c];
     if (!b) return;
     b.special = type;
-    b.seq = nextSpecSeq();
-  }
-
-  function collectSpecials() {
-    const list = [];
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        const b = S.board[r][c];
-        if (b && b.special && b.special !== T.NORMAL) {
-          list.push({ r, c, seq: b.seq || 0, special: b.special });
-        }
-      }
-    }
-    return list;
-  }
-
-  // 棋盘上剩下的特殊块：按生成先后一个个引爆，全部生效（含引爆后掉落产生的
-  // 连消与新特殊块）之后才结束，返回是否因此达成了关卡目标。
-  // 中途就算目标已达成也继续引爆完、把棋盘清干净，最后才进结算页。
-  // 不弹任何文字提示，节奏收紧（引爆间隔很短），避免结束前拖沓卡顿。
-  async function detonateBoardSpecials() {
-    const all = collectSpecials();
-    if (!all.length) return false;
-    await sleep(180);
-
-    for (let guard = 0; guard < 80; guard++) {
-      const list = collectSpecials();
-      if (list.length) {
-        // 编号小的先生成、先引爆；编号相同（老存档）按行列顺序兜底
-        list.sort((a, b) => (a.seq - b.seq) || (a.r - b.r) || (a.c - b.c));
-        const t = list[0];
-        await detonateAt(t.r, t.c);
-        await sleep(110);
-        continue;
-      }
-      // 特殊块清完：引爆后的掉落可能产生自然连消，也一并消完再结算
-      if (findMatches().size === 0) break;
-      await resolveBoard(null);
-    }
-    return S.goal ? Goals.isComplete(S.goal) : false;
   }
 
   function SpecsL(runs) {
@@ -1829,7 +1782,6 @@
     S.clearedCount = 0;
     S.undoLeft = 3;
     S.shuffleLeft = 3;
-    S.specSeq = 0;
     S.hintLeft = 3;
     S.hintCells = null;
     S.hintUntil = 0;
@@ -2239,17 +2191,7 @@
     S.busy = true;
     Input.setEnabled(false);
 
-    // 1) 棋盘上剩下的特殊块（十字线 / 炸弹 / 彩虹）：按生成先后依次生效
-    const won = await detonateBoardSpecials();
-    if (won && S.playing) {
-      S.busy = false;
-      rescuing = false;
-      await sleep(200);
-      levelWin();
-      return;
-    }
-
-    // 2) 背包里剩下的道具（+3 步 / 炸弹 / 彩虹）继续救场
+    // 1) 背包里剩下的道具（+3 步 / 炸弹 / 彩虹）救场
     const saved = await autoUseLeftoverItems();
     S.busy = false;
     rescuing = false;
@@ -4141,12 +4083,23 @@
       showOverlay('mail-menu');
       AudioManager.playSFX('select');
     });
-    // ✅ 一键已读
+    // ✅ 一键已读：先把没领的奖励全部领掉，再把邮件标为已读
     on('btn-mail-read-all', () => {
+      let gifts = 0, coins = 0;
+      if (typeof Mail !== 'undefined') {
+        (Mail.list() || []).forEach((m) => {
+          if (!m.hasGift || m.claimed) return;
+          const r = Mail.claim(m.id);
+          if (r && r.ok) { gifts++; coins += r.coins || 0; }
+        });
+      }
       const n = (typeof Mail !== 'undefined') ? Mail.markAllRead() : 0;
       renderMailList();
       refreshMailBadge();
-      toast(n > 0 ? '已把 ' + n + ' 封邮件标为已读' : '没有未读邮件');
+      let msg = n > 0 ? '已把 ' + n + ' 封邮件标为已读' : '没有未读邮件';
+      if (gifts) msg = '已领取 ' + gifts + ' 份奖励（共 ' + coins + ' 金币）' +
+        (n > 0 ? '，邮件全部已读' : '');
+      toast(msg);
       AudioManager.playSFX('select');
     });
     // 🗑️ 一键删除：先点一下变「再点一次确认」，3 秒内再点才真删
@@ -5995,7 +5948,6 @@
     win: levelWin,
     end: endGame,
     outOfResource: handleOutOfResource,
-    collectSpecials: collectSpecials,
     swap: trySwap,
     undoMove: undo,
     findMatches: findMatches,

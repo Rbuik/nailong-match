@@ -94,7 +94,7 @@
 
   // ============ 生成判定 ============
   // 返回 { r, c, type } 或 null
-  // 优先级：彩虹（5 连 / L 型）> 炸弹（4 连同向两次）> 线消（4 连）
+  // 优先级：彩虹（5 连）> 炸弹（L / T 型）> 线消（4 连）
   function planCreation(board, matchedSet, swapped, runs, lShapes) {
     const inMatched = (p) => matchedSet.has(key(p.r, p.c));
     const atSwap = () => {
@@ -105,16 +105,16 @@
       return null;
     };
 
-    // 1) L / T 型 -> 彩虹
+    // 1) L / T 型 -> 炸弹
     if (lShapes && lShapes.length) {
       const shape = lShapes[0];
       const s = atSwap();
       if (s && shape.cells.some((p) => p.r === s.r && p.c === s.c)) {
-        return { r: s.r, c: s.c, type: TYPE.RAINBOW };
+        return { r: s.r, c: s.c, type: TYPE.BOMB };
       }
       if (board[shape.center.r][shape.center.c] &&
           board[shape.center.r][shape.center.c].special === TYPE.NORMAL) {
-        return { r: shape.center.r, c: shape.center.c, type: TYPE.RAINBOW };
+        return { r: shape.center.r, c: shape.center.c, type: TYPE.BOMB };
       }
     }
 
