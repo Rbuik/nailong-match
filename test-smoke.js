@@ -1064,6 +1064,30 @@ function check(name, ok) {
       sandbox.Meta.myUid() === 'x-board-uid';
   })());
 
+  // 31c. 存档码：微信清掉 localStorage 后能整份搬回来
+  check('登录页有「用存档码恢复」入口和面板',
+    htmlSrc0.includes('id="btn-auth-backup"') && htmlSrc0.includes('id="backup-menu"') &&
+    htmlSrc0.includes('id="btn-goto-backup"'));
+  check('存档码：导出 → 清空存储 → 导入，账号和进度都回来', (() => {
+    const code = sandbox.Account.exportBackup();
+    const nAcc = sandbox.Account.list().length;
+    const coins = sandbox.Store.getWallet().coins;
+    const stars = Object.keys(sandbox.Store.getProgress()).length;
+    Array.from(lsMap.keys()).filter((k) => k.indexOf('nl2:') === 0).forEach((k) => lsMap.delete(k));
+    const cleared = sandbox.Account.list().length;
+    const r = sandbox.Account.importBackup(code);
+    const back = sandbox.Account.list();
+    const lg = sandbox.Account.login('榜上玩家', 'abcd1234');
+    return cleared === 0 && r.ok === true && back.length === nAcc && lg.ok === true &&
+      sandbox.Store.getWallet().coins === coins &&
+      Object.keys(sandbox.Store.getProgress()).length === stars;
+  })());
+  check('存档码乱贴会被挡下', (() => {
+    const before = sandbox.Account.list().length;
+    const r = sandbox.Account.importBackup('随便一段文字');
+    return r.ok === false && sandbox.Account.list().length === before;
+  })());
+
   // 32. yone 的 1360 金币奖励：发到邮箱，自己领
   const coinsBeforeYone = sandbox.Store.getWallet().coins;
   const yReg = sandbox.Account.register('yone', 'yone1234');

@@ -1653,6 +1653,36 @@ body[data-skin="black"]   { --skin-target-bg: rgba(40, 40, 48, 0.18); }
   font-family: inherit;
 }
 
+/* 存档码：两段等宽文本框 + 一行并排的按钮 */
+.backup-code {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  height: 82px;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border: 2px solid #e6e6ef;
+  border-radius: 10px;
+  background: #fbfaff;
+  color: #3a4160;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  resize: none;
+  outline: none;
+  word-break: break-all;
+}
+.backup-code:focus { border-color: #7c5cff; background: #fff; }
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  width: 88%;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+.btn-row .btn-secondary { flex: 1; width: auto; margin: 0; }
+
 /* 登录页底部的「本机账号」快捷进入 */
 .auth-acct-box {
   width: 88%;

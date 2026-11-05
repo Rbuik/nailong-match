@@ -2372,7 +2372,8 @@
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
-      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'recover-menu', 'fix-menu',
+      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'recover-menu',
+      'backup-menu', 'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2387,7 +2388,8 @@
     'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
-    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'recover-menu', 'fix-menu'];
+    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'recover-menu',
+    'backup-menu', 'fix-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -4448,8 +4450,22 @@
       const el = $(id);
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
     });
-    // 忘记密码 / 找回账号
+    // 忘记密码 / 找回账号 + 存档码
     on('btn-auth-recover', openRecoverMenu);
+    on('btn-auth-backup', () => openBackupMenu('auth'));
+    on('btn-goto-backup', () => openBackupMenu('account'));
+    on('btn-backup-gen', genBackupCode);
+    on('btn-backup-copy', copyBackupCode);
+    on('btn-backup-import', doImportBackup);
+    on('btn-backup-back', () => {
+      $('backup-menu').style.display = 'none';
+      if (backupFrom === 'auth') showAuthScreen();
+      else {
+        const n = $('account-cur-name');
+        if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
+        showOverlay('account-menu');
+      }
+    });
     on('btn-recover-submit', submitRecover);
     on('btn-recover-back', () => {
       $('recover-menu').style.display = 'none';
@@ -4539,7 +4555,7 @@
       ov.addEventListener('click', (e) => {
         // 主页 / 结算 / 登录 / 补资料这些面板点遮罩不关闭（必须点按钮）
         if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete',
-          'auth-menu', 'auth-form', 'recover-menu', 'fix-menu'].indexOf(ov.id) < 0) {
+          'auth-menu', 'auth-form', 'recover-menu', 'backup-menu', 'fix-menu'].indexOf(ov.id) < 0) {
           ov.style.display = 'none';
         }
       });
@@ -5616,6 +5632,8 @@
     if (fix) fix.style.display = 'none';
     const rec = $('recover-menu');
     if (rec) rec.style.display = 'none';
+    const bk = $('backup-menu');
+    if (bk) bk.style.display = 'none';
     setAuthError('');
     renderAuthAccounts();
     showOverlay('auth-menu');
@@ -5644,6 +5662,81 @@
     setView('menu');
     const n = $('auth-name');
     if (n && n.focus) setTimeout(() => n.focus(), 60);
+  }
+
+  // 💾 存档码：微信里丢存档 / 换设备时，把账号和进度搬回来
+  let backupFrom = 'account';
+
+  function openBackupMenu(from) {
+    backupFrom = from === 'auth' ? 'auth' : 'account';
+    ['backup-code', 'backup-input'].forEach((id) => {
+      const el = $(id);
+      if (el) el.value = '';
+    });
+    const err = $('backup-err');
+    if (err) err.textContent = '';
+    if (backupFrom === 'auth') {
+      if ($('auth-menu')) $('auth-menu').style.display = 'none';
+      if ($('auth-form')) $('auth-form').style.display = 'none';
+    } else if ($('account-menu')) {
+      $('account-menu').style.display = 'none';
+    }
+    showOverlay('backup-menu');
+    setView('menu');
+  }
+
+  function genBackupCode() {
+    if (typeof Account === 'undefined' || !Account.exportBackup) { toast('账号功能没加载出来，请刷新页面'); return false; }
+    const code = Account.exportBackup();
+    const box = $('backup-code');
+    if (box) box.value = code;
+    const err = $('backup-err');
+    if (err) err.textContent = '';
+    toast('存档码已生成，点「复制」存到备忘录');
+    return true;
+  }
+
+  function selectCopy(box) {
+    try {
+      if (box && box.focus) box.focus();
+      if (box && box.select) box.select();
+      if (document.execCommand) document.execCommand('copy');
+      toast('已复制，粘贴到备忘录存好');
+    } catch (e) {
+      toast('复制失败，请长按文本框手动复制');
+    }
+  }
+
+  function copyBackupCode() {
+    const box = $('backup-code');
+    const code = (box && box.value) || '';
+    if (!code) { toast('先点「生成」'); return; }
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).then(() => toast('已复制，粘贴到备忘录存好'))
+          .catch(() => selectCopy(box));
+        return;
+      }
+    } catch (e) {}
+    selectCopy(box);
+  }
+
+  function doImportBackup() {
+    const box = $('backup-input');
+    const err = $('backup-err');
+    const code = (box && box.value) || '';
+    if (typeof Account === 'undefined' || !Account.importBackup) { toast('账号功能没加载出来，请刷新页面'); return false; }
+    const r = Account.importBackup(code);
+    if (!r.ok) {
+      if (err) err.textContent = r.reason;
+      try { AudioManager.playSFX('invalid'); } catch (e) {}
+      return false;
+    }
+    if (err) err.textContent = '';
+    toast('已恢复 ' + r.count + ' 个账号，用原来的密码登录');
+    $('backup-menu').style.display = 'none';
+    setTimeout(() => { try { location.reload(); } catch (e) {} }, 700);
+    return true;
   }
 
   // 找回账号 / 忘记密码：本机有就重设密码，本机没有但榜上有就用榜上身份建号
