@@ -4706,6 +4706,7 @@
     // 账号：老版本的本机数据先认领成一个账号；没有登录会话的停在登录页
     // 必须在任何启动期写 localStorage 之前跑，否则会把「启动缓存」误认成老用户数据
     try { if (typeof Account !== 'undefined') Account.ensure(); } catch (e) {}
+    try { if (typeof Account !== 'undefined' && Account.startCloudSync) Account.startCloudSync(); } catch (e) {}
     const loggedIn = (typeof Account !== 'undefined') && Account.loggedIn();
 
     // 读关卡数据（§20）
@@ -5831,7 +5832,7 @@
         (r.seeded ? '，并恢复 ' + r.seeded + ' 条关卡成绩' : ''));
     return true;  }
 
-  function submitAuth() {
+  async function submitAuth() {
     const name = ($('auth-name') || {}).value || '';
     const pass = ($('auth-pass') || {}).value || '';
     const fail = (m) => {
@@ -5849,7 +5850,20 @@
       afterAuthEnter('注册成功，欢迎「' + r.account.name + '」');
     } else {
       const r = Account.login(name, pass);
-      if (!r.ok) return fail(r.reason || Account.BAD_PASS);
+      if (!r.ok) {
+        // 本机没有 / 密码对不上 → 去服务器找（名字和密码在服务器上也有一份）
+        if (r.badAccount && Account.cloudLogin) {
+          setAuthError('正在服务器上查找这个账号…');
+          const c = await Account.cloudLogin(name, pass);
+          if (c && c.ok) {
+            afterAuthEnter(c.created
+              ? '已在服务器上找到「' + c.account.name + '」，存档一并取回'
+              : '欢迎回来「' + c.account.name + '」（服务器登录）');
+            return true;
+          }
+        }
+        return fail(r.reason || Account.BAD_PASS);
+      }
       afterAuthEnter();
     }
     return true;
