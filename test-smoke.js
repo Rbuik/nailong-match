@@ -395,8 +395,10 @@ function check(name, ok) {
   for (let r = 0; r < 8 && !iceCell; r++) for (let c = 0; c < 8 && !iceCell; c++) if (st.ice[r][c]) iceCell = { r: r, c: c };
   const nb = { r: iceCell.r, c: iceCell.c + 1 < 8 ? iceCell.c + 1 : iceCell.c - 1 };
   const iceBefore = st.goal.iceCleared || 0;
+  const iceBeforeVal = st.ice[iceCell.r][iceCell.c];
   await sandbox.__nl_test.resolveClear(new Set([nb.r + ',' + nb.c]), []);
-  check('相邻消除砸掉一层冰', st.ice[iceCell.r][iceCell.c] === 0);
+  // 厚冰有 2 层，一次相邻消除只砸掉一层
+  check('相邻消除砸掉一层冰', st.ice[iceCell.r][iceCell.c] === iceBeforeVal - 1);
   check('冰块目标进度推进', (st.goal.iceCleared || 0) >= iceBefore + 1);
 
   // 23. 锁链：第一次被消只解锁，方块留下
@@ -432,28 +434,31 @@ function check(name, ok) {
   await sandbox.__nl_test.resolveClear(new Set(['5,3']), []);
   check('货物被消后落到下一格', !!(st.board[6][3] && st.board[6][3].cargo === cargoObj));
 
-  // 27. 彩虹 + 普通块：普通块被消掉，彩虹自己留在棋盘上
+  // 27. 彩虹 + 普通块：同图案全消，彩虹自己也一起消掉
   sandbox.__nl_test.start(1, { def: { id: 91, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
-  st.board[4][4] = { type: 0, special: Sp.TYPE.RAINBOW };
+  const rainbowObj = { type: 0, special: Sp.TYPE.RAINBOW };
+  st.board[4][4] = rainbowObj;
   st.board[4][5] = { type: 1, special: 0 };
-  let sameColor = 0;
+  // 记录交换前所有同图案方块的对象引用（随机补充的新块不算）
+  const type1Objs = new Set();
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
     const b = st.board[r][c];
-    if (b && b.type === 1 && b.special !== Sp.TYPE.RAINBOW) sameColor++;
+    if (b && b.type === 1 && b !== st.board[4][5]) type1Objs.add(b);
   }
-  // 彩虹下方被清空后会跟着掉落，所以不检查固定格子，只数全盘彩虹数量
+  // 彩虹和普通块交换：同图案全消，彩虹自己也一起消掉
+  // （掉落连消可能凑出新的彩虹、也可能补进同图案新块，所以全部用对象引用判断）
   await sandbox.__nl_test.swap({ r: 4, c: 4 }, { r: 4, c: 5 });
-  let rainbowAfter = 0;
-  let sameColorAfter = 0;
+  let origGone = true;
+  let type1Left = 0;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
     const b = st.board[r][c];
     if (!b) continue;
-    if (b.special === Sp.TYPE.RAINBOW) rainbowAfter++;
-    else if (b.type === 1) sameColorAfter++;
+    if (b === rainbowObj) origGone = false;
+    if (type1Objs.has(b)) type1Left++;
   }
-  check('彩虹交换后仍在棋盘上', rainbowAfter >= 1);
-  check('彩虹清掉同图案普通块', sameColorAfter < sameColor);
+  check('彩虹交换后自己也被消除', origGone);
+  check('彩虹清掉同图案普通块', type1Objs.size > 0 && type1Left === 0);
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
