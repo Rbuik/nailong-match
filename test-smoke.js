@@ -1006,6 +1006,7 @@ function check(name, ok) {
   $('auth-name').value = '测试奶龙';
   $('auth-pass').value = 'wrong-pass';
   $('btn-auth-submit').dispatch('click');
+  await sleep(80);   // submitAuth 现在是 async：本机失败后会去服务器找（沙盒里没有云，直接走到失败提示）
   check('密码错：两个输入框都变红', $('auth-name').classList.contains('error') &&
     $('auth-pass').classList.contains('error'));
   check('密码错：下面出现红色小字提示',

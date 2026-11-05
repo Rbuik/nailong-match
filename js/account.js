@@ -243,6 +243,7 @@
     write(K.cur, uid);
     syncNick(acc);
     saveCurrent();
+    bgRegister(acc, p.pass);
     return { ok: true, account: acc };
   }
 
@@ -259,6 +260,7 @@
     write(K.cur, acc.id);
     syncNick(acc);
     touch(acc.id);
+    bgLogin(acc, pass);
     return { ok: true, account: acc };
   }
 
@@ -280,6 +282,7 @@
     if (uid) { try { localStorage.removeItem(K.slot + uid); } catch (e) {} }
     wipeActive();
     write(K.cur, '');
+    if (cloudOk()) { try { global.Cloud.signOut(); } catch (e) {} }   // 令牌是这个号的，一并作废
     try { sessionStorage.clear(); } catch (e) {}
     return { ok: true, uid: uid, left: arr.length };
   }
@@ -293,6 +296,7 @@
     loadSlot(id);
     syncNick(acc);
     touch(id);
+    if (cloudOk()) { useAccToken(acc); pullCloud(); }   // 切过来的号也和服务器对一次
     return { ok: true, account: acc };
   }
 
@@ -309,6 +313,10 @@
     arr[i].pass = hash(p.pass);
     arr[i].last = Date.now();
     saveList(arr);
+    // 服务器上的密码一起改（本机能改成功，服务器一般也能；失败下次登录时后台会再试）
+    if (cloudOk() && useAccToken(acc)) {
+      global.Cloud.setPass(p.pass).catch(() => {});
+    }
     return { ok: true };
   }
 
@@ -324,6 +332,195 @@
     saveList(arr);
     if (global.Meta && Meta.setNickname) Meta.setNickname(r.name);
     return { ok: true, name: r.name };
+  }
+
+  // ---------- 云端账号同步 ----------
+  // 名字和密码在服务器上也存一份（cloud.js / cloud-config.js）：
+  //   · 注册 / 改密成功后后台写服务器（失败静默，游戏照常玩）
+  //   · 本机登录不上时 game.js 会调 cloudLogin() 去服务器找这个号
+  //   · 存档定期推上服务器，登录 / 启动时拉回来合并（savedAt 新的赢）
+  //   · 令牌存账号记录（acc.ctoken），切账号不用重新输密码
+  // 服务器不可达 / 域名没放行 → 全部静默降级为纯本机模式，不影响玩
+
+  function cloudOk() {
+    return typeof global.Cloud !== 'undefined' && global.Cloud && global.Cloud.ready();
+  }
+
+  function markCloud(acc) {
+    if (!acc) return;
+    acc.cloud = 1;
+    const arr = list();
+    const i = arr.findIndex((x) => x.id === acc.id);
+    if (i >= 0) { arr[i].cloud = 1; saveList(arr); }
+  }
+
+  function slotOf(id) {
+    try { return JSON.parse(raw(K.slot + id) || 'null'); } catch (e) { return null; }
+  }
+
+  // 把账号 id 迁成服务器身份码（快照跟着搬家）
+  function migrateAccId(acc, uid) {
+    if (!/^[A-Za-z0-9_-]{3,24}$/.test(String(uid || '')) ||
+        !acc || acc.id === uid || find(uid)) return false;
+    try {
+      const oldSlot = raw(K.slot + acc.id);
+      if (oldSlot != null) { try { localStorage.setItem(K.slot + uid, oldSlot); } catch (e1) {} }
+      try { localStorage.removeItem(K.slot + acc.id); } catch (e0) {}
+    } catch (e) {}
+    const arr = list();
+    const i = arr.findIndex((x) => x.id === acc.id);
+    if (i >= 0) { arr[i].id = uid; arr[i].cloud = 1; saveList(arr); }
+    if (currentId() === acc.id) { write(K.cur, uid); write('nl2:muid', uid); }
+    acc.id = uid;
+    acc.cloud = 1;
+    return true;
+  }
+
+  function useAccToken(acc) {
+    if (!cloudOk()) return false;
+    if (acc && acc.ctoken) { global.Cloud.setToken(acc.ctoken); return true; }
+    return global.Cloud.signedIn();
+  }
+
+  // 本次会话是否成功从服务器拉过数据。没拉过之前禁止自动推：
+  // 防止「本机是空的（还没来得及拉/恢复失败）」把服务器上的好存档覆盖掉
+  let cloudPulled = false;
+
+  // 当前账号的存档推上服务器（cloud.js 自带 12 秒节流）
+  function pushCloud(force) {
+    if (!cloudOk()) return Promise.resolve(false);
+    const acc = current();
+    if (!acc || !useAccToken(acc)) return Promise.resolve(false);
+    if (!force && !cloudPulled) return Promise.resolve(false);
+    saveCurrent();
+    const slot = slotOf(acc.id);
+    if (!slot) return Promise.resolve(false);
+    return global.Cloud.push(slot, !!force)
+      .then((r) => { if (r && r.ok && r.token) { acc.ctoken = r.token; } return !!(r && r.ok); })
+      .catch(() => false);
+  }
+
+  // 从服务器拉这份账号的存档；服务器的新就换掉本机（是当前号就热替换）
+  function pullCloud() {
+    if (!cloudOk()) return Promise.resolve(false);
+    const acc = current();
+    if (!acc || !useAccToken(acc)) return Promise.resolve(false);
+    return global.Cloud.pull().then((r) => {
+      if (!r || !r.ok) return false;
+      cloudPulled = true;
+      const srv = r.slot && r.slot.keys ? r.slot : null;
+      const loc = slotOf(acc.id);
+      const srvT = (srv && srv.savedAt) || 0;
+      const locT = (loc && loc.savedAt) || 0;
+      if (srv && srvT >= locT) {
+        write(K.slot + acc.id, srv);
+        if (currentId() === acc.id) { wipeActive(); loadSlot(acc.id); syncNick(acc); }
+      } else if (srvT < locT) {
+        return pushCloud(true);   // 本机的新：把服务器补上
+      }
+      return true;
+    }).catch(() => false);
+  }
+
+  // 注册成功后后台在服务器建同一份；名字已被服务器占用（比如之前注册过一半）
+  // 就改用登录验证——密码对得上就把这个服务器身份绑到本机账号上
+  function bgRegister(acc, pass) {
+    if (!cloudOk()) return;
+    const bind = (r) => {
+      if (!r || !r.ok) return;
+      markCloud(acc);
+      const uid = String(r.uid || '');
+      if (uid && acc.id !== uid && !find(uid)) migrateAccId(acc, uid);
+      if (r.token) {
+        acc.ctoken = r.token;
+        const arr = list();
+        const i = arr.findIndex((x) => x.id === acc.id);
+        if (i >= 0) { arr[i].ctoken = r.token; saveList(arr); }
+      }
+      return pullCloud();
+    };
+    global.Cloud.register(acc.name, pass, acc.id)
+      .then((r) => (r && r.ok ? bind(r) : global.Cloud.login(acc.name, pass).then(bind)))
+      .catch(() => {});
+  }
+
+  // 登录成功后后台刷新令牌 + 拉服务器最新存档
+  function bgLogin(acc, pass) {
+    if (!cloudOk()) return Promise.resolve(false);
+    return global.Cloud.login(acc.name, pass).then((r) => {
+      if (!r || !r.ok) return false;
+      markCloud(acc);
+      const uid = String(r.uid || '');
+      if (uid && acc.id !== uid) migrateAccId(acc, uid);
+      if (r.token) {
+        acc.ctoken = r.token;
+        const arr = list();
+        const i = arr.findIndex((x) => x.id === acc.id);
+        if (i >= 0) { arr[i].ctoken = r.token; saveList(arr); }
+      }
+      return pullCloud();
+    }).catch(() => false);
+  }
+
+  // 本机没有这个号 → 去服务器找（名字和密码在服务器上）
+  function cloudLogin(name, pass) {
+    if (!cloudOk()) return Promise.resolve({ ok: false, reason: BAD_PASS, badAccount: true });
+    const p = checkPass(pass);
+    if (!p.ok) return Promise.resolve(p);
+    return global.Cloud.login(name, pass).then((r) => {
+      if (!r || !r.ok) return { ok: false, reason: (r && r.reason) || BAD_PASS, badAccount: true };
+      const uid = String(r.uid || '');
+      const nick = String(r.nick || name).trim() || String(name).trim();
+      saveCurrent();
+      let acc = find(uid) || findByName(nick) || findByName(name);
+      if (!acc) {
+        acc = { id: uid, name: nick, pass: hash(pass), created: Date.now(), last: Date.now(), cloud: 1 };
+        const arr = list();
+        arr.push(acc);
+        saveList(arr);
+        wipeActive();
+        const srv = r.slot && r.slot.keys ? r.slot : null;
+        if (srv) write(K.slot + uid, srv);
+        loadSlot(uid);
+        write(K.cur, uid);
+        write('nl2:muid', uid);
+        if (r.token) acc.ctoken = r.token;
+        syncNick(acc);
+        saveCurrent();
+        cloudPulled = true;
+        return { ok: true, account: acc, created: true };
+      }
+      if (acc.id !== uid) migrateAccId(acc, uid);
+      const loc = slotOf(acc.id);
+      const srv = r.slot && r.slot.keys ? r.slot : null;
+      const srvT = (srv && srv.savedAt) || 0;
+      const locT = (loc && loc.savedAt) || 0;
+      wipeActive();
+      if (srv && srvT >= locT) write(K.slot + acc.id, srv);
+      loadSlot(acc.id);
+      write(K.cur, acc.id);
+      write('nl2:muid', acc.id);
+      markCloud(acc);
+      if (r.token) {
+        acc.ctoken = r.token;
+        const arr = list();
+        const i = arr.findIndex((x) => x.id === acc.id);
+        if (i >= 0) { arr[i].ctoken = r.token; saveList(arr); }
+      }
+      touch(acc.id);
+      syncNick(acc);
+      cloudPulled = true;
+      if (!srv || srvT < locT) pushCloud(true);   // 本机的新：补给服务器
+      return { ok: true, account: acc };
+    });
+  }
+
+  // 开机自愈：有令牌就拉一次服务器；之后定期把当前号推上去，关页面前兜底一次
+  function startCloudSync() {
+    if (!cloudOk()) return;
+    setTimeout(() => { pullCloud(); }, 1500);
+    setInterval(() => { pushCloud(false); }, 30e3);
+    global.addEventListener && global.addEventListener('pagehide', () => { pushCloud(true); });
   }
 
   // ---------- 资料是否完整（缺名字 / 缺密码 / 含敏感词） ----------
@@ -434,26 +631,31 @@
       if (uidOk && acc.id !== uid && !find(uid)) {
         try {
           const oldSlot = raw(K.slot + acc.id);
-          if (oldSlot != null) write(K.slot + uid, oldSlot);
+          if (oldSlot != null) { try { localStorage.setItem(K.slot + uid, oldSlot); } catch (e1) {} }
           try { localStorage.removeItem(K.slot + acc.id); } catch (e0) {}
         } catch (e) {}
         arr[i].id = uid;
         acc.id = uid;
         rebind = true;
       }
-      arr[i].pass = hash(p.pass);
-      arr[i].last = Date.now();
-      saveList(arr);
-      saveCurrent();               // 重设密码前先把当前数据存进它自己的快照
-      wipeActive();
-      loadSlot(acc.id);
-      write(K.cur, acc.id);
-      if (rebind) write('nl2:muid', uid);
-      const seeded = seedProgressFromBoard(boardEntry);
-      saveCurrent();
-      syncNick(arr[i]);
-      return { ok: true, existing: true, rebind: rebind, seeded: seeded, account: arr[i] };
+    arr[i].pass = hash(p.pass);
+    arr[i].last = Date.now();
+    saveList(arr);
+    saveCurrent();               // 重设密码前先把当前数据存进它自己的快照
+    wipeActive();
+    loadSlot(acc.id);
+    write(K.cur, acc.id);
+    if (rebind) write('nl2:muid', uid);
+    const seeded = seedProgressFromBoard(boardEntry);
+    saveCurrent();
+    syncNick(arr[i]);
+    // 服务器上同步这份新密码（有令牌直接改；没有就当重新登录刷新令牌）
+    if (cloudOk()) {
+      if (useAccToken(arr[i])) global.Cloud.setPass(p.pass).catch(() => {});
+      else bgLogin(arr[i], p.pass);
     }
+    return { ok: true, existing: true, rebind: rebind, seeded: seeded, account: arr[i] };
+  }
 
     if (!uidOk) return { ok: false, reason: '没找到这个玩家' };
     if (find(uid)) return { ok: false, reason: '这个身份已经被本机另一个账号占用了' };
@@ -477,6 +679,7 @@
     const seeded = seedProgressFromBoard(boardEntry);
     saveCurrent();
     syncNick(na);
+    bgRegister(na, p.pass);   // 服务器上也建一份（找回的号以后在哪都能登）
     return { ok: true, created: true, seeded: seeded, account: na };
   }
 
@@ -705,6 +908,7 @@
     register, login, logout, switchTo, restore, exportBackup, importBackup,
     setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick, purge,
     saveCurrent, checkName, checkPass,
-    slotIds, slotInfo, lostSlots, adoptSlot
+    slotIds, slotInfo, lostSlots, adoptSlot,
+    cloudLogin, pushCloud, pullCloud, startCloudSync, cloudOk
   };
 })(window);
