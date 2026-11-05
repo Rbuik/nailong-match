@@ -300,14 +300,15 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   z-index: 20;
 }
 
-/* 主页左上角：主页键在上，规则键在下 */
+/* 主页左上角：主页键在左，规则键在它右边 */
 .top-left-group {
   position: absolute;
   top: 18px;
   left: 18px;
   z-index: 20;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  align-items: center;
   gap: 10px;
 }
 
@@ -481,16 +482,16 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   margin-bottom: 0;
 }
 
-/* 后台字号：统一一套，比主页各档大一号（主页 14/17 → 后台 16/18） */
-.admin-sec-title { font-size: 14px; }   /* 板块标题「🌐 全网 / 📱 本机」比主页标题大一号 */
-.admin-sec .result-box p { font-size: 16px; margin: 7px 0; }
-.admin-sec .result-box b { font-size: 18px; text-align: right; max-width: 70%; line-height: 1.35; word-break: break-word; }
+/* 后台字号：统一一套，整体比主页小一号（主页 14/17 → 后台 13/14/16） */
+.admin-sec-title { font-size: 13px; }   /* 板块标题「🌐 全网 / 📱 本机」 */
+.admin-sec .result-box p { font-size: 14px; margin: 6px 0; }
+.admin-sec .result-box b { font-size: 16px; text-align: right; max-width: 70%; line-height: 1.35; word-break: break-word; }
 
 /* 后台底部：统计起点说明（放在「本机」板块下、关闭按钮上） */
 .admin-start-note {
   width: 86%;
   margin: 2px 0 10px;
-  font-size: 12px;
+  font-size: 11px;
   color: #8b98ad;
   text-align: center;
   letter-spacing: 0.5px;
@@ -527,7 +528,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 
 .prov-title {
-  font-size: 19px;
+  font-size: 17px;
   margin: 0 0 4px;
   text-align: center;
   color: #3a4160;
@@ -537,7 +538,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .prov-sub {
   text-align: center;
   color: #8a90a8;
-  font-size: 12px;
+  font-size: 11px;
   margin: 0 0 12px;
 }
 
@@ -547,7 +548,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   padding: 10px 12px;
   border: 2px solid #d7dcf0;
   border-radius: 24px;
-  font-size: 15px;
+  font-size: 13px;
   outline: none;
   margin-bottom: 10px;
   background: #fff;
@@ -571,18 +572,18 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   align-items: center;
   padding: 9px 6px;
   border-bottom: 1px dashed #e6e9f4;
-  font-size: 15px;
+  font-size: 14px;
   color: #3a4160;
 }
-.prov-list li b { color: #7c5cff; font-size: 16px; }
-.prov-list .prov-empty { justify-content: center; color: #a5abc2; font-size: 14px; padding: 18px 0; }
+.prov-list li b { color: #7c5cff; font-size: 14px; }
+.prov-list .prov-empty { justify-content: center; color: #a5abc2; font-size: 12px; padding: 18px 0; }
 /* 市级页里「IP 只到省、没到市」的差额行（不可点，颜色弱化） */
 .prov-list li.prov-unknown { color: #8b90a8; }
 .prov-list li.prov-unknown b { color: #a5abc2; }
 /* 点省份进市级统计：可点击的行给个箭头与按压反馈 */
 .prov-list li.clickable { cursor: pointer; }
 .prov-list li.clickable:active { background: rgba(124, 92, 255, 0.10); }
-.prov-list .prov-arrow { font-style: normal; color: #b7bcd4; font-size: 16px; margin-left: 4px; }
+.prov-list .prov-arrow { font-style: normal; color: #b7bcd4; font-size: 14px; margin-left: 4px; }
 .prov-card .btn-primary {
   flex: 0 0 auto;
   width: auto;
@@ -752,6 +753,8 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   overflow: hidden;
   border-radius: 8px;
   background: #fff;
+  /* 安卓：纵向滚动交给列表，长按后由 JS 接管拖动 */
+  touch-action: pan-y;
 }
 
 /* 长按拖动排序：原位留一个淡淡的占位，手指上浮起一张「影子」跟着走 */
@@ -773,7 +776,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .drag-ghost .m-actions { display: none; }
 
-body.m-dragging { overflow: hidden; }
+body.m-dragging { overflow: hidden; overscroll-behavior: none; }
 body.m-dragging .m-item { cursor: grabbing; }
 
 .m-actions {
@@ -1238,45 +1241,23 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-hub-btn b { font-size: 15px; color: #3d3556; }
 .lb-hub-btn i { font-style: normal; font-size: 11px; color: #8b84a0; }
 
-/* 奖牌（主页本关最高分 / 关卡记录） */
+/* 奖牌（主页本关最高分 / 关卡记录）：放在分数左边 */
 .lb-medal {
   font-style: normal;
   font-size: 15px;
   line-height: 1;
-  margin-left: 3px;
+  margin-right: 3px;
   vertical-align: middle;
 }
 .menu-high-wrap { display: inline-flex; align-items: center; gap: 2px; }
 
-/* 关卡记录的星星列要放得下奖牌 */
-.history-item { grid-template-columns: minmax(0, 1fr) 70px 52px; }
+/* 关卡记录的分数列要放得下奖牌 */
+.history-item { grid-template-columns: minmax(0, 1fr) 60px 62px; }
 .history-item .h-stars { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
-.history-item .h-stars .lb-medal { font-size: 13px; margin-left: 0; }
+.history-item .h-score { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.history-item .h-score .lb-medal { font-size: 12px; margin-right: 1px; }
 
-/* 总榜 / 省榜 页签 */
-.lb-tabs {
-  display: flex;
-  gap: 8px;
-  width: 90%;
-  margin-bottom: 8px;
-}
-.lb-tab {
-  flex: 1;
-  padding: 8px 0;
-  border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.1);
-  background: #fff;
-  font-size: 13px;
-  font-weight: 800;
-  color: #6b6480;
-  cursor: pointer;
-}
-.lb-tab.active {
-  background: linear-gradient(135deg, #9a7cff, #7c5cff);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 3px 10px rgba(124, 92, 255, 0.35);
-}
+/* 榜单里省份 / 关卡选择器（列表页没有页签，进来就是某一个榜） */
 .lb-prov-sel {
   width: 90%;
   margin-bottom: 8px;
@@ -1333,6 +1314,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-name i { font-style: normal; font-size: 10px; color: #8a7fb5; margin-left: 5px; }
 .lb-name i.lb-me { color: #7c5cff; font-weight: 700; }
 .lb-score { font-weight: 800; color: #ff8c00; }
+.lb-score.none { font-weight: 600; font-size: 11px; color: #b0a9c0; }
 .lb-empty { padding: 18px; text-align: center; font-size: 12px; color: #9a93ad; }
 .lb-tip {
   width: 88%;

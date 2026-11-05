@@ -106,7 +106,7 @@
     <h1 class="title">奶龙消消乐</h1>
     <div class="result-box">
       <p><span>📍 当前进度</span><b id="menu-current-level">1</b></p>
-      <p><span>📈 本关最高分</span><span class="menu-high-wrap"><b id="menu-current-high">0</b><em id="menu-high-medal" class="lb-medal"></em></span></p>
+      <p><span>📈 本关最高分</span><span class="menu-high-wrap"><em id="menu-high-medal" class="lb-medal"></em><b id="menu-current-high">0</b></span></p>
       <p><span>⭐ 总星星</span><b id="menu-total-stars">0</b></p>
       <p><span>🪙 金币</span><b id="menu-coins">0</b></p>
     </div>
@@ -291,7 +291,7 @@
         <h3>🎵 音乐与音量</h3>
         <p>设置里可以打开<b>音乐库</b>：除了内置的两首歌，还支持粘贴 <b>MP3/M4A 直链</b>或 <b>QQ音乐/网易云音乐</b>的歌曲链接（分享出来的整段文本带《歌名》也行），自动解析成 MP3 入库；入库后可长按/左滑<b>重命名</b>。</p>
         <p>可以把多首歌加进<b>播放列表</b>，支持顺序 / 随机 / 循环，切歌无缝衔接。</p>
-        <p><b>排序</b>：长按播放列表或音乐库里的某一首，它会「浮起来」，拖到别的位置松手就换好了（长按不会自动左滑，左滑只负责重命名 / 删除 / 加进播放列表）。</p>
+        <p><b>排序</b>：长按播放列表或音乐库里的某一首，它会「浮起来」，拖到别的位置松手就换好了（长按不会自动左滑，左滑只负责重命名 / 删除 / 加进播放列表）。<b>手机上同样支持</b>：手指按住不放浮起，这时列表不会跟着滚，拖到位置松手即可；按住后直接上下划则是正常滚动。</p>
         <p><b>音量</b>：所有歌（包括默认背景音乐）的响度自动对齐，不会忽大忽小；「调节音量」里拖动滑块会<b>实时试听</b>当前正在播放的音乐；音量会<b>记住</b>，下次打开和上次退出时一致。</p>
         <p>游戏界面第一排的 <b>🎵 音乐键</b><b>只控制背景音乐</b>，关掉后游戏音效照常播放，互不影响；旁边依次是 🎒 背包、📖 规则、⚙️ 设置。</p>
       </section>
@@ -325,13 +325,13 @@
         <h3>🏅 成就、配色与排行榜</h3>
         <p><b>成就</b>：共 19 枚。每一枚都有 <b>5 个阶段</b>——灰色（还没开始）→ 铜 → 银 → 金 → 彩（满级）。同一个成就的进度越高，颜色就往上走一阶，比如「星星收集者」铜 10 颗、银 20 颗、金 35 颗、彩 60 颗。成就面板里能看到每一枚还差多少、下一阶是什么颜色。</p>
         <p><b>棋盘配色</b>：8 款配色按累计星星解锁——黄色（默认）、红色 10 星、橙色 20 星、绿色 35 星、青色 55 星、蓝色 80 星、紫色 110 星、黑色 150 星。换上后只改<b>游戏里棋盘外圈的光晕</b>和<b>「目标：」那一栏的底色</b>，<b>不影响分数、步数和难度</b>。</p>
-        <p><b>排行榜</b>：点进去先选榜单，三个榜依次是 <b>总榜 → 省榜 → 局榜</b>，选完才进排名列表。<br>
+        <p><b>排行榜</b>：点进去先选榜单，三个榜依次是 <b>总榜 → 省榜 → 局榜</b>，选完才进排名列表。列表页里只有标题、选择器和名次，<b>不再显示「总榜 / 省榜 / 局榜」那一排页签</b>——想看别的榜，返回上一层重新选。<br>
           · <b>总榜</b>：按<b>总分</b>排名（总分 = 每一关最高分加起来）<br>
           · <b>省榜</b>：先在上面选省份，再显示该省的玩家（按定位所在省归入）<br>
           · <b>局榜</b>：先选<b>某一关</b>，只比这一局的最高分</p>
-        <p>不再有成绩码：谁打完分都直接上共享榜，别人打完分你这边开着榜单就会立刻刷新，最多显示 20 名。</p>
-        <p><b>奖牌</b>：同一局至少有 2 人上榜时，前三名会挂奖牌——🥇 🥈 🥉。主页「本关最高分」旁边、关卡记录里那一局的星星旁边，都会显示你的奖牌。</p>
-        <p><b>昵称</b>：默认的「奶龙玩家」不能拿来玩，主页一检测到就会弹出改名窗口。想改名随时点左上角的 <b>🏠 主页键</b>，里面有「✏️ 改名」。昵称最多 8 个字，中文、字母、数字都可以，特殊符号只能用 <b>-</b> 和 <b>.</b>，并且<b>不能和榜上的人重名</b>。</p>
+        <p>不再有成绩码：谁打完分都直接上共享榜，别人打完分你这边开着榜单就会立刻刷新，最多显示 20 名。<b>0 分不算上榜</b>，分数那一栏会写「未上榜」。</p>
+        <p><b>奖牌</b>：前三名挂 🥇 🥈 🥉，<b>榜单上只有自己一个人也算名次</b>（拿了第一就有金牌）。主页「本关最高分」和关卡记录里都会显示，<b>奖牌贴在分数左边</b>。</p>
+        <p><b>昵称</b>：默认的「奶龙玩家」不能拿来玩，主页一检测到就会弹出改名窗口。想改名随时点左上角的 <b>🏠 主页键</b>（<b>📖 规则键在它右边</b>），里面有「✏️ 改名」。昵称最多 8 个字，中文、字母、数字都可以，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，并且<b>不能和榜上的人重名</b>。</p>
       </section>
 
       <section class="rule-sec">
@@ -677,14 +677,9 @@
     <button class="btn-secondary" id="btn-close-lb">返回</button>
   </div>
 
-  <!-- 排行榜列表（总榜 / 省榜 / 局榜） -->
+  <!-- 排行榜列表（总榜 / 省榜 / 局榜；进来只看排名，不再有页签切换） -->
   <div class="overlay" id="lb-view" style="display:none;">
     <h2 class="title small" id="lb-view-title">🏆 总榜</h2>
-    <div class="lb-tabs">
-      <button class="lb-tab active" id="btn-lb-all">总榜</button>
-      <button class="lb-tab" id="btn-lb-prov">省榜</button>
-      <button class="lb-tab" id="btn-lb-level">局榜</button>
-    </div>
     <select class="lb-prov-sel" id="lb-prov-sel" style="display:none;"></select>
     <select class="lb-prov-sel" id="lb-level-sel" style="display:none;"></select>
     <div class="lb-list" id="lb-list"></div>
@@ -694,12 +689,12 @@
   <!-- 改名（默认昵称会被强制弹窗，不能关闭；从主页键进来可以取消） -->
   <div class="overlay" id="nick-menu" style="display:none;">
     <h2 class="title small" id="nick-title">✏️ 先起个昵称</h2>
-    <p class="history-hint">「奶龙玩家」不能用来玩，起一个自己的名字吧：最多 8 个字，特殊符号只能用 - 和 .，不能和别人重名。</p>
+    <p class="history-hint">「奶龙玩家」不能用来玩，起一个自己的名字吧：最多 8 个字，特殊符号只能用 - . _，不能和别人重名。</p>
     <div class="lb-form">
       <input type="text" id="nick-input" maxlength="8" placeholder="输入昵称">
-      <button class="btn-mini" id="btn-nick-save">确定</button>
     </div>
-    <button class="btn-secondary" id="btn-nick-cancel" style="display:none;">稍后再说</button>
+    <button class="btn-primary nick-save" id="btn-nick-save">确定</button>
+    <button class="btn-secondary" id="btn-nick-cancel" style="display:none;">返回</button>
   </div>
 
   <!-- 再来 3 步 -->

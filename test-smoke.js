@@ -352,19 +352,22 @@ function check(name, ok) {
 
   // 14c. 昵称规则 + 省榜 / 局榜选择器
   check('昵称不能用默认名', !M.validateNick('奶龙玩家', []).ok);
-  check('昵称只允许 - 和 . 特殊符号', !M.validateNick('a@b', []).ok && M.validateNick('a-b.c', []).ok);
+  check('昵称只允许 - . _ 特殊符号', !M.validateNick('a@b', []).ok && M.validateNick('a-b.c', []).ok && M.validateNick('a_b', []).ok);
   check('昵称不能重名', !M.validateNick('阿呆', ['阿呆']).ok);
-  check('省榜 / 局榜选择器', (() => {
+  check('省榜 / 局榜选择器，列表页不再有页签', (() => {
     $('btn-leaderboard').dispatch('click');
     $('btn-lb-hub-prov').dispatch('click');
     const provShown = $('lb-prov-sel').style.display === 'block' && $('lb-level-sel').style.display === 'none';
+    $('btn-lb-view-back').dispatch('click');
     $('btn-lb-hub-level').dispatch('click');
     const lvShown = $('lb-level-sel').style.display === 'block' && $('lb-prov-sel').style.display === 'none';
-    $('btn-lb-all').dispatch('click');
+    $('btn-lb-view-back').dispatch('click');
+    $('btn-lb-hub-all').dispatch('click');
     const noneShown = $('lb-prov-sel').style.display === 'none' && $('lb-level-sel').style.display === 'none';
     $('btn-lb-view-back').dispatch('click');
     $('btn-close-lb').dispatch('click');
-    return provShown && lvShown && noneShown;
+    return provShown && lvShown && noneShown &&
+      htmlSrc.indexOf('lb-tabs') < 0 && htmlSrc.indexOf('btn-lb-all') < 0;
   })());
 
   // 14d. 局榜排名与奖牌：我一关 1200，对手 900 → 我第一，拿金牌
@@ -383,6 +386,37 @@ function check(name, ok) {
     });
     $('btn-history-back').dispatch('click');
     return medal === '🥇' && rowsWithMedal >= 1;
+  })());
+
+  // 14d2. 局榜上只有我一个人，也要挂奖牌
+  check('一个人上榜也有奖牌', (() => {
+    $('btn-next-level-menu').dispatch('click');   // 第 1 关 → 第 2 关（这一局只有我自己）
+    sandbox.__nl_test.refreshMenu();
+    const m = getEl('menu-high-medal').textContent;
+    const shown = getEl('menu-high-medal').style.display !== 'none';
+    $('btn-prev-level').dispatch('click');
+    sandbox.__nl_test.refreshMenu();
+    return m === '🥇' && shown;
+  })());
+
+  // 14d3. 0 分的人在榜上显示「未上榜」，名次也不挂奖牌
+  check('零分显示未上榜', (() => {
+    const saved = lsMap.get('nl2:progress');
+    lsMap.set('nl2:progress', JSON.stringify({}));
+    sandbox.__nl_test.refreshMenu();
+    $('btn-leaderboard').dispatch('click');
+    $('btn-lb-hub-all').dispatch('click');
+    // 榜行是 row > .lb-swipe > span，桩里 innerHTML 不会往下拼，两层都读
+    const txt = Array.prototype.map.call($('lb-list').children || [], (r) =>
+      String(r.innerHTML || '') +
+      Array.prototype.map.call(r.children || [], (c) => String(c.innerHTML || '')).join('')
+    ).join('');
+    const ok = txt.indexOf('未上榜') >= 0 && txt.indexOf('lb-score none') >= 0;
+    $('btn-lb-view-back').dispatch('click');
+    $('btn-close-lb').dispatch('click');
+    lsMap.set('nl2:progress', saved);
+    sandbox.__nl_test.refreshMenu();
+    return ok;
   })());
 
   // 14e. 默认昵称不能玩：改名闸拦截 btn-play

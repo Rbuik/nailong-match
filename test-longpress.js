@@ -141,17 +141,26 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail
 
 (async () => {
   const row0 = rows[0];
-  // 按下并保持 500ms
-  row0.dispatch('pointerdown', { clientX: 20, clientY: 120 });
+  const t = (x, y) => ({ clientX: x, clientY: y });
+
+  // ============ 安卓触摸：touchstart / touchmove / touchend ============
+  row0.dispatch('touchstart', { touches: [t(20, 120)], changedTouches: [t(20, 120)] });
   await new Promise((r) => setTimeout(r, 500));
 
   const ghost = body.children.find((c) => c.classList.contains('drag-ghost'));
-  ok(!!ghost, '长按 420ms 后浮起影子（drag-ghost 挂到 body）');
+  ok(!!ghost, '触摸长按 420ms 后浮起影子（drag-ghost 挂到 body）');
   ok(row0.parentNode && row0.parentNode.classList.contains('lift-src'), '原位变成半透明占位');
   ok(body.classList.contains('m-dragging'), '进入拖动态（锁滚动）');
 
-  // 往下拖过第二行中线
-  row0.dispatch('pointermove', { clientX: 20, clientY: 190 });
+  // 往下拖过第二行中线（触摸拖动要 preventDefault 挡住列表滚动）
+  let prevented = 0;
+  const guard = row0._l.touchmove || [];
+  row0.dispatch('touchmove', {
+    touches: [t(20, 190)], changedTouches: [t(20, 190)],
+    preventDefault() { prevented++; }
+  });
+  ok(prevented > 0 || guard.length > 0, '触摸拖动时调用 preventDefault（页面/列表不跟着滚）');
+  ok(prevented > 0, '拖动中确实阻止了默认滚动');
   ok(typeof ghost.style.top === 'string' && ghost.style.top !== '', '影子跟随手指移动 top=' + ghost.style.top);
 
   const wraps = box.children;
@@ -159,20 +168,38 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail
   ok(order[0] === 'https://x/b.mp3', '拖动后实时换位，顺序 = ' + order.join(' , '));
 
   // 松手
-  row0.dispatch('pointerup', { clientX: 20, clientY: 190 });
+  row0.dispatch('touchend', { touches: [], changedTouches: [t(20, 190)] });
   ok(!body.children.some((c) => c.classList.contains('drag-ghost')), '松手后影子移除');
   ok(!body.classList.contains('m-dragging'), '解除滚动锁');
 
   const saved = JSON.parse(localStorage.getItem('nl2:playlist') || '[]').map((x) => x.url);
   ok(saved[0] === 'https://x/b.mp3', '新顺序已写入存档 = ' + saved.join(' , '));
 
-  // 长按不动 → 恢复多选，不会误排序
+  // 触摸长按不动 → 恢复多选，不会误排序
   const box2 = el('playlist-list');
   const rows2 = box2.querySelectorAll('.m-item');
-  rows2[0].dispatch('pointerdown', { clientX: 20, clientY: 110 });
+  rows2[0].dispatch('touchstart', { touches: [t(20, 110)] });
   await new Promise((r) => setTimeout(r, 500));
-  rows2[0].dispatch('pointerup', { clientX: 20, clientY: 110 });
-  ok(rows2[0].classList.contains('selected'), '长按不移动即松手 = 仍进入多选（原行为保留）');
+  rows2[0].dispatch('touchend', { touches: [] });
+  ok(rows2[0].classList.contains('selected'), '触摸长按不移动即松手 = 进入多选（原行为保留）');
+
+  // 触摸滑动（不等待长按）→ 取消长按，不误浮起
+  const box3 = el('playlist-list');
+  const rows3 = box3.querySelectorAll('.m-item');
+  rows3[0].dispatch('touchstart', { touches: [t(20, 110)] });
+  rows3[0].dispatch('touchmove', { touches: [t(20, 150)] });
+  await new Promise((r) => setTimeout(r, 500));
+  rows3[0].dispatch('touchend', { touches: [] });
+  ok(!body.children.some((c) => c.classList.contains('drag-ghost')), '滑动滚动时不会误触发拖动');
+
+  // ============ 鼠标：Pointer Events 仍然可用 ============
+  const box4 = el('playlist-list');
+  const rows4 = box4.querySelectorAll('.m-item');
+  rows4[0].dispatch('pointerdown', { pointerType: 'mouse', clientX: 20, clientY: 110 });
+  await new Promise((r) => setTimeout(r, 500));
+  const ghost4 = body.children.find((c) => c.classList.contains('drag-ghost'));
+  ok(!!ghost4, '鼠标长按同样能浮起拖动');
+  rows4[0].dispatch('pointerup', { pointerType: 'mouse', clientX: 20, clientY: 110 });
 
   console.log('\n通过 ' + pass + ' / 失败 ' + fail);
   process.exit(fail ? 1 : 0);

@@ -575,64 +575,41 @@
   // 果冻格上的方块缩放系数（留出果冻边）
   const JELLY_BLOCK_SCALE = 0.76;
 
-  // 货物徽标（钥匙 / 奶龙）：圆底 30% 透明度，不挡下面的图案
+  // 货物（钥匙 / 奶龙）：只有图案本身在发光（没有光圈、没有圆底、没有描边环）
+  // 钥匙蓝光、奶龙金光，亮度随呼吸节奏起伏，棋盘上扫一眼就能找到
   // 奶龙用抠图 assets/nailong.png（加载完成前先用 🐲 兜底）
   const NAILONG_IMG = new Image();
   NAILONG_IMG.src = './assets/nailong.png';
   function drawCargoBadge(cx, cy, kind) {
     const isN = kind === 'nailong';
-    // 会呼吸的光晕：一眼就能在棋盘里找到钥匙 / 奶龙
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     const pulse = 0.5 + 0.5 * Math.sin(now / 1000 * 3.4);
-    const rgb = isN ? '255,190,70' : '120,205,255';
+    const rgb = isN ? '255,186,60' : '110,200,255';
     ctx.save();
-
-    // 1) 柔光圈（径向渐变，一眼就能看到）
-    const glowR = CELL * (0.46 + 0.05 * pulse);
-    const grad = ctx.createRadialGradient(cx, cy, CELL * 0.18, cx, cy, glowR);
-    grad.addColorStop(0, 'rgba(' + rgb + ',' + (0.30 + 0.30 * pulse).toFixed(3) + ')');
-    grad.addColorStop(0.55, 'rgba(' + rgb + ',' + (0.16 + 0.18 * pulse).toFixed(3) + ')');
-    grad.addColorStop(1, 'rgba(' + rgb + ',0)');
-    ctx.beginPath();
-    ctx.arc(cx, cy, glowR, 0, Math.PI * 2);
-    ctx.fillStyle = grad;
-    ctx.fill();
-
-    // 2) 亮环
-    ctx.beginPath();
-    ctx.arc(cx, cy, CELL * (0.34 + 0.03 * pulse), 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.55 + 0.35 * pulse).toFixed(3) + ')';
-    ctx.lineWidth = 3.5;
-    ctx.shadowColor = 'rgba(' + rgb + ',0.95)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // 发光靠阴影晕开，投出来的就是图案的轮廓
+    ctx.shadowColor = 'rgba(' + rgb + ',' + (0.70 + 0.30 * pulse).toFixed(3) + ')';
     ctx.shadowBlur = CELL * (0.26 + 0.22 * pulse);
-    ctx.stroke();
-
-    // 2) 圆底（30% 透明，带同色柔光）
-    ctx.beginPath();
-    ctx.arc(cx, cy, CELL * 0.3, 0, Math.PI * 2);
-    ctx.fillStyle = isN ? 'rgba(255,196,86,0.30)' : 'rgba(255,255,255,0.30)';
-    ctx.shadowColor = 'rgba(' + rgb + ',0.9)';
-    ctx.shadowBlur = CELL * (0.10 + 0.14 * pulse);
-    ctx.fill();
-
-    // 3) 黑色描边（先把光晕关掉，否则描边会被光吃淡）
-    ctx.shadowBlur = 0;
-    ctx.shadowColor = 'rgba(0,0,0,0)';
-    ctx.strokeStyle = 'rgba(35,35,35,0.9)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
 
     if (isN && NAILONG_IMG.complete && NAILONG_IMG.naturalWidth) {
-      const s = CELL * 0.46;
-      ctx.beginPath();
-      ctx.arc(cx, cy, CELL * 0.26, 0, Math.PI * 2);
-      ctx.clip();
+      const s = CELL * 0.66;
+      // 画两遍：第一遍铺光，第二遍让图案本身更实
+      ctx.drawImage(NAILONG_IMG, cx - s / 2, cy - s / 2, s, s);
+      ctx.shadowBlur = CELL * 0.10;
       ctx.drawImage(NAILONG_IMG, cx - s / 2, cy - s / 2, s, s);
     } else {
-      ctx.font = Math.round(CELL * 0.36) + 'px serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(isN ? '🐲' : '🔑', cx, cy + 1);
+      const t = isN ? '🐲' : '🔑';
+      const px = Math.round(CELL * 0.54);
+      ctx.font = px + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
+      ctx.lineJoin = 'round';
+      // 沿图案轮廓描一圈同色边 + 阴影晕开 = 描边发光（不是画圆圈）
+      ctx.lineWidth = Math.max(2, CELL * 0.06);
+      ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.55 + 0.35 * pulse).toFixed(3) + ')';
+      ctx.strokeText(t, cx, cy + 1);
+      ctx.shadowBlur = CELL * 0.12;
+      ctx.fillText(t, cx, cy + 1);
+      ctx.fillText(t, cx, cy + 1);
     }
     ctx.restore();
   }
@@ -2615,11 +2592,11 @@
       const row = document.createElement('div');
       row.className = 'history-item' + (locked ? ' locked' : '');
       if (i === (S.menuLevel || 0)) row.classList.add('current');
-      // 三列等宽左对齐：关卡名 | 星星（固定宽） | 分数（固定宽）
+      // 三列：关卡名 | 星星（固定宽） | 分数（固定宽，奖牌贴在分数左边）
       const medal = locked ? '' : medalForLevel(i);
-      const starStr = (medal ? '<em class="lb-medal">' + medal + '</em>' : '') +
-        '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
+      const starStr = '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
         '<span class="star-off">' + '⭐'.repeat(3 - rec.stars) + '</span>';
+      const medalStr = medal ? '<em class="lb-medal">' + medal + '</em>' : '';
       // 已解锁的关卡在同样的位置、同样的字号标出模式；未解锁显示「未解锁」
       let tag = ' <small class="lock-tag">未解锁</small>';
       if (!locked) {
@@ -2630,7 +2607,7 @@
       row.innerHTML =
         '<span class="h-name"><span class="h-lv">第 ' + i + ' 关</span>' + tag + '</span>' +
         '<span class="h-stars">' + starStr + '</span>' +
-        '<span class="h-score' + (rec.score > 0 && rec.stars === 0 ? ' fail' : '') + '">' + rec.score + '</span>';
+        '<span class="h-score' + (rec.score > 0 && rec.stars === 0 ? ' fail' : '') + '">' + medalStr + rec.score + '</span>';
       row.addEventListener('click', () => {
         // 未解锁的关卡不能跳转
         if (locked) {
@@ -3077,19 +3054,31 @@
   }
 
   // 读全部地区（34 省 + 港澳台 + 海外）；全部失败返回 null
-  // 计数器只增不减：读回来的数比上次缓存小，一定是请求被限流/截断了，取大者，
-  // 否则每次刷新数字都会往回掉（之前「每次进来都不一样」就是这个原因）
+  // 计数器只增不减：读回来的数比上次缓存小，一定是请求被限流/截断了，取大者。
+  // 读失败的中转重试 2 次，还失败才用本机上次的数，并标记 stale（页面上会提示）。
+  let provStale = 0;    // 这一轮有多少个地区没读到（显示的是本机旧数）
   function readAllProv() {
     const cached = provValsCache();
     const list = PROVINCES.concat([PROV_OVERSEAS]);
-    return Promise.all(list.map((p) => readProvCount(p[1]).then((n) => {
-      const prev = typeof cached[p[1]] === 'number' ? cached[p[1]] : 0;
-      if (n >= 0) n = Math.max(n, prev);
-      else n = prev;                                     // 读失败 → 沿用上次
-      if (n > 0) cached[p[1]] = n;
-      return { name: p[0], code: p[1], n: n };
-    }))).then((rows) => {
-      if (!rows.some((r) => r.n >= 0)) return null;
+    const fresh = Object.create(null);
+    const readOne = (p, left) => readProvCount(p[1]).then((n) => {
+      if (n >= 0) { fresh[p[1]] = n; return; }
+      if (left <= 0) return;
+      return new Promise((r) => setTimeout(r, 500)).then(() => readOne(p, left - 1));
+    });
+    return Promise.all(list.map((p) => readOne(p, 2))).then(() => {
+      let got = 0;
+      const rows = list.map((p) => {
+        const prev = typeof cached[p[1]] === 'number' ? cached[p[1]] : 0;
+        const has = typeof fresh[p[1]] === 'number';
+        let n = has ? fresh[p[1]] : prev;      // 没读到 → 先拿上次的数顶着
+        if (n < prev) n = prev;                // 只增不减
+        if (n > 0) cached[p[1]] = n;
+        if (has) got++;
+        return { name: p[0], code: p[1], n: n, stale: !has };
+      });
+      if (!got) return null;                   // 一个都没读到 → 当断网处理
+      provStale = rows.filter((r) => r.stale && r.n > 0).length;
       try { localStorage.setItem('nl2:provVals3', JSON.stringify(cached)); } catch (e) {}
       return rows.filter((r) => r.n > 0).sort((a, b) => b.n - a.n);
     });
@@ -3110,7 +3099,8 @@
     provRows = rows.filter((r) => !isUnk(r)).map((r) => ({
       name: r.name,
       code: r.code || (matchProvince(r.name) || {}).code || '',
-      n: r.n
+      n: r.n,
+      stale: !!r.stale
     })).filter((r) => r.code).sort((a, b) => b.n - a.n);
     try {
       localStorage.setItem('nl2:provCache3', JSON.stringify({ ts: Date.now(), data: provRows }));
@@ -3251,6 +3241,8 @@
       sub.textContent = provRows.length
         ? ('共 ' + provs.length + ' 个省份' + (oversea ? ' + 海外' : '') + ' · 合计 ' + total + ' 次点击')
         : '暂无点击记录';
+      // 有地区没读到：说明数字里混了本机上次的旧值，直接标出来（别的设备可能不一样）
+      if (provStale > 0 && provRows.length) sub.textContent += ' · ' + provStale + ' 个地区没读到';
     }
     if (!rows.length && !(oversea && !k)) {
       list.innerHTML = '<li class="prov-empty">没有找到相关省份</li>';
@@ -3857,9 +3849,6 @@
       $('lb-view').style.display = 'none';
       showOverlay('leaderboard-menu');
     });
-    on('btn-lb-all', () => { lbTab = 'all'; renderLeaderboard(); });
-    on('btn-lb-prov', () => { lbTab = 'prov'; if (!lbProv) lbProv = myProvCode(); renderLeaderboard(); });
-    on('btn-lb-level', () => { lbTab = 'level'; renderLeaderboard(); });
     const provSelEl = $('lb-prov-sel');
     if (provSelEl) provSelEl.addEventListener('change', () => { lbProv = provSelEl.value; renderLeaderboard(); });
     const lvSelEl = $('lb-level-sel');
@@ -4697,12 +4686,12 @@
     const mine = Meta.myUid();
     const rows = levelRows(lv);
     const myScore = myLevelMap()[String(lv)] || 0;
-    if (!(myScore > 0) || rows.length < 2) return 0;
+    if (!(myScore > 0)) return 0;
     for (let i = 0; i < rows.length; i++) if (rows[i].uid === mine) return i + 1;
     return 0;
   }
 
-  // 前三名奖牌：同一局至少 2 人上榜才发（只有自己一人不算比赛）
+  // 前三名奖牌：只要自己在这一局有成绩，哪怕榜上只有自己一个人也算名次
   function medalForLevel(lv) {
     const r = levelRank(lv);
     if (!r || r > 3) return '';
@@ -4767,15 +4756,9 @@
     if (!box) return;
     const me = myBestEntry();
 
-    // 页签、省份选择器、关卡选择器的显隐
-    const tabAll = $('btn-lb-all');
-    const tabProv = $('btn-lb-prov');
-    const tabLv = $('btn-lb-level');
+    // 省份选择器 / 关卡选择器的显隐（榜单类型由入口决定，列表页里不再有页签）
     const provSel = $('lb-prov-sel');
     const lvSel = $('lb-level-sel');
-    if (tabAll) tabAll.classList.toggle('active', lbTab === 'all');
-    if (tabProv) tabProv.classList.toggle('active', lbTab === 'prov');
-    if (tabLv) tabLv.classList.toggle('active', lbTab === 'level');
     if (provSel) {
       provSel.style.display = lbTab === 'prov' ? 'block' : 'none';
       if (provSel.options && !provSel.options.length) {
@@ -4860,11 +4843,13 @@
       row.className = 'lb-row' + (r.me ? ' me' : '');
       const inner = document.createElement('div');
       inner.className = 'lb-swipe';
-      const rank = i < 3 && shown.length >= 2 ? ['🥇', '🥈', '🥉'][i] : String(i + 1);
+      // 0 分不上榜：名次留空、分数位置写「未上榜」
+      const onBoard = (r.score || 0) > 0;
+      const rank = !onBoard ? '—' : (i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1));
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
         '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
         (r.me ? '<i class="lb-me">我</i>' : r.friend ? '<i>好友</i>' : '') + '</span>' +
-        '<span class="lb-score">' + (r.score || 0) + '</span>';
+        '<span class="lb-score' + (onBoard ? '' : ' none') + '">' + (onBoard ? r.score : '未上榜') + '</span>';
       row.appendChild(inner);
       if (r.friend) {
         const del = document.createElement('button');
@@ -4919,19 +4904,22 @@
   let nickGateCb = null;
   let nickForced = false;
 
-  // 打开改名面板：forced=true 是「默认昵称不能玩」的强制闸（不能关），
-  // forced=false 是从主页键里主动改（可以「稍后再说」）
+  // 打开改名面板：forced=true 是「默认昵称不能玩」的强制闸（只有「确定」，没有返回），
+  // forced=false 是从主页键里主动改（底部有「返回」）
   function openNickMenu(forced) {
     nickForced = !!forced;
     const title = $('nick-title');
     if (title) title.textContent = forced ? '✏️ 先起个昵称' : '✏️ 修改昵称';
     const cancel = $('btn-nick-cancel');
-    if (cancel) cancel.style.display = forced ? 'none' : 'inline-block';
+    if (cancel) {
+      cancel.textContent = '返回';
+      cancel.style.display = forced ? 'none' : 'block';
+    }
     const hint = $('nick-menu') && $('nick-menu').querySelector('.history-hint');
     if (hint) {
       hint.textContent = forced
-        ? '「奶龙玩家」不能用来玩，起一个自己的名字吧：最多 8 个字，特殊符号只能用 - 和 .，不能和别人重名。'
-        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 - 和 .，不能和别人重名。';
+        ? '「奶龙玩家」不能用来玩，起一个自己的名字吧：最多 8 个字，特殊符号只能用 - . _，不能和别人重名。'
+        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 - . _，不能和别人重名。';
     }
     if ($('nick-input')) $('nick-input').value = Meta.isDefaultNick() ? '' : Meta.nickname();
     showOverlay('nick-menu');
