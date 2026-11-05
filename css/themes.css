@@ -1283,27 +1283,31 @@ body.m-dragging .m-item { cursor: grabbing; }
 .history-item .h-stars .lb-medal { font-size: 13px; margin-right: 1px; }
 
 /* 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：只有一个符号，没有圆圈底 */
+/* 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：跟标题文字同行、纵向居中，间距贴文字 */
 .lb-title-row {
   display: flex;
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 2px;
 }
 .lb-swap {
-  width: 34px;
-  height: 34px;
+  width: auto;
+  height: auto;
   border: none;
   background: transparent;
   box-shadow: none;
-  font-size: 20px;
+  font-size: 14px;
   font-weight: 700;
   color: #7c5cff;
   line-height: 1;
   padding: 0;
   cursor: pointer;
+  vertical-align: middle;
+  flex: none;
+  transform: translateY(-1px);
 }
-.lb-swap:active { transform: scale(0.88); }
+.lb-swap:active { transform: translateY(-1px) scale(0.88); }
 
 /* ⇄ 弹出的选择面板：全部省份 / 关卡一格一格直接挑 */
 .lb-picker {

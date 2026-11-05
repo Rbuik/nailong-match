@@ -581,43 +581,60 @@
   // 奶龙用抠图 assets/nailong.png（加载完成前先用文字「奶龙」兜底）
   const NAILONG_IMG = new Image();
   NAILONG_IMG.src = './assets/nailong.png';
-  function drawCargoBadge(cx, cy, kind) {
-    const isN = kind === 'nailong';
-    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    const pulse = 0.5 + 0.5 * Math.sin(now / 1000 * 3.4);
-    const rgb = isN ? '255,186,60' : '110,200,255';
-    // 呼吸放大缩小：最大就是原来的大小，最小只小一点点
-    // —— 棋盘上会动的东西才容易被一眼找到
-    const scale = 0.88 + 0.12 * pulse;
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.scale(scale, scale);
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    // 发光靠阴影晕开，投出来的就是图案的轮廓
-    ctx.shadowColor = 'rgba(' + rgb + ',' + (0.70 + 0.30 * pulse).toFixed(3) + ')';
-    ctx.shadowBlur = CELL * (0.26 + 0.22 * pulse);
+  // 抠图加载完成后作废已缓存兜底文字徽标，并重绘一次
+  NAILONG_IMG.onload = () => { delete CARGO_SPRITES.nailong; if (!S.busy) drawStatic(); };
 
+  // 发光徽标很贵（shadowBlur 逐帧重绘会让低端机发烫卡顿），
+  // 把徽标按「呼吸亮度档位」预渲染进离屏画布，运行时只做廉价 drawImage
+  const CARGO_SPRITES = {};   // kind -> { cell, m: { 档位: canvas } }
+  function cargoSprite(kind, pulse) {
+    const isN = kind === 'nailong';
+    const rgb = isN ? '255,186,60' : '110,200,255';
+    let c = CARGO_SPRITES[kind];
+    if (!c || c.cell !== CELL) { c = { cell: CELL, m: {} }; CARGO_SPRITES[kind] = c; }
+    const bucket = Math.min(11, Math.max(0, Math.round(pulse * 11)));   // 12 档足够平滑
+    let sp = c.m[bucket];
+    if (sp) return sp;
+
+    const size = Math.ceil(CELL * 2.2);
+    sp = document.createElement('canvas');
+    sp.width = size; sp.height = size;
+    const g = sp.getContext('2d');
+    g.translate(size / 2, size / 2);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.shadowColor = 'rgba(' + rgb + ',' + (0.70 + 0.30 * pulse).toFixed(3) + ')';
+    g.shadowBlur = CELL * (0.26 + 0.22 * pulse);
     if (isN && NAILONG_IMG.complete && NAILONG_IMG.naturalWidth) {
       const s = CELL * 0.66;
       // 画两遍：第一遍铺光，第二遍让图案本身更实
-      ctx.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
-      ctx.shadowBlur = CELL * 0.10;
-      ctx.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
+      g.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
+      g.shadowBlur = CELL * 0.10;
+      g.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
     } else {
       const t = isN ? '奶龙' : '🔑';
       const px = Math.round(CELL * 0.54);
-      ctx.font = px + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
-      ctx.lineJoin = 'round';
-      // 沿图案轮廓描一圈同色边 + 阴影晕开 = 描边发光（不是画圆圈）
-      ctx.lineWidth = Math.max(2, CELL * 0.06);
-      ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.55 + 0.35 * pulse).toFixed(3) + ')';
-      ctx.strokeText(t, 0, 1);
-      ctx.shadowBlur = CELL * 0.12;
-      ctx.fillText(t, 0, 1);
-      ctx.fillText(t, 0, 1);
+      g.font = px + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
+      g.lineJoin = 'round';
+      g.lineWidth = Math.max(2, CELL * 0.06);
+      g.strokeStyle = 'rgba(' + rgb + ',' + (0.55 + 0.35 * pulse).toFixed(3) + ')';
+      g.strokeText(t, 0, 1);
+      g.shadowBlur = CELL * 0.12;
+      g.fillText(t, 0, 1);
+      g.fillText(t, 0, 1);
     }
-    ctx.restore();
+    c.m[bucket] = sp;
+    return sp;
+  }
+
+  function drawCargoBadge(cx, cy, kind) {
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const pulse = 0.5 + 0.5 * Math.sin(now / 1000 * 3.4);
+    // 呼吸放大缩小：最大就是原来的大小，最小只小一点点
+    const scale = 0.88 + 0.12 * pulse;
+    const sp = cargoSprite(kind, pulse);
+    const w = sp.width * scale;
+    ctx.drawImage(sp, cx - w / 2, cy - w / 2, w, w);
   }
 
   // 静态重绘（无动画）
@@ -1330,18 +1347,19 @@
   }
 
   // ==================== 彩虹：消场上所有「同图案」方块 ====================
-  // 彩虹跟普通块交换时，消掉被交换那个图案在全盘的每一块 + 彩虹自身；
+  // 彩虹跟普通块交换时，消掉【彩虹自己图案】在全盘的每一块 + 被交换那个；
   // 不连锁引爆同色里夹着的炸弹/线消（它们只被当作普通方块消掉），
   // 也绝不直接碰其它图案的方块（掉落后凑出的普通三连属于正常连消）。
   function rainbowSwapInfo(ba, bb) {
     if (!ba || !bb) return null;
-    if (ba.special === T.RAINBOW && bb.special === T.NORMAL) return { color: bb.type, fromA: true };
-    if (bb.special === T.RAINBOW && ba.special === T.NORMAL) return { color: ba.type, fromA: false };
+    // 彩虹块本身有图案（type），消除目标 = 彩虹自己的图案
+    if (ba.special === T.RAINBOW && bb.special === T.NORMAL) return { color: ba.type, fromA: true };
+    if (bb.special === T.RAINBOW && ba.special === T.NORMAL) return { color: bb.type, fromA: false };
     return null;
   }
 
   async function runRainbowClear(color, rainbowCell) {
-    // 同图案全消 + 彩虹自己也一起消掉
+    // 彩虹自身图案全消 + 被交换的那块也一起消掉（彩虹已经在它那格）
     const cells = new Set([kOf(rainbowCell.r, rainbowCell.c)]);
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
@@ -2122,7 +2140,7 @@
       if (cont) {
         const canCont = !S.daily && !S.timerOn && S.moves > 0;
         cont.style.display = canCont ? 'inline-block' : 'none';
-        cont.textContent = '还有剩余步数　是否继续游戏';
+        cont.textContent = '还有剩余步数是否继续游戏';
       }
       box.style.display = 'flex';
 
@@ -3962,7 +3980,8 @@
       S.busy = false;
       Input.setEnabled(true);
       setView('game');
-      toast('剩 ' + S.moves + ' 步，继续！');
+      // 「剩X步，继续！」打在棋盘正中间（不再走底部 toast）
+      FX.text(VIEW_W / 2, VIEW_H / 2, '剩 ' + S.moves + ' 步，继续！', '#ffd75c', 26);
     });
     const home1 = $('btn-clear-home');
     if (home1) home1.addEventListener('click', () => {
@@ -4225,8 +4244,9 @@
       FX.update(dt);
       if (!S.busy) drawStatic();
     }
-    // 棋盘上有钥匙/奶龙时持续重绘：货物才会真的呼吸（放大缩小 + 发光起伏）
-    if (!S.busy && boardHasCargo()) drawStatic();
+    // 棋盘上有钥匙/奶龙时重绘：货物才会真的呼吸（放大缩小 + 发光起伏）。
+    // 呼吸节奏很慢，降到 ~20fps 就够顺滑，省下大半 GPU/CPU（低端机卡顿主因）。
+    if (!S.busy && boardHasCargo() && (S.frameNo = (S.frameNo || 0) + 1) % 3 === 0) drawStatic();
     updateComboBar();
 
     // 落地挤压（§14）

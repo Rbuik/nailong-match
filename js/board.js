@@ -222,15 +222,17 @@
   // ---------- 拉取 ----------
   function parseNdjson(txt) {
     let changed = false;
+    let maxT = 0;   // 消息里最大的服务器时间（unix 秒）
     String(txt || '').split('\n').forEach((line) => {
       const s = line.trim();
       if (!s) return;
       let j;
       try { j = JSON.parse(s); } catch (e) { return; }
       if (!j || j.event !== 'message' || !j.message) return;
+      maxT = Math.max(maxT, Number(j.message.time) || 0);
       if (consume(j.message)) changed = true;
     });
-    return changed;
+    return { changed: changed, maxT: maxT };
   }
 
   function sync() {
@@ -242,13 +244,16 @@
     return fetch(url, { cache: 'no-store' })
       .then((r) => (r && r.ok ? r.text() : ''))
       .then((txt) => {
-        const changed = parseNdjson(txt);
-        lastSync = Date.now();
+        const r = parseNdjson(txt);
+        // 游标用「服务器消息时间」而不是本机时间：手机时钟偏快几秒时，
+        // 按本机时间算 since 会把刚发布的消息当成已同步过，从此一直漏。
+        if (r.maxT) lastSync = Math.max(lastSync, r.maxT * 1000);
+        else lastSync = Date.now();
         save();
         setStatus('live');
-        if (changed) emit();
+        if (r.changed) emit();
         maybeSnapshot();
-        return changed;
+        return r.changed;
       })
       .catch(() => { setStatus('offline'); return false; });
   }
@@ -337,7 +342,10 @@
         let j;
         try { j = JSON.parse(ev.data); } catch (e) { return; }
         if (!j || j.event !== 'message' || !j.message) return; // keepalive / open 事件
-        if (consume(j.message)) { lastSync = Date.now(); save(); emit(); }
+        // 游标跟服务器时间对齐（同 sync，防时钟偏快漏消息）
+        const mt = Number(j.message.time) || 0;
+        if (mt) lastSync = Math.max(lastSync, mt * 1000);
+        if (consume(j.message)) { lastSync = Math.max(lastSync, Date.now()); save(); emit(); }
       };
       es.onerror = () => { setStatus('offline'); };  // 浏览器会自动重连
       setStatus('live');

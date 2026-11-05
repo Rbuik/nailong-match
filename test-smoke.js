@@ -646,31 +646,31 @@ function check(name, ok) {
   await sandbox.__nl_test.resolveClear(new Set(['5,3']), []);
   check('货物被消后落到下一格', !!(st.board[6][3] && st.board[6][3].cargo === cargoObj));
 
-  // 27. 彩虹 + 普通块：同图案全消，彩虹自己也一起消掉
+  // 27. 彩虹 + 普通块：消掉【彩虹自身图案】的全盘方块，彩虹自己也一起消掉
   sandbox.__nl_test.start(1, { def: { id: 91, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
   const rainbowObj = { type: 0, special: Sp.TYPE.RAINBOW };
   st.board[4][4] = rainbowObj;
   st.board[4][5] = { type: 1, special: 0 };
-  // 记录交换前所有同图案方块的对象引用（随机补充的新块不算）
-  const type1Objs = new Set();
+  // 记录交换前彩虹图案（type 0）的方块对象引用（随机补充的新块不算）
+  const type0Objs = new Set();
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
     const b = st.board[r][c];
-    if (b && b.type === 1 && b !== st.board[4][5]) type1Objs.add(b);
+    if (b && b.type === 0 && b !== rainbowObj) type0Objs.add(b);
   }
-  // 彩虹和普通块交换：同图案全消，彩虹自己也一起消掉
-  // （掉落连消可能凑出新的彩虹、也可能补进同图案新块，所以全部用对象引用判断）
+  // 彩虹和普通块交换：彩虹自己图案全消，彩虹自己也一起消掉
+  // （掉落连消可能补进同图案新块，所以全部用对象引用判断）
   await sandbox.__nl_test.swap({ r: 4, c: 4 }, { r: 4, c: 5 });
   let origGone = true;
-  let type1Left = 0;
+  let type0Left = 0;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
     const b = st.board[r][c];
     if (!b) continue;
     if (b === rainbowObj) origGone = false;
-    if (type1Objs.has(b)) type1Left++;
+    if (type0Objs.has(b)) type0Left++;
   }
   check('彩虹交换后自己也被消除', origGone);
-  check('彩虹清掉同图案普通块', type1Objs.size > 0 && type1Left === 0);
+  check('彩虹清掉自己图案的普通块', type0Objs.size > 0 && type0Left === 0);
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
