@@ -70,6 +70,8 @@ const localStorageStub = {
 // 预置：已有 2 个洗牌道具、第 1 关 3 星（解锁到第 2 关）
 lsMap.set('nl2:wallet', JSON.stringify({ coins: 500, items: { shuffle: 2, undo: 1 } }));
 lsMap.set('nl2:progress', JSON.stringify({ 1: { score: 1200, stars: 3 } }));
+// 预置昵称：默认「奶龙玩家」会被改名闸拦住，测试里先改好
+lsMap.set('nl2:mnick', JSON.stringify('测试奶龙'));
 
 // ---------- 元素注册表 ----------
 const els = {};
@@ -340,6 +342,33 @@ function check(name, ok) {
   })());
   $('btn-close-lb').dispatch('click');
 
+  // 14c. 昵称规则与省榜页签
+  check('昵称不能用默认名', !M.validateNick('奶龙玩家', []).ok);
+  check('昵称只允许 - 和 . 特殊符号', !M.validateNick('a@b', []).ok && M.validateNick('a-b.c', []).ok);
+  check('昵称不能重名', !M.validateNick('阿呆', ['阿呆']).ok);
+  check('省榜页签切换', (() => {
+    $('btn-leaderboard').dispatch('click');
+    $('btn-lb-prov').dispatch('click');
+    const selShown = $('lb-prov-sel').style.display === 'block';
+    $('btn-lb-all').dispatch('click');
+    const selHidden = $('lb-prov-sel').style.display === 'none';
+    $('btn-close-lb').dispatch('click');
+    return selShown && selHidden;
+  })());
+
+  // 14d. 默认昵称不能玩：改名闸拦截 btn-play
+  check('默认昵称被改名闸拦截', (() => {
+    const saved = lsMap.get('nl2:mnick');
+    lsMap.delete('nl2:mnick');
+    // Meta 缓存可能持有旧值，直接走 Meta.setNickname 恢复默认
+    M.setNickname('');
+    $('btn-play').dispatch('click');
+    const blocked = $('nick-menu').style.display === 'flex';
+    M.setNickname('测试奶龙');
+    if (saved !== undefined) lsMap.set('nl2:mnick', saved);
+    return blocked;
+  })());
+
   // 15. 冰块关：铺冰 + 目标值校准 + 冰上格子不可交换
   const iceDef = { id: 99, theme: 'candy', moves: 20, goal: { type: 'ice', target: 10 }, ice: 10, stars: [1, 2, 3] };
   sandbox.__nl_test.start(1, { def: iceDef });
@@ -393,7 +422,13 @@ function check(name, ok) {
   st = sandbox.__nl_test.state();
   let iceCell = null;
   for (let r = 0; r < 8 && !iceCell; r++) for (let c = 0; c < 8 && !iceCell; c++) if (st.ice[r][c]) iceCell = { r: r, c: c };
-  const nb = { r: iceCell.r, c: iceCell.c + 1 < 8 ? iceCell.c + 1 : iceCell.c - 1 };
+  // 邻格必须本身没有冰/锁链，否则这次「消除」会撞障碍而不算
+  let nb = null;
+  [{ r: iceCell.r, c: iceCell.c + 1 }, { r: iceCell.r, c: iceCell.c - 1 }, { r: iceCell.r - 1, c: iceCell.c }, { r: iceCell.r + 1, c: iceCell.c }]
+    .some((p) => {
+      if (p.r >= 0 && p.r < 8 && p.c >= 0 && p.c < 8 && st.board[p.r][p.c] && !st.ice[p.r][p.c] && !st.chain[p.r][p.c]) { nb = p; return true; }
+      return false;
+    });
   const iceBefore = st.goal.iceCleared || 0;
   const iceBeforeVal = st.ice[iceCell.r][iceCell.c];
   await sandbox.__nl_test.resolveClear(new Set([nb.r + ',' + nb.c]), []);
