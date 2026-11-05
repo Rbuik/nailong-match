@@ -2372,7 +2372,7 @@
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
-      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu',
+      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'recover-menu', 'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2387,7 +2387,7 @@
     'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
-    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'fix-menu'];
+    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'recover-menu', 'fix-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -4448,6 +4448,17 @@
       const el = $(id);
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
     });
+    // 忘记密码 / 找回账号
+    on('btn-auth-recover', openRecoverMenu);
+    on('btn-recover-submit', submitRecover);
+    on('btn-recover-back', () => {
+      $('recover-menu').style.display = 'none';
+      showAuthScreen();
+    });
+    ['recover-name', 'recover-pass', 'recover-pass2'].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitRecover(); });
+    });
     on('btn-fix-save', saveFix);
     const fixName = $('fix-name');
     if (fixName) fixName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveFix(); });
@@ -4528,7 +4539,7 @@
       ov.addEventListener('click', (e) => {
         // 主页 / 结算 / 登录 / 补资料这些面板点遮罩不关闭（必须点按钮）
         if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete',
-          'auth-menu', 'auth-form', 'fix-menu'].indexOf(ov.id) < 0) {
+          'auth-menu', 'auth-form', 'recover-menu', 'fix-menu'].indexOf(ov.id) < 0) {
           ov.style.display = 'none';
         }
       });
@@ -5603,6 +5614,8 @@
     if (f) f.style.display = 'none';
     const fix = $('fix-menu');
     if (fix) fix.style.display = 'none';
+    const rec = $('recover-menu');
+    if (rec) rec.style.display = 'none';
     setAuthError('');
     renderAuthAccounts();
     showOverlay('auth-menu');
@@ -5631,6 +5644,63 @@
     setView('menu');
     const n = $('auth-name');
     if (n && n.focus) setTimeout(() => n.focus(), 60);
+  }
+
+  // 找回账号 / 忘记密码：本机有就重设密码，本机没有但榜上有就用榜上身份建号
+  function openRecoverMenu() {
+    if ($('auth-menu')) $('auth-menu').style.display = 'none';
+    if ($('auth-form')) $('auth-form').style.display = 'none';
+    ['recover-name', 'recover-pass', 'recover-pass2'].forEach((id) => {
+      const el = $(id);
+      if (el) el.value = '';
+    });
+    setInputError(['recover-name', 'recover-pass', 'recover-pass2'], false);
+    const err = $('recover-err');
+    if (err) err.textContent = '';
+    showOverlay('recover-menu');
+    setView('menu');
+    const n = $('recover-name');
+    if (n && n.focus) setTimeout(() => n.focus(), 60);
+  }
+
+  function submitRecover() {
+    const name = ($('recover-name') || {}).value || '';
+    const p1 = ($('recover-pass') || {}).value || '';
+    const p2 = ($('recover-pass2') || {}).value || '';
+    const err = $('recover-err');
+    const fail = (m, ids) => {
+      setInputError(ids || ['recover-name', 'recover-pass', 'recover-pass2'], true);
+      if (err) err.textContent = m;
+      try { AudioManager.playSFX('invalid'); } catch (e) {}
+      return false;
+    };
+    setInputError(['recover-name', 'recover-pass', 'recover-pass2'], false);
+    if (err) err.textContent = '';
+    if (!String(name).trim()) return fail('请填写名字', ['recover-name']);
+    if (!p1) return fail('请设置新密码', ['recover-pass']);
+    if (p1 !== p2) return fail('两次输入的密码不一样', ['recover-pass2']);
+    if (typeof Account === 'undefined' || !Account.restore) return fail('账号功能没加载出来，请刷新页面');
+
+    // 本机没有这个号时，去共享榜里找同名玩家的身份码
+    let uid = '';
+    try {
+      const k = String(name).trim().toLowerCase();
+      const hit = (Board.list() || []).filter((e) => e && e.name &&
+        String(e.name).trim().toLowerCase() === k)[0];
+      if (hit && hit.uid) uid = hit.uid;
+    } catch (e) {}
+
+    const r = Account.restore(name, p1, uid);
+    if (!r.ok) {
+      if (String(r.reason || '').indexOf('没找到') >= 0) {
+        return fail('没找到这个名字的玩家，请检查名字，或直接注册一个新号', ['recover-name']);
+      }
+      return fail(r.reason || '找回失败');
+    }
+    afterAuthEnter(r.created
+      ? '已建好「' + r.account.name + '」，榜单成绩归你，进度从零开始'
+      : '密码已重设，欢迎回来「' + r.account.name + '」');
+    return true;
   }
 
   function submitAuth() {

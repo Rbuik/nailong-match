@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261105r">
-<link rel="stylesheet" href="./css/themes.css?v=20261105r">
+<link rel="stylesheet" href="./css/style.css?v=20261105s">
+<link rel="stylesheet" href="./css/themes.css?v=20261105s">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -484,7 +484,25 @@
     <h2 class="title small">奶龙消消乐</h2>
     <button class="btn-primary" id="btn-auth-login">登录</button>
     <button class="btn-primary" id="btn-auth-register">注册</button>
+    <button class="btn-text" id="btn-auth-recover">忘记密码 / 找回账号</button>
     <div class="auth-acct-box" id="auth-accounts"></div>
+  </div>
+
+  <!-- 找回账号：本机有就重设密码，本机没有但榜上有就建一个本地号 -->
+  <div class="overlay auth-page" id="recover-menu" style="display:none;">
+    <h2 class="title small">找回账号</h2>
+    <div class="auth-box">
+      <label class="auth-label" for="recover-name">名字</label>
+      <input class="auth-input" type="text" id="recover-name" maxlength="12" placeholder="账号名字" autocomplete="off">
+      <label class="auth-label" for="recover-pass">新密码</label>
+      <input class="auth-input" type="password" id="recover-pass" maxlength="24" placeholder="4~24 位，不含空格" autocomplete="off">
+      <label class="auth-label" for="recover-pass2">确认新密码</label>
+      <input class="auth-input" type="password" id="recover-pass2" maxlength="24" placeholder="再输一次" autocomplete="off">
+      <p class="auth-tip">本机有这个号：直接改密码进游戏，数据不动。<br>本机没有：用新密码重新建号，榜单成绩归你，进度从零开始。</p>
+      <p class="auth-err" id="recover-err"></p>
+    </div>
+    <button class="btn-primary" id="btn-recover-submit">找回并进入</button>
+    <button class="btn-secondary" id="btn-recover-back">返回</button>
   </div>
 
   <!-- 输入名字 + 密码（登录 / 注册） -->
@@ -878,20 +896,20 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261105r"></script>
-<script src="./js/storage.js?v=20261105r"></script>
-<script src="./js/audio.js?v=20261105r"></script>
-<script src="./js/effects.js?v=20261105r"></script>
-<script src="./js/specials.js?v=20261105r"></script>
-<script src="./js/goals.js?v=20261105r"></script>
-<script src="./js/tasks.js?v=20261105r"></script>
-<script src="./js/mail.js?v=20261105r"></script>
-<script src="./js/input.js?v=20261105r"></script>
-<script src="./js/builtin-music.js?v=20261105r"></script>
-<script src="./js/music.js?v=20261105r"></script>
-<script src="./js/meta.js?v=20261105r"></script>
-<script src="./js/account.js?v=20261105r"></script>
-<script src="./js/board.js?v=20261105r"></script>
-<script src="./js/game.js?v=20261105r"></script>
+<script src="./js/rng.js?v=20261105s"></script>
+<script src="./js/storage.js?v=20261105s"></script>
+<script src="./js/audio.js?v=20261105s"></script>
+<script src="./js/effects.js?v=20261105s"></script>
+<script src="./js/specials.js?v=20261105s"></script>
+<script src="./js/goals.js?v=20261105s"></script>
+<script src="./js/tasks.js?v=20261105s"></script>
+<script src="./js/mail.js?v=20261105s"></script>
+<script src="./js/input.js?v=20261105s"></script>
+<script src="./js/builtin-music.js?v=20261105s"></script>
+<script src="./js/music.js?v=20261105s"></script>
+<script src="./js/meta.js?v=20261105s"></script>
+<script src="./js/account.js?v=20261105s"></script>
+<script src="./js/board.js?v=20261105s"></script>
+<script src="./js/game.js?v=20261105s"></script>
 </body>
 </html>

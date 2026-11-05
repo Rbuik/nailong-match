@@ -1045,6 +1045,25 @@ function check(name, ok) {
     (sandbox.Store.getProgress()[1] || {}).stars === 3);
   check('切回来名字也回到原号', sandbox.Meta.nickname() === '测试奶龙');
 
+  // 31b. 忘记密码 / 找回账号
+  check('登录页有「忘记密码 / 找回账号」入口和面板',
+    htmlSrc0.includes('id="btn-auth-recover"') && htmlSrc0.includes('id="recover-menu"'));
+  check('找回本机已有的号：重设密码后能登，数据不动', (() => {
+    const r = sandbox.Account.restore('测试奶龙', 'newpass99', '');
+    const bad = sandbox.Account.login('测试奶龙', 'wrongpass').ok === false;
+    const good = sandbox.Account.login('测试奶龙', 'newpass99').ok === true;
+    return r.ok === true && r.existing === true && bad && good &&
+      Object.keys(sandbox.Store.getProgress()).length > 0;
+  })());
+  check('本机没有、榜上也没有的名字 → 拒绝找回',
+    sandbox.Account.restore('查无此人', 'abcd1234', '').ok === false);
+  check('榜上有但不本机：用榜上身份建号并绑回 uid', (() => {
+    const r = sandbox.Account.restore('榜上玩家', 'abcd1234', 'x-board-uid');
+    return r.ok === true && r.created === true &&
+      sandbox.Account.currentId() === 'x-board-uid' &&
+      sandbox.Meta.myUid() === 'x-board-uid';
+  })());
+
   // 32. yone 的 1360 金币奖励：发到邮箱，自己领
   const coinsBeforeYone = sandbox.Store.getWallet().coins;
   const yReg = sandbox.Account.register('yone', 'yone1234');

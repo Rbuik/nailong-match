@@ -384,6 +384,55 @@
     return got;
   }
 
+  // ---------- 找回账号 ----------
+  // 两种情形都用这一个入口：
+  //   1) 本机已有这个号 → 重设密码后直接进去（数据一点不动，等于「忘了密码」）
+  //   2) 本机没有、但共享榜上有这个名字 → 建一个本地账号，id 用榜上的身份码，
+  //      这样榜单认人（分数归你）；本机进度因为从来没存过，只能从空开始
+  function restore(name, pass, boardUid) {
+    const n = String(name == null ? '' : name).trim();
+    if (!n) return { ok: false, reason: '请填写名字' };
+    const p = checkPass(pass);
+    if (!p.ok) return p;
+
+    const acc = findByName(n);
+    if (acc) {
+      const arr = list();
+      const i = arr.findIndex((x) => x.id === acc.id);
+      if (i < 0) return { ok: false, reason: '账号不存在' };
+      arr[i].pass = hash(p.pass);
+      arr[i].last = Date.now();
+      saveList(arr);
+      wipeActive();
+      loadSlot(acc.id);
+      write(K.cur, acc.id);
+      syncNick(arr[i]);
+      return { ok: true, existing: true, account: arr[i] };
+    }
+
+    const uid = String(boardUid == null ? '' : boardUid).trim();
+    if (!/^[A-Za-z0-9_-]{3,24}$/.test(uid)) return { ok: false, reason: '没找到这个玩家' };
+    if (find(uid)) return { ok: false, reason: '这个身份已经被本机另一个账号占用了' };
+
+    wipeActive();
+    const na = {
+      id: uid,
+      name: n,
+      pass: hash(p.pass),
+      created: Date.now(),
+      last: Date.now(),
+      restored: true
+    };
+    const arr = list();
+    arr.push(na);
+    saveList(arr);
+    write(K.cur, uid);
+    loadSlot(uid);
+    write('nl2:muid', uid);   // 榜单靠这个身份码认人，找回就是把身份码绑回来
+    syncNick(na);
+    return { ok: true, created: true, account: na };
+  }
+
   // ---------- 列表展示用摘要 ----------
   function summary(acc) {
     const isCur = !!acc && acc.id === currentId();
@@ -417,7 +466,7 @@
     K, GRANTS, BAD_PASS,
     hash,
     list: all, find, findByName, current, currentId, loggedIn,
-    register, login, logout, switchTo,
+    register, login, logout, switchTo, restore,
     setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick, purge,
     saveCurrent, checkName, checkPass
   };
