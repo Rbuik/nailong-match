@@ -2272,6 +2272,8 @@
       timeLeft: S.timeLeft,
       jellyLeft: S.jellyLeft,
       goalCurrent: S.goal ? { current: S.goal.current, byColor: S.goal.byColor, jellyCleared: S.goal.jellyCleared } : null,
+      // 收集关：把本局随机出的目标方块存下来，续玩时不重新随机
+      collectTarget: (S.goal && S.goal.type === 'collect') ? S.goal.target : null,
       shuffleLeft: S.shuffleLeft,
       undoLeft: S.undoLeft,
       daily: S.daily
@@ -2296,8 +2298,15 @@
     S.undoLeft = s.undoLeft != null ? s.undoLeft : 3;
     if (s.goalCurrent && S.goal) {
       S.goal.current = s.goalCurrent.current || 0;
-      S.goal.byColor = s.goalCurrent.byColor || S.goal.byColor;
       S.goal.jellyCleared = s.goalCurrent.jellyCleared || 0;
+    }
+    // 收集关：恢复存档时随机好的目标方块和各自进度（不重新随机）
+    if (s.collectTarget && S.goal && S.goal.type === 'collect') {
+      S.goal.target = s.collectTarget;
+      const bc = {};
+      const saved = (s.goalCurrent && s.goalCurrent.byColor) || {};
+      Object.keys(s.collectTarget).forEach((c) => { bc[c] = saved[c] || 0; });
+      S.goal.byColor = bc;
     }
     updateHUD();
     updateTargetBar();
