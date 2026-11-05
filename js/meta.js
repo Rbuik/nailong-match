@@ -69,8 +69,8 @@
     { id: 'bomb50',   icon: '💣', name: '爆破专家',   desc: '累计引爆炸弹',     key: 'bombs',     tiers: [10, 50, 100, 200] },
     { id: 'line100',  icon: '➡️', name: '线消达人',   desc: '累计触发线消',     key: 'lines',     tiers: [20, 100, 200, 400] },
     { id: 'ice100',   icon: '🧊', name: '冰块终结者', desc: '累计敲碎冰层',     key: 'ice',       tiers: [20, 100, 250, 500] },
-    { id: 'cargo50',  icon: '🔑', name: '快递小哥',   desc: '累计送达货物',     key: 'cargo',     tiers: [10, 50, 100, 200] },
-    { id: 'rescue30', icon: '🐲', name: '奶龙守护者', desc: '累计护送奶龙',     key: 'rescue',    tiers: [5, 30, 60, 120] },
+    { id: 'cargo50',  icon: '🔑', name: '快递达人',   desc: '累计送达货物',     key: 'cargo',     tiers: [10, 50, 100, 200] },
+    { id: 'rescue30', icon: '🐲', iconImg: './assets/nailong.png', name: '奶龙守护者', desc: '累计护送奶龙', key: 'rescue', tiers: [5, 30, 60, 120] },
     { id: 'jelly200', icon: '🟪', name: '果冻清道夫', desc: '累计清除果冻',     key: 'jelly',     tiers: [50, 200, 400, 800] },
     { id: 'perfect10',icon: '👑', name: '十全十美',   desc: '累计三星通关',     key: 'perfect',   tiers: [3, 10, 25, 50] },
     { id: 'lv20',     icon: '🏅', name: '过半征程',   desc: '通关主线关数',     key: 'cleared',   tiers: [5, 10, 15, 20] },
@@ -439,8 +439,11 @@
       const prog = tier >= 4
         ? '已满级'
         : cur + ' / ' + next + '（下一个：' + ACH_TIERS[tier + 1] + '）';
+      const iconHtml = a.iconImg
+        ? '<img src="' + a.iconImg + '" alt="">'
+        : a.icon;
       row.innerHTML =
-        '<span class="ach-icon">' + a.icon + '</span>' +
+        '<span class="ach-icon">' + iconHtml + '</span>' +
         '<span class="ach-main"><b>' + a.name + '</b><i>' + a.desc + ' · ' + prog + '</i></span>' +
         '<span class="ach-mark t' + tier + '">' + ACH_TIERS[tier] + '</span>';
       box.appendChild(row);

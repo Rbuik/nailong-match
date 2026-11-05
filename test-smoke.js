@@ -67,6 +67,14 @@ const localStorageStub = {
   removeItem: (k) => lsMap.delete(k),
   clear: () => lsMap.clear()
 };
+// ---------- sessionStorage 桩（刷新后留在原页面用） ----------
+const ssMap = new Map();
+const sessionStorageStub = {
+  getItem: (k) => (ssMap.has(k) ? ssMap.get(k) : null),
+  setItem: (k, v) => ssMap.set(k, String(v)),
+  removeItem: (k) => ssMap.delete(k),
+  clear: () => ssMap.clear()
+};
 // 预置：已有 2 个洗牌道具、第 1 关 3 星（解锁到第 2 关）
 lsMap.set('nl2:wallet', JSON.stringify({ coins: 500, items: { shuffle: 2, undo: 1 } }));
 lsMap.set('nl2:progress', JSON.stringify({ 1: { score: 1200, stars: 3 } }));
@@ -103,6 +111,7 @@ const sandbox = {
   btoa,
   atob,
   localStorage: localStorageStub,
+  sessionStorage: sessionStorageStub,
   document: documentStub,
   navigator: { userAgent: 'node' },
   location: { reload: () => { reloaded = true; } },
@@ -300,6 +309,17 @@ function check(name, ok) {
 
   $('btn-achievements').dispatch('click');
   check('成就墙渲染出全部成就', $('ach-list').children.length === sandbox.Meta.ACHIEVEMENTS.length);
+  check('快递小哥改名为快递达人', (() => {
+    const a = sandbox.Meta.ACHIEVEMENTS.filter((x) => x.id === 'cargo50')[0];
+    return !!a && a.name === '快递达人';
+  })());
+  check('奶龙守护者图标用最新版奶龙图片', (() => {
+    const a = sandbox.Meta.ACHIEVEMENTS.filter((x) => x.id === 'rescue30')[0];
+    if (!a || String(a.iconImg || '').indexOf('assets/nailong.png') < 0) return false;
+    sandbox.Meta.renderAchievements($('ach-list'));
+    const html = ($('ach-list').children || []).map((r) => String(r.innerHTML || '')).join('');
+    return html.indexOf('<img src="./assets/nailong.png"') >= 0;
+  })());
   $('btn-close-ach').dispatch('click');
 
   $('btn-collection').dispatch('click');
@@ -380,12 +400,17 @@ function check(name, ok) {
     sandbox.__nl_test.refreshMenu();
     const medal = getEl('menu-high-medal').textContent;
     $('btn-history').dispatch('click');
-    let rowsWithMedal = 0;
+    let rowsWithMedal = 0, medalLeftOfStars = false;
     ($('history-list').children || []).forEach((r) => {
-      if (String(r.innerHTML || '').indexOf('🥇') >= 0) rowsWithMedal++;
+      const h = String(r.innerHTML || '');
+      if (h.indexOf('🥇') >= 0) {
+        rowsWithMedal++;
+        // 奖牌必须夹在星星列里、且在星星左边
+        if (h.indexOf('h-stars') >= 0 && h.indexOf('lb-medal') < h.indexOf('star-on')) medalLeftOfStars = true;
+      }
     });
     $('btn-history-back').dispatch('click');
-    return medal === '🥇' && rowsWithMedal >= 1;
+    return medal === '🥇' && rowsWithMedal >= 1 && medalLeftOfStars;
   })());
 
   // 14d2. 局榜上只有我一个人，也要挂奖牌
@@ -417,6 +442,22 @@ function check(name, ok) {
     lsMap.set('nl2:progress', saved);
     sandbox.__nl_test.refreshMenu();
     return ok;
+  })());
+
+  // 14d4. 刷新后留在原页面（不是每次都弹回主页）
+  check('刷新后留在刷新前那一页', (() => {
+    $('btn-achievements').dispatch('click');
+    const savedView = JSON.parse(ssMap.get('nl2:lastView') || '{}');
+    if (savedView.id !== 'achievements-menu') return false;
+    // 模拟刷新：主页重新盖住、面板被收掉，再按存档恢复
+    $('main-menu').style.display = 'flex';
+    $('achievements-menu').style.display = 'none';
+    const restored = sandbox.__nl_test.restoreView();
+    const ok = restored === true &&
+      $('achievements-menu').style.display === 'flex' && $('main-menu').style.display === 'none';
+    $('btn-close-ach').dispatch('click');
+    const homeOk = JSON.parse(ssMap.get('nl2:lastView') || '{}').id === 'main-menu';
+    return ok && homeOk;
   })());
 
   // 14e. 默认昵称不能玩：改名闸拦截 btn-play

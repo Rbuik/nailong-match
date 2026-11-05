@@ -175,13 +175,19 @@ const ok = (c, m) => { if (c) { pass++; console.log('  ✓ ' + m); } else { fail
   const saved = JSON.parse(localStorage.getItem('nl2:playlist') || '[]').map((x) => x.url);
   ok(saved[0] === 'https://x/b.mp3', '新顺序已写入存档 = ' + saved.join(' , '));
 
-  // 触摸长按不动 → 恢复多选，不会误排序
+  // 触摸长按不动 → 松手什么都不做（不再进入多选，改名/删除只能左滑单个操作）
   const box2 = el('playlist-list');
   const rows2 = box2.querySelectorAll('.m-item');
   rows2[0].dispatch('touchstart', { touches: [t(20, 110)] });
   await new Promise((r) => setTimeout(r, 500));
+  const liftedWrap2 = rows2[0].parentNode;
+  const actsHidden = liftedWrap2.classList.contains('lift-src');
   rows2[0].dispatch('touchend', { touches: [] });
-  ok(rows2[0].classList.contains('selected'), '触摸长按不移动即松手 = 进入多选（原行为保留）');
+  ok(!rows2[0].classList.contains('selected'), '长按不移动即松手 = 不进多选（没了批量改名/删除）');
+  ok(!body.classList.contains('m-dragging'), '松手后解除拖动状态');
+  ok(actsHidden, '浮起时原行仍是 lift-src（操作按钮被隐藏，不会露出重命名/删除）');
+  const batchBar2 = el('playlist-batch-bar');
+  ok(!batchBar2 || batchBar2.style.display !== 'flex', '批量操作栏不会因长按弹出');
 
   // 触摸滑动（不等待长按）→ 取消长按，不误浮起
   const box3 = el('playlist-list');

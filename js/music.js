@@ -381,11 +381,11 @@
       if (wrap) wrap.classList.remove('lift-src');
       if (ghost && ghost.parentNode) ghost.parentNode.removeChild(ghost);
       ghost = null;
-      // 拖着换了位置 → 保存新顺序；长按没动就松手 → 还是原来的多选
+      // 拖着换了位置 → 保存新顺序；长按没动就松手 → 什么都不做
+      // （重命名 / 删除只能靠左滑单个操作，不再有长按多选）
       const didMove = liftMoved;
       liftMoved = false;
       if (didMove) commitOrder(source);
-      else toggleSelect(item.url, row);
     }
 
     // 一套手势逻辑，鼠标走 Pointer Events、触摸走 Touch Events
@@ -447,11 +447,6 @@
       }
       if (moved) return;
 
-      // 多选状态下点击 = 切换选中
-      if (selected.size > 0) {
-        toggleSelect(item.url, row);
-        return;
-      }
       if (row.classList.contains('open')) {
         closeOpenRow();
         return;
@@ -1267,6 +1262,7 @@
 
   global.Music = {
     init, renderAll, restore, playItem, nextTrack, stopCustom, warmCache,
-    getHistory, getPlaylist, getMode, setMode, openPlaylist
+    getHistory, getPlaylist, getMode, setMode, openPlaylist,
+    openImport, openHistory, openLibrary
   };
 })(window);

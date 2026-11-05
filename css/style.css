@@ -125,6 +125,16 @@ body[data-view="menu"] .game-container {
 #duplicate-confirm > div { display: flex; gap: 16px; justify-content: center; }
 #duplicate-confirm .btn-primary { width: 130px; margin-bottom: 0; }
 
+/* 购买道具确认框：按钮比通用大按钮小一号 */
+#buy-confirm > div { display: flex; gap: 14px; justify-content: center; }
+#buy-confirm .btn-primary {
+  width: 112px;
+  padding: 9px 0;
+  font-size: 14px;
+  border-radius: 22px;
+  margin-bottom: 0;
+}
+
 /* 滑块美化 */
 input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
 input[type=range]:focus { outline: none; }

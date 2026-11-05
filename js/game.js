@@ -585,7 +585,12 @@
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     const pulse = 0.5 + 0.5 * Math.sin(now / 1000 * 3.4);
     const rgb = isN ? '255,186,60' : '110,200,255';
+    // 呼吸放大缩小：最大就是原来的大小，最小只小一点点
+    // —— 棋盘上会动的东西才容易被一眼找到
+    const scale = 0.88 + 0.12 * pulse;
     ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     // 发光靠阴影晕开，投出来的就是图案的轮廓
@@ -595,9 +600,9 @@
     if (isN && NAILONG_IMG.complete && NAILONG_IMG.naturalWidth) {
       const s = CELL * 0.66;
       // 画两遍：第一遍铺光，第二遍让图案本身更实
-      ctx.drawImage(NAILONG_IMG, cx - s / 2, cy - s / 2, s, s);
+      ctx.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
       ctx.shadowBlur = CELL * 0.10;
-      ctx.drawImage(NAILONG_IMG, cx - s / 2, cy - s / 2, s, s);
+      ctx.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
     } else {
       const t = isN ? '🐲' : '🔑';
       const px = Math.round(CELL * 0.54);
@@ -606,10 +611,10 @@
       // 沿图案轮廓描一圈同色边 + 阴影晕开 = 描边发光（不是画圆圈）
       ctx.lineWidth = Math.max(2, CELL * 0.06);
       ctx.strokeStyle = 'rgba(' + rgb + ',' + (0.55 + 0.35 * pulse).toFixed(3) + ')';
-      ctx.strokeText(t, cx, cy + 1);
+      ctx.strokeText(t, 0, 1);
       ctx.shadowBlur = CELL * 0.12;
-      ctx.fillText(t, cx, cy + 1);
-      ctx.fillText(t, cx, cy + 1);
+      ctx.fillText(t, 0, 1);
+      ctx.fillText(t, 0, 1);
     }
     ctx.restore();
   }
@@ -697,6 +702,17 @@
         }
       }
     }
+  }
+
+  // 棋盘上有没有货物（有就每帧重绘，让钥匙/奶龙呼吸起来）
+  function boardHasCargo() {
+    for (let r = 0; r < S.board.length; r++) {
+      const row = S.board[r];
+      for (let c = 0; c < (row || []).length; c++) {
+        if (row[c] && row[c].cargo) return true;
+      }
+    }
+    return false;
   }
 
   function drawStatic() {
@@ -2320,6 +2336,80 @@
 
   function setView(view) {
     document.body.dataset.view = view;
+    if (view === 'game') saveViewState('game');
+  }
+
+  // ==================== 刷新后留在原页面 ====================
+  // 手机上刷新（下拉刷新 / 切回前台后重载）默认会退回主页，很打断。
+  // 这里把「当前看的是哪一页」记进 sessionStorage，刷新完原样打开；
+  // 如果当时正在玩，直接从本局存档续上。
+  const VIEW_KEY = 'nl2:lastView';
+  const VIEW_RESTORE = {
+    'settings-menu': () => { showOverlay('settings-menu'); syncVolumeUI(); },
+    'rules-menu': () => { applyRuleFont(ruleFontLevel()); showOverlay('rules-menu'); },
+    'tasks-menu': () => { renderTasks(); showOverlay('tasks-menu'); },
+    'shop-menu': () => { renderShop(); showOverlay('shop-menu'); },
+    'history-menu': () => { renderHistory(); showOverlay('history-menu'); scrollHistoryToCurrent(); },
+    'backpack-menu': () => { renderBackpack(); showOverlay('backpack-menu'); },
+    'achievements-menu': () => { renderAchPanel(); showOverlay('achievements-menu'); },
+    'collection-menu': () => { renderSkinPanel(); showOverlay('collection-menu'); },
+    'welfare-menu': () => { renderWelfare(); showOverlay('welfare-menu'); },
+    'chapters-menu': () => { renderChapterMap(); showOverlay('chapters-menu'); },
+    'modes-menu': () => { renderModeList(); showOverlay('modes-menu'); },
+    'home-menu': () => {
+      const n = $('home-nick');
+      if (n) n.textContent = Meta.nickname();
+      showOverlay('home-menu');
+    },
+    'leaderboard-menu': () => {
+      showOverlay('leaderboard-menu');
+      if (typeof Board !== 'undefined') Board.open(myBestEntry());
+    },
+    'lb-view': (st) => {
+      if (typeof Board !== 'undefined') Board.open(myBestEntry());
+      lbTab = st.tab || 'all';
+      lbProv = st.prov || '';
+      lbLevel = Math.max(1, Number(st.level) || 1);
+      renderLeaderboard();
+      showOverlay('lb-view');
+    },
+    'custom-music-menu': () => { if (global_Music()) global_Music().openImport(); },
+    'music-history-menu': () => { if (global_Music()) global_Music().openHistory(); },
+    'playlist-menu': () => { if (global_Music()) global_Music().openPlaylist(); },
+    'music-library-menu': () => { if (global_Music()) global_Music().openLibrary(); }
+  };
+
+  function saveViewState(id) {
+    try {
+      sessionStorage.setItem(VIEW_KEY, JSON.stringify({
+        id: id, tab: lbTab, prov: lbProv, level: lbLevel
+      }));
+    } catch (e) {}
+  }
+
+  // 返回 true = 已经恢复到刷新前那一页
+  function restoreView() {
+    let st = null;
+    try { st = JSON.parse(sessionStorage.getItem(VIEW_KEY) || 'null'); } catch (e) { st = null; }
+    if (!st || !st.id) return false;
+
+    // 刷新前在玩：把这一局的存档续上，直接回到棋盘
+    if (st.id === 'game') {
+      const run = Store.loadRun();
+      if (!run || !run.board || !run.board.length) return false;
+      const main = $('main-menu');
+      if (main) main.style.display = 'none';
+      if (!loadRun()) return false;
+      setView('game');
+      return true;
+    }
+
+    const open = VIEW_RESTORE[st.id];
+    if (!open) return false;
+    const main = $('main-menu');
+    if (main) main.style.display = 'none';
+    try { open(st); } catch (e) { return false; }
+    return true;
   }
 
   function showOverlay(id) {
@@ -2334,6 +2424,7 @@
       // 名字还是「奶龙玩家」→ 回到主页就把改名窗口弹出来
       setTimeout(maybeNickGateHome, 320);
     }
+    if (id === 'main-menu' || VIEW_RESTORE[id]) saveViewState(id);
     setView(MENU_PANELS.indexOf(id) >= 0 ? 'menu' : 'game');
   }
 
@@ -2592,11 +2683,12 @@
       const row = document.createElement('div');
       row.className = 'history-item' + (locked ? ' locked' : '');
       if (i === (S.menuLevel || 0)) row.classList.add('current');
-      // 三列：关卡名 | 星星（固定宽） | 分数（固定宽，奖牌贴在分数左边）
+      // 三列：关卡名 | 星星（奖牌贴在星星左边） | 分数
       const medal = locked ? '' : medalForLevel(i);
-      const starStr = '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
-        '<span class="star-off">' + '⭐'.repeat(3 - rec.stars) + '</span>';
       const medalStr = medal ? '<em class="lb-medal">' + medal + '</em>' : '';
+      const starStr = medalStr +
+        '<span class="star-on">' + '⭐'.repeat(rec.stars) + '</span>' +
+        '<span class="star-off">' + '⭐'.repeat(3 - rec.stars) + '</span>';
       // 已解锁的关卡在同样的位置、同样的字号标出模式；未解锁显示「未解锁」
       let tag = ' <small class="lock-tag">未解锁</small>';
       if (!locked) {
@@ -2607,7 +2699,7 @@
       row.innerHTML =
         '<span class="h-name"><span class="h-lv">第 ' + i + ' 关</span>' + tag + '</span>' +
         '<span class="h-stars">' + starStr + '</span>' +
-        '<span class="h-score' + (rec.score > 0 && rec.stars === 0 ? ' fail' : '') + '">' + medalStr + rec.score + '</span>';
+        '<span class="h-score' + (rec.score > 0 && rec.stars === 0 ? ' fail' : '') + '">' + rec.score + '</span>';
       row.addEventListener('click', () => {
         // 未解锁的关卡不能跳转
         if (locked) {
@@ -4159,6 +4251,8 @@
       FX.update(dt);
       if (!S.busy) drawStatic();
     }
+    // 棋盘上有钥匙/奶龙时持续重绘：货物才会真的呼吸（放大缩小 + 发光起伏）
+    if (!S.busy && boardHasCargo()) drawStatic();
     updateComboBar();
 
     // 落地挤压（§14）
@@ -4235,7 +4329,8 @@
     if (global_Music()) global_Music().init();
     refreshMenu();
     Tasks.ensureToday();
-    showOverlay('main-menu');
+    // 刷新前停在哪一页，刷新后还是那一页（不然每次都弹回主页）
+    if (!restoreView()) showOverlay('main-menu');
     requestAnimationFrame(loop);
 
     // 首次交互解锁音频，并恢复上次的自定义音乐
@@ -5019,6 +5114,8 @@
     iceTotal: iceTotal,
     endModeRun: endModeRun,
     drawStatic: drawStatic,
+    restoreView: restoreView,
+    saveViewState: saveViewState,
     resetProvCounted: () => { provCounted = false; }
   };
 })();

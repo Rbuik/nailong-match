@@ -759,7 +759,14 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 /* 长按拖动排序：原位留一个淡淡的占位，手指上浮起一张「影子」跟着走 */
 .m-item-wrap.lift-src {
+  background: #fff;
+}
+/* 长按浮起时只让这一行淡下去，别把底下的「重命名 / 删除」透出来 */
+.m-item-wrap.lift-src .m-item {
   opacity: .35;
+}
+.m-item-wrap.lift-src .m-actions {
+  visibility: hidden;
 }
 
 .drag-ghost {
@@ -1093,6 +1100,15 @@ body.m-dragging .m-item { cursor: grabbing; }
   justify-content: center;
   font-size: 18px;
   background: #eceaf3;
+  overflow: hidden;
+}
+/* 用图片做图标的成就（奶龙守护者用最新版奶龙抠图） */
+.ach-icon img {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 .ach-row.t1 .ach-icon { background: linear-gradient(135deg, #f0c79b, #b9762f); }
 .ach-row.t2 .ach-icon { background: linear-gradient(135deg, #f2f6fb, #9aa8bd); }
@@ -1252,10 +1268,10 @@ body.m-dragging .m-item { cursor: grabbing; }
 .menu-high-wrap { display: inline-flex; align-items: center; gap: 2px; }
 
 /* 关卡记录的分数列要放得下奖牌 */
-.history-item { grid-template-columns: minmax(0, 1fr) 60px 62px; }
+.history-item { grid-template-columns: minmax(0, 1fr) 78px 46px; }
 .history-item .h-stars { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
 .history-item .h-score { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
-.history-item .h-score .lb-medal { font-size: 12px; margin-right: 1px; }
+.history-item .h-stars .lb-medal { font-size: 13px; margin-right: 1px; }
 
 /* 榜单里省份 / 关卡选择器（列表页没有页签，进来就是某一个榜） */
 .lb-prov-sel {
