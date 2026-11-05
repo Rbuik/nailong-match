@@ -8,14 +8,16 @@
   'use strict';
 
   const BASE = 'https://ntfy.sh/';
-  const TOPIC = 'nailong-lb-7c41d9e2';   // 固定主题，所有人共用一张榜
-  const CACHE = 'nl2:lbshare';
+  // 换过一次主题：旧主题（nailong-lb-7c41d9e2）被早期验证用的测试成绩污染，
+  // 新主题从零开始，谁的历史缓存都不带
+  const TOPIC = 'nailong-lb-9k2v7h4q';
+  const CACHE = 'nl2:lbshare2';
   const MAX = 60;                        // 榜单最多保留 60 人
   const PUB_MIN_MS = 6e3;                // 自己的成绩最快 6 秒发一次
   const SNAP_MIN_MS = 90e3;              // 合成快照最小间隔
   const POLL_MS = 20e3;                  // 开着面板时的轮询兜底
 
-  let entries = [];        // [{ uid, name, score, level, ts }]
+  let entries = [];        // [{ uid, name, score, level, ts, pv }]  pv=省份代码
   let status = 'idle';     // idle | syncing | live | offline
   let listeners = [];
   let es = null;           // EventSource
@@ -24,6 +26,17 @@
   let lastPub = 0;
   let lastSnap = 0;
   let opened = false;
+
+  // file:// / 测试环境绝不往公共主题发东西（曾经的验证把测试成绩发进了真榜单）
+  function canPublish() {
+    try {
+      const loc = global.location;
+      if (!loc) return false;
+      if (loc.protocol === 'file:') return false;
+      if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') return false;
+      return true;
+    } catch (e) { return false; }
+  }
 
   // ---------- 本地缓存 ----------
   function load() {
@@ -51,7 +64,9 @@
     if (!isFinite(score) || score < 0 || score > 5e7) return null;
     const level = Math.max(0, Math.min(9999, Math.round(Number(e.level != null ? e.level : e.l) || 0)));
     const ts = Number(e.ts || e.t || 0) || Date.now();
-    return { uid: uid, name: name, score: score, level: level, ts: ts };
+    const pvRaw = String(e.pv || e.p || '').toLowerCase();
+    const pv = /^[a-z]{2,20}$/.test(pvRaw) ? pvRaw : '';
+    return { uid: uid, name: name, score: score, level: level, ts: ts, pv: pv };
   }
 
   function findIdx(uid) {
@@ -59,7 +74,7 @@
     return -1;
   }
 
-  // 同一个人：分数取历史最高，昵称按时间取最新
+  // 同一个人：分数取历史最高，昵称按时间取最新，省份跟着最新的走
   function mergeOne(raw) {
     const e = clean(raw);
     if (!e) return false;
@@ -72,6 +87,7 @@
     const cur = entries[i];
     let changed = false;
     if (e.ts >= cur.ts && e.name !== cur.name) { cur.name = e.name; changed = true; }
+    if (e.ts >= cur.ts && (e.pv || '') !== (cur.pv || '')) { cur.pv = e.pv; changed = true; }
     if (e.score > cur.score) { cur.score = e.score; changed = true; }
     if (e.level > cur.level) { cur.level = e.level; changed = true; }
     if (e.ts > cur.ts) { cur.ts = e.ts; changed = true; }
@@ -99,9 +115,9 @@
     let changed = false;
     if (msg.t === 's' && Array.isArray(msg.d)) {
       msg.d.forEach((row) => {
-        // 快照里是紧凑数组 [uid, name, score, level, ts]
+        // 快照里是紧凑数组 [uid, name, score, level, ts, pv]
         const e = Array.isArray(row)
-          ? { uid: row[0], name: row[1], score: row[2], level: row[3], ts: row[4] }
+          ? { uid: row[0], name: row[1], score: row[2], level: row[3], ts: row[4], pv: row[5] }
           : row;
         if (mergeOne(e)) changed = true;
       });
@@ -156,7 +172,7 @@
   }
 
   function post(body) {
-    if (typeof fetch !== 'function') return Promise.resolve(false);
+    if (!canPublish() || typeof fetch !== 'function') return Promise.resolve(false);
     return fetch(BASE + TOPIC, {
       method: 'POST',
       // 用纯文本发，避免被当成 ntfy 的结构化 JSON 消息
@@ -170,22 +186,23 @@
     if (entries.length < 2) return;
     if (Date.now() - lastSnap < SNAP_MIN_MS) return;
     lastSnap = Date.now();
-    const d = entries.slice(0, MAX).map((e) => [e.uid, e.name, e.score, e.level, e.ts]);
+    const d = entries.slice(0, MAX).map((e) => [e.uid, e.name, e.score, e.level, e.ts, e.pv || '']);
     post(JSON.stringify({ t: 's', d: d }));
   }
 
   // ---------- 发自己的成绩 ----------
   function publish(me, force) {
+    if (!canPublish()) return false;
     const e = clean(me);
     if (!e) return false;
     const now = Date.now();
     if (!force && now - lastPub < PUB_MIN_MS) return false;
     const before = findIdx(e.uid) >= 0 ? entries[findIdx(e.uid)].score : -1;
     lastPub = now;
-    mergeOne({ uid: e.uid, name: e.name, score: e.score, level: e.level, ts: now });
+    mergeOne({ uid: e.uid, name: e.name, score: e.score, level: e.level, ts: now, pv: e.pv });
     save();
     if (before !== e.score) emit();
-    post(JSON.stringify({ t: 'e', u: e.uid, n: e.name, s: e.score, l: e.level, ts: now }));
+    post(JSON.stringify({ t: 'e', u: e.uid, n: e.name, s: e.score, l: e.level, ts: now, pv: e.pv || '' }));
     return true;
   }
 
