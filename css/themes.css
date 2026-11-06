@@ -1109,11 +1109,11 @@ body.m-dragging .m-item { cursor: grabbing; }
 .sub-count { font-size: 12px; color: #9a93ad; font-weight: 700; }
 .ach-list {
   width: 90%;
-  max-height: 52vh;
+  max-height: 66vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   margin: 6px 0 12px;
 }
 .ach-row {
@@ -1565,9 +1565,23 @@ body[data-skin="blue"] .board-wrap {
 body[data-skin="galaxy"] .board-wrap {
   box-shadow: 0 0 0 3px rgba(80, 70, 160, 0.55), 0 10px 30px rgba(60, 50, 140, 0.35);
 }
-/* 「彩色」配色（原黑色）：彩虹色光晕 + 淡彩目标栏 */
+/* 「彩色」配色（原黑色）：外圈彩色方块拼边（不是彩虹渐变）+ 淡彩目标栏 */
 body[data-skin="black"] .board-wrap {
-  box-shadow: 0 0 0 3px rgba(255, 92, 138, 0.5), 0 0 22px rgba(255, 205, 60, 0.4), 0 10px 30px rgba(92, 143, 255, 0.4);
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9), 0 10px 30px rgba(120, 120, 200, 0.35);
+}
+body[data-skin="black"] .board-wrap::before {
+  content: "";
+  position: absolute;
+  inset: -9px;
+  border-radius: inherit;
+  padding: 6px;
+  background: repeating-conic-gradient(#ff8fab 0 25%, #ffd23c 0 50%, #7ce8b0 0 75%, #5c8fff 0);
+  background-size: 18px 18px;
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask-composite: exclude;
+  pointer-events: none;
 }
 body[data-skin="galaxy"] .board-wrap::after {
   content: "";
