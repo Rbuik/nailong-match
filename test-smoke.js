@@ -1723,7 +1723,7 @@ function check(name, ok) {
   // 41e. 钥匙 / 奶龙徽标高清：按屏幕 DPR 栅格化
   check('货物徽标按 DPR 栅格化（高分屏不糊）',
     /g\.scale\(dpr, dpr\)/.test(jsSrc) &&
-    /sp\.width \/ Math\.max\(1, DPR/.test(jsSrc) &&
+    /const w = \(sp\.width \/ dpr\) \* scale;/.test(jsSrc) &&
     /c\.dpr !== dpr/.test(jsSrc));
   // 41f. 背景音乐提前排程：点按钮 / 动画卡顿不再拖慢音乐
   const audioSrc = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');

@@ -729,7 +729,9 @@
     // 呼吸放大缩小：最大就是原来的大小，最小只小一点点
     const scale = 0.88 + 0.12 * pulse;
     const sp = cargoSprite(kind, pulse);
-    const w = (sp.width / Math.max(1, DPR || 1)) * scale;   // 位图是 DPR 倍，显示时换算回逻辑尺寸
+    // 位图按 DPR（封顶 2）栅格化，显示时按同一个系数换算回逻辑尺寸，大小才和以前一致
+    const dpr = Math.min(2, Math.max(1, DPR || 1));
+    const w = (sp.width / dpr) * scale;
     ctx.drawImage(sp, cx - w / 2, cy - w / 2, w, w);
   }
 
