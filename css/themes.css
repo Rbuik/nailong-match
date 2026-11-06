@@ -99,6 +99,10 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .overlay::-webkit-scrollbar { width: 6px; }
 .overlay::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
 
+/* 主页不可上下滑动（内容单屏放得下，其他弹层照常可滚） */
+#main-menu { overflow-y: hidden; }
+#main-menu::-webkit-scrollbar { display: none; }
+
 .title.small { font-size: 24px; }
 
 /* ================= 菜单小按钮 ================= */
