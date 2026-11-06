@@ -266,18 +266,28 @@
     return { ok: true, day, reward };
   }
 
-  // 补签：把本周期里最早漏掉的那一天补上（300 金币 / 天，不发当日奖励）
-  function makeupSign() {
+  // 补签：补上指定的漏签日期（不传就补最早漏掉的那天），花 300 金币（不发当日奖励）
+  function makeupSign(dateKey) {
     const s = normSign(getTaskState());
     if (!s.dates.length) return { ok: false, reason: 'none' };
     if (s.dates.length >= SIGN_REWARDS.length) return { ok: false, reason: 'full' };
 
-    const yest = new Date(); yest.setDate(yest.getDate() - 1);
+    const today = new Date(); today.setHours(0, 0, 0, 0);
     const start = dparse(s.cycleStart || s.dates[0]);
     let miss = null;
-    for (let d = new Date(start); d <= yest; d.setDate(d.getDate() + 1)) {
-      const k = todayKey(d);
-      if (s.dates.indexOf(k) < 0) { miss = k; break; }
+    if (dateKey) {
+      // 指定日期：必须是本轮周期里、今天之前、且还没签的
+      const dk = dparse(dateKey);
+      if (dk >= today) return { ok: false, reason: 'none' };
+      if (dk < start) return { ok: false, reason: 'none' };
+      if (s.dates.indexOf(todayKey(dk)) >= 0) return { ok: false, reason: 'none' };
+      miss = todayKey(dk);
+    } else {
+      const yest = new Date(); yest.setDate(yest.getDate() - 1);
+      for (let d = new Date(start); d <= yest; d.setDate(d.getDate() + 1)) {
+        const k = todayKey(d);
+        if (s.dates.indexOf(k) < 0) { miss = k; break; }
+      }
     }
     if (!miss) return { ok: false, reason: 'none' };
 
@@ -313,6 +323,13 @@
 
   function canSignIn() {
     return getTaskState().signDate !== todayKey();
+  }
+
+  // 本轮签到的起点（Date）；还没签过任何一天时返回 null
+  function signCycleStart() {
+    const s = normSign(getTaskState());
+    if (!s.cycleStart && !s.dates.length) return null;
+    return dparse(s.cycleStart || s.dates[0]);
   }
 
   // ---------- 设置 ----------
@@ -395,7 +412,7 @@
     getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
-    getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex,
+    getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex, signCycleStart,
     getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet, countStart,
     COUNT_START,
     saveRun, loadRun, clearRun, wipeAll

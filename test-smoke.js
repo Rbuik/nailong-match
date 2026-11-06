@@ -406,7 +406,9 @@ function check(name, ok) {
     cssSrc.includes('background: rgba(0, 0, 0, 0.05);') &&
     cssSrc.includes('border: 2px solid rgba(0, 0, 0, 0.65);'));
   check('海外列表显示「未识别出国家」', jsSrc.includes('未识别出国家') && !jsSrc.includes('未细分国家'));
-  check('棋盘选中框不再用黑色', !jsSrc.includes("ctx.strokeStyle = '#333';"));
+  check('棋盘选中框保持黑色、黑色配色已改彩色',
+    jsSrc.includes("ctx.strokeStyle = '#333';") && htmlSrc0.includes('彩 150') &&
+    cssSrc.includes('rgba(255, 92, 138, 0.5)'));
   check('邮件删除键更小、轻点不露删除键',
     cssSrc.includes('width: 54px;') && jsSrc.includes('TAP_TOL = 12'));
   check('一键删除 / 恢复默认音乐都弹确认窗口',
@@ -517,8 +519,7 @@ function check(name, ok) {
   check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('落到被消掉那一格的下面一格'));
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('200 金币'));
-  check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));
-  check('规则含成就配色排行榜说明', htmlSrc.includes('成就与配色') && htmlSrc.includes('排行榜与奖牌') && htmlSrc.includes('总榜 → 省榜 → 局榜'));
+  check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));  check('规则含成就配色排行榜说明', htmlSrc.includes('成就与配色') && htmlSrc.includes('排行榜与奖牌') && htmlSrc.includes('总榜 → 省榜 → 局榜'));
   check('规则里昵称只说「名字具有唯一性」，不提旧默认名 / 榜上重名',
     htmlSrc.includes('名字具有唯一性') && !htmlSrc.includes('不能和榜上的人重名') &&
     !htmlSrc.includes('默认的「奶龙玩家」'));
@@ -526,19 +527,20 @@ function check(name, ok) {
   check('规则含补签说明', htmlSrc.includes('补签') && htmlSrc.includes('300 金币'));
   check('结算页有继续游戏按钮且在进入下一关上面',
     htmlSrc.includes('btn-clear-continue') && htmlSrc.indexOf('btn-clear-continue') < htmlSrc.indexOf('id="btn-next-level"'));
-  check('主页关卡记录在更多玩法前面（已交换）',
-    htmlSrc.indexOf('btn-history') >= 0 && htmlSrc.indexOf('btn-history') < htmlSrc.indexOf('btn-modes'));
-  check('福利中心底部有连续签到与补签',
-    htmlSrc.includes('welfare-streak') && htmlSrc.includes('btn-welfare-makeup') &&
-    htmlSrc.indexOf('welfare-streak') > htmlSrc.indexOf('btn-wheel'));
+  check('主页每日任务在更多玩法前面（已交换）',
+    htmlSrc.indexOf('btn-goto-tasks') >= 0 && htmlSrc.indexOf('btn-goto-tasks') < htmlSrc.indexOf('btn-modes'));
+  check('签到键上面是连续签到天数（黑色）、补签走红色日期弹窗',
+    htmlSrc.includes('welfare-streak') && !htmlSrc.includes('btn-welfare-makeup') &&
+    htmlSrc.indexOf('welfare-streak') < htmlSrc.indexOf('id="btn-welfare-signin"') &&
+    htmlSrc.includes('id="makeup-confirm"') && htmlSrc.includes('btn-makeup-yes'));
   check('省榜 / 局榜更换符号在标题右边', htmlSrc.includes('lb-title-row') && htmlSrc.includes('lb-swap') &&
     htmlSrc.indexOf('lb-view-title') < htmlSrc.indexOf('lb-prov-swap'));
   // 📖 规则首页 → 功能介绍 / 玩法规则 分开
   $('btn-goto-features').dispatch('click');
   check('点「功能介绍」进入功能介绍页', $('features-menu').style.display === 'flex' && $('rules-menu').style.display === 'none');
   const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="btn-features-back"'));
-  check('功能介绍里放的是系统功能（章节 / 福利 / 账号）',
-    featsHtml.includes('主线与章节') && featsHtml.includes('福利中心') && featsHtml.includes('账号与昵称') &&
+  check('功能介绍里放的是系统功能（章节 / 签到 / 账号）',
+    featsHtml.includes('主线与章节') && featsHtml.includes('签到入口') && featsHtml.includes('账号与昵称') &&
     featsHtml.includes('📮 邮箱') && featsHtml.includes('注销账号') &&
     !featsHtml.includes('基本玩法'));
   $('btn-features-back').dispatch('click');
@@ -630,7 +632,7 @@ function check(name, ok) {
   $('btn-close-skins').dispatch('click');
 
   $('btn-welfare').dispatch('click');
-  check('福利中心渲染 7 天签到', $('welfare-sign').children.length === 7);
+  check('签到入口渲染日期条（7 天 + 多显示 3 天）', $('welfare-sign').children.length === 10);
   $('btn-close-welfare').dispatch('click');
 
   $('btn-modes').dispatch('click');
@@ -783,26 +785,30 @@ function check(name, ok) {
 
   // 14d4.（已撤销）刷新恢复功能：刷新后统一回到主页
 
-  // 14d4a. 福利中心：连续签到天数 + 补签（300 金币 / 天，不发奖励）
-  check('福利中心显示连续签到并可补签', (() => {
+  // 14d4a. 签到入口：日期条状态 + 点红色漏签日补签（300 金币 / 天，不发奖励）
+  check('漏签日子标红、点击弹补签窗口，确认后扣金币补签', (() => {
     const Store = sandbox.Store;
     const today = Store.todayKey();
     const savedTasks = lsMap.get('nl2:tasks');
     const savedWallet = lsMap.get('nl2:wallet');
     // 本周期从 2 天前开始，只签了今天 → 漏了前天和昨天，可补 2 天
-    lsMap.set('nl2:tasks', JSON.stringify({ date: today, list: [], signDay: 1, signDate: today, dates: [today], cycleStart: Store.todayKey(new Date(Date.now() - 2 * 86400000)) }));
+    const cycleStart = Store.todayKey(new Date(Date.now() - 2 * 86400000));
+    lsMap.set('nl2:tasks', JSON.stringify({ date: today, list: [], signDay: 1, signDate: today, dates: [today], cycleStart: cycleStart }));
     lsMap.set('nl2:wallet', JSON.stringify({ coins: 1000, items: {} }));
     $('btn-welfare').dispatch('click');
     const streakTxt = String($('welfare-streak').textContent);
-    const mkBtn = $('btn-welfare-makeup');
-    const enabled = mkBtn.disabled !== true && String(mkBtn.textContent).indexOf('补签') >= 0;
-    mkBtn.dispatch('click');
+    const cells = ($('welfare-sign').children || []).filter((c) => String(c.className).indexOf('missed') >= 0);
+    const missedOk = cells.length === 2;   // 前天 + 昨天都是红色可点
+    cells[0].dispatch('click');
+    const dialogShown = $('makeup-confirm').style.display === 'flex';
+    $('btn-makeup-yes').dispatch('click');
     const coins = sandbox.Store.getWallet().coins;
     const st = sandbox.Store.signStats();
+    const dialogClosed = $('makeup-confirm').style.display === 'none';
     $('btn-close-welfare').dispatch('click');
     if (savedTasks !== undefined) lsMap.set('nl2:tasks', savedTasks);
     if (savedWallet !== undefined) lsMap.set('nl2:wallet', savedWallet);
-    return streakTxt.indexOf('连续签到 1 天') >= 0 && enabled &&
+    return streakTxt.indexOf('连续签到 1 天') >= 0 && missedOk && dialogShown && dialogClosed &&
       coins === 700 && st.streak === 2 && st.day === 2;
   })());
 

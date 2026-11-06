@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106j">
-<link rel="stylesheet" href="./css/themes.css?v=20261106j">
+<link rel="stylesheet" href="./css/style.css?v=20261106k">
+<link rel="stylesheet" href="./css/themes.css?v=20261106k">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -78,8 +78,8 @@
     <h2 class="title small">购买道具</h2>
     <p class="confirm-text" id="buy-confirm-text">是否购买？</p>
     <div>
-      <button class="btn-primary btn-success" id="btn-buy-yes">确认</button>
-      <button class="btn-primary" id="btn-buy-no">取消</button>
+      <button class="btn-primary btn-danger" id="btn-buy-yes">确认</button>
+      <button class="btn-primary btn-success" id="btn-buy-no">取消</button>
     </div>
   </div>
 
@@ -88,8 +88,8 @@
     <h2 class="title small">恢复默认音乐</h2>
     <p class="confirm-text">要停止自定义音乐、恢复默认背景音乐吗？</p>
     <div>
-      <button class="btn-primary btn-success" id="btn-reset-bgm-yes">确认</button>
-      <button class="btn-primary" id="btn-reset-bgm-no">取消</button>
+      <button class="btn-primary btn-danger" id="btn-reset-bgm-yes">确认</button>
+      <button class="btn-primary btn-success" id="btn-reset-bgm-no">取消</button>
     </div>
   </div>
 
@@ -99,7 +99,7 @@
     <p class="confirm-text">要删除邮箱里所有可删除的邮件吗？</p>
     <div>
       <button class="btn-primary btn-danger" id="btn-mail-delall-yes">确认</button>
-      <button class="btn-primary" id="btn-mail-delall-no">取消</button>
+      <button class="btn-primary btn-success" id="btn-mail-delall-no">取消</button>
     </div>
   </div>
 
@@ -145,10 +145,10 @@
     <div class="menu-grid">
       <button class="btn-mini" id="btn-chapters">🗺️ 章节地图</button>
       <button class="btn-mini" id="btn-history">🏆 关卡记录</button>
-      <button class="btn-mini" id="btn-modes">🎮 更多玩法</button>
-      <button class="btn-mini" id="btn-daily">📅 每日挑战</button>
       <button class="btn-mini" id="btn-goto-tasks">🎯 每日任务</button>
-      <button class="btn-mini" id="btn-welfare">🎁 福利中心</button>
+      <button class="btn-mini" id="btn-daily">📅 每日挑战</button>
+      <button class="btn-mini" id="btn-modes">🎮 更多玩法</button>
+      <button class="btn-mini" id="btn-welfare">🎁 签到入口</button>
       <button class="btn-mini" id="btn-goto-shop">🛒 购物商店</button>
       <button class="btn-mini" id="btn-collection">🎨 棋盘配色</button>
       <button class="btn-mini" id="btn-achievements">🏅 成就</button>
@@ -302,8 +302,9 @@
       </section>
 
       <section class="rule-sec">
-        <h3>🎁 福利中心</h3>
-        <p><b>签到</b>：每天 1 次，7 天一轮，金币 50 → 80 → 120 → 180 → 250 → 350 → 500，第 7 天额外送 1 个彩虹；断签从第 1 天重算，漏签可花 <b>300 金币</b>补（只补连续天数，不发当日奖励）。</p>
+        <h3>🎁 签到入口</h3>
+        <p><b>签到</b>：每天 1 次，7 天一轮，金币 50 → 80 → 120 → 180 → 250 → 350 → 500，第 7 天额外送 1 个彩虹；断签从第 1 天重算。日期条<b>按真实日期显示、可以左右滑动</b>，本轮后面还多显示 3 天。</p>
+        <p>日期条上：<b>绿色 = 已签到</b>；<b>今天用虚线框</b>起来；<b>今天之前漏签的日子是红色</b>，点一下弹补签窗口，花 <b>300 金币</b>补上（只补连续天数，不发当日奖励）。「连续签到 N 天」显示在签到键上面。</p>
         <p><b>每日转盘</b>：每天免费 1 次，奖 50～300 金币或「洗牌 +1」「撤回 +1」。</p>
       </section>
 
@@ -316,8 +317,8 @@
 
       <section class="rule-sec">
         <h3>🏅 成就与配色</h3>
-        <p><b>成就</b>：共 19 枚，每枚 <b>5 阶</b>（灰 → 铜 → 银 → 金 → 彩），进度越高颜色越高阶；面板里能看到还差多少、下一阶是什么颜色。</p>
-        <p><b>棋盘配色</b>：8 款按累计星星解锁（黄默认、红 10、橙 20、绿 35、青 55、蓝 80、紫 110、黑 150）。只改<b>棋盘外圈光晕</b>和<b>目标栏底色</b>，<b>不影响分数、步数和难度</b>。</p>
+        <p><b>成就</b>：共 27 枚，每枚 <b>5 阶</b>（灰 → 铜 → 银 → 金 → 彩），进度越高颜色越高阶；面板里能看到还差多少、下一阶是什么颜色。</p>
+        <p><b>棋盘配色</b>：8 款按累计星星解锁（黄默认、红 10、橙 20、绿 35、青 55、蓝 80、紫 110、彩 150）。只改<b>棋盘外圈光晕</b>和<b>目标栏底色</b>，<b>不影响分数、步数和难度</b>。</p>
       </section>
 
       <section class="rule-sec">
@@ -716,7 +717,7 @@
     <h2 class="title small">已暂停</h2>
     <p class="pause-hint" id="pause-hint"></p>
     <button class="btn-primary" id="btn-resume">🕹️ 继续游戏</button>
-    <button class="btn-secondary" id="btn-pause-restart">🔄 重新开始本关</button>
+    <button class="btn-primary" id="btn-pause-restart">🔄 重新开始本关</button>
     <button class="btn-secondary" id="btn-pause-home">🏠 返回主页</button>
   </div>
 
@@ -876,25 +877,33 @@
     <button class="btn-secondary" id="btn-close-skins">返回</button>
   </div>
 
-  <!-- 福利中心 -->
+  <!-- 签到入口 -->
   <div class="overlay" id="welfare-menu" style="display:none;">
-    <h2 class="title small">🎁 福利中心</h2>
+    <h2 class="title small">🎁 签到入口</h2>
     <div class="welfare-sign" id="welfare-sign"></div>
+    <p class="welfare-streak" id="welfare-streak">连续签到 0 天</p>
     <button class="btn-primary" id="btn-welfare-signin">签到领金币</button>
     <div class="wheel-box" id="wheel-box">
       <div class="wheel-face">🎡</div>
       <div class="wheel-result" id="wheel-result">每天可以转一次</div>
     </div>
     <button class="btn-primary" id="btn-wheel">转盘抽奖</button>
-    <p class="welfare-streak" id="welfare-streak">连续签到 0 天</p>
-    <button class="btn-secondary" id="btn-welfare-makeup">补签 1 天（300 金币）</button>
     <button class="btn-secondary" id="btn-close-welfare">返回</button>
+  </div>
+
+  <!-- 补签确认 -->
+  <div class="overlay confirm-overlay" id="makeup-confirm" style="display:none;">
+    <h2 class="title small">补签</h2>
+    <p class="confirm-text" id="makeup-confirm-text">要补签这一天吗？</p>
+    <div>
+      <button class="btn-primary btn-danger" id="btn-makeup-yes">确认</button>
+      <button class="btn-primary btn-success" id="btn-makeup-no">取消</button>
+    </div>
   </div>
 
   <!-- 排行榜：先选榜单，再进列表 -->
   <div class="overlay" id="leaderboard-menu" style="display:none;">
     <h2 class="title small">📊 排行榜</h2>
-    <p class="lb-tip">选一个榜单进去看排名</p>
     <div class="lb-hub">
       <button class="lb-hub-btn" id="btn-lb-hub-all">
         <b>🏆 总榜</b><i>按总分排名</i>
@@ -944,22 +953,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106j"></script>
-<script src="./js/storage.js?v=20261106j"></script>
-<script src="./js/audio.js?v=20261106j"></script>
-<script src="./js/effects.js?v=20261106j"></script>
-<script src="./js/specials.js?v=20261106j"></script>
-<script src="./js/goals.js?v=20261106j"></script>
-<script src="./js/tasks.js?v=20261106j"></script>
-<script src="./js/mail.js?v=20261106j"></script>
-<script src="./js/input.js?v=20261106j"></script>
-<script src="./js/builtin-music.js?v=20261106j"></script>
-<script src="./js/music.js?v=20261106j"></script>
-<script src="./js/meta.js?v=20261106j"></script>
-<script src="./js/cloud-config.js?v=20261106j"></script>
-<script src="./js/cloud.js?v=20261106j"></script>
-<script src="./js/account.js?v=20261106j"></script>
-<script src="./js/board.js?v=20261106j"></script>
-<script src="./js/game.js?v=20261106j"></script>
+<script src="./js/rng.js?v=20261106k"></script>
+<script src="./js/storage.js?v=20261106k"></script>
+<script src="./js/audio.js?v=20261106k"></script>
+<script src="./js/effects.js?v=20261106k"></script>
+<script src="./js/specials.js?v=20261106k"></script>
+<script src="./js/goals.js?v=20261106k"></script>
+<script src="./js/tasks.js?v=20261106k"></script>
+<script src="./js/mail.js?v=20261106k"></script>
+<script src="./js/input.js?v=20261106k"></script>
+<script src="./js/builtin-music.js?v=20261106k"></script>
+<script src="./js/music.js?v=20261106k"></script>
+<script src="./js/meta.js?v=20261106k"></script>
+<script src="./js/cloud-config.js?v=20261106k"></script>
+<script src="./js/cloud.js?v=20261106k"></script>
+<script src="./js/account.js?v=20261106k"></script>
+<script src="./js/board.js?v=20261106k"></script>
+<script src="./js/game.js?v=20261106k"></script>
 </body>
 </html>

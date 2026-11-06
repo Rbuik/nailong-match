@@ -76,6 +76,7 @@
     t.claimed = true;
     Store.setTaskState(s);
     Store.addCoins(t.reward);
+    if (global.Meta && Meta.bump) Meta.bump('daily', 1);   // 成就：累计完成每日任务
     AudioManager.playSFX('coin');
     return t.reward;
   }

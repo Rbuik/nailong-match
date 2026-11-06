@@ -134,15 +134,11 @@ body[data-view="menu"] .game-container {
   min-height: min(calc(100vh - 12px), 780px);
 }
 
-/* 所有的双按钮确认弹窗 */
-#logout-confirm > div, #logout-confirm2 > div, #shuffle-confirm > div, #undo-confirm > div, #restart-confirm > div { display: flex; gap: 16px; justify-content: center; }
-#logout-confirm .btn-primary, #logout-confirm2 .btn-primary, #shuffle-confirm .btn-primary, #undo-confirm .btn-primary, #restart-confirm .btn-primary { width: 130px; margin-bottom: 0; }
-#duplicate-confirm > div { display: flex; gap: 16px; justify-content: center; }
-#duplicate-confirm .btn-primary { width: 130px; margin-bottom: 0; }
-
-/* 购买道具确认框：按钮比通用大按钮小一号 */
-#buy-confirm > div, #reset-bgm-confirm > div, #mail-delall-confirm > div { display: flex; gap: 14px; justify-content: center; }
-#buy-confirm .btn-primary, #reset-bgm-confirm .btn-primary, #mail-delall-confirm .btn-primary {
+/* 所有确认窗口统一：按钮一样大（112px），肯定（红）在左、否定（绿）在右 */
+#buy-confirm > div, #reset-bgm-confirm > div, #mail-delall-confirm > div,
+#makeup-confirm > div, #logout-confirm > div, #logout-confirm2 > div { display: flex; gap: 14px; justify-content: center; }
+#buy-confirm .btn-primary, #reset-bgm-confirm .btn-primary, #mail-delall-confirm .btn-primary,
+#makeup-confirm .btn-primary, #logout-confirm .btn-primary, #logout-confirm2 .btn-primary {
   width: 112px;
   padding: 9px 0;
   font-size: 14px;

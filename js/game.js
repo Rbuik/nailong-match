@@ -790,10 +790,9 @@
       }
     }
 
-    // 选中框：跟随选中方块自己的颜色（棋盘上不再有黑色描边）
+    // 选中框：黑色（棋盘配色里的「黑色款」已改为彩色，这里的框保持黑）
     if (S.selected) {
-      const selB = S.board[S.selected.r] && S.board[S.selected.r][S.selected.c];
-      ctx.strokeStyle = (selB && FALLBACK_COLORS[selB.type]) || '#7c5cff';
+      ctx.strokeStyle = '#333';
       ctx.lineWidth = 3;
       roundRect(S.selected.c * CELL + 2, S.selected.r * CELL + 2, CELL - 4, CELL - 4, 10);
       ctx.stroke();
@@ -4372,8 +4371,18 @@
     on('btn-welfare', () => { renderWelfare(); showOverlay('welfare-menu'); });
     on('btn-close-welfare', () => { $('welfare-menu').style.display = 'none'; showOverlay('main-menu'); });
     on('btn-welfare-signin', doSignIn);
-    on('btn-welfare-makeup', doMakeup);
     on('btn-wheel', doWheel);
+    // 补签确认窗口：点红色漏签日弹出（补签花金币）
+    on('btn-makeup-yes', () => {
+      const box = $('makeup-confirm');
+      const k = box ? box.dataset.date : '';
+      if (box) { box.style.display = 'none'; delete box.dataset.date; }
+      doMakeup(k);
+    });
+    on('btn-makeup-no', () => {
+      const box = $('makeup-confirm');
+      if (box) { box.style.display = 'none'; delete box.dataset.date; }
+    });
     // 排行榜：先进「选榜单」，再进列表
     on('btn-leaderboard', () => {
       showOverlay('leaderboard-menu');
@@ -5330,19 +5339,46 @@
     if ($('skin-stars')) $('skin-stars').textContent = Store.totalStars();
   }
 
-  // ---------- 福利：签到 + 转盘 ----------
+  // ---------- 签到入口：日期条 + 签到 + 转盘 ----------
+  // 日期条：本轮周期每天一格（显示真实日期），后面多显示 3 天；
+  // 左右滑动看全部；签到了 = 绿色，今天 = 虚线框，漏签 = 红色（点击弹补签窗口）
   function renderWelfare() {
     const info = Meta.signInfo();
     const dayBox = $('welfare-sign');
     if (dayBox) {
       dayBox.innerHTML = '';
-      info.rewards.forEach((r, i) => {
-        const d = document.createElement('div');
-        const signed = (i + 1) <= info.day;
-        d.className = 'sign-day' + (signed ? ' signed' : '') + (i + 1 === info.day + 1 ? ' today' : '');
-        d.innerHTML = '<i>第 ' + (i + 1) + ' 天</i><b>' + (r.item ? '🌈' : r.coins) + '</b>';
-        dayBox.appendChild(d);
-      });
+      const st = Meta.signStats();
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      // 本轮起点：最近一次签到日往前的 cycleStart（由 storage 维护），没签过就从今天算
+      let start = null;
+      try { start = Store.signCycleStart(); } catch (e) {}
+      if (!start) start = new Date(today);
+      const fmt = (d) => (d.getMonth() + 1) + '/' + d.getDate();
+      const week = ['日', '一', '二', '三', '四', '五', '六'];
+      const total = 7 + 3;   // 本轮 7 天 + 多显示的 3 天
+      const dates = info.dates || [];
+      for (let i = 0; i < total; i++) {
+        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+        const k = Store.todayKey(d);
+        const isFuture = d > today;
+        const isToday = d.getTime() === today.getTime();
+        const signed = dates.indexOf(k) >= 0;
+        const missed = !signed && !isFuture && st.canMakeup;
+
+        const cell = document.createElement('div');
+        cell.className = 'sign-day' +
+          (signed ? ' signed' : '') +
+          (isToday ? ' today' : '') +
+          (missed ? ' missed' : '') +
+          (isFuture ? ' future' : '');
+        const reward = info.rewards[i];
+        cell.innerHTML = '<i>' + week[d.getDay()] + ' ' + fmt(d) + '</i>' +
+          '<b>' + (signed ? '✓' : (reward ? (reward.item ? '🌈' : reward.coins) : '—')) + '</b>';
+        if (missed) {
+          cell.addEventListener('click', () => openMakeupConfirm(d, k));
+        }
+        dayBox.appendChild(cell);
+      }
     }
     const btn = $('btn-welfare-signin');
     if (btn) {
@@ -5354,20 +5390,21 @@
     if (wb) wb.disabled = w.used;
     if ($('wheel-result') && w.used) $('wheel-result').textContent = '今日已抽到：' + (w.result || '—');
     if (wb && !w.used) $('wheel-result') && ($('wheel-result').textContent = '每天可以转一次');
-    // 底部：连续签到天数 + 补签
-    const st = Meta.signStats();
+    // 签到键上面：连续签到天数（黑色）
+    const st2 = Meta.signStats();
     const stEl = $('welfare-streak');
-    if (stEl) {
-      stEl.textContent = '连续签到 ' + st.streak + ' 天' +
-        (st.canMakeup ? '（还可补签 ' + st.missed + ' 天）' : '');
-    }
-    const mk = $('btn-welfare-makeup');
-    if (mk) {
-      mk.disabled = !st.canMakeup;
-      mk.textContent = st.canMakeup
-        ? '补签 1 天（' + (Store.MAKEUP_COST || 300) + ' 金币）'
-        : '暂无可补签的日子';
-    }
+    if (stEl) stEl.textContent = '连续签到 ' + st2.streak + ' 天';
+  }
+
+  // 点红色漏签日 → 弹补签确认窗口（补签要花金币）
+  function openMakeupConfirm(d, k) {
+    const box = $('makeup-confirm');
+    const txt = $('makeup-confirm-text');
+    if (!box) return;
+    if (txt) txt.innerHTML = '补签 <b>' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日</b> 需要花 <b>' +
+      (Store.MAKEUP_COST || 300) + ' 金币</b>（只补连续天数，不发当日奖励），确定补签吗？';
+    box.dataset.date = k;
+    box.style.display = 'flex';
   }
 
   function doSignIn() {
@@ -5382,8 +5419,8 @@
     }
   }
 
-  function doMakeup() {
-    const r = Meta.makeup();
+  function doMakeup(dateKey) {
+    const r = Meta.makeup(dateKey);
     if (!r.ok) {
       if (r.reason === 'poor') toast('金币不够：补签 1 天需要 ' + (Store.MAKEUP_COST || 300) + ' 金币');
       else if (r.reason === 'full') toast('本轮 7 天已经签满啦');

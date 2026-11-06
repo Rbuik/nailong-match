@@ -78,7 +78,14 @@
     { id: 'endless',  icon: '♾️', name: '无尽旅人',   desc: '无尽模式最高分',   key: 'endless',   tiers: [5000, 20000, 50000, 100000] },
     { id: 'sprint',   icon: '⏱️', name: '冲刺高手',   desc: '60 秒冲刺最高分',  key: 'sprint',    tiers: [2000, 8000, 20000, 40000] },
     { id: 'rhythm',   icon: '🎧', name: '节拍感',     desc: '节奏关最高分',     key: 'rhythm',    tiers: [1500, 6000, 15000, 30000] },
-    { id: 'checkin7', icon: '📅', name: '签到达人',   desc: '累计签到天数',     key: 'checkin',   tiers: [1, 3, 7, 14] }
+    { id: 'checkin7', icon: '📅', name: '签到达人',   desc: '累计签到天数',     key: 'checkin',   tiers: [1, 3, 7, 14] },
+    { id: 'checkin30',icon: '🗓️', name: '签到铁人',   desc: '累计签到天数',     key: 'checkin',   tiers: [30, 60, 100, 180] },
+    { id: 'score100k',icon: '🧮', name: '分数收割机', desc: '累计总分',         key: 'scoreTotal',tiers: [50000, 200000, 500000, 1000000] },
+    { id: 'wins250',  icon: '🎮', name: '消消乐老手', desc: '累计通关次数',     key: 'wins',      tiers: [200, 500, 1000, 2000] },
+    { id: 'daily30',  icon: '🎯', name: '任务好手',   desc: '累计完成每日任务', key: 'daily',     tiers: [10, 30, 80, 150] },
+    { id: 'combo12',  icon: '⚡', name: '连击传说',   desc: '单局最高连击',     key: 'maxCombo',  tiers: [12, 15, 18, 22] },
+    { id: 'bomb500',  icon: '🧨', name: '爆破大师',   desc: '累计引爆炸弹',     key: 'bombs',     tiers: [350, 500, 800, 1200] },
+    { id: 'ice1000',  icon: '❄️', name: '破冰巨轮',   desc: '累计敲碎冰层',     key: 'ice',       tiers: [800, 1500, 2500, 4000] }
   ];
 
   function unlockedIds() {
@@ -175,7 +182,7 @@
     { id: 'cyan',    name: '青色', icon: '■', color: '#4ecbff', stars: 55,  desc: '青色光晕，目标栏淡青底' },
     { id: 'blue',    name: '蓝色', icon: '■', color: '#5c8fff', stars: 80,  desc: '蓝色光晕，目标栏淡蓝底' },
     { id: 'galaxy',  name: '紫色', icon: '■', color: '#9a8cf0', stars: 110, desc: '紫色光晕，目标栏淡紫底' },
-    { id: 'black',   name: '黑色', icon: '■', color: '#3a3a44', stars: 150, desc: '黑色光晕，目标栏淡灰底' }
+    { id: 'black',   name: '彩色', icon: '🌈', color: '#ff8fab', stars: 150, desc: '彩虹光晕，目标栏淡彩底' }
   ];
 
   function currentSkin() {
@@ -254,11 +261,12 @@
 
   // ==================== 签到（复用 Store.signIn） ====================
   function signInfo() {
-    const s = global.Store ? Store.getTaskState() : { signDay: 0, signDate: '' };
+    const s = global.Store ? Store.getTaskState() : { signDay: 0, signDate: '', dates: [] };
     return {
       day: s.signDay || 0,
       signedToday: global.Store ? !Store.canSignIn() : true,
-      rewards: (global.Store && Store.SIGN_REWARDS) || []
+      rewards: (global.Store && Store.SIGN_REWARDS) || [],
+      dates: Array.isArray(s.dates) ? s.dates : []
     };
   }
 
@@ -269,10 +277,10 @@
     return r;
   }
 
-  // 补签（300 金币 / 天）：只补连续天数，不发当日奖励
-  function makeup() {
+  // 补签（300 金币 / 天）：只补连续天数，不发当日奖励；dateKey 指定要补的那天
+  function makeup(dateKey) {
     if (!global.Store) return { ok: false };
-    const r = Store.makeupSign();
+    const r = Store.makeupSign(dateKey);
     if (r.ok) bump('checkin', 1);
     return r;
   }
