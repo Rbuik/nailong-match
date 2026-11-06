@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106i">
-<link rel="stylesheet" href="./css/themes.css?v=20261106i">
+<link rel="stylesheet" href="./css/style.css?v=20261106j">
+<link rel="stylesheet" href="./css/themes.css?v=20261106j">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -80,6 +80,26 @@
     <div>
       <button class="btn-primary btn-success" id="btn-buy-yes">确认</button>
       <button class="btn-primary" id="btn-buy-no">取消</button>
+    </div>
+  </div>
+
+  <!-- 恢复默认音乐确认 -->
+  <div class="overlay confirm-overlay" id="reset-bgm-confirm" style="display:none;">
+    <h2 class="title small">恢复默认音乐</h2>
+    <p class="confirm-text">要停止自定义音乐、恢复默认背景音乐吗？</p>
+    <div>
+      <button class="btn-primary btn-success" id="btn-reset-bgm-yes">确认</button>
+      <button class="btn-primary" id="btn-reset-bgm-no">取消</button>
+    </div>
+  </div>
+
+  <!-- 一键删除邮件确认 -->
+  <div class="overlay confirm-overlay" id="mail-delall-confirm" style="display:none;">
+    <h2 class="title small">一键删除</h2>
+    <p class="confirm-text">要删除邮箱里所有可删除的邮件吗？</p>
+    <div>
+      <button class="btn-primary btn-danger" id="btn-mail-delall-yes">确认</button>
+      <button class="btn-primary" id="btn-mail-delall-no">取消</button>
     </div>
   </div>
 
@@ -290,7 +310,7 @@
       <section class="rule-sec">
         <h3>📮 邮箱</h3>
         <p>左上角 <b>🏠 下面的 📮</b> 收系统公告和奖励，有新邮件时亮<b>红色角标</b>（数字 = 未读数）。</p>
-        <p>邮件<b>左滑</b>出「删除」，<b>没领奖励的删不了</b>；「返回」上面有「✅ 一键已读」「🗑️ 一键删除」，删除需二次确认。</p>
+        <p>邮件<b>左滑</b>出小「删除」键，<b>没领奖励的删不了</b>，点一下邮件直接打开详情（不会露出删除键）；「返回」上面有「✅ 一键已读」「🗑️ 一键删除」，一键删除会<b>先弹确认窗口</b>。</p>
         <p>点开看正文，标题带「：」的邮件会拆成<b>主标题 + 副标题</b>（副标题单独一行、字号更小），主标题不带图标；带奖励的邮件底部点「领取」金币进钱包，<b>每封只能领一次</b>；已读和领取记录<b>跟着账号走</b>。</p>
       </section>
 
@@ -309,7 +329,8 @@
 
       <section class="rule-sec">
         <h3>🎵 音乐与音量</h3>
-        <p>设置 → <b>🎵 音乐设置</b> → 音乐库：除内置歌曲，还能粘贴 <b>MP3 / M4A 直链</b>或 <b>QQ音乐 / 网易云</b>分享链接自动入库，入库后可长按或左滑<b>重命名</b>。</p>
+        <p>设置 → <b>🎵 音乐设置</b> → 音乐库：<b>系统自带歌曲只放在音乐库</b>（历史导入里没有），还能粘贴 <b>MP3 / M4A 直链</b>或 <b>QQ音乐 / 网易云</b>分享链接自动入库，入库后可长按或左滑<b>重命名</b>。<b>历史导入和音乐库的删除各自独立</b>，一边删了另一边还在。</p>
+        <p><b>恢复默认音乐</b>会先弹确认窗口，确认后才停掉自定义音乐。</p>
         <p>可把歌加进<b>播放列表</b>，支持顺序 / 随机 / 循环、无缝切歌。</p>
         <p><b>排序</b>：长按某首歌让它浮起，拖到位置松手；长按只负责排序，重命名 / 删除只能左滑一首一首来（手机上同样支持，按住时列表不会跟着滚）。</p>
         <p><b>音量</b>：所有歌响度自动对齐不会忽大忽小，拖动滑块<b>实时试听</b>，音量会<b>记住</b>。游戏里 🎵 键<b>只关背景音乐</b>，音效照常，旁边是 🎒 背包、📖 规则、⚙️ 设置。</p>
@@ -633,7 +654,7 @@
     <button class="btn-secondary" id="btn-back-playlist">返回</button>
   </div>
 
-  <!-- 音乐库（与历史导入共用数据） -->
+  <!-- 音乐库（系统自带歌曲只在这里；删除与历史导入互不同步） -->
   <div class="overlay" id="music-library-menu" style="display:none;">
     <h2 class="title small">音乐库</h2>
     <div class="batch-bar" id="library-batch-action-bar" style="display:none;">
@@ -923,22 +944,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106i"></script>
-<script src="./js/storage.js?v=20261106i"></script>
-<script src="./js/audio.js?v=20261106i"></script>
-<script src="./js/effects.js?v=20261106i"></script>
-<script src="./js/specials.js?v=20261106i"></script>
-<script src="./js/goals.js?v=20261106i"></script>
-<script src="./js/tasks.js?v=20261106i"></script>
-<script src="./js/mail.js?v=20261106i"></script>
-<script src="./js/input.js?v=20261106i"></script>
-<script src="./js/builtin-music.js?v=20261106i"></script>
-<script src="./js/music.js?v=20261106i"></script>
-<script src="./js/meta.js?v=20261106i"></script>
-<script src="./js/cloud-config.js?v=20261106i"></script>
-<script src="./js/cloud.js?v=20261106i"></script>
-<script src="./js/account.js?v=20261106i"></script>
-<script src="./js/board.js?v=20261106i"></script>
-<script src="./js/game.js?v=20261106i"></script>
+<script src="./js/rng.js?v=20261106j"></script>
+<script src="./js/storage.js?v=20261106j"></script>
+<script src="./js/audio.js?v=20261106j"></script>
+<script src="./js/effects.js?v=20261106j"></script>
+<script src="./js/specials.js?v=20261106j"></script>
+<script src="./js/goals.js?v=20261106j"></script>
+<script src="./js/tasks.js?v=20261106j"></script>
+<script src="./js/mail.js?v=20261106j"></script>
+<script src="./js/input.js?v=20261106j"></script>
+<script src="./js/builtin-music.js?v=20261106j"></script>
+<script src="./js/music.js?v=20261106j"></script>
+<script src="./js/meta.js?v=20261106j"></script>
+<script src="./js/cloud-config.js?v=20261106j"></script>
+<script src="./js/cloud.js?v=20261106j"></script>
+<script src="./js/account.js?v=20261106j"></script>
+<script src="./js/board.js?v=20261106j"></script>
+<script src="./js/game.js?v=20261106j"></script>
 </body>
 </html>

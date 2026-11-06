@@ -204,7 +204,8 @@ function check(name, ok) {
   const htmlSrc0 = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
   const cssSrc = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8') +
     fs.readFileSync(path.join(__dirname, 'css', 'style.css'), 'utf8');
-  const jsSrc = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
+  const jsSrc = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8') +
+    fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8');
   check('主页不再有注销按钮，右下角是 📮 邮箱键',
     htmlSrc0.includes('id="btn-mail"') && htmlSrc0.indexOf('id="btn-mail"') < htmlSrc0.indexOf('id="home-menu"'));
   check('注销账号在账号安全面板里、切换账号下面',
@@ -398,6 +399,19 @@ function check(name, ok) {
     cssSrc.includes('.btn-primary {') &&
     cssSrc.includes('background: rgba(92, 143, 255, 0.08);') &&
     cssSrc.includes('border: 2px solid rgba(92, 143, 255, 0.55)'));
+  check('红/绿键同款描边效果、普通键黑色描边',
+    cssSrc.includes('background: rgba(255, 92, 92, 0.08);') &&
+    cssSrc.includes('border: 2px solid rgba(255, 92, 92, 0.55);') &&
+    cssSrc.includes('border: 2px solid rgba(67, 197, 109, 0.55);') &&
+    cssSrc.includes('background: rgba(0, 0, 0, 0.05);') &&
+    cssSrc.includes('border: 2px solid rgba(0, 0, 0, 0.65);'));
+  check('海外列表显示「未识别出国家」', jsSrc.includes('未识别出国家') && !jsSrc.includes('未细分国家'));
+  check('棋盘选中框不再用黑色', !jsSrc.includes("ctx.strokeStyle = '#333';"));
+  check('邮件删除键更小、轻点不露删除键',
+    cssSrc.includes('width: 54px;') && jsSrc.includes('TAP_TOL = 12'));
+  check('一键删除 / 恢复默认音乐都弹确认窗口',
+    htmlSrc0.includes('id="mail-delall-confirm"') && htmlSrc0.includes('id="reset-bgm-confirm"') &&
+    jsSrc.includes("on('btn-mail-delall-yes'") && jsSrc.includes("on('btn-reset-bgm-yes'"));
   check('邮件详情主标题不带 emoji、副标题更小',
     !jsSrc.includes("(m.icon || '📮') + ' ' + (ci > 0") && cssSrc.includes('.mail-subtitle {') &&
     cssSrc.includes('font-size: 17px;'));
@@ -1078,8 +1092,9 @@ function check(name, ok) {
     htmlSrc.includes('btn-goto-music-settings') && htmlSrc.includes('btn-goto-account') &&
     !htmlSrc.includes('id="btn-recover"'));
   check('音乐设置里装音量 / 播放列表 / 导入 / 恢复默认',
-    ['btn-goto-volume', 'btn-goto-playlist', 'btn-goto-import', 'btn-reset-bgm'].every((id) =>
-      htmlSrc.indexOf(id) > htmlSrc.indexOf('id="music-settings-menu"')));
+    ['btn-goto-volume', 'btn-goto-playlist', 'btn-goto-import'].every((id) =>
+      htmlSrc.indexOf(id) > htmlSrc.indexOf('id="music-settings-menu"')) &&
+    htmlSrc.indexOf('id="btn-reset-bgm"') > htmlSrc.indexOf('id="music-settings-menu"'));
   check('账号安全里装修改密码 + 切换账号（修改密码在上面）',
     htmlSrc.indexOf('id="btn-goto-password"') > 0 &&
     htmlSrc.indexOf('id="btn-goto-password"') < htmlSrc.indexOf('id="btn-goto-switch"'));
@@ -1311,8 +1326,9 @@ function check(name, ok) {
   row0.dispatch('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 240, clientY: 40, button: 0, preventDefault() {} });
   row0.dispatch('pointerup', { pointerId: 1, clientX: 240, clientY: 40 });
   row0.dispatch('click');
-  check('再点一下收回删除键，不会误开邮件',
-    !wraps[0].classList.contains('open') && $('mail-view').style.display !== 'flex');
+  check('点一下邮件行：删除键收起并直接打开邮件（不露删除键）',
+    !wraps[0].classList.contains('open') && $('mail-view').style.display === 'flex');
+  $('btn-mail-back').dispatch('click');   // 回到列表
 
   const leftBefore = sandbox.Mail.list().length;
   $('btn-mail-read-all').dispatch('click');
@@ -1328,11 +1344,12 @@ function check(name, ok) {
   // 一键删除：未领奖励的邮件不删
   sandbox.Mail.sendMail({ id: 'utest-gift', at: '2026-11-05 20:30', title: '测试奖励', coins: 50 });
   $('btn-mail-del-all').dispatch('click');
-  check('一键删除先变成「再点一次确认」',
-    $('btn-mail-del-all').textContent.indexOf('确认') >= 0 &&
+  check('一键删除先弹确认窗口',
+    $('mail-delall-confirm').style.display === 'flex' &&
     sandbox.Mail.list().length === leftBefore);
-  $('btn-mail-del-all').dispatch('click');
+  $('btn-mail-delall-yes').dispatch('click');
   check('确认后清空邮箱，但保留没领奖励的那封',
+    $('mail-delall-confirm').style.display === 'none' &&
     sandbox.Mail.list().length === 1 && !!sandbox.Mail.get('utest-gift') &&
     $('btn-mail-list') !== null);
   sandbox.Mail.claim('utest-gift');

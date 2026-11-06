@@ -481,7 +481,7 @@
   function tileBaseColor(type) {
     if (BASE_COLOR[type]) return BASE_COLOR[type];
     const m = /^#([0-9a-f]{6})$/i.exec(String(FALLBACK_COLORS[type] || ''));
-    let out = '#3a4160';
+    let out = 'rgb(93,69,191)';   // 兜底也是彩色（#7c5cff 调深 25%）
     if (m) {
       const n = parseInt(m[1], 16);
       out = 'rgb(' + Math.round(((n >> 16) & 255) * 0.75) + ',' +
@@ -790,9 +790,10 @@
       }
     }
 
-    // 选中框
+    // 选中框：跟随选中方块自己的颜色（棋盘上不再有黑色描边）
     if (S.selected) {
-      ctx.strokeStyle = '#333';
+      const selB = S.board[S.selected.r] && S.board[S.selected.r][S.selected.c];
+      ctx.strokeStyle = (selB && FALLBACK_COLORS[selB.type]) || '#7c5cff';
       ctx.lineWidth = 3;
       roundRect(S.selected.c * CELL + 2, S.selected.r * CELL + 2, CELL - 4, CELL - 4, 10);
       ctx.stroke();
@@ -3398,7 +3399,7 @@
       const rest = Math.max(0, (row.n || 0) - sum);
       let html = rows.map((r) => '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('');
       if (rest > 0) {
-        html += '<li class="prov-unknown"><span>未细分国家</span><b>' + rest + '</b></li>';
+        html += '<li class="prov-unknown"><span>未识别出国家</span><b>' + rest + '</b></li>';
       }
       if (sub) sub.textContent = row.n ? ('共 ' + rows.length + ' 个国家/地区 · ' + row.n + ' 次点击') : '暂无海外点击记录';
       if (list) list.innerHTML = html || '<li class="prov-empty">暂无海外点击记录</li>';
@@ -4321,25 +4322,14 @@
       toast(msg);
       AudioManager.playSFX('select');
     });
-    // 🗑️ 一键删除：先点一下变「再点一次确认」，3 秒内再点才真删
-    let delAllTimer = null;
+    // 🗑️ 一键删除：先弹确认窗口，确认后才真删
     on('btn-mail-del-all', () => {
-      const btn = $('btn-mail-del-all');
-      if (!btn) return;
-      if (btn.getAttribute('data-arm') !== '1') {
-        btn.setAttribute('data-arm', '1');
-        btn.textContent = '再点一次确认删除';
-        if (delAllTimer) clearTimeout(delAllTimer);
-        delAllTimer = setTimeout(() => {
-          btn.setAttribute('data-arm', '0');
-          btn.textContent = '🗑️ 一键删除';
-          delAllTimer = null;
-        }, 3000);
-        return;
-      }
-      btn.setAttribute('data-arm', '0');
-      btn.textContent = '🗑️ 一键删除';
-      if (delAllTimer) { clearTimeout(delAllTimer); delAllTimer = null; }
+      const c = $('mail-delall-confirm');
+      if (c) c.style.display = 'flex';
+    });
+    on('btn-mail-delall-yes', () => {
+      const c = $('mail-delall-confirm');
+      if (c) c.style.display = 'none';
       const r = (typeof Mail !== 'undefined') ? Mail.removeAll() : { removed: 0, kept: 0 };
       renderMailList();
       refreshMailBadge();
@@ -4347,6 +4337,10 @@
       else if (r.kept > 0) toast('有奖励的邮件要先领取才能删除');
       else toast('没有可删除的邮件');
       AudioManager.playSFX('select');
+    });
+    on('btn-mail-delall-no', () => {
+      const c = $('mail-delall-confirm');
+      if (c) c.style.display = 'none';
     });
     on('btn-mail-close', () => {
       $('mail-menu').style.display = 'none';
@@ -6102,9 +6096,10 @@
     }
   }
 
-  // 左滑露出「删除」，右滑 / 点一下收回
+  // 左滑露出「删除」，右滑 / 点一下收回；轻点（抖动 ≤12px）不算滑动，不会露出删除键
   function attachMailSwipe(wrap, row, m) {
-    const DEL = 78;                 // 删除键宽度（和 CSS 里一致）
+    const DEL = 62;                 // 删除键宽度（和 CSS 里一致）
+    const TAP_TOL = 12;             // 小于这个位移算点击，不触发左滑
     let sx = 0, sy = 0, base = 0, dx = 0;
     let tracking = false, moved = false, pid = null;
 
@@ -6128,10 +6123,11 @@
       const mx = e.clientX - sx;
       const my = e.clientY - sy;
       if (!moved) {
-        // 竖着滑动优先当作滚动列表，不抢
-        if (Math.abs(my) > Math.abs(mx) && Math.abs(my) > 8) { tracking = false; setX(base); row.style.transition = ''; return; }
-        if (Math.abs(mx) <= 6) return;
+        // 竖着滑动优先当作滚动列表，不抢；横向分量不明显也不算滑动（点击不露删除键）
+        if (Math.abs(my) > 8 && Math.abs(my) >= Math.abs(mx)) { tracking = false; setX(base); row.style.transition = ''; return; }
+        if (Math.abs(mx) <= TAP_TOL || Math.abs(mx) <= Math.abs(my)) return;
         moved = true;
+        closeMailSwipe(wrap);   // 真正开始左滑了，才收起其他打开的行
       }
       dx = Math.max(-DEL - 16, Math.min(0, base + mx));
       setX(dx);
@@ -6142,7 +6138,8 @@
       if (!tracking) return;
       tracking = false;
       row.style.transition = '';
-      const open = (base + dx) < -DEL / 2;
+      // dx 已经是含 base 的最终偏移（松手时右滑滑回原位 = dx 接近 0 → 收起）
+      const open = dx < -DEL / 2;
       wrap.classList.toggle('open', open);
       mailSwipeOpen = open ? wrap : (mailSwipeOpen === wrap ? null : mailSwipeOpen);
       setX(open ? -DEL : 0);

@@ -7,6 +7,7 @@
 
   const K = {
     history: 'nl2:musicHistory',
+    library: 'nl2:musicLibrary',
     playlist: 'nl2:playlist',
     mode: 'nl2:playMode',
     order: 'nl2:musicOrder'   // 音乐库/历史列表的自定义顺序（长按拖动排序）
@@ -67,6 +68,18 @@
     return norm(read(K.history, [])).filter((x) => !isBuiltin(x.url));
   }
   function saveHistory(l) { write(K.history, l); }
+  // 音乐库独立于历史导入：两边各存各的，删除互不同步
+  function getLibrary() {
+    const raw = read(K.library, null);
+    if (raw === null) {
+      // 老版本没有独立音乐库数据：把历史导入一次性迁过来，之后互不影响
+      const seed = getHistory();
+      write(K.library, seed);
+      return seed;
+    }
+    return norm(raw).filter((x) => !isBuiltin(x.url));
+  }
+  function saveLibrary(l) { write(K.library, l); }
   function getPlaylist() { return norm(read(K.playlist, [])); }
   function savePlaylist(l) { write(K.playlist, l); }
 
@@ -96,11 +109,20 @@
   }
 
   function rememberHistory(item) {
-    if (isBuiltin(item.url)) return; // 内置音乐固定在列表顶部，不重复入库
+    if (isBuiltin(item.url)) return; // 内置音乐固定在音乐库顶部，不进历史
     const h = getHistory();
     if (!h.some((x) => x.url === item.url)) {
       h.unshift(item);
       saveHistory(h);
+    }
+  }
+
+  function rememberLibrary(item) {
+    if (isBuiltin(item.url)) return; // 内置音乐写死在 builtin-music.js，不重复入库
+    const lib = getLibrary();
+    if (!lib.some((x) => x.url === item.url)) {
+      lib.unshift(item);
+      saveLibrary(lib);
     }
   }
 
@@ -211,8 +233,9 @@
 
   function itemsOf(source) {
     if (source === 'playlist') return getPlaylist();
-    // 音乐库/历史导入：内置音乐 + 历史，按用户长按拖动保存的顺序排
-    return applyOrder(getBuiltin().concat(getHistory()), read(K.order, null));
+    if (source === 'history') return applyOrder(getHistory(), read(K.order, null));
+    // 音乐库：内置音乐 + 用户导入的，按用户长按拖动保存的顺序排（内置音乐只在这里出现）
+    return applyOrder(getBuiltin().concat(getLibrary()), read(K.order, null));
   }
 
   // 按保存的顺序排列；没在顺序表里的（新导入的）接在末尾
@@ -550,6 +573,7 @@
         return;
       }
       if (source === 'playlist') removeFromPlaylist([item.url]);
+      else if (source === 'library') deleteFromLibrary([item.url]);
       else deleteFromHistory([item.url]);
     }
   }
@@ -585,19 +609,32 @@
   }
 
   function deleteFromHistory(urls) {
-    // 内置音乐永远保留
-    const del = urls.filter((u) => !isBuiltin(u));
+    // 只从历史导入里删，不影响音乐库 / 播放列表
+    const set = new Set(urls);
+    const del = getHistory().filter((x) => set.has(x.url));
+    if (!del.length) {
+      toast('没有可删除的记录');
+      clearSelection();
+      return;
+    }
+    saveHistory(getHistory().filter((x) => !set.has(x.url)));
+    clearSelection();
+    toast('已从历史导入删除 ' + del.length + ' 条记录');
+    renderAll();
+  }
+
+  function deleteFromLibrary(urls) {
+    // 只从音乐库里删（内置音乐永远保留），不影响历史导入 / 播放列表
+    const set = new Set(urls);
+    const del = getLibrary().filter((x) => set.has(x.url));
     if (!del.length) {
       toast('内置音乐不可删除');
       clearSelection();
       return;
     }
-    const set = new Set(del);
-    saveHistory(getHistory().filter((x) => !set.has(x.url)));
-    savePlaylist(getPlaylist().filter((x) => !set.has(x.url)));
-    if (set.has(currentUrl)) stopCustom();
+    saveLibrary(getLibrary().filter((x) => !set.has(x.url)));
     clearSelection();
-    toast('已删除 ' + del.length + ' 条记录' + (del.length < urls.length ? '（内置音乐不可删除）' : ''));
+    toast('已从音乐库删除 ' + del.length + ' 首');
     renderAll();
   }
 
@@ -627,6 +664,8 @@
     const url = renameTarget.url;
     const h = getHistory().map((x) => (x.url === url ? { url: x.url, name: name } : x));
     saveHistory(h);
+    const lib = getLibrary().map((x) => (x.url === url ? { url: x.url, name: name } : x));
+    saveLibrary(lib);
     const pl = getPlaylist().map((x) => (x.url === url ? { url: x.url, name: name } : x));
     savePlaylist(pl);
     hide('rename-menu');
@@ -916,9 +955,10 @@
     }
   }
 
-  // 入库（历史导入 + 音乐库共用同一份数据）→ 播放 → 需要时弹重命名
+  // 入库 → 播放 → 需要时弹重命名（历史导入和音乐库各记一份，之后删除互不同步）
   function addAndPlay(item, askRename) {
     rememberHistory(item);
+    rememberLibrary(item);
     const pl = getPlaylist();
     if (!pl.some((x) => x.url === item.url)) {
       pl.push(item);
@@ -1168,17 +1208,18 @@
     on('btn-mode-shuf', () => setMode('shuf'));
     on('btn-mode-loop', () => setMode('loop'));
 
-    on('btn-reset-bgm', () => {
-      storeResetBgm();
-    });
+    // 恢复默认音乐：先弹确认，确认后才停自定义音乐
+    on('btn-reset-bgm', () => show('reset-bgm-confirm'));
+    on('btn-reset-bgm-yes', () => { hide('reset-bgm-confirm'); storeResetBgm(); });
+    on('btn-reset-bgm-no', () => hide('reset-bgm-confirm'));
 
     // 批量操作
     on('btn-batch-add', () => addToPlaylist(getHistory().filter((x) => selected.has(x.url))));
     on('btn-batch-del', () => deleteFromHistory(Array.from(selected)));
     on('btn-batch-cancel', clearSelection);
 
-    on('btn-lib-batch-add', () => addToPlaylist(getHistory().filter((x) => selected.has(x.url))));
-    on('btn-lib-batch-del', () => deleteFromHistory(Array.from(selected)));
+    on('btn-lib-batch-add', () => addToPlaylist(getBuiltin().concat(getLibrary()).filter((x) => selected.has(x.url))));
+    on('btn-lib-batch-del', () => deleteFromLibrary(Array.from(selected)));
     on('btn-lib-batch-cancel', clearSelection);
 
     on('btn-pl-batch-del', () => removeFromPlaylist(Array.from(selected)));

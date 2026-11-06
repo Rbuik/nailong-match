@@ -910,7 +910,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   border-radius: 12px;
 }
 
-.btn-primary.danger { background: linear-gradient(135deg, #ff5c5c, #c0392b); box-shadow: 0 4px 15px rgba(255, 92, 92, 0.3); border-color: transparent; }
+.btn-primary.danger { background: rgba(255, 92, 92, 0.08); color: #c0392b; border: 2px solid rgba(255, 92, 92, 0.55); box-shadow: none; }
 
 /* 播放模式 */
 .mode-row {
@@ -986,15 +986,17 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 
 .btn-primary.btn-danger {
-  background: linear-gradient(135deg, #ff5c5c, #c0392b);
-  box-shadow: 0 4px 15px rgba(255, 92, 92, 0.35);
-  border-color: transparent;
+  background: rgba(255, 92, 92, 0.08);
+  color: #c0392b;
+  border: 2px solid rgba(255, 92, 92, 0.55);
+  box-shadow: none;
 }
 
 .btn-primary.btn-success {
-  background: linear-gradient(135deg, #43c56d, #1a8f4a);
-  box-shadow: 0 4px 15px rgba(67, 197, 109, 0.35);
-  border-color: transparent;
+  background: rgba(67, 197, 109, 0.1);
+  color: #1a8f4a;
+  border: 2px solid rgba(67, 197, 109, 0.55);
+  box-shadow: none;
 }
 
 /* ================= 主页：两列小按钮（新增玩法入口） ================= */
@@ -1781,15 +1783,15 @@ body[data-skin="black"]   { --skin-target-bg: rgba(40, 40, 48, 0.18); }
 
 .mail-del {
   position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 78px;
+  top: 4px;
+  right: 4px;
+  bottom: 4px;
+  width: 54px;
   border: none;
-  border-radius: 0 14px 14px 0;
+  border-radius: 10px;
   background: #ff5c5c;
   color: #fff;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 1px;
   cursor: pointer;

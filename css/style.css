@@ -102,7 +102,9 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 }
 .btn-primary:hover { background: rgba(92, 143, 255, 0.16); }
 .btn-primary:disabled { opacity: 0.6; cursor: wait; transform: none; }
-.btn-secondary { background: transparent; color: #666; border: 2px solid #ccc; }
+/* 普通键统一黑色描边：黑字 + 黑描边 + 淡黑底 */
+.btn-secondary { background: rgba(0, 0, 0, 0.05); color: #222; border: 2px solid rgba(0, 0, 0, 0.65); box-shadow: none; }
+.btn-secondary:hover { background: rgba(0, 0, 0, 0.1); }
 .btn-primary:active, .btn-secondary:active { transform: scale(0.95); }
 
 .history-list { width: 85%; max-height: 55vh; overflow-y: auto; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
@@ -139,8 +141,8 @@ body[data-view="menu"] .game-container {
 #duplicate-confirm .btn-primary { width: 130px; margin-bottom: 0; }
 
 /* 购买道具确认框：按钮比通用大按钮小一号 */
-#buy-confirm > div { display: flex; gap: 14px; justify-content: center; }
-#buy-confirm .btn-primary {
+#buy-confirm > div, #reset-bgm-confirm > div, #mail-delall-confirm > div { display: flex; gap: 14px; justify-content: center; }
+#buy-confirm .btn-primary, #reset-bgm-confirm .btn-primary, #mail-delall-confirm .btn-primary {
   width: 112px;
   padding: 9px 0;
   font-size: 14px;
