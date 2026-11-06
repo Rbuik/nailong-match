@@ -1747,6 +1747,11 @@ function check(name, ok) {
   check('剧情过场只有「继续前进」，没有「跳过剧情」',
     htmlSrc0.includes('id="btn-story-go"') && !htmlSrc0.includes('btn-story-skip') &&
     !htmlSrc0.includes('跳过剧情'));
+  // 41g-2. 关卡记录页去掉多余的那句引导文案（标题下面直接是列表）
+  const histBlock = htmlSrc0.slice(htmlSrc0.indexOf('id="history-menu"'), htmlSrc0.indexOf('id="btn-history-back"'));
+  check('关卡记录页不再有「点任意一关即可回到主页并切换到该关」',
+    !htmlSrc0.includes('点任意一关即可回到主页') &&
+    histBlock.length > 0 && !/history-hint/.test(histBlock) && /id="history-list"/.test(histBlock));
   // 41h. 一格只放一样东西：货物 / 冰 / 锁链 / 特殊块上不再叠新东西
   sandbox.__nl_test.start(1, { def: { id: 96, theme: 'candy', moves: 20, goal: { type: 'score', target: 5000 }, stars: [1, 2, 3] } });
   const stOne = sandbox.__nl_test.state();
