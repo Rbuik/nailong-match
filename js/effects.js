@@ -29,7 +29,10 @@
     };
   }
 
-  const pPool = Pool(() => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1, color: '#fff', size: 3 }), 200);
+  const pPool = Pool(() => ({
+    x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1, color: '#fff', size: 3,
+    kind: 'dot', rot: 0, vr: 0, w: 4, h: 7, sway: 0
+  }), 200);
   const tPool = Pool(() => ({ x: 0, y: 0, text: '', color: '#fff', life: 0, max: 1, dy: -3, size: 20 }), 20);
   const wPool = Pool(() => ({ x: 0, y: 0, r: 0, maxR: 0, life: 0, max: 1, color: '#fff' }), 16);
   const bPool = Pool(() => ({ x: 0, y: 0, horiz: true, life: 0, max: 1, color: '#fff' }), 8);
@@ -57,6 +60,7 @@
       for (let i = 0; i < count; i++) {
         if (pPool.active.length >= MAX_P) break;
         const p = pPool.spawn();
+        p.kind = 'dot';
         p.x = x; p.y = y;
         p.vx = (Math.random() - 0.5) * 8;
         p.vy = (Math.random() - 0.5) * 8;
@@ -75,6 +79,7 @@
         const p = pPool.spawn();
         const a = (Math.PI * 2 / 28) * i + Math.random() * 0.2;
         const sp = 8 + Math.random() * 8;
+        p.kind = 'dot';
         p.x = x; p.y = y;
         p.vx = Math.cos(a) * sp;
         p.vy = Math.sin(a) * sp;
@@ -85,12 +90,39 @@
       for (let i = 0; i < 16; i++) {
         if (pPool.active.length >= MAX_P) break;
         const p = pPool.spawn();
+        p.kind = 'dot';
         p.x = x; p.y = y;
         p.vx = (Math.random() - 0.5) * 12;
         p.vy = (Math.random() - 0.5) * 12;
         p.life = 0.9; p.max = 0.9;
         p.color = '#ffffff';
         p.size = 2 + Math.random() * 4;
+      }
+      // 炸弹炸开时喷一圈彩带，纸带会翻转着飘落
+      this.confetti(x, y, 26);
+    },
+
+    // 彩带：像礼花筒喷出来的纸带，先向外冲、再被重力慢慢带下去
+    confetti(x, y, count) {
+      const colors = ['#ff5c5c', '#ffd75c', '#3ecf7a', '#5c8fff', '#c85cff', '#ff9ecd'];
+      count = count || 20;
+      for (let i = 0; i < count; i++) {
+        if (pPool.active.length >= MAX_P) break;
+        const p = pPool.spawn();
+        const a = Math.random() * Math.PI * 2;
+        const sp = 5 + Math.random() * 9;
+        p.kind = 'confetti';
+        p.x = x; p.y = y;
+        p.vx = Math.cos(a) * sp;
+        p.vy = Math.sin(a) * sp - 3;      // 先往上冲一下，像真的礼花
+        p.life = 1.7; p.max = 1.7;
+        p.color = colors[i % colors.length];
+        p.w = 4 + Math.random() * 4;
+        p.h = 6 + Math.random() * 5;
+        p.rot = Math.random() * Math.PI;
+        p.vr = (Math.random() - 0.5) * 0.5;
+        p.sway = Math.random() * Math.PI * 2;
+        p.size = 4;
       }
     },
 
@@ -135,6 +167,7 @@
         if (pPool.active.length >= MAX_P) break;
         const p = pPool.spawn();
         const a = (Math.PI * 2 / 24) * i;
+        p.kind = 'dot';
         p.x = x; p.y = y;
         p.vx = Math.cos(a) * (6 + Math.random() * 6);
         p.vy = Math.sin(a) * (6 + Math.random() * 6);
@@ -176,11 +209,22 @@
 
       for (let i = pPool.active.length - 1; i >= 0; i--) {
         const p = pPool.active[i];
-        p.x += p.vx * f;
-        p.y += p.vy * f;
-        p.vx *= Math.pow(0.96, f);
-        p.vy *= Math.pow(0.96, f);
-        p.life -= 0.04 * f;
+        if (p.kind === 'confetti') {
+          // 纸带：重力往下带、左右摆，边落边翻面
+          p.vy = Math.min(p.vy + 0.16 * f, 4.5);
+          p.vx *= Math.pow(0.94, f);
+          p.sway += 0.08 * f;
+          p.x += (p.vx + Math.sin(p.sway) * 0.8) * f;
+          p.y += p.vy * f;
+          p.rot += p.vr * f;
+          p.life -= 0.012 * f;
+        } else {
+          p.x += p.vx * f;
+          p.y += p.vy * f;
+          p.vx *= Math.pow(0.96, f);
+          p.vy *= Math.pow(0.96, f);
+          p.life -= 0.04 * f;
+        }
         if (p.life <= 0) pPool.recycle(i);
       }
       for (let i = tPool.active.length - 1; i >= 0; i--) {
@@ -258,10 +302,21 @@
         ctx.stroke();
       });
       pPool.active.forEach((p) => {
-        ctx.globalAlpha = Math.max(0, Math.min(1, p.life / p.max));
+        const k = Math.max(0, Math.min(1, p.life / p.max));
+        ctx.globalAlpha = k;
         ctx.fillStyle = p.color;
+        if (p.kind === 'confetti') {
+          // 翻面：用 |cos| 压扁高度，像纸带在空中翻转
+          const flat = 0.25 + Math.abs(Math.cos(p.rot)) * 0.75;
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rot * 0.6);
+          ctx.fillRect(-p.w / 2, -p.h * flat / 2, p.w, p.h * flat);
+          ctx.restore();
+          return;
+        }
         ctx.beginPath();
-        ctx.arc(p.x, p.y, (p.size || 3) * (p.life / p.max), 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, (p.size || 3) * k, 0, Math.PI * 2);
         ctx.fill();
       });
       tPool.active.forEach((t) => {
