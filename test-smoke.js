@@ -582,7 +582,7 @@ function check(name, ok) {
   check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
   check('规则说明线消横清行竖清列', htmlSrc.includes('横着连的清整行、竖着连的清整列'));
   check('规则含 8 种目标', ['普通得分', '收集方块', '清除果冻', '限时得分', '极限步数', '敲碎冰块', '运送钥匙', '护送奶龙'].every((s) => htmlSrc.includes(s)));
-  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('落到被消掉那一格的下面一格'));
+  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('最下面那个没被消掉的方块'));
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('300 金币') && htmlSrc.includes('+7s'));
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));  check('规则含成就配色排行榜说明', htmlSrc.includes('成就与配色') && htmlSrc.includes('排行榜与奖牌') && htmlSrc.includes('总榜 → 省榜 → 局榜'));
@@ -1078,11 +1078,13 @@ function check(name, ok) {
   // cargoGot 记的是「送达的货物总数」（奶龙也算在内），和场上剩的一起就是全部
   const cargoTotal = () => countCargo() + (st.goal.cargoGot || 0);
   const cargoCntBefore = cargoTotal();
+  const delivBefore = st.goal.cargoGot || 0;
   await sandbox.__nl_test.resolveClear(new Set(['2,0']), []);
-  check('货物被顶下时不会丢（下面有货也照掉，重合显示）', cargoTotal() === cargoCntBefore);
-  const k1 = st.board[3][0] && st.board[3][0].cargo;
-  check('掉下来的奶龙和原来那件货压在同一格', Array.isArray(k1) && k1.length >= 2 &&
-    k1.some((x) => x.kind === 'nailong') && k1.some((x) => x.kind === 'key'));
+  check('货物被顶下时不会丢（下面有货也照掉，总数守恒）', cargoTotal() === cargoCntBefore);
+  check('货物被消后一路掉到本列最底行并直接送达（不再停在半路）',
+    (st.goal.cargoGot || 0) === delivBefore + 1 &&
+    st.board[3][0].cargo && !Array.isArray(st.board[3][0].cargo) &&
+    !(st.board[7][0] && st.board[7][0].cargo));
 
   // 17c-2. 洗牌：钥匙 / 奶龙钉在原位，只有底下的方块参与洗牌
   sandbox.__nl_test.start(1, { def: { id: 95, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 2 }, rescue: 2, drop: 1, stars: [1, 2, 3] } });
@@ -1268,13 +1270,16 @@ function check(name, ok) {
   const r0 = await sandbox.__nl_test.resolveClear(allIce, []);
   check('全是冰时安全返回 0', r0 === 0);
 
-  // 26. 货物被消掉 → 落到下面一格（不从顶端重生）
+  // 26. 货物被消掉 → 一路掉到本列最底行直接送达（不从顶端重生、也不停在半路）
   sandbox.__nl_test.start(1, { def: { id: 92, theme: 'candy', moves: 20, goal: { type: 'drop', target: 2 }, cargo: 2, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
   const cargoObj = { kind: 'key' };
   st.board[5][3] = { type: 1, special: 0, cargo: cargoObj };
+  const delivBefore26 = st.goal.cargoGot || 0;
   await sandbox.__nl_test.resolveClear(new Set(['5,3']), []);
-  check('货物被消后落到下一格', !!(st.board[6][3] && st.board[6][3].cargo === cargoObj));
+  check('货物被消后直达最底行并送达',
+    (st.goal.cargoGot || 0) === delivBefore26 + 1 &&
+    !(st.board[6][3] && st.board[6][3].cargo) && !(st.board[5][3] && st.board[5][3].cargo === cargoObj));
 
   // 27. 彩虹 + 普通块交换、彩虹本身没被消（没凑成三连）：不触发，换回原位
   sandbox.__nl_test.start(1, { def: { id: 91, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, stars: [1, 2, 3] } });
@@ -1931,10 +1936,10 @@ function check(name, ok) {
     /Math\.abs\(Math\.cos\(p\.rot\)\)/.test(fxSrc) && /kind = 'confetti'/.test(fxSrc));
   // 41f-3. 连击窗口改短：停手一拍连击就断
   check('连击窗口缩到 1600ms', /const COMBO_WINDOW = 1600;/.test(jsSrc));
-  // 41f-4. 结算「继续游戏」按钮：绿色 + 新文案（DOM 断言在上面 17e 附近）
-  check('继续游戏按钮是绿色（渐变 + 白字）',
-    /#btn-clear-continue\s*{[^}]*linear-gradient\(180deg, #3ecf75, #27ab5a\)/.test(cssSrc) &&
-    /#btn-clear-continue\s*{[^}]*color: #fff;/.test(cssSrc));
+  // 41f-4. 结算「继续游戏」按钮：和页面其他按键同一套风格（不再单独做绿色渐变）
+  check('继续游戏按钮用页面统一按键风格',
+    !/#btn-clear-continue\s*\{[^}]*linear-gradient/.test(cssSrc) &&
+    /class="btn-secondary" id="btn-clear-continue"/.test(htmlSrc));
   // 41f-5. 钥匙换样式：银蓝「菱形柄」古堡钥匙
   check('钥匙换新样式（菱形手柄 + 银蓝金属渐变 + 黑描边）',
     /菱形手柄/.test(jsSrc) && /菱形左上棱一道高光/.test(jsSrc) &&
@@ -2073,6 +2078,21 @@ function check(name, ok) {
       /class="lb-stars ul-stars"/.test(jsSrc) && /\.ul-stars\s*\{/.test(cssSrc) &&
       !/admin-ul-list \.lb-swipe \{ padding-right: 4px; \}/.test(cssSrc);
   })());
+  // 41p. 本轮：结算键右下角统一风格 / 结算画面点任意处退出 / 榜单加高 / 列对齐 / 星数滚动
+  check('「结算」键钉在关卡记录右下角且用统一按键样式',
+    /#history-menu #btn-replay-ending\s*\{[^}]*right: 16px/.test(cssSrc) &&
+    /#history-menu #btn-replay-ending\s*\{[^}]*bottom: 16px/.test(cssSrc) &&
+    /class="btn-primary" id="btn-replay-ending">结算</.test(htmlSrc));
+  check('结算画面没有「回到主页」键，点任意处退出',
+    !htmlSrc.includes('btn-complete-home') && !jsSrc.includes('btn-complete-home') &&
+    /\$\('game-complete'\)/.test(jsSrc) && /completePanel\.addEventListener\('click'/.test(jsSrc));
+  check('排行榜列表加高到 52vh', /max-height: 52vh/.test(cssSrc));
+  check('分数列固定宽度左对齐（榜一定边界，后台省份间隔 21px）',
+    /\.lb-score\s*\{[^}]*text-align: left/.test(cssSrc) &&
+    /\.lb-score\s*\{[^}]*min-width: 3\.6em/.test(cssSrc) &&
+    /\.ul-prov\s*\{[^}]*margin-left: 21px/.test(cssSrc) &&
+    /\.ul-score\s*\{[^}]*text-align: left/.test(cssSrc));
+  check('结算画面总星数与总分同时长滚动', /countUp\(st, totalStars, 900\)/.test(jsSrc));
   check('名字长度只能 1~8 个字符（一个字母或符号都算一个）', (() => {
     const v1 = sandbox.Meta.validateNick('a');
     const v8 = sandbox.Meta.validateNick('abcdefgh');

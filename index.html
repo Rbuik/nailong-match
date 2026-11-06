@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261107k">
-<link rel="stylesheet" href="./css/themes.css?v=20261107k">
+<link rel="stylesheet" href="./css/style.css?v=20261107m">
+<link rel="stylesheet" href="./css/themes.css?v=20261107m">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -401,9 +401,9 @@
         <h3>🧊 障碍与货物</h3>
         <p><b>冰块</b>：冻住的方块不能交换、不参与连消，靠<b>旁边消除</b>或特殊块砸开；厚冰多层，越砸越透，每砸一次都有<b>碎冰声</b>。</p>
         <p><b>锁链</b>：第一次被消只解链、方块留下，之后才能正常交换。</p>
-        <p><b>货物（钥匙 / 奶龙 / 糖果）</b>：贴在方块上发呼吸光，带<b>黑色描边</b>，<b>目标是送到最底行</b>；消掉它下面的方块就往下掉一格，到底行算送达。<b>糖果 🍬 从第四章开始出现</b>，混在运送关的货物里，和钥匙一起计进目标数。</p>
+        <p><b>货物（钥匙 / 奶龙 / 糖果）</b>：贴在方块上发呼吸光，带<b>黑色描边</b>，<b>目标是送到最底行</b>。<b>糖果 🍬 从第四章开始出现</b>，混在运送关的货物里，和钥匙一起计进目标数。</p>
         <p><b>一个方块只放一样东西</b>：已有钥匙 / 奶龙、冰、锁链或特殊块的格子不会再叠新东西。</p>
-        <p><b>货物只往下走</b>：所在方块被消时，它<b>落到被消掉那一格的下面一格</b>——下面已有货也照掉，两件重合叠在一格里（后到的缩小贴左上角），一起到底行就一起送达。不会往上跑、也不会瞬移。</p>
+        <p><b>货物只往下走</b>：所在方块被消时，它<b>一路掉到本列最下面那个没被消掉的方块上</b>（两件同掉就重合叠在一格里，后到的缩小贴左上角）；下面已经没有方块了，也<b>直接算运送成功</b>。货物不会往上跑、也不会消失。</p>
       </section>
 
       <section class="rule-sec">
@@ -696,7 +696,7 @@
     <h2 class="title small">关卡记录</h2>
     <div class="history-list" id="history-list"></div>
     <button class="btn-secondary" id="btn-history-back">返回</button>
-    <button id="btn-replay-ending">结算</button>
+    <button class="btn-primary" id="btn-replay-ending">结算</button>
   </div>
 
   <!-- 背包 -->
@@ -800,7 +800,6 @@
         <b id="complete-total-stars" style="font-size:22px;color:#ffb400;">0</b>
       </p>
     </div>
-    <button class="btn-secondary" id="btn-complete-home">回到主页</button>
   </div>
   <!-- 章节地图 -->
   <div class="overlay" id="chapters-menu" style="display:none;">
@@ -960,22 +959,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261107k"></script>
-<script src="./js/storage.js?v=20261107k"></script>
-<script src="./js/audio.js?v=20261107k"></script>
-<script src="./js/effects.js?v=20261107k"></script>
-<script src="./js/specials.js?v=20261107k"></script>
-<script src="./js/goals.js?v=20261107k"></script>
-<script src="./js/tasks.js?v=20261107k"></script>
-<script src="./js/mail.js?v=20261107k"></script>
-<script src="./js/input.js?v=20261107k"></script>
-<script src="./js/builtin-music.js?v=20261107k"></script>
-<script src="./js/music.js?v=20261107k"></script>
-<script src="./js/meta.js?v=20261107k"></script>
-<script src="./js/cloud-config.js?v=20261107k"></script>
-<script src="./js/cloud.js?v=20261107k"></script>
-<script src="./js/account.js?v=20261107k"></script>
-<script src="./js/board.js?v=20261107k"></script>
-<script src="./js/game.js?v=20261107k"></script>
+<script src="./js/rng.js?v=20261107m"></script>
+<script src="./js/storage.js?v=20261107m"></script>
+<script src="./js/audio.js?v=20261107m"></script>
+<script src="./js/effects.js?v=20261107m"></script>
+<script src="./js/specials.js?v=20261107m"></script>
+<script src="./js/goals.js?v=20261107m"></script>
+<script src="./js/tasks.js?v=20261107m"></script>
+<script src="./js/mail.js?v=20261107m"></script>
+<script src="./js/input.js?v=20261107m"></script>
+<script src="./js/builtin-music.js?v=20261107m"></script>
+<script src="./js/music.js?v=20261107m"></script>
+<script src="./js/meta.js?v=20261107m"></script>
+<script src="./js/cloud-config.js?v=20261107m"></script>
+<script src="./js/cloud.js?v=20261107m"></script>
+<script src="./js/account.js?v=20261107m"></script>
+<script src="./js/board.js?v=20261107m"></script>
+<script src="./js/game.js?v=20261107m"></script>
 </body>
 </html>

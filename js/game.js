@@ -1710,17 +1710,12 @@
     // 被消掉的货物往下掉一格：**不管下面那一格已经有货还是特殊块，照掉不误**，
     // 两件货压在同一格就重合着显示（送到底行时一起送达）。
     // 这样钥匙 / 奶龙永远只会往下走，不会出现「往上跑 / 瞬移到别列」的怪相。
+    // 被消掉的货物一路掉到本列「最下面那个没被消掉的方块」上：
+    // 重力会把幸存方块压到底，所以最下面那个就在最底行 —— 掉上去就等于送达。
+    // 下面已经没有没被消掉的方块（整列被清光）也一样：直接掉到底行，照样算运送成功。
     kickedCargo.sort((x, y) => y.r - x.r).forEach((d) => {
-      let tr = Math.min(ROWS - 1, d.r + 1);
-      // 下面那一格被整块消掉了（掉落后可能还是空的）：一路往下找第一块能贴的方块
-      while (tr < ROWS - 1 && !(S.board[tr] && S.board[tr][d.c])) tr++;
-      const cell = S.board[tr] && S.board[tr][d.c];
+      const cell = S.board[ROWS - 1] && S.board[ROWS - 1][d.c];
       if (cell) addCargo(cell, d.cargo);
-      else {
-        // 整列都空了（极少见）：至少留在原来那一格，绝不凭空消失
-        const home = S.board[d.r] && S.board[d.r][d.c];
-        if (home) addCargo(home, d.cargo);
-      }
     });
     await animateDrop(fallFrom);
     S.landAnims = [];
@@ -3022,7 +3017,10 @@
       totalStars += r.stars || 0;
     });
     const sc = $('complete-total-score'), st = $('complete-total-stars');
-    if (st) st.textContent = String(totalStars);
+    if (st) {
+      st.textContent = '0';
+      countUp(st, totalStars, 900);   // 总星数和总分数同一时长滚动
+    }
     if (sc) {
       sc.textContent = '0';
       countUp(sc, totalScore, 900);
@@ -4922,9 +4920,10 @@
       showOverlay('main-menu');
       refreshMenu();
     });
-    const completeHome = $('btn-complete-home');
-    if (completeHome) completeHome.addEventListener('click', () => {
-      $('game-complete').style.display = 'none';
+    // 结算画面：点面板上任何地方都能退出（按钮已删，不写提示文字）
+    const completePanel = $('game-complete');
+    if (completePanel) completePanel.addEventListener('click', () => {
+      completePanel.style.display = 'none';
       S.playing = false;
       S.menuLevel = maxMainLevel();
       showOverlay('main-menu');

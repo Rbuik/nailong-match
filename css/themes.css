@@ -1321,7 +1321,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* ================= 排行榜 ================= */
 .lb-list {
   width: 90%;
-  max-height: 42vh;
+  max-height: 52vh;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1438,19 +1438,8 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 
 /* 结算页「还有剩余步数　点击继续游戏」：绿色主行动按钮，一行写完不换行 */
-#btn-clear-continue {
-  width: auto;
-  padding: 14px 20px;
-  white-space: nowrap;
-  font-size: 14px;
-  background: linear-gradient(180deg, #3ecf75, #27ab5a);
-  color: #fff;
-  border: none;
-  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
-}
-#btn-clear-continue:active {
-  background: linear-gradient(180deg, #33b966, #1f9750);
-}
+/* 「还有剩余步数/秒数点击继续游戏」：不再单独做绿色样式，
+   直接用页面上统一的按键风格（.btn-secondary 同款大小 / 圆角 / 间距） */
 .lb-row {
   position: relative;
   overflow: hidden;
@@ -1526,54 +1515,50 @@ body.m-dragging .m-item { cursor: grabbing; }
   text-align: left;
   color: #ffb300;
 }
+/* 分数列：固定宽度 + 左对齐 —— 榜一的分数定下左边界，下面所有人的分数都和它左对齐
+   （榜一是最高分 = 最宽的分数，min-width 按最宽分数留档，星星列因此也不会被挤动） */
 .lb-score {
   flex: 0 0 auto;
-  min-width: 64px;
-  text-align: right;
+  min-width: 3.6em;
+  margin-left: 6px;      /* 榜一星星右缘与分数之间 ≈ 一个文字大小 */
+  text-align: left;
   font-weight: 800;
   color: #ff8c00;
   font-variant-numeric: tabular-nums;
 }
 .lb-score.none { font-weight: 600; font-size: 11px; color: #b0a9c0; }
 /* 后台「全服用户名单」：右边的省份标签比分数低调 */
-/* 后台「玩家」名单：名次 / 名字 / 星星 / 总分 / 省份，分数在省份左边且竖向对齐 */
+/* 后台「玩家」名单：名次 / 名字 / 星星 / 总分 / 省份，分数在省份左边且左对齐 */
 .ul-score {
-  min-width: 66px;
-  text-align: right;
+  min-width: 3.6em;
+  margin-left: 9px;
+  text-align: left;
   font-variant-numeric: tabular-nums;
 }
-/* 后台名单的星星列：比榜单窄一点，放在分数左边、右对齐 */
+/* 后台名单的星星列：和榜单同一套（★ 贴左，固定宽度保证一列对齐） */
 .ul-stars {
-  min-width: 34px;
+  min-width: 36px;
   /* 和榜单一样：星星贴左对齐（min-width 保证一列看下去是一条竖线） */
   justify-content: flex-start;
   margin-left: 12px;
   font-size: 10px;
 }
 /* 后台「玩家」名单：省份贴右的间距 = 序号贴左的间距（都是行的 12px 内边距） */
-/* 关卡记录左下角的「结算」键：黄色、一直显示（打没打完都能看结算画面） */
+/* 关卡记录右下角的「结算」键：和其他按键同一套样式（.btn-primary），只是钉在右下角 */
 #history-menu #btn-replay-ending {
   position: absolute;
-  left: 16px;
+  right: 16px;
   bottom: 16px;
   margin: 0;
-  padding: 10px 24px;
-  border: none;
-  border-radius: 999px;
-  background: linear-gradient(180deg, #ffd75c, #ffb300);
-  color: #5c4300;
-  font-size: 15px;
-  font-weight: 800;
-  box-shadow: 0 3px 10px rgba(255, 179, 0, 0.35);
-  cursor: pointer;
 }
+/* 后台「玩家」名单：省份贴在分数右边，榜一的分数与省份之间 ≈ 两个文字大小；
+   省份同样左对齐（同一列起点一致） */
 .ul-prov {
   font-weight: 700;
   font-size: 12px;
   color: #8a82a6;
-  width: 42px;              /* 预留三个字的宽度 */
-  min-width: 42px;
-  text-align: right;
+  margin-left: 21px;
+  text-align: left;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1588,8 +1573,8 @@ body.m-dragging .m-item { cursor: grabbing; }
 #admin-ul-search { width: 90%; margin: 8px 0 2px; }
 /* 省份详情的搜索框：和下面列表一样宽（90%），不要通栏 */
 #prov-ul-search { width: 90%; margin: 8px 0 2px; }
-/* 省份详情的人数：贴最右边，不占固定列宽 */
-#prov-ul-list .ul-prov { width: auto; min-width: 42px; flex: 0 0 auto; text-align: right; }
+/* 省份详情的省份列：和「玩家」名单同一套（分数右 21px、左对齐） */
+#prov-ul-list .ul-prov { flex: 0 0 auto; }
 /* 整行灰显：0 分没上榜的人（名次 / 名字也跟着变灰） */
 .lb-row.none .lb-rank,
 .lb-row.none .lb-name { color: #b0a9c0; }
