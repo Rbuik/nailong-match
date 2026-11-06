@@ -21,6 +21,7 @@
     { key: 'extraMoves', name: '+3 步', price: 300, desc: '本局步数 +3', icon: '👣' },
     { key: 'shuffle', name: '洗牌 +1', price: 150, desc: '重排棋盘一次', icon: '🔄' },
     { key: 'undo', name: '撤回 +1', price: 150, desc: '回退上一步', icon: '↩️' },
+    { key: 'startLine', name: '开局线消', price: 200, desc: '开局在随机位置放一条线消', icon: '➖' },
     { key: 'startBomb', name: '开局炸弹', price: 200, desc: '开局在随机位置放一颗炸弹', icon: '💣' },
     { key: 'rainbow', name: '彩虹道具', price: 500, desc: '随机把一块变成彩虹', icon: '🌈' }
   ];

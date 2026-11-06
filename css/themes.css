@@ -96,8 +96,9 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   align-items: center;
 }
 
-.overlay::-webkit-scrollbar { width: 6px; }
-.overlay::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
+/* 所有可滑动区域都不显示右侧灰线（滚动条），滚动功能保留 */
+* { scrollbar-width: none; -ms-overflow-style: none; }
+*::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* 主页不可上下滑动（内容单屏放得下，其他弹层照常可滚） */
 #main-menu { overflow-y: hidden; }
@@ -345,8 +346,6 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   --rule-fs: 15px; /* 默认中档，由右下角「规则字号 A− / A+」调节 */
 }
 
-.rules-box::-webkit-scrollbar { width: 6px; }
-.rules-box::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
 
 .rule-sec { margin-bottom: 14px; }
 .rule-sec:last-child { margin-bottom: 4px; }
@@ -768,8 +767,6 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   box-sizing: border-box;
 }
 
-.music-box::-webkit-scrollbar { width: 6px; }
-.music-box::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
 
 .music-list {
   display: flex;
@@ -1063,6 +1060,12 @@ body.m-dragging .m-item { cursor: grabbing; }
 .level-chip i { font-size: 9px; font-style: normal; color: #ffb400; letter-spacing: -1px; }
 .level-chip.done { border-color: rgba(255, 180, 0, 0.55); background: rgba(255, 246, 224, 0.9); }
 .level-chip.locked { opacity: 0.45; cursor: default; }
+/* 当前关卡：和关卡记录的「current」同款紫色高亮 */
+.level-chip.current {
+  border-color: #7c5cff;
+  background: rgba(124, 92, 255, 0.1);
+  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.22);
+}
 .level-chip:active { transform: scale(0.94); }
 .chapter-lock { margin-top: 8px; font-size: 12px; color: #9a93ad; text-align: center; }
 /* 章节地图最底下：后面还有章节，数量不剧透 */
@@ -1105,7 +1108,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 .mode-head { display: flex; align-items: center; justify-content: space-between; }
 .mode-head b { font-size: 15px; color: #3d3556; }
-.mode-head span { font-size: 11px; color: #9a93ad; font-weight: 700; }
+.mode-head span { font-size: 11px; color: #222; font-weight: 700; }
 .mode-card p { margin: 6px 0 10px; font-size: 12px; color: #7c7590; line-height: 1.5; }
 .mode-card .btn-primary { width: 100%; }
 
@@ -1780,8 +1783,6 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   padding-bottom: 2px;
 }
 
-.mail-list::-webkit-scrollbar { width: 6px; }
-.mail-list::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
 
 .mail-row {
   display: flex;
@@ -1907,8 +1908,6 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   text-align: left;
 }
 
-.mail-body-box::-webkit-scrollbar { width: 6px; }
-.mail-body-box::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.18); border-radius: 3px; }
 
 .mail-meta { font-size: 11px; color: #9a93ad; margin: 0 0 8px; }
 .mail-body { font-size: 14px; line-height: 1.7; color: #444; margin: 0; white-space: pre-wrap; word-break: break-word; }

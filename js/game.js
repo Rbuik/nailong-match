@@ -2196,6 +2196,7 @@
 
       let key = null;
       if ((items.startBomb || 0) > 0) key = 'startBomb';
+      else if ((items.startLine || 0) > 0) key = 'startLine';
       else if ((items.rainbow || 0) > 0) key = 'rainbow';
       if (!key) return false;
 
@@ -2209,10 +2210,15 @@
 
       const spot = spots[randInt(spots.length)];
       Store.useItem(key);
-      markSpecial(spot[0], spot[1], key === 'startBomb' ? T.BOMB : T.RAINBOW);
+      markSpecial(spot[0], spot[1],
+        key === 'startBomb' ? T.BOMB
+          : key === 'startLine' ? (Math.random() < 0.5 ? T.LINE_H : T.LINE_V)
+          : T.RAINBOW);
       renderBackpack();
       drawStatic();
-      toast(key === 'startBomb' ? '自动放置炸弹并引爆 💣' : '自动使用彩虹 🌈');
+      toast(key === 'startBomb' ? '自动放置炸弹并引爆 💣'
+        : key === 'startLine' ? '自动放置线消并引爆 ➖'
+        : '自动使用彩虹 🌈');
       AudioManager.playSFX('bomb');
       await sleep(280);
       await detonateAt(spot[0], spot[1]);
@@ -2502,6 +2508,7 @@
     shuffle: '使用',
     undo: '使用',
     startBomb: '放置',
+    startLine: '放置',
     rainbow: '使用'
   };
 
@@ -2544,8 +2551,8 @@
       S.undoLeft += 1;
       updateHUD();
       toast('撤回 +1 次');
-    } else if (key === 'startBomb' || key === 'rainbow') {
-      // 随机挑一个普通格变成炸弹 / 彩虹
+    } else if (key === 'startBomb' || key === 'startLine' || key === 'rainbow') {
+      // 随机挑一个普通格变成炸弹 / 线消 / 彩虹
       const spots = [];
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -2558,10 +2565,15 @@
         return false;
       }
       const spot = spots[randInt(spots.length)];
-      markSpecial(spot[0], spot[1], key === 'startBomb' ? T.BOMB : T.RAINBOW);
+      markSpecial(spot[0], spot[1],
+        key === 'startBomb' ? T.BOMB
+          : key === 'startLine' ? (Math.random() < 0.5 ? T.LINE_H : T.LINE_V)
+          : T.RAINBOW);
       drawStatic();
       AudioManager.playSFX('bomb');
-      toast(key === 'startBomb' ? '已在随机位置放了一颗炸弹' : '已把一块变成彩虹');
+      toast(key === 'startBomb' ? '已在随机位置放了一颗炸弹'
+        : key === 'startLine' ? '已在随机位置放了一条线消'
+        : '已把一块变成彩虹');
     }
 
     renderBackpack();
@@ -2699,17 +2711,22 @@
     const list = $('history-list');
     if (!list) return;
     const cur = list.querySelector('.history-item.current');
-    if (!cur) return;
-    // 用 rect 算「条目在滚动内容里的位置」：offsetTop 是相对 #history-menu 的，
+    scrollMenuToCenter(list, cur);
+  }
+
+  // 通用：把 el 平滑滑到滚动容器 box 的中间（关卡记录 / 章节地图共用一套效果）
+  function scrollMenuToCenter(box, el) {
+    if (!box || !el) return;
+    // 用 rect 算「条目在滚动内容里的位置」：offsetTop 是相对面板的，
     // 会把标题等面板高度算进来，导致滚动位置算偏（滑到最底/最顶）
-    const listRect = list.getBoundingClientRect();
-    const curRect = cur.getBoundingClientRect();
-    const curTop = curRect.top - listRect.top + list.scrollTop;
-    const max = Math.max(0, list.scrollHeight - list.clientHeight);
-    // 让当前关卡垂直居中
-    const target = curTop - (list.clientHeight - cur.offsetHeight) / 2;
+    const boxRect = box.getBoundingClientRect();
+    const curRect = el.getBoundingClientRect();
+    const curTop = curRect.top - boxRect.top + box.scrollTop;
+    const max = Math.max(0, box.scrollHeight - box.clientHeight);
+    // 让当前条目垂直居中
+    const target = curTop - (box.clientHeight - el.offsetHeight) / 2;
     const top = Math.max(0, Math.min(target, max));
-    const from = list.scrollTop;
+    const from = box.scrollTop;
     if (Math.abs(top - from) < 1) return; // 已经到位，不用滑
     // 自己补间，兼容不支持平滑滚动 / 虚拟时钟的环境
     const dur = 320;
@@ -2717,7 +2734,36 @@
     const step = () => {
       const p = Math.min(1, (performance.now() - t0) / dur);
       const e = 1 - Math.pow(1 - p, 3);
-      list.scrollTop = from + (top - from) * e;
+      box.scrollTop = from + (top - from) * e;
+      if (p < 1) setTimeout(step, 16);
+    };
+    setTimeout(step, 40);
+  }
+
+  // 章节地图：和关卡记录一样，把当前关卡平滑滑到列表中间
+  function scrollChaptersToCurrent() {
+    const box = $('chapters-list');
+    if (!box) return;
+    const cur = box.querySelector('.level-chip.current');
+    if (!cur) return;
+    // 章节列表自身不滚，滚动发生在章节地图面板（overlay）上
+    const menu = $('chapters-menu');
+    if (!menu) return;
+    // 把 chip 相对面板内容的位置换算后滚动面板
+    const menuRect = menu.getBoundingClientRect();
+    const chipRect = cur.getBoundingClientRect();
+    const chipTop = chipRect.top - menuRect.top + menu.scrollTop;
+    const max = Math.max(0, menu.scrollHeight - menu.clientHeight);
+    const target = chipTop - (menu.clientHeight - chipRect.height) / 2;
+    const top = Math.max(0, Math.min(target, max));
+    const from = menu.scrollTop;
+    if (Math.abs(top - from) < 1) return;
+    const dur = 320;
+    const t0 = performance.now();
+    const step = () => {
+      const p = Math.min(1, (performance.now() - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      menu.scrollTop = from + (top - from) * e;
       if (p < 1) setTimeout(step, 16);
     };
     setTimeout(step, 40);
@@ -4354,7 +4400,7 @@
     });
     on('btn-mail-claim', claimMail);
 
-    on('btn-chapters', () => { renderChapterMap(); showOverlay('chapters-menu'); });
+    on('btn-chapters', () => { renderChapterMap(); showOverlay('chapters-menu'); scrollChaptersToCurrent(); });
     on('btn-close-chapters', () => { $('chapters-menu').style.display = 'none'; showOverlay('main-menu'); });
 
     on('btn-modes', () => { renderModeList(); showOverlay('modes-menu'); });
@@ -5111,7 +5157,8 @@
         const rec = Store.getLevelRecord(lv);
         const open = lv <= maxU;
         const b = document.createElement('button');
-        b.className = 'level-chip' + (open ? '' : ' locked') + ((rec.stars || 0) >= 1 ? ' done' : '');
+        b.className = 'level-chip' + (open ? '' : ' locked') + ((rec.stars || 0) >= 1 ? ' done' : '') +
+          (lv === (S.menuLevel || 0) ? ' current' : '');
         b.innerHTML = '<b>' + lv + '</b><i>' + (open ? ('★★★'.slice(0, rec.stars || 0) || '·') : '🔒') + '</i>';
         if (open) {
           b.addEventListener('click', () => {
@@ -5271,7 +5318,7 @@
     const best = Meta.getBest();
     ['endless', 'sprint', 'rhythm'].forEach((k) => {
       const el = $('mode-best-' + k);
-      if (el) el.textContent = best[k] > 0 ? ('最佳 ' + best[k]) : '还没挑战过';
+      if (el) el.textContent = best[k] > 0 ? ('最佳 ' + best[k] + ' 分') : '还没挑战过';
     });
   }
 

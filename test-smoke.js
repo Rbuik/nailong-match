@@ -622,6 +622,20 @@ function check(name, ok) {
   check('省份全部用简写（北京/四川/内蒙古）',
     jsSrc.includes("['北京', 'beijing']") && jsSrc.includes("['四川', 'sichuan']") &&
     jsSrc.includes("['内蒙古', 'neimenggu']") && !jsSrc.includes("['内蒙古自治区'"));
+  check('章节地图打开时滑到当前关卡（和关卡记录同款）',
+    jsSrc.includes("scrollChaptersToCurrent()") && jsSrc.includes("level-chip.current") ||
+    (jsSrc.includes("' current'") && jsSrc.includes('function scrollChaptersToCurrent') &&
+     jsSrc.includes("on('btn-chapters', () => { renderChapterMap(); showOverlay('chapters-menu'); scrollChaptersToCurrent(); })")));
+  check('更多玩法右上角黑色 + 最佳分带「分」',
+    cssSrc.includes('.mode-head span { font-size: 11px; color: #222;') &&
+    jsSrc.includes("'最佳 ' + best[k] + ' 分'"));
+  check('商店有「开局线消」200 金币，排在开局炸弹上面',
+    fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8').includes("{ key: 'startLine', name: '开局线消', price: 200") &&
+    fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8').indexOf("key: 'startLine'") <
+      fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8').indexOf("key: 'startBomb'"));
+  check('所有滑动区域不显示滚动条灰线',
+    cssSrc.includes('*::-webkit-scrollbar { width: 0; height: 0; display: none; }') &&
+    !cssSrc.includes('scrollbar-thumb'));
   check('玩家栏省份列三个字宽靠右、省份详情人数贴最右',
     cssSrc.includes('width: 42px;') && cssSrc.includes('.ul-prov') &&
     cssSrc.includes('#prov-ul-list .ul-prov'));

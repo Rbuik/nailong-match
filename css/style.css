@@ -116,8 +116,6 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .history-item .h-stars { text-align: right; white-space: nowrap; }
 .history-item .h-score { text-align: right; color: #1a8f4a; font-weight: bold; font-variant-numeric: tabular-nums; }
 .history-item .h-score.fail { color: #c0392b !important; }
-.history-list::-webkit-scrollbar { width: 6px; }
-.history-list::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
 
 /* 左上角 📮 邮箱：排在 🏠 下面，未读数用红角标贴在图标右上角 */
 #main-menu #btn-mail { position: relative; }
