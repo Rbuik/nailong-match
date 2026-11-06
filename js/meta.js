@@ -508,8 +508,12 @@
       const own = stars >= s.stars;
       const row = document.createElement('div');
       row.className = 'skin-row' + (own ? '' : ' locked') + (s.id === cur ? ' active' : '');
+      // 「彩色」的图标用彩虹渐变图（assets/rainbow.jpg），其余还是纯色小方块
+      const iconHtml = s.id === 'black'
+        ? '<span class="skin-icon skin-icon-img"></span>'
+        : '<span class="skin-icon" style="color:' + (s.color || '#ffd94a') + '">' + s.icon + '</span>';
       row.innerHTML =
-        '<span class="skin-icon" style="color:' + (s.color || '#ffd94a') + '">' + s.icon + '</span>' +
+        iconHtml +
         '<span class="skin-main"><b>' + s.name + '</b><i>' + s.desc + '</i></span>' +
         '<span class="skin-mark">' + (s.id === cur ? '使用中' : own ? '点击使用' : '需 ' + s.stars + ' ⭐') + '</span>';
       row.addEventListener('click', () => { if (onPick) onPick(s, own); });

@@ -619,11 +619,18 @@ function check(name, ok) {
 
   $('btn-achievements').dispatch('click');
   check('成就墙渲染出全部成就', $('ach-list').children.length === sandbox.Meta.ACHIEVEMENTS.length);
+  check('省份全部用简写（北京/四川/内蒙古）',
+    jsSrc.includes("['北京', 'beijing']") && jsSrc.includes("['四川', 'sichuan']") &&
+    jsSrc.includes("['内蒙古', 'neimenggu']") && !jsSrc.includes("['内蒙古自治区'"));
+  check('玩家栏省份列三个字宽靠右、省份详情人数贴最右',
+    cssSrc.includes('width: 42px;') && cssSrc.includes('.ul-prov') &&
+    cssSrc.includes('#prov-ul-list .ul-prov'));
   check('成就面板可视区加大（66vh、更密排列）', cssSrc.includes('max-height: 66vh;') && cssSrc.includes('gap: 6px;'));
-  check('彩虹特殊块整块铺彩虹图（不再用 emoji）',
+  check('彩虹特殊块还是 emoji（游戏棋盘），「彩色」配色图标用彩虹图',
+    jsSrc.includes("ctx.fillText('🌈'") && !jsSrc.includes('RAINBOW_IMG') &&
     fs.existsSync(path.join(__dirname, 'assets', 'rainbow.jpg')) &&
-    jsSrc.includes('RAINBOW_IMG') && jsSrc.includes("rb.src = './assets/rainbow.jpg'") &&
-    !jsSrc.includes("ctx.fillText('🌈'"));
+    fs.readFileSync(path.join(__dirname, 'js', 'meta.js'), 'utf8').includes("s.id === 'black'") &&
+    cssSrc.includes('.skin-icon-img') && cssSrc.includes("url('../assets/rainbow.jpg')"));
   check('快递小哥改名为快递达人', (() => {
     const a = sandbox.Meta.ACHIEVEMENTS.filter((x) => x.id === 'cargo50')[0];
     return !!a && a.name === '快递达人';
