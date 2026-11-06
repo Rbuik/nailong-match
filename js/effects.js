@@ -8,6 +8,7 @@
   const MAX_P = 600;
   const MAX_T = 40;
   const MAX_W = 40;
+  const CELL_LIKE = 56;   // 光束粗细参考（和棋盘格子尺寸一个量级）
 
   function Pool(factory, size) {
     const free = [];
@@ -31,6 +32,7 @@
   const pPool = Pool(() => ({ x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1, color: '#fff', size: 3 }), 200);
   const tPool = Pool(() => ({ x: 0, y: 0, text: '', color: '#fff', life: 0, max: 1, dy: -3, size: 20 }), 20);
   const wPool = Pool(() => ({ x: 0, y: 0, r: 0, maxR: 0, life: 0, max: 1, color: '#fff' }), 16);
+  const bPool = Pool(() => ({ x: 0, y: 0, horiz: true, life: 0, max: 1, color: '#fff' }), 8);
 
   const FX = {
     shakeX: 0,
@@ -103,6 +105,45 @@
       t.size = size || 20;
     },
 
+    // 全屏闪光（炸弹橙色一闪 / 彩虹白闪）
+    flash(color, alpha, dur) {
+      this._flash = {
+        color: color || '#fff',
+        alpha: alpha == null ? 0.3 : alpha,
+        left: dur || 0.25,
+        dur: dur || 0.25
+      };
+    },
+
+    // 线消光束：horiz=true 横贯棋盘，false 竖贯棋盘
+    beam(x, y, horiz, color) {
+      if (bPool.active.length >= 8) return;
+      const b = bPool.spawn();
+      b.x = x; b.y = y;
+      b.horiz = !!horiz;
+      b.life = 0.55; b.max = 0.55;
+      b.color = color || '#5c8fff';
+    },
+
+    // 彩虹波纹：从彩虹块位置荡出五色圆环
+    rainbow(x, y) {
+      const colors = ['#ff5c5c', '#ffb13d', '#3ecf7a', '#5c8fff', '#c85cff'];
+      for (let i = 0; i < colors.length; i++) {
+        this.wave(x, y, 8 + i * 6, 140 + i * 46, colors[i]);
+      }
+      for (let i = 0; i < 24; i++) {
+        if (pPool.active.length >= MAX_P) break;
+        const p = pPool.spawn();
+        const a = (Math.PI * 2 / 24) * i;
+        p.x = x; p.y = y;
+        p.vx = Math.cos(a) * (6 + Math.random() * 6);
+        p.vy = Math.sin(a) * (6 + Math.random() * 6);
+        p.life = 1.2; p.max = 1.2;
+        p.color = colors[i % colors.length];
+        p.size = 3 + Math.random() * 4;
+      }
+    },
+
     wave(x, y, r, maxR, color) {
       if (wPool.active.length >= MAX_W) return;
       const w = wPool.spawn();
@@ -117,13 +158,16 @@
       pPool.active.length = 0;
       tPool.active.length = 0;
       wPool.active.length = 0;
+      bPool.active.length = 0;
+      this._flash = null;
       this.shakeX = 0; this.shakeY = 0;
       this._shakePower = 0;
       this._shakeLeft = 0;
     },
 
     isEmpty() {
-      return pPool.active.length === 0 && tPool.active.length === 0 && wPool.active.length === 0;
+      return pPool.active.length === 0 && tPool.active.length === 0 &&
+        wPool.active.length === 0 && bPool.active.length === 0 && !this._flash;
     },
 
     update(dt) {
@@ -152,6 +196,18 @@
         if (w.life <= 0) wPool.recycle(i);
       }
 
+      // 光束衰减
+      for (let i = bPool.active.length - 1; i >= 0; i--) {
+        const b = bPool.active[i];
+        b.life -= 0.018 * f;
+        if (b.life <= 0) bPool.recycle(i);
+      }
+      // 闪光衰减
+      if (this._flash) {
+        this._flash.left -= dt;
+        if (this._flash.left <= 0) this._flash = null;
+      }
+
       // 震屏衰减
       if (this._shakeLeft > 0) {
         this._shakeLeft -= dt;
@@ -167,6 +223,32 @@
     },
 
     render(ctx) {
+      // 光束画在最底（压在波纹下面，像一道扫过的光）
+      if (bPool.active.length) {
+        const W = ctx.canvas.width, H = ctx.canvas.height;
+        bPool.active.forEach((b) => {
+          const t = 1 - Math.max(0, b.life / b.max);      // 0→1 展开
+          const a = Math.max(0, Math.min(1, b.life / b.max * 1.6));
+          const thick = 8 + t * (CELL_LIKE * 0.8);
+          ctx.globalAlpha = a * 0.75;
+          const g = b.horiz
+            ? ctx.createLinearGradient(0, b.y - thick / 2, 0, b.y + thick / 2)
+            : ctx.createLinearGradient(b.x - thick / 2, 0, b.x + thick / 2, 0);
+          g.addColorStop(0, 'rgba(255,255,255,0)');
+          g.addColorStop(0.5, b.color);
+          g.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.fillStyle = g;
+          if (b.horiz) ctx.fillRect(0, b.y - thick / 2, W, thick);
+          else ctx.fillRect(b.x - thick / 2, 0, thick, H);
+        });
+      }
+      // 全屏闪光
+      if (this._flash) {
+        const f = this._flash;
+        ctx.globalAlpha = Math.max(0, Math.min(1, f.alpha * (f.left / f.dur)));
+        ctx.fillStyle = f.color;
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+      }
       wPool.active.forEach((w) => {
         ctx.globalAlpha = Math.max(0, w.life) * 0.8;
         ctx.strokeStyle = w.color;

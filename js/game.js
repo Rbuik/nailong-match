@@ -476,6 +476,28 @@
     }
   }
 
+  // 方块底色：用方块自己的颜色调深 25%，替代原来的纯黑（棋盘整体变彩色）
+  const BASE_COLOR = {};
+  function tileBaseColor(type) {
+    if (BASE_COLOR[type]) return BASE_COLOR[type];
+    const m = /^#([0-9a-f]{6})$/i.exec(String(FALLBACK_COLORS[type] || ''));
+    let out = '#3a4160';
+    if (m) {
+      const n = parseInt(m[1], 16);
+      out = 'rgb(' + Math.round(((n >> 16) & 255) * 0.75) + ',' +
+        Math.round(((n >> 8) & 255) * 0.75) + ',' + Math.round((n & 255) * 0.75) + ')';
+    }
+    BASE_COLOR[type] = out;
+    return out;
+  }
+
+  function tileEdgeColor(type) {
+    const m = /^rgb\((\d+),(\d+),(\d+)\)$/.exec(String(tileBaseColor(type)));
+    if (!m) return 'rgba(0,0,0,0.35)';
+    return 'rgba(' + Math.round(Number(m[1]) * 0.72) + ',' +
+      Math.round(Number(m[2]) * 0.72) + ',' + Math.round(Number(m[3]) * 0.72) + ',0.55)';
+  }
+
   // opts: { alpha, scale, sx, sy }
   function drawBlock(px, py, block, opts) {
     if (!block) return;
@@ -496,11 +518,11 @@
     ctx.globalAlpha = alpha;
 
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.45)';
+    ctx.shadowColor = 'rgba(0,0,0,0.30)';
     ctx.shadowBlur = base * 0.12;
     ctx.shadowOffsetY = base * 0.06;
     roundRect(x, y, w, h, radius);
-    ctx.fillStyle = '#000';
+    ctx.fillStyle = tileBaseColor(block.type);
     ctx.fill();
     ctx.restore();
 
@@ -525,7 +547,7 @@
 
     ctx.save();
     roundRect(x, y, w, h, radius);
-    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.strokeStyle = tileEdgeColor(block.type);
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
@@ -1271,16 +1293,34 @@
     S.clearedCount += clearSet.size;
     updateHUD();
 
-    // 3) 特效
+    // 3) 特效：每种特殊块都有自己的「使用效果」
     boomPoints.forEach((bp) => {
-      FX.explosion(bp.c * CELL + CELL / 2, bp.r * CELL + CELL / 2, CELL);
-      if (bp.type === T.BOMB) FX.shake(3, 0.18);
-      if (bp.type === T.RAINBOW) {
+      const bx = bp.c * CELL + CELL / 2, by = bp.r * CELL + CELL / 2;
+      if (bp.type === T.BOMB) {
+        // 💣 爆炸：大火球冲击波 + 橙色闪光 + 震屏
+        FX.explosion(bx, by, CELL * 1.5);
+        FX.flash('#ffb13d', 0.30, 0.26);
+        FX.shake(4, 0.26);
+      } else if (bp.type === T.LINE_H) {
+        // ↔️ 横向线消：一道横贯棋盘的蓝色光束
+        FX.explosion(bx, by, CELL);
+        FX.beam(bx, by, true, '#5c8fff');
+        FX.flash('#9fc4ff', 0.16, 0.20);
+      } else if (bp.type === T.LINE_V) {
+        // ↕️ 纵向线消：竖向光束
+        FX.explosion(bx, by, CELL);
+        FX.beam(bx, by, false, '#5c8fff');
+        FX.flash('#9fc4ff', 0.16, 0.20);
+      } else if (bp.type === T.RAINBOW) {
+        // 🌈 彩虹：全场彩色波纹 + 白闪 + 震屏
+        FX.rainbow(bx, by);
+        FX.flash('#ffffff', 0.22, 0.30);
         FX.shake(4, 0.25);
         // 彩虹被消触发全场同图案：补一条醒目提示
-        FX.text(bp.c * CELL + CELL / 2, bp.r * CELL + CELL / 2 - CELL * 0.3,
-          '同图案消除 🌈', '#c85cff', 18);
+        FX.text(bx, by - CELL * 0.3, '同图案消除 🌈', '#c85cff', 18);
         AudioManager.playSFX('line');
+      } else {
+        FX.explosion(bx, by, CELL);
       }
     });
     clearSet.forEach((k) => {
@@ -1755,6 +1795,11 @@
     S.mode = opts.mode || 'main';
     // 主线越界一律夹回
     S.level = S.daily ? 0 : Math.max(1, Math.min(level || 1, maxMainLevel()));
+    // 主页显示的关卡跟着走：进了第几关，主页就停在第几关（意外退出也一致）
+    if (!S.daily) {
+      S.menuLevel = S.level;
+      try { Store.setSettings({ menuLevel: S.level }); } catch (e) {}
+    }
     S.levelDef = opts.def || getLevelDef(S.level);
     S.rng = opts.seed != null ? RNG.source(opts.seed) : null;
     S.chapter = S.levelDef.chapter || (S.level ? Math.ceil(S.level / 10) : 0);
@@ -2324,7 +2369,7 @@
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-      'backup-menu', 'backup-import-menu', 'fix-menu',
+      'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2340,7 +2385,7 @@
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-    'backup-menu', 'backup-import-menu', 'fix-menu'];
+    'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -3678,8 +3723,59 @@
     }
   }
 
-  function openAdminUserList() {
-    adminUlProv = '';
+  // ---------- 省份详情：把名单按省份聚合 ----------
+  let provUlQuery = '';
+
+  function provUlRows() {
+    const cnt = {};
+    collectUserList().forEach((u) => {
+      const k = u.prov || '__none__';
+      cnt[k] = (cnt[k] || 0) + 1;
+    });
+    let rows = Object.keys(cnt).map((k) => ({
+      code: k === '__none__' ? '' : k,
+      name: k === '__none__' ? '未定位' : ((provByCode(k) || {}).name || k),
+      count: cnt[k]
+    }));
+    const q = String(provUlQuery || '').trim().toLowerCase();
+    if (q) rows = rows.filter((r) => r.name.toLowerCase().indexOf(q) >= 0);
+    return rows.sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name, 'zh'));
+  }
+
+  function renderProvUserList() {
+    const box = $('prov-ul-list');
+    if (!box) return;
+    box.innerHTML = '';
+    const rows = provUlRows();
+    rows.forEach((r) => {
+      const row = document.createElement('div');
+      row.className = 'lb-row';
+      row.innerHTML = '<span class="lb-swipe"><span class="lb-name">' + escHtml(r.name) + '</span>' +
+        '<span class="lb-score ul-prov">' + r.count + ' 人</span></span>';
+      row.addEventListener('click', () => {
+        openAdminUserList(r.code);
+      });
+      box.appendChild(row);
+    });
+    if (!rows.length) {
+      const d = document.createElement('div');
+      d.className = 'lb-empty';
+      d.textContent = '没有找到这个省份';
+      box.appendChild(d);
+    }
+  }
+
+  function openProvUserList() {
+    provUlQuery = '';
+    const se = $('prov-ul-search');
+    if (se) se.value = '';
+    renderProvUserList();
+    showOverlay('prov-user-list');
+    try { AudioManager.playSFX('select'); } catch (e) {}
+  }
+
+  function openAdminUserList(code) {
+    adminUlProv = String(code == null ? '' : code);
     adminUlQuery = '';
     const se = $('admin-ul-search');
     if (se) se.value = '';
@@ -4005,6 +4101,24 @@
       showAdminPage('users');
       renderAdminUsers();
     });
+
+    // 「用户详情」= 原来的玩家名单页；「省份详情」= 有用户的省份，点省份看该省玩家
+    const ulOpen = $('btn-admin-ul-open');
+    if (ulOpen) ulOpen.addEventListener('click', () => openAdminUserList(''));
+    const pvOpen = $('btn-admin-prov-open');
+    if (pvOpen) pvOpen.addEventListener('click', openProvUserList);
+    const pvUlBack = $('btn-prov-ul-back');
+    if (pvUlBack) pvUlBack.addEventListener('click', () => {
+      $('prov-user-list').style.display = 'none';
+      showOverlay('admin-menu');
+      showAdminPage('users');
+      renderAdminUsers();
+    });
+    const pvUlSearch = $('prov-ul-search');
+    if (pvUlSearch) pvUlSearch.addEventListener('input', () => {
+      provUlQuery = pvUlSearch.value || '';
+      renderProvUserList();
+    });
     // 搜索：只在当前范围（全服 / 某个省）里按名字过滤
     const adminUlSearch = $('admin-ul-search');
     if (adminUlSearch) adminUlSearch.addEventListener('input', () => {
@@ -4014,8 +4128,7 @@
 
     // 省份统计入口（隐藏）：在「📊 点击数量」页里，同时按住「🔧 后台」标题和「🌐 全网」板块 3 秒
     bindHoldTogether($('admin-title'), $('admin-global-sec') || $('admin-global-title'), openProvStats);
-    // 全服用户名单入口（隐藏）：在「👥 全服」页里，同时按住「🔧 后台」标题和「👥 全服」板块 3 秒
-    bindHoldTogether($('admin-title'), $('admin-user-sec-title'), openAdminUserList);
+    // 全服用户名单入口：改到「👥 全服」页的「用户详情」按键（原来是隐藏手势）
 
     // 省份统计页：搜索框 + 返回（市级视图先回省份列表，列表再关闭页面）
     const provSearch = $('prov-search');
@@ -6007,8 +6120,15 @@
     if (!m) return;
     mailOpenId = id;
     try { Mail.markRead(id); } catch (e) {}
+    // 标题带「：」的邮件拆成 主标题 + 副标题（副标题换行、字号小一号，以后发的邮件都按这个格式显示）
     const t = $('mail-view-title');
-    if (t) t.textContent = (m.icon || '📮') + ' ' + m.title;
+    const sub = $('mail-view-sub');
+    const ci = m.title.indexOf('：');
+    if (t) t.textContent = (m.icon || '📮') + ' ' + (ci > 0 ? m.title.slice(0, ci) : m.title);
+    if (sub) {
+      if (ci > 0) { sub.textContent = m.title.slice(ci + 1); sub.style.display = 'block'; }
+      else { sub.textContent = ''; sub.style.display = 'none'; }
+    }
     const meta = $('mail-view-meta');
     if (meta) meta.textContent = m.from + ' · ' + m.at;
     const body = $('mail-view-body');
@@ -6077,6 +6197,8 @@
     serverUsers: collectServerUsers,
     userList: collectUserList,
     openUserList: openAdminUserList,
+    openProvUserList: openProvUserList,
+    renderProvUserList: renderProvUserList,
     renderUserList: renderAdminUserList,
     setUserListProv: (p) => { adminUlProv = String(p || ''); renderAdminUserList(); },
     iceBase: ICE_BASE,

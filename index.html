@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106f">
-<link rel="stylesheet" href="./css/themes.css?v=20261106f">
+<link rel="stylesheet" href="./css/style.css?v=20261106h">
+<link rel="stylesheet" href="./css/themes.css?v=20261106h">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -197,6 +197,10 @@
           <p><span>省份数量</span><b id="admin-provs">—</b></p>
         </div>
       </div>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-admin-ul-open">用户详情</button>
+        <button class="btn-primary" id="btn-admin-prov-open">省份详情</button>
+      </div>
       <button class="btn-secondary" id="btn-admin-users-back">返回</button>
     </div>
   </div>
@@ -211,6 +215,16 @@
     <div class="lb-picker" id="admin-ul-picker" style="display:none;"></div>
     <div class="lb-list admin-ul-list" id="admin-ul-list"></div>
     <button class="btn-secondary lb-back" id="btn-admin-ul-back">返回</button>
+  </div>
+
+  <!-- 省份详情：有哪些省份有用户，点省份看该省玩家 -->
+  <div class="overlay" id="prov-user-list" style="display:none;">
+    <div class="lb-title-row">
+      <h2 class="title small">省份详情</h2>
+    </div>
+    <input class="prov-search" id="prov-ul-search" type="search" placeholder="🔍 搜索省份" autocomplete="off">
+    <div class="lb-list admin-ul-list" id="prov-ul-list"></div>
+    <button class="btn-secondary lb-back" id="btn-prov-ul-back">返回</button>
   </div>
 
   <!-- 省份统计（后台长按「🌐 全网」3 秒打开；点省份可进市级统计） -->
@@ -241,6 +255,7 @@
       <section class="rule-sec">
         <h3>🗺️ 主线与章节</h3>
         <p>主线按<b>章节</b>往下走：通过一关（至少 1 星）才解锁下一关，没解锁的关卡在关卡记录里点不开。</p>
+        <p>主页的「📍 当前进度」跟着你走：<b>从哪一关出去，主页就停在哪一关</b>，点开始直接接着打。</p>
         <p>「🗺️ 章节地图」只显示你走到的那一章，打完才出现下一章；每章第一关会播一小段剧情，可跳过，看过就不再播。</p>
       </section>
 
@@ -276,7 +291,7 @@
         <h3>📮 邮箱</h3>
         <p>左上角 <b>🏠 下面的 📮</b> 收系统公告和奖励，有新邮件时亮<b>红色角标</b>（数字 = 未读数）。</p>
         <p>邮件<b>左滑</b>出「删除」，<b>没领奖励的删不了</b>；「返回」上面有「✅ 一键已读」「🗑️ 一键删除」，删除需二次确认。</p>
-        <p>点开看正文，带奖励的邮件底部点「领取」金币进钱包，<b>每封只能领一次</b>；已读和领取记录<b>跟着账号走</b>。</p>
+        <p>点开看正文，标题带「：」的邮件会拆成<b>主标题 + 副标题</b>（副标题单独一行、字号小一号），列表里仍显示完整标题；带奖励的邮件底部点「领取」金币进钱包，<b>每封只能领一次</b>；已读和领取记录<b>跟着账号走</b>。</p>
       </section>
 
       <section class="rule-sec">
@@ -334,7 +349,7 @@
         <p><b>线消</b>：4 个同图案连成直线 → 横着连的清整行、竖着连的清整列。</p>
         <p><b>炸弹 💣</b>：L 型 / T 型消除 → 生成炸弹，炸掉周围 3×3；背包的「开局炸弹」也能直接放一颗。</p>
         <p><b>彩虹 🌈</b>：5 个连成一线 → 生成彩虹。彩虹<b>自己被消掉</b>时触发：清掉全盘同图案方块，彩虹自身也消失。和普通块交换但彩虹没被消时，只按普通三连算。</p>
-        <p><b>结算引爆</b>：步数 / 时间用完时，场上剩余的特殊块会<b>按生成顺序自动引爆</b>，炸得好可能直接反败为胜。</p>
+        <p><b>使用特效</b>：特殊块引爆都有专属效果——💣 爆炸火光 + 震屏、线消蓝光束横 / 竖扫过棋盘、🌈 彩虹五色波纹全屏闪。</p>
       </section>
 
       <section class="rule-sec">
@@ -409,8 +424,8 @@
     <p class="history-hint">系统发的公告和奖励都在这里</p>
     <div class="mail-list" id="mail-list"></div>
     <div class="mail-tools">
-      <button class="btn-secondary" id="btn-mail-read-all">✅ 一键已读</button>
-      <button class="btn-secondary" id="btn-mail-del-all">🗑️ 一键删除</button>
+      <button class="btn-primary" id="btn-mail-read-all">✅ 一键已读</button>
+      <button class="btn-primary" id="btn-mail-del-all">🗑️ 一键删除</button>
     </div>
     <button class="btn-secondary" id="btn-mail-close">返回</button>
   </div>
@@ -418,6 +433,7 @@
   <!-- 邮件详情 -->
   <div class="overlay" id="mail-view" style="display:none;">
     <h2 class="title small" id="mail-view-title">📮 邮件</h2>
+    <p class="mail-subtitle" id="mail-view-sub" style="display:none;"></p>
     <div class="mail-body-box">
       <p class="mail-meta" id="mail-view-meta"></p>
       <p class="mail-body" id="mail-view-body"></p>
@@ -503,7 +519,7 @@
     <h2 class="title small">🔄 切换账号</h2>
     <p class="history-hint">点一个账号直接进去，数据各自独立保存</p>
     <div class="acct-list" id="acct-list"></div>
-    <button class="btn-secondary" id="btn-switch-login">登录其他账号</button>
+    <button class="btn-primary" id="btn-switch-login">登录其它账号</button>
     <button class="btn-secondary" id="btn-switch-cancel">返回</button>
   </div>
 
@@ -907,22 +923,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106f"></script>
-<script src="./js/storage.js?v=20261106f"></script>
-<script src="./js/audio.js?v=20261106f"></script>
-<script src="./js/effects.js?v=20261106f"></script>
-<script src="./js/specials.js?v=20261106f"></script>
-<script src="./js/goals.js?v=20261106f"></script>
-<script src="./js/tasks.js?v=20261106f"></script>
-<script src="./js/mail.js?v=20261106f"></script>
-<script src="./js/input.js?v=20261106f"></script>
-<script src="./js/builtin-music.js?v=20261106f"></script>
-<script src="./js/music.js?v=20261106f"></script>
-<script src="./js/meta.js?v=20261106f"></script>
-<script src="./js/cloud-config.js?v=20261106f"></script>
-<script src="./js/cloud.js?v=20261106f"></script>
-<script src="./js/account.js?v=20261106f"></script>
-<script src="./js/board.js?v=20261106f"></script>
-<script src="./js/game.js?v=20261106f"></script>
+<script src="./js/rng.js?v=20261106h"></script>
+<script src="./js/storage.js?v=20261106h"></script>
+<script src="./js/audio.js?v=20261106h"></script>
+<script src="./js/effects.js?v=20261106h"></script>
+<script src="./js/specials.js?v=20261106h"></script>
+<script src="./js/goals.js?v=20261106h"></script>
+<script src="./js/tasks.js?v=20261106h"></script>
+<script src="./js/mail.js?v=20261106h"></script>
+<script src="./js/input.js?v=20261106h"></script>
+<script src="./js/builtin-music.js?v=20261106h"></script>
+<script src="./js/music.js?v=20261106h"></script>
+<script src="./js/meta.js?v=20261106h"></script>
+<script src="./js/cloud-config.js?v=20261106h"></script>
+<script src="./js/cloud.js?v=20261106h"></script>
+<script src="./js/account.js?v=20261106h"></script>
+<script src="./js/board.js?v=20261106h"></script>
+<script src="./js/game.js?v=20261106h"></script>
 </body>
 </html>

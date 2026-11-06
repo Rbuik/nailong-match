@@ -1837,6 +1837,17 @@ body[data-skin="black"]   { --skin-target-bg: rgba(40, 40, 48, 0.18); }
   background: #ff5c5c;
 }
 
+/* 邮件详情：标题带「：」时后半句作为副标题，单独一行、字号比主标题小一号 */
+.mail-subtitle {
+  font-size: 20px;
+  line-height: 1.35;
+  margin: 4px auto 10px;
+  width: 88%;
+  max-width: 380px;
+  text-align: center;
+  word-break: break-word;
+}
+
 .mail-body-box {
   width: 88%;
   max-width: 380px;

@@ -332,6 +332,69 @@ function check(name, ok) {
   ulSearch.dispatch('input');
   check('清空搜索恢复全部', $('admin-ul-list').children.length === su2.users);
 
+  // 4f. 全服用户页新增「用户详情 / 省份详情」，隐藏手势入口搬进按键
+  check('全服用户页返回上面有「用户详情 / 省份详情」两个蓝键', (() => {
+    const iUl = htmlSrc0.indexOf('id="btn-admin-ul-open"');
+    const iPv = htmlSrc0.indexOf('id="btn-admin-prov-open"');
+    const iBack = htmlSrc0.indexOf('id="btn-admin-users-back"');
+    return iUl > 0 && iPv > iUl && iBack > iPv &&
+      htmlSrc0.includes('class="btn-primary" id="btn-admin-ul-open"') &&
+      htmlSrc0.includes('class="btn-primary" id="btn-admin-prov-open"');
+  })());
+  check('隐藏手势入口已搬走（不再长按进名单）',
+    !htmlSrc0.includes("$('admin-user-sec-title'), openAdminUserList"));
+  check('省份详情：列出有用户的省份（带人数），搜索可过滤', (() => {
+    sandbox.__nl_test.openProvUserList();
+    const opened = $('prov-user-list').style.display === 'flex';
+    const rows = Array.prototype.slice.call($('prov-ul-list').children);
+    const gd = rows.filter((r) => String(r.innerHTML).indexOf('广东') >= 0)[0] || null;
+    const okRows = opened && rows.length >= 2 && gd &&
+      String(gd.innerHTML).indexOf('1 人') >= 0;
+    const se = $('prov-ul-search');
+    se.value = '不存在的省';
+    se.dispatch('input');
+    const firstEmpty = $('prov-ul-list').children[0];
+    const empty = !!firstEmpty && String(firstEmpty.textContent).indexOf('没有找到') >= 0;
+    if (!(okRows && empty)) console.log('[dbg]', {opened, rows: rows.length, gd: !!gd, gdHtml: gd && String(gd.innerHTML), emptyOk: empty, emptyText: String($('prov-ul-list').textContent).slice(0,60), searchVal: se.value});
+    se.value = '';
+    se.dispatch('input');
+    return okRows && empty;
+  })());
+  check('点省份直接进该省玩家名单', (() => {
+    const rows = Array.prototype.slice.call($('prov-ul-list').children);
+    const gd = rows.filter((r) => String(r.innerHTML).indexOf('广东') >= 0)[0];
+    gd.dispatch('click');
+    const inList = $('admin-user-list').style.display === 'flex' &&
+      String($('admin-ul-title').textContent).indexOf('玩家 · 广东') === 0 &&
+      $('admin-ul-list').children.length === 1;
+    $('btn-admin-ul-back').dispatch('click');
+    return inList && $('admin-user-list').style.display === 'none';
+  })());
+
+  // 4g. 特殊块专属特效 + 主页关卡跟随 + 按键配色
+  check('特效新增 flash / beam / rainbow', (() => {
+    const FX = sandbox.FX;
+    FX.flash('#ffb13d', 0.3, 0.2);
+    FX.beam(100, 100, true, '#5c8fff');
+    FX.beam(100, 100, false, '#5c8fff');
+    FX.rainbow(100, 100);
+    const busy = !FX.isEmpty();
+    FX.clear();
+    return busy && FX.isEmpty() && typeof FX.flash === 'function' &&
+      typeof FX.beam === 'function' && typeof FX.rainbow === 'function';
+  })());
+  check('登录其它账号（文案已改且是蓝键）',
+    htmlSrc0.includes('class="btn-primary" id="btn-switch-login">登录其它账号</button>'));
+  check('邮箱一键已读 / 一键删除都是蓝键',
+    htmlSrc0.includes('class="btn-primary" id="btn-mail-read-all"') &&
+    htmlSrc0.includes('class="btn-primary" id="btn-mail-del-all"'));
+  check('切换账号 / 存档码是蓝键',
+    htmlSrc0.includes('class="btn-primary" id="btn-goto-switch"') &&
+    htmlSrc0.includes('class="btn-primary" id="btn-goto-backup"'));
+  check('生成 / 复制是蓝键',
+    htmlSrc0.includes('class="btn-primary" id="btn-backup-gen"') &&
+    htmlSrc0.includes('class="btn-primary" id="btn-backup-copy"'));
+
   // 收尾：把测试用的假账号摘掉、恢复榜单与定位
   const accClean = JSON.parse(lsMap.get('nl2:accounts')).filter((a) => a.id !== 'utest-nopass');
   lsMap.set('nl2:accounts', JSON.stringify(accClean));
@@ -1170,6 +1233,22 @@ function check(name, ok) {
   check('点邮件进详情页，正文有内容',
     $('mail-view').style.display === 'flex' && $('mail-view-body').textContent.length > 10);
   check('打开邮件即标为已读', sandbox.Mail.get(giftMail.id).read === true);
+  // 标题带「：」的邮件：详情页拆成主标题 + 副标题（副标题换行、字号小一号）
+  const rulesMail = (sandbox.Mail.list() || []).filter((m) => String(m.title).indexOf('：') >= 0)[0];
+  if (rulesMail) {
+    $('btn-mail-back').dispatch('click');
+    const ri = (sandbox.Mail.list() || []).findIndex((m) => m.id === rulesMail.id);
+    $('mail-list').children[ri].children[1].dispatch('click');
+    const ci = rulesMail.title.indexOf('：');
+    check('标题带「：」拆成主标题 + 副标题',
+      String($('mail-view-title').textContent).indexOf(rulesMail.title.slice(0, ci)) >= 0 &&
+      String($('mail-view-title').textContent).indexOf(rulesMail.title.slice(ci + 1)) < 0 &&
+      String($('mail-view-sub').textContent) === rulesMail.title.slice(ci + 1) &&
+      $('mail-view-sub').style.display === 'block');
+    // 回到带奖励那封的详情页，继续后面的领取断言
+    $('btn-mail-back').dispatch('click');
+    $('mail-list').children[giftIdx].children[1].dispatch('click');
+  }
   $('btn-mail-claim').dispatch('click');
   check('领取附件金币到账', sandbox.Store.getWallet().coins === coinsBeforeMail + giftMail.coins);
   check('同一封邮件不能重复领',
