@@ -2826,6 +2826,40 @@
   // 国外 IP 单独一行（算进全网点击，但不归属任何省份）
   const PROV_OVERSEAS = ['🌍 海外', 'overseas'];
 
+  // 海外国家/地区表：点击统计页的「🌍 海外」展开看具体国家。
+  // 计数键 = ovr_<两位国家码>（bumpProvHits 里记录）；表外国家的点击只进「海外」总数。
+  const OVERSEAS_COUNTRIES = [
+    ['US', '美国'], ['JP', '日本'], ['KR', '韩国'], ['SG', '新加坡'], ['MY', '马来西亚'],
+    ['TH', '泰国'], ['VN', '越南'], ['PH', '菲律宾'], ['ID', '印度尼西亚'], ['IN', '印度'],
+    ['MM', '缅甸'], ['KH', '柬埔寨'], ['LA', '老挝'], ['NP', '尼泊尔'], ['PK', '巴基斯坦'],
+    ['BD', '孟加拉国'], ['LK', '斯里兰卡'], ['MN', '蒙古'], ['KZ', '哈萨克斯坦'], ['UZ', '乌兹别克斯坦'],
+    ['AE', '阿联酋'], ['SA', '沙特阿拉伯'], ['QA', '卡塔尔'], ['TR', '土耳其'], ['IL', '以色列'],
+    ['GB', '英国'], ['FR', '法国'], ['DE', '德国'], ['IT', '意大利'], ['ES', '西班牙'],
+    ['PT', '葡萄牙'], ['NL', '荷兰'], ['BE', '比利时'], ['CH', '瑞士'], ['AT', '奥地利'],
+    ['SE', '瑞典'], ['NO', '挪威'], ['DK', '丹麦'], ['FI', '芬兰'], ['PL', '波兰'],
+    ['CZ', '捷克'], ['HU', '匈牙利'], ['RO', '罗马尼亚'], ['GR', '希腊'], ['IE', '爱尔兰'],
+    ['RU', '俄罗斯'], ['UA', '乌克兰'], ['BY', '白俄罗斯'], ['CA', '加拿大'], ['MX', '墨西哥'],
+    ['BR', '巴西'], ['AR', '阿根廷'], ['CL', '智利'], ['CO', '哥伦比亚'], ['PE', '秘鲁'],
+    ['AU', '澳大利亚'], ['NZ', '新西兰'], ['FJ', '斐济'], ['EG', '埃及'], ['ZA', '南非'],
+    ['NG', '尼日利亚'], ['KE', '肯尼亚'], ['MA', '摩洛哥']
+  ];
+
+  // 两位国家码 → 旗帜 emoji（🇯🇵 这种）
+  function ccFlag(cc) {
+    const s = String(cc || '').toUpperCase();
+    if (!/^[A-Z]{2}$/.test(s)) return '';
+    return String.fromCodePoint(s.charCodeAt(0) - 65 + 0x1f1e6, s.charCodeAt(1) - 65 + 0x1f1e6);
+  }
+
+  // 海外点击要记的国家键：优先两位国家码；没有就按国家中文名反查；都没有返回 null（只进海外总数）
+  function overseasHitKey(cc, countryName) {
+    const code = String(cc || '').trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(code)) return 'ovr_' + code;
+    const n = String(countryName || '').trim();
+    const found = OVERSEAS_COUNTRIES.filter((c) => c[1] === n)[0];
+    return found ? 'ovr_' + found[0] : null;
+  }
+
   // ipinfo / ipapi.is 返回的是英文省名，这里做「英文名 → 内部代号」映射。
   // 归一化后（小写 + 去空格标点）精确匹配，所以 Shanxi(山西) / Shaanxi(陕西) 不会互相串。
   const PROVINCE_EN = {
@@ -3054,8 +3088,13 @@
     const known = !!(cc || cn);
 
     if (!isCN) {
-      // 国外 IP：计入「🌍 海外」（单独一行，也算进全网点击）
-      if (known) { hit('prov_' + PROV_OVERSEAS[1]); provCounted = true; return true; }
+      // 国外 IP：计入「🌍 海外」（单独一行，也算进全网点击），并尽量细分到国家
+      if (known) {
+        hit('prov_' + PROV_OVERSEAS[1]);
+        const ok = overseasHitKey(cc, cn);
+        if (ok) hit(ok);
+        provCounted = true; return true;
+      }
       hit('geo_unknown');       // 连国家都没识别出来：只做诊断，不显示
       return false;
     }
@@ -3090,7 +3129,7 @@
   // ============ 省份统计（含市级下钻） ============
   // 口径：真人且定位成功的点击才计数（AI / 自动化直接排除）。
   //   · 中国的 IP → 记到具体省份（再尽量记到市）；
-  //   · 国外 IP   → 记到「🌍 海外」一行（固定排最后，也算进全网点击）；
+  //   · 国外 IP   → 记到「🌍 海外」一行（固定排最后，也算进全网点击），并细分记到 ovr_<国家码>；
   //   · 定位接口全挂 → 记 geo_unknown 只做诊断，不上屏。
   // 后台「点击」= 各省之和 + 海外 = 统计页「合计」，两边永远同源。
 
@@ -3323,17 +3362,72 @@
     let html = rows.map((r) =>
       '<li class="clickable" data-code="' + r.code + '"><span>' + escHtml(r.name) +
       '<i class="prov-arrow">›</i></span><b>' + r.n + '</b></li>').join('');
-    // 海外固定排最后（不管次数多少），不参与搜索、不可点
+    // 海外固定排最后（不管次数多少），不参与搜索；点开看具体国家/地区
     if (oversea && !k) {
-      html += '<li><span>' + escHtml(PROV_OVERSEAS[0]) + '</span><b>' + oversea.n + '</b></li>';
+      html += '<li class="clickable" data-code="overseas"><span>' + escHtml(PROV_OVERSEAS[0]) +
+        '<i class="prov-arrow">›</i></span><b>' + oversea.n + '</b></li>';
     }
     list.innerHTML = html;
     Array.prototype.forEach.call(list.querySelectorAll('li.clickable'), (li) => {
       li.addEventListener('click', () => {
         const row = provRows.find((r) => r.code === li.getAttribute('data-code'));
-        if (row) openProvCities(row);
+        if (!row) return;
+        if (row.code === PROV_OVERSEAS[1]) openOverseasList(row);
+        else openProvCities(row);
       });
     });
+  }
+
+  // 点「🌍 海外」→ 国家/地区统计（读 ovr_<国家码> 计数，分批读避免触发限流）
+  function openOverseasList(row) {
+    provCityView = { code: '__overseas__', name: PROV_OVERSEAS[0] };
+    const title = $('prov-title'), sub = $('prov-sub'), search = $('prov-search'), list = $('prov-list');
+    if (title) title.textContent = '🌍 海外 · 国家/地区';
+    if (search) search.style.display = 'none';
+    if (sub) sub.textContent = '正在统计…';
+    if (list) list.innerHTML = '<li class="prov-empty">正在统计…</li>';
+
+    const acc = {};   // cc -> n（分批读到哪儿画到哪儿）
+    const render = () => {
+      if (!provCityView || provCityView.code !== '__overseas__') return;
+      const rows = OVERSEAS_COUNTRIES
+        .filter((c) => acc[c[0]] > 0)
+        .map((c) => ({ name: (ccFlag(c[0]) ? ccFlag(c[0]) + ' ' : '') + c[1], n: acc[c[0]] }))
+        .sort((a, b) => b.n - a.n);
+      const sum = rows.reduce((s, r) => s + r.n, 0);
+      const rest = Math.max(0, (row.n || 0) - sum);
+      let html = rows.map((r) => '<li><span>' + escHtml(r.name) + '</span><b>' + r.n + '</b></li>').join('');
+      if (rest > 0) {
+        html += '<li class="prov-unknown"><span>未细分国家</span><b>' + rest + '</b></li>';
+      }
+      if (sub) sub.textContent = row.n ? ('共 ' + rows.length + ' 个国家/地区 · ' + row.n + ' 次点击') : '暂无海外点击记录';
+      if (list) list.innerHTML = html || '<li class="prov-empty">暂无海外点击记录</li>';
+    };
+
+    let saved = {};
+    try { saved = JSON.parse(localStorage.getItem('nl2:ovrVals') || '{}') || {}; } catch (e) {}
+    Object.keys(saved).forEach((cc) => { if (saved[cc] > 0) acc[cc] = saved[cc]; });
+    render();   // 先画缓存
+
+    const CHUNK = 20, PAUSE = 1100;   // Abacus 限流 30 次/10 秒，分批读
+    const readChunk = (i) => {
+      if (!provCityView || provCityView.code !== '__overseas__') return;   // 用户已返回
+      if (i >= OVERSEAS_COUNTRIES.length) {
+        try { localStorage.setItem('nl2:ovrVals', JSON.stringify(saved)); } catch (e) {}
+        render();
+        return;
+      }
+      Promise.all(OVERSEAS_COUNTRIES.slice(i, i + CHUNK).map((c) =>
+        fetchWithTimeout(ABACUS_BASE + 'get/nailong-xiaoxiaole-2026-v3/ovr_' + c[0], 7000)
+          .then((j) => {
+            const v = (j && typeof j.value === 'number') ? j.value : -1;
+            const prev = typeof saved[c[0]] === 'number' ? saved[c[0]] : 0;
+            const n = v >= 0 ? Math.max(v, prev) : prev;   // 只增不减（同省级口径）
+            if (n > 0) { saved[c[0]] = n; acc[c[0]] = n; }
+          })))
+        .then(() => { render(); setTimeout(() => readChunk(i + CHUNK), PAUSE); });
+    };
+    readChunk(0);
   }
 
   // IP 定位：缓存 12 小时；有旧结果先用旧的，后台悄悄刷新（绝不让人干等定位）
@@ -3780,6 +3874,9 @@
     const se = $('admin-ul-search');
     if (se) se.value = '';
     hideAdminUlPicker();
+    // 从「省份详情」点省份进来时，把省份详情页收掉（DOM 里它排在名单页后面，不收会盖在上面）
+    const pvUl = $('prov-user-list');
+    if (pvUl) pvUl.style.display = 'none';
     renderAdminUserList();
     showOverlay('admin-user-list');
     try { AudioManager.playSFX('select'); } catch (e) {}
@@ -6120,11 +6217,12 @@
     if (!m) return;
     mailOpenId = id;
     try { Mail.markRead(id); } catch (e) {}
-    // 标题带「：」的邮件拆成 主标题 + 副标题（副标题换行、字号小一号，以后发的邮件都按这个格式显示）
+    // 标题带「：」的邮件拆成 主标题 + 副标题（副标题换行、字号更小，以后发的邮件都按这个格式显示）
+    // 详情页标题不带 emoji（列表里仍显示图标）
     const t = $('mail-view-title');
     const sub = $('mail-view-sub');
     const ci = m.title.indexOf('：');
-    if (t) t.textContent = (m.icon || '📮') + ' ' + (ci > 0 ? m.title.slice(0, ci) : m.title);
+    if (t) t.textContent = ci > 0 ? m.title.slice(0, ci) : m.title;
     if (sub) {
       if (ci > 0) { sub.textContent = m.title.slice(ci + 1); sub.style.display = 'block'; }
       else { sub.textContent = ''; sub.style.display = 'none'; }
@@ -6209,6 +6307,9 @@
     matchCity: matchCity,
     formatRegion: formatRegion,
     bumpProvHits: bumpProvHits,
+    openOverseasList: openOverseasList,
+    overseasCountries: OVERSEAS_COUNTRIES,
+    overseasHitKey: overseasHitKey,
     refreshProvStats: refreshProvStats,
     provRows: () => provRows,
     statsTotal: statsTotal,

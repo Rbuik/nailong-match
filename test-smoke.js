@@ -202,6 +202,9 @@ function check(name, ok) {
 
   // 4. 注销账号：入口搬到「设置 → 账号安全」（切换账号下面），主页换成邮箱键
   const htmlSrc0 = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+  const cssSrc = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8') +
+    fs.readFileSync(path.join(__dirname, 'css', 'style.css'), 'utf8');
+  const jsSrc = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
   check('主页不再有注销按钮，右下角是 📮 邮箱键',
     htmlSrc0.includes('id="btn-mail"') && htmlSrc0.indexOf('id="btn-mail"') < htmlSrc0.indexOf('id="home-menu"'));
   check('注销账号在账号安全面板里、切换账号下面',
@@ -367,9 +370,37 @@ function check(name, ok) {
     const inList = $('admin-user-list').style.display === 'flex' &&
       String($('admin-ul-title').textContent).indexOf('玩家 · 广东') === 0 &&
       $('admin-ul-list').children.length === 1;
+    // 省份详情页必须同时收掉（不收会盖在名单页上面，看起来像「点了没反应」）
+    const pvClosed = $('prov-user-list').style.display === 'none';
     $('btn-admin-ul-back').dispatch('click');
-    return inList && $('admin-user-list').style.display === 'none';
+    return inList && pvClosed && $('admin-user-list').style.display === 'none';
   })());
+  check('省份详情搜索框与列表同宽（90%）', cssSrc.includes('#prov-ul-search { width: 90%;'));
+  (() => {
+    sandbox.__nl_test.resetProvCounted();
+    const okKey = sandbox.__nl_test.overseasHitKey('JP') === 'ovr_JP' &&
+      sandbox.__nl_test.overseasHitKey('', '日本') === 'ovr_JP' &&
+      sandbox.__nl_test.overseasHitKey('', '') === null;
+    // 记账路径：海外 IP（日本）不再只进总数，还细分到 ovr_JP
+    const counted = sandbox.__nl_test.bumpProvHits({ countryCode: 'JP', country: 'Japan' }) === true;
+    check('海外点击细分记到国家码（ovr_JP）', okKey && counted);
+  })();
+  sandbox.__nl_test.openOverseasList({ code: 'overseas', name: '🌍 海外', n: 0 });
+  await sleep(80);   // 读计数（沙箱 fetch 全失败）走完
+  check('海外行点开显示国家/地区统计页',
+    String($('prov-title').textContent).indexOf('海外') >= 0 &&
+    String($('prov-sub').textContent).length > 0);
+  $('btn-prov-back').dispatch('click');   // 回到省份列表
+  check('历史导入 / 恢复默认音乐都是蓝键',
+    htmlSrc0.includes('class="btn-primary" id="btn-goto-history-music"') &&
+    htmlSrc0.includes('class="btn-primary" id="btn-reset-bgm"'));
+  check('蓝键统一为注销那种描边效果（蓝色版）',
+    cssSrc.includes('.btn-primary {') &&
+    cssSrc.includes('background: rgba(92, 143, 255, 0.08);') &&
+    cssSrc.includes('border: 2px solid rgba(92, 143, 255, 0.55)'));
+  check('邮件详情主标题不带 emoji、副标题更小',
+    !jsSrc.includes("(m.icon || '📮') + ' ' + (ci > 0") && cssSrc.includes('.mail-subtitle {') &&
+    cssSrc.includes('font-size: 17px;'));
 
   // 4g. 特殊块专属特效 + 主页关卡跟随 + 按键配色
   check('特效新增 flash / beam / rainbow', (() => {

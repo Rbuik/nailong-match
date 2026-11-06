@@ -231,10 +231,10 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .shop-buy {
   flex: 0 0 auto;
   padding: 8px 10px;
-  border: none;
+  border: 2px solid rgba(92, 143, 255, 0.55);
   border-radius: 10px;
-  background: linear-gradient(135deg, #7c5cff, #5c8fff);
-  color: #fff;
+  background: rgba(92, 143, 255, 0.08);
+  color: #3a78ff;
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
@@ -910,7 +910,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   border-radius: 12px;
 }
 
-.btn-primary.danger { background: linear-gradient(135deg, #ff5c5c, #c0392b); box-shadow: 0 4px 15px rgba(255, 92, 92, 0.3); }
+.btn-primary.danger { background: linear-gradient(135deg, #ff5c5c, #c0392b); box-shadow: 0 4px 15px rgba(255, 92, 92, 0.3); border-color: transparent; }
 
 /* 播放模式 */
 .mode-row {
@@ -988,11 +988,13 @@ body.m-dragging .m-item { cursor: grabbing; }
 .btn-primary.btn-danger {
   background: linear-gradient(135deg, #ff5c5c, #c0392b);
   box-shadow: 0 4px 15px rgba(255, 92, 92, 0.35);
+  border-color: transparent;
 }
 
 .btn-primary.btn-success {
   background: linear-gradient(135deg, #43c56d, #1a8f4a);
   box-shadow: 0 4px 15px rgba(67, 197, 109, 0.35);
+  border-color: transparent;
 }
 
 /* ================= 主页：两列小按钮（新增玩法入口） ================= */
@@ -1464,6 +1466,8 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 /* 「玩家」名单的搜索框跟着列表同宽 */
 #admin-ul-search { width: 90%; margin: 8px 0 2px; }
+/* 省份详情的搜索框：和下面列表一样宽（90%），不要通栏 */
+#prov-ul-search { width: 90%; margin: 8px 0 2px; }
 /* 整行灰显：0 分没上榜的人（名次 / 名字也跟着变灰） */
 .lb-row.none .lb-rank,
 .lb-row.none .lb-name { color: #b0a9c0; }
@@ -1837,9 +1841,9 @@ body[data-skin="black"]   { --skin-target-bg: rgba(40, 40, 48, 0.18); }
   background: #ff5c5c;
 }
 
-/* 邮件详情：标题带「：」时后半句作为副标题，单独一行、字号比主标题小一号 */
+/* 邮件详情：标题带「：」时后半句作为副标题，单独一行、字号比主标题小得多 */
 .mail-subtitle {
-  font-size: 20px;
+  font-size: 17px;
   line-height: 1.35;
   margin: 4px auto 10px;
   width: 88%;

@@ -93,7 +93,14 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 }
 
 .btn-primary, .btn-secondary { width: 180px; padding: 14px 0; border: none; border-radius: 30px; font-size: 17px; font-weight: bold; cursor: pointer; margin-bottom: 12px; transition: transform 0.1s ease; }
-.btn-primary { background: linear-gradient(135deg, #7c5cff, #5c8fff); color: #fff; box-shadow: 0 4px 15px rgba(124,92,255,0.35); }
+/* 蓝键统一用「注销账号」那种描边效果，只是换成蓝色：淡蓝底 + 蓝描边 + 蓝字 */
+.btn-primary {
+  background: rgba(92, 143, 255, 0.08);
+  color: #3a78ff;
+  border: 2px solid rgba(92, 143, 255, 0.55);
+  box-shadow: none;
+}
+.btn-primary:hover { background: rgba(92, 143, 255, 0.16); }
 .btn-primary:disabled { opacity: 0.6; cursor: wait; transform: none; }
 .btn-secondary { background: transparent; color: #666; border: 2px solid #ccc; }
 .btn-primary:active, .btn-secondary:active { transform: scale(0.95); }
