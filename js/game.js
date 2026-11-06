@@ -6120,9 +6120,13 @@
       const rank = !onBoard ? '—' : (i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1));
       // 分数左边带星星：局榜是这一局的星（最多 3 颗），总榜 / 省榜是总星数
       const stars = Math.max(0, r.stars || 0);
-      const starHtml = lbTab === 'level'
-        ? (stars > 0 ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>' : '')
-        : (stars > 0 ? '<span class="lb-stars">★ ' + stars + '</span>' : '');
+      // 星星占固定一格：局榜是「★★★」，总榜 / 省榜是「★ 87」（图标 + 右对齐数字），
+      // 这样不管几颗星、几位数，一列看下去都齐齐的
+      const starHtml = stars <= 0
+        ? '<span class="lb-stars"></span>'
+        : (lbTab === 'level'
+          ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>'
+          : '<span class="lb-stars"><i class="lb-star-ico">★</i><b>' + stars + '</b></span>');
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
         '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
         (r.me ? '<i class="lb-me">我</i>' : r.friend ? '<i>好友</i>' : '') + '</span>' +
