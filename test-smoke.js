@@ -1326,6 +1326,7 @@ function check(name, ok) {
     /id="btn-cloud-save"/.test(htmlSrc0) && /id="btn-cloud-later"/.test(htmlSrc0));
   check('账号上云是新方法（供界面调用）',
     typeof sandbox.Account.pushAccountToCloud === 'function');
+  check('账号安全页有常驻的「存到服务器」入口', /id="btn-goto-cloud"/.test(htmlSrc0));
   const cloudTry = await sandbox.Account.pushAccountToCloud('abcd1234');
   check('连不上服务器时上云会返回可读的失败原因',
     cloudTry && cloudTry.ok === false && !!cloudTry.reason);

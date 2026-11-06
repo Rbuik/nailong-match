@@ -4719,6 +4719,19 @@
     on('btn-backup-back', backupBack);
     on('btn-backup-import-back', backupBack);
 
+    // ☁️ 账号存到服务器（主动入口，不用等启动提示）
+    on('btn-goto-cloud', () => {
+      const acc = Account.current();
+      if (acc && (acc.cloud || acc.ctoken)) {
+        toast('这个账号已经存到服务器了');
+        return;
+      }
+      const err = $('cloud-err');
+      if (err) err.textContent = '';
+      $('account-menu').style.display = 'none';
+      openCloudMenu('account');
+    });
+
     // 修改密码
     on('btn-goto-password', () => {
       ['pass-old', 'pass-new', 'pass-new2'].forEach((id) => {
@@ -6215,6 +6228,7 @@
   // 本机校验通过后，拿这串明文去服务器按「同样的名字 + 同样的密码」建档，
   // 之后进度就会自动同步上去。密码不会被改动，也不会在这里留存。
   let cloudOffered = false;
+  let cloudFrom = 'main';          // 从哪进的上云窗口：main / account
 
   function cloudSnoozeLeft() {
     try {
@@ -6223,7 +6237,8 @@
     } catch (e) { return 0; }
   }
 
-  function openCloudMenu() {
+  function openCloudMenu(from) {
+    cloudFrom = from === 'account' ? 'account' : 'main';
     const err = $('cloud-err');
     if (err) err.textContent = '';
     const inp = $('cloud-pass');
@@ -6276,6 +6291,7 @@
   function laterCloud() {
     try { localStorage.setItem('nl2:cloudoffer', String(Date.now())); } catch (e) {}
     $('cloud-menu').style.display = 'none';
+    if (cloudFrom === 'account') { showOverlay('account-menu'); return; }
     showOverlay('main-menu');
   }
 
