@@ -594,9 +594,13 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .prov-list {
   list-style: none;
   margin: 0;
-  padding: 0;
   flex: 1 1 auto;
   min-height: 80px;
+  /* 内部滚动的板块：底色比周围深一点（和「关卡记录」同款） */
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px;
+  box-sizing: border-box;
   max-height: 52vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -1120,6 +1124,11 @@ body.m-dragging .m-item { cursor: grabbing; }
   flex-direction: column;
   gap: 6px;
   margin: 6px 0 12px;
+  /* 内部滚动的板块：底色比周围深一点（和「关卡记录」同款） */
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px;
+  box-sizing: border-box;
 }
 .ach-row {
   display: flex;
@@ -1244,10 +1253,14 @@ body.m-dragging .m-item { cursor: grabbing; }
   gap: 6px;
   width: 92%;
   overflow-x: auto;
-  padding: 4px 2px 8px;
+  padding: 8px 6px;
   margin: 4px 0 6px;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
+  /* 横向滑动的日期条：底色比周围深一点（和「关卡记录」同款） */
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  box-sizing: border-box;
 }
 .welfare-sign::-webkit-scrollbar { display: none; }
 .sign-day {
@@ -1307,6 +1320,11 @@ body.m-dragging .m-item { cursor: grabbing; }
   gap: 6px;
   margin: 6px 0 10px;
   scrollbar-width: none;            /* Firefox：滑榜时不露灰条 */
+  /* 内部滚动的板块：底色比周围深一点（和「关卡记录」同款） */
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px;
+  box-sizing: border-box;
 }
 .lb-list::-webkit-scrollbar { display: none; }
 
@@ -1498,7 +1516,14 @@ body.m-dragging .m-item { cursor: grabbing; }
   text-align: left;
   color: #ffb300;
 }
-.lb-score { font-weight: 800; color: #ff8c00; }
+.lb-score {
+  flex: 0 0 auto;
+  min-width: 64px;
+  text-align: right;
+  font-weight: 800;
+  color: #ff8c00;
+  font-variant-numeric: tabular-nums;
+}
 .lb-score.none { font-weight: 600; font-size: 11px; color: #b0a9c0; }
 /* 后台「全服用户名单」：右边的省份标签比分数低调 */
 /* 后台「玩家」名单：名次 / 名字 / 总分 / 省份 四列，分数在省份左边且竖向对齐 */
@@ -1830,7 +1855,11 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   flex-direction: column;
   gap: 8px;
   margin-bottom: 10px;
-  padding-bottom: 2px;
+  /* 内部滚动的板块：底色比周围深一点（和「关卡记录」同款） */
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px;
+  box-sizing: border-box;
 }
 
 

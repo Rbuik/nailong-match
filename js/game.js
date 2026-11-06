@@ -2787,7 +2787,7 @@
       toast('道具数量不足');
       return false;
     }
-    // +10 秒只对限时关有意义：步数关先拦下，别白扣一个
+    // +7s 只对限时关有意义：步数关先拦下，别白扣一个
     if (key === 'extraTime' && !S.timerOn) {
       toast('这一关按步数算，用不上时间道具');
       return false;
@@ -2796,20 +2796,20 @@
     // 先扣道具再刷新数值，避免徽章把刚用掉的那 1 个也算进总数
     Store.useItem(key);
 
+    // +3 步只在步数关用（限时关有专门的「+7s」，别互相顶替）
+    if (key === 'extraMoves' && S.timerOn) {
+      toast('这一关按时间算，用不上步数道具');
+      return false;
+    }
     if (key === 'extraMoves') {
-      if (S.timerOn) {
-        S.timeLeft += 10;
-        toast('时间 +10 秒');
-      } else {
-        S.moves += 3;
-        toast('步数 +3');
-      }
+      S.moves += 3;
+      toast('步数 +3');
       updateHUD();
       checkMovesWarning();
     } else if (key === 'extraTime') {
-      S.timeLeft += 10;
+      S.timeLeft += 7;
       updateHUD();
-      toast('时间 +10 秒');
+      toast('时间 +7s');
     } else if (key === 'shuffle') {
       S.shuffleLeft += 1;
       updateHUD();
@@ -5645,7 +5645,7 @@
     if (yes) {
       yes.disabled = !can;
       yes.textContent = can
-        ? (S.timerOn ? ('花 ' + REVIVE_COST + ' 金币，再来 15s') : ('花 ' + REVIVE_COST + ' 金币，再来 3 步'))
+        ? (S.timerOn ? ('花 ' + REVIVE_COST + ' 金币，再来 7s') : ('花 ' + REVIVE_COST + ' 金币，再来 3 步'))
         : '金币不足';
     }
     S.busy = true;
@@ -5658,7 +5658,7 @@
   function doRevive() {
     if (!Store.spendCoins(REVIVE_COST)) { toast('金币不够'); return; }
     S.reviveUsed = true;
-    if (S.timerOn) S.timeLeft = Math.max(0, S.timeLeft) + 15;
+    if (S.timerOn) S.timeLeft = Math.max(0, S.timeLeft) + 7;
     else S.moves += 3;
     S.playing = true;
     S.paused = false;
@@ -5671,7 +5671,7 @@
     drawStatic();
     if (S.timerOn) startTimer();
     AudioManager.playSFX('coin');
-    toast(S.timerOn ? '续命成功：+15s' : '续命成功：+3 步');
+    toast(S.timerOn ? '续命成功：+7s' : '续命成功：+3 步');
   }
 
   function declineRevive() {
