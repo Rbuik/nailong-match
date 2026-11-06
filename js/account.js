@@ -185,8 +185,11 @@
       .map((x) => x.name);
     if (global.Board && Board.list) {
       try {
+        // 只有服务器身份码 p… 的榜上名字才算占用；本机码 u… 是临时的，
+        // 玩家清缓存/换设备后码会变，用原名不该被旧榜条目拦住
         Board.list().forEach((e) => {
-          if (e && e.name && e.uid !== excludeId) taken.push(e.name);
+          if (e && e.name && e.uid !== excludeId &&
+              /^p[0-9a-f]{8,}$/i.test(String(e.uid || ''))) taken.push(e.name);
         });
       } catch (e) {}
     }

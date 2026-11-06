@@ -1591,6 +1591,22 @@ function check(name, ok) {
   check('迁码后榜单上没有两条同名', sandbox.Board.list().filter((e) => e.name === '换码测试').length === 0);
   sandbox.__cloudOn = false;
 
+  // 39b. 名字占用只看服务器码：旧的本机码榜条目不能把玩家的原名锁死（用户反馈：玩家「七」）
+  const realBoardForNick = sandbox.Board.list;
+  sandbox.Board.list = () => [
+    { uid: 'u-stale0001', name: '七', score: 1290, level: 1, ts: 1 },
+    { uid: 'pabcdef123456', name: '帅哥', score: 3010, level: 1, ts: 1 }
+  ];
+  const rNickLocal = sandbox.Account.rename('七');
+  check('榜上旧本机码的名字不算占用，玩家能改回原名',
+    rNickLocal.ok === true && sandbox.Account.current().name === '七');
+  const rNickCloud = sandbox.Account.rename('帅哥');
+  check('榜上服务器码（p…）的名字仍算占用',
+    rNickCloud.ok === false && String(rNickCloud.reason).indexOf('别人') >= 0);
+  sandbox.Board.list = realBoardForNick;
+  check('改名菜单的占用判断同样只认服务器码',
+    /\/\^p\[0-9a-f\]\{8,\}\$\/i\.test\(String\(e\.uid \|\| ''\)\)/.test(jsSrc));
+
   // 39. 顶栏统一：只有关卡 / 步数 / 得分，金币星星一律不上顶栏
   check('游戏顶栏只有 关卡 / 步数 / 得分 三项',
     /id="hud"[\s\S]*?id="score"/.test(htmlSrc0) &&

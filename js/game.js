@@ -5849,7 +5849,11 @@
     const mine = Meta.myUid();
     const taken = [];
     if (typeof Board !== 'undefined') {
-      Board.list().forEach((e) => { if (e.uid !== mine) taken.push(e.name); });
+      // 只有「服务器身份码 p…」的榜上名字才算被占用（对应真正在服务器注册过的号）；
+      // 本机码 u… 的成绩是临时的，玩家换设备/清缓存就换码，不能把人家的原名永远锁死
+      Board.list().forEach((e) => {
+        if (e.uid !== mine && /^p[0-9a-f]{8,}$/i.test(String(e.uid || ''))) taken.push(e.name);
+      });
     }
     Meta.friends().forEach((f) => { taken.push(f.name); });
     return taken;
