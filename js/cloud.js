@@ -1,12 +1,14 @@
-// cloud.js — 服务器账号（云数据库）
-// 名字和密码存在服务端（PostgreSQL + bcrypt 哈希），登录时由服务器校验，
-// 校验通过才下发这个账号的存档。换设备 / 清缓存 / 微信里重进都不会丢号。
+// cloud.js — 服务器账号（Cloudflare 后端）
+// 名字和密码存在服务器（Cloudflare D1 数据库，PBKDF2 加盐哈希），
+// 登录时由服务器校验，校验通过才下发这个账号的存档。
+// 换设备 / 清缓存 / 微信里重进都不会丢号。
 //
-// 接口（服务端 SECURITY DEFINER 函数，表本身不开放直读）：
-//   nl_register(nick, pass, uid) -> { ok, token, nick, uid, slot }
-//   nl_login(nick, pass)         -> { ok, token, nick, uid, slot }
-//   nl_load(token)               -> { ok, nick, uid, slot }
-//   nl_save(token, slot)         -> { ok }
+// 接口（都在 <endpoint>/api/rpc/ 下）：
+//   nl_register {p_nick,p_pass,p_uid} -> {ok, token, nick, uid, slot}
+//   nl_login    {p_nick,p_pass}       -> {ok, token, nick, uid, slot}
+//   nl_load     {p_token}             -> {ok, nick, uid, slot}
+//   nl_save     {p_token,p_slot}      -> {ok}
+//   nl_setpass  {p_token,p_new}       -> {ok}
 // 暴露 window.Cloud
 (function (global) {
   'use strict';
@@ -14,25 +16,13 @@
   const CFG = global.NL_CLOUD || null;
   const TOKEN_KEY = 'nl2:ctoken';      // 登录令牌（设备级）
   const SYNC_KEY = 'nl2:csync';        // 最后一次同步时间
-  const PUSH_MIN_MS = 12e3;            // 两次上传最少间隔（省资源点）
+  const PUSH_MIN_MS = 12e3;            // 两次上传最少间隔
+  const TIMEOUT_MS = 9000;             // 单次请求超时，超时就当没网
 
-  let cloud = null;
-  let sdkOk = false;
+  const API = (CFG && CFG.endpoint) ? String(CFG.endpoint).replace(/\/+$/, '') + '/api/rpc/' : '';
+  const sdkOk = !!API;
+
   let lastReason = '';
-
-  try {
-    const ns = global.WorkBuddyCloud;
-    if (ns && ns.createWorkBuddyCloud && CFG) {
-      cloud = ns.createWorkBuddyCloud({
-        endpoint: CFG.endpoint,
-        oauthRelayBaseUrl: CFG.oauthRelayBaseUrl,
-        publishableKey: CFG.publishableKey
-      });
-      sdkOk = !!(cloud && cloud.database);
-    }
-  } catch (e) {
-    sdkOk = false;
-  }
 
   function ls(k, v) {
     try {
@@ -48,26 +38,39 @@
   function lastSync() { return Number(ls(SYNC_KEY) || 0) || 0; }
   function setLastSync(ts) { ls(SYNC_KEY, String(ts || Date.now())); }
 
-  // 只有发布域名（和服务端认可的来源）能调通；其余情况统一当成"没网"
+  // 统一发请求：出任何问题都当成"没网"，静默降级成本机存档
   function call(fn, args) {
-    if (!sdkOk) {
-      return Promise.resolve({ ok: false, offline: true, reason: '云服务没加载出来' });
-    }
-    return cloud.database.rpc(fn, args)
-      .then((res) => {
-        const err = res && res.error;
-        if (err) {
-          lastReason = err.message || '网络异常';
-          return { ok: false, offline: true, reason: lastReason };
-        }
-        const data = res && res.data;
-        if (data && typeof data === 'object') return data;
-        return { ok: false, offline: true, reason: '服务器返回异常' };
-      })
-      .catch((e) => {
-        lastReason = (e && e.message) || '网络异常';
-        return { ok: false, offline: true, reason: lastReason };
+    if (!sdkOk) return Promise.resolve({ ok: false, offline: true, reason: '云服务没配置' });
+    if (typeof fetch !== 'function') return Promise.resolve({ ok: false, offline: true, reason: '这个浏览器不支持云同步' });
+    const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    const timer = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, TIMEOUT_MS) : null;
+    let req;
+    try {
+      req = fetch(API + fn, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(args || {}),
+        signal: ctrl ? ctrl.signal : undefined
       });
+    } catch (e) {
+      if (timer) clearTimeout(timer);
+      return Promise.resolve({ ok: false, offline: true, reason: '网络异常' });
+    }
+    return req.then((res) => {
+      if (timer) clearTimeout(timer);
+      if (!res.ok) { lastReason = '服务器忙（' + res.status + '）'; return { ok: false, offline: true, reason: lastReason }; }
+      return res.json();
+    }).then((data) => {
+      if (!data || typeof data !== 'object') {
+        return { ok: false, offline: true, reason: lastReason || '服务器返回异常' };
+      }
+      if (data.ok === false) lastReason = data.reason || '';
+      return data;
+    }).catch((e) => {
+      if (timer) clearTimeout(timer);
+      lastReason = (e && e.name === 'AbortError') ? '网络超时' : ((e && e.message) || '网络异常');
+      return { ok: false, offline: true, reason: lastReason };
+    });
   }
 
   function register(nick, pass, uid) {
@@ -104,6 +107,7 @@
       .then((r) => {
         pushing = false;
         if (r && r.ok) setLastSync(Date.now());
+        else if (r && r.ok === false && String(r.reason || '').indexOf('过期') >= 0) setToken(null);
         return r;
       })
       .catch((e) => {
