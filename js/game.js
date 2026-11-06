@@ -2371,11 +2371,17 @@
     const remainRatio = S.timerOn
       ? S.timeLeft / (S.levelDef.goal.time || 1)
       : (S.moves / (S.levelDef.moves || 1));
-    const stars = Goals.stars(S.levelDef, S.score, remainRatio);
+    const starsNow = Goals.stars(S.levelDef, S.score, remainRatio);
+    // 星级只升不降，永远取最大值：2 星过关后点「继续游戏」把剩余步数打光，
+    // 剩余比例变小可能只算出 1 星 —— 这时结算照样显示 2 星，纪录也不掉
+    const bestStars = S.daily
+      ? (Store.getDailyRecord().stars || 0)
+      : (Store.getLevelRecord(S.level).stars || 0);
+    const stars = Math.max(starsNow, bestStars);
     // 每日挑战也留一个「当天最佳」的纪录，第一次完成同样算新纪录
     const rec = S.daily
-      ? Store.recordDaily(S.score, stars)
-      : Store.recordLevel(S.level, S.score, stars);
+      ? Store.recordDaily(S.score, starsNow)
+      : Store.recordLevel(S.level, S.score, starsNow);
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
     if (S.daily) refreshMenu();
@@ -2391,8 +2397,9 @@
       // 成就统计
       Meta.bump('wins', 1);
       Meta.bump('scoreTotal', S.score);
-      Meta.bump('starsGot', stars);
-      if (stars >= 3) Meta.bump('perfect', 1);
+      // 成就统计按这一局实际打出的星算，不能把历史最好重复累加
+      Meta.bump('starsGot', starsNow);
+      if (starsNow >= 3) Meta.bump('perfect', 1);
       if (S.maxCombo >= 4) Meta.setMax('maxCombo', S.maxCombo);
       const newAch = Meta.check();
       if (newAch.length) setTimeout(() => toast('🏅 ' + newAch[0].a.name + ' 升到「' + newAch[0].label + '」阶'), 1200);
@@ -5993,7 +6000,7 @@
       if (!uid || !(sc > 0)) return;
       const cur = map[uid];
       if (!cur) { map[uid] = { uid: uid, name: name || '玩家', score: sc, ts: ts || 0, pv: pv || '', stars: stars || 0 }; return; }
-      if (sc > cur.score) { cur.score = sc; cur.stars = stars || 0; }
+      if (sc > cur.score) cur.score = sc;   // 星只取最大值，别被低星盖掉
       if ((ts || 0) >= (cur.ts || 0)) { cur.name = name || cur.name; cur.ts = ts || 0; }
       if (!cur.pv && pv) cur.pv = pv;
       if ((stars || 0) > (cur.stars || 0)) cur.stars = stars || 0;
@@ -6166,7 +6173,8 @@
     });
     byId[me.uid] = {
       uid: me.uid, name: Meta.nickname(), score: me.score, ts: Date.now(),
-      pv: myProvCode(), stars: totalStarsOf(me)
+      pv: myProvCode(),
+      stars: Math.max(totalStarsOf(me), (byId[me.uid] && byId[me.uid].stars) || 0)
     };
 
     const totalRows = Object.keys(byId).map((k) => {

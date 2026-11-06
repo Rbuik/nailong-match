@@ -2021,6 +2021,18 @@ function check(name, ok) {
     /const REVIVE_COST = 300;/.test(jsSrc) && /再来 7s/.test(jsSrc) &&
     !/REVIVE_COST = 200/.test(jsSrc) && htmlSrc.includes('花 300 金币，再来 3 步'));
 
+  // 41n. 星级只升不降：2 星过关后又用剩余步数打完，结算 / 纪录都保持 2 星
+  sandbox.__nl_test.start(1, { def: { id: 1, theme: 'candy', moves: 20, goal: { type: 'score', target: 500 }, stars: [1000, 2000, 3000] } });
+  sandbox.__nl_test.state().score = 1000;   // 只到 1 星线
+  sandbox.__nl_test.state().moves = 0;      // 一点步数不剩 → 这次只算 1 星
+  sandbox.Store.recordLevel(1, 1500, 2);    // 这一关历史最好 2 星
+  sandbox.__nl_test.win(true);
+  await sleep(60);
+  check('2 星过关后用剩余步数继续打，结算与纪录仍取 2 星（只升不降）',
+    sandbox.Store.getLevelRecord(1).stars === 2 &&
+    /Math\.max\(starsNow, bestStars\)/.test(jsSrc) &&
+    /popStars\(starEls, stars, 240\)/.test(jsSrc));
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });
