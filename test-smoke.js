@@ -1050,6 +1050,16 @@ function check(name, ok) {
   check('账号安全页和登录页都有存档码入口',
     htmlSrc0.includes('id="btn-goto-backup"') && htmlSrc0.includes('id="backup-menu"') &&
     htmlSrc0.includes('id="btn-auth-backup"'));
+  check('生成页只有生成框 + 生成/复制同排 + 返回单独一排',
+    htmlSrc0.includes('点击下面的「生成」') &&
+    htmlSrc0.indexOf('id="btn-backup-copy"') > 0 &&
+    htmlSrc0.indexOf('class="btn-row"') > 0 &&
+    htmlSrc0.includes('id="btn-backup-back"'));
+  check('导入页只有粘贴框 + 导入/返回各自一排',
+    htmlSrc0.includes('id="backup-import-menu"') &&
+    htmlSrc0.includes('点击下面的「导入」') &&
+    htmlSrc0.includes('id="btn-backup-import-back"') &&
+    !htmlSrc0.includes('id="backup-input" placeholder="把存档码粘贴到这里'));
   check('存档码：导出 → 清空存储 → 导入，账号和进度都回来', (() => {
     const curIdBefore = sandbox.Account.currentId();
     const code = sandbox.Account.exportBackup();

@@ -2324,7 +2324,7 @@
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-      'backup-menu', 'fix-menu',
+      'backup-menu', 'backup-import-menu', 'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2340,7 +2340,7 @@
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-    'backup-menu', 'fix-menu'];
+    'backup-menu', 'backup-import-menu', 'fix-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -4348,17 +4348,13 @@
       showOverlay('settings-menu');
     });
 
-    // 📄 存档码前后端
+    // 📄 存档码：设置里只负责「生成 + 复制」，登录页只负责「导入」
     let backupFrom = 'account';
 
     function openBackupMenu(from) {
       backupFrom = from === 'auth' ? 'auth' : 'account';
-      ['backup-code', 'backup-input'].forEach((id) => {
-        const el = $(id);
-        if (el) el.value = '';
-      });
-      const err = $('backup-err');
-      if (err) err.textContent = '';
+      const box = $('backup-code');
+      if (box) box.value = '';
       if (backupFrom === 'auth') {
         if ($('auth-menu')) $('auth-menu').style.display = 'none';
         if ($('auth-form')) $('auth-form').style.display = 'none';
@@ -4367,6 +4363,29 @@
       }
       showOverlay('backup-menu');
       setView('menu');
+    }
+
+    function openImportMenu(from) {
+      backupFrom = from === 'auth' ? 'auth' : 'account';
+      const box = $('backup-input');
+      if (box) box.value = '';
+      const err = $('backup-err');
+      if (err) err.textContent = '';
+      if ($('auth-menu')) $('auth-menu').style.display = 'none';
+      if ($('auth-form')) $('auth-form').style.display = 'none';
+      if (backupFrom !== 'auth' && $('account-menu')) $('account-menu').style.display = 'none';
+      showOverlay('backup-import-menu');
+      setView('menu');
+    }
+
+    // 两个面板共用的「返回」：从哪进来就回哪去
+    function backupBack() {
+      $('backup-menu').style.display = 'none';
+      $('backup-import-menu').style.display = 'none';
+      if (backupFrom === 'auth') { showAuthScreen(); return; }
+      const n = $('account-cur-name');
+      if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
+      showOverlay('account-menu');
     }
 
     function genBackupCode() {
@@ -4413,24 +4432,19 @@
       }
       if (err) err.textContent = '';
       toast('已导入 ' + r.count + ' 个账号');
-      $('backup-menu').style.display = 'none';
+      $('backup-import-menu').style.display = 'none';
       setTimeout(() => { try { location.reload(); } catch (e) {} }, 700);
       return true;
     }
 
-    // 📄 存档码：换网址 / 换设备时把账号和进度整份搬过去
+    // 📄 存档码入口：设置里生成，登录页导入
     on('btn-goto-backup', () => openBackupMenu('account'));
+    on('btn-auth-backup', () => openImportMenu('auth'));
     on('btn-backup-gen', genBackupCode);
     on('btn-backup-copy', copyBackupCode);
     on('btn-backup-import', doImportBackup);
-    on('btn-auth-backup', () => openBackupMenu('auth'));
-    on('btn-backup-back', () => {
-      $('backup-menu').style.display = 'none';
-      if (backupFrom === 'auth') { showAuthScreen(); return; }
-      const n = $('account-cur-name');
-      if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
-      showOverlay('account-menu');
-    });
+    on('btn-backup-back', backupBack);
+    on('btn-backup-import-back', backupBack);
 
     // 修改密码
     on('btn-goto-password', () => {
@@ -5655,6 +5669,8 @@
     if (fix) fix.style.display = 'none';
     const bk = $('backup-menu');
     if (bk) bk.style.display = 'none';
+    const bki = $('backup-import-menu');
+    if (bki) bki.style.display = 'none';
     setAuthError('');
     renderAuthAccounts();
     showOverlay('auth-menu');

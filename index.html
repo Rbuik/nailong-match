@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106d">
-<link rel="stylesheet" href="./css/themes.css?v=20261106d">
+<link rel="stylesheet" href="./css/style.css?v=20261106e">
+<link rel="stylesheet" href="./css/themes.css?v=20261106e">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -307,7 +307,7 @@
         <p><b>切换账号</b> / <b>修改密码</b>：设置 → 🔐 账号安全，本机账号都列出来，点一下即切换，金币、星星、进度各自独立。</p>
         <p><b>注销账号</b>：设置 → 🔐 账号安全 → 🔒 注销账号（切换账号下面）。两步确认后<b>彻底删除</b>进度、星星、金币、背包、成就、邮箱、榜单成绩，<b>无法恢复</b>；只是换号玩请用「切换账号」。</p>
         <p><b>账号存在服务器</b>：名字和密码会存到云服务器，打到一半的进度每 30 秒自动上传一次。换手机、换网址、微信清缓存后，用<b>原来的名字 + 密码</b>登录，进度和金币自动回来（没网时游戏照常能玩，联网后自动补传）。</p>
-        <p><b>存档码</b>：设置 → 🔐 账号安全 → 💾 存档码，点「生成」把所有账号和进度变成一段文字，复制存好；换网址、换设备、微信清缓存后，在新地址点登录页的「💾 导入存档码」粘贴进去就能整份搬回来。</p>
+        <p><b>存档码</b>：设置 → 🔐 账号安全 → 💾 存档码，点「生成」把所有账号和进度变成一段文字，再点「复制」存好；换网址、换设备、微信清缓存后，在新地址点登录页的「💾 导入存档码」，把那段文字粘进去点「导入」就整份搬回来了。<b>生成</b>只在设置里，<b>导入</b>只在登录页，两边各管一头。</p>
       </section>
     </div>
     <button class="btn-secondary" id="btn-features-back">返回</button>
@@ -458,19 +458,28 @@
   </div>
 
   <!-- 存档码：网址变了 / 换设备 / 微信清缓存时，把账号和进度整份搬过去 -->
+  <!-- 存档码：生成（设置 → 🔐 账号安全 → 💾 存档码） -->
   <div class="overlay" id="backup-menu" style="display:none;">
     <h2 class="title small">💾 存档码</h2>
     <div class="auth-box">
-      <textarea class="backup-code" id="backup-code" readonly placeholder="点下面「生成存档码」"></textarea>
-      <textarea class="backup-code" id="backup-input" placeholder="把存档码粘贴到这里，再点「导入」"></textarea>
-      <p class="auth-err" id="backup-err"></p>
+      <textarea class="backup-code" id="backup-code" readonly placeholder="点击下面的「生成」"></textarea>
     </div>
     <div class="btn-row">
       <button class="btn-secondary" id="btn-backup-gen">生成</button>
       <button class="btn-secondary" id="btn-backup-copy">复制</button>
     </div>
-    <button class="btn-primary" id="btn-backup-import">导入存档码</button>
     <button class="btn-secondary" id="btn-backup-back">返回</button>
+  </div>
+
+  <!-- 导入存档码：粘贴（登录页 → 💾 导入存档码） -->
+  <div class="overlay" id="backup-import-menu" style="display:none;">
+    <h2 class="title small">💾 导入存档码</h2>
+    <div class="auth-box">
+      <textarea class="backup-code" id="backup-input" placeholder="点击下面的「导入」"></textarea>
+      <p class="auth-err" id="backup-err"></p>
+    </div>
+    <button class="btn-primary" id="btn-backup-import">导入</button>
+    <button class="btn-secondary" id="btn-backup-import-back">返回</button>
   </div>
 
   <!-- 修改密码 -->
@@ -898,22 +907,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106d"></script>
-<script src="./js/storage.js?v=20261106d"></script>
-<script src="./js/audio.js?v=20261106d"></script>
-<script src="./js/effects.js?v=20261106d"></script>
-<script src="./js/specials.js?v=20261106d"></script>
-<script src="./js/goals.js?v=20261106d"></script>
-<script src="./js/tasks.js?v=20261106d"></script>
-<script src="./js/mail.js?v=20261106d"></script>
-<script src="./js/input.js?v=20261106d"></script>
-<script src="./js/builtin-music.js?v=20261106d"></script>
-<script src="./js/music.js?v=20261106d"></script>
-<script src="./js/meta.js?v=20261106d"></script>
-<script src="./js/cloud-config.js?v=20261106d"></script>
-<script src="./js/cloud.js?v=20261106d"></script>
-<script src="./js/account.js?v=20261106d"></script>
-<script src="./js/board.js?v=20261106d"></script>
-<script src="./js/game.js?v=20261106d"></script>
+<script src="./js/rng.js?v=20261106e"></script>
+<script src="./js/storage.js?v=20261106e"></script>
+<script src="./js/audio.js?v=20261106e"></script>
+<script src="./js/effects.js?v=20261106e"></script>
+<script src="./js/specials.js?v=20261106e"></script>
+<script src="./js/goals.js?v=20261106e"></script>
+<script src="./js/tasks.js?v=20261106e"></script>
+<script src="./js/mail.js?v=20261106e"></script>
+<script src="./js/input.js?v=20261106e"></script>
+<script src="./js/builtin-music.js?v=20261106e"></script>
+<script src="./js/music.js?v=20261106e"></script>
+<script src="./js/meta.js?v=20261106e"></script>
+<script src="./js/cloud-config.js?v=20261106e"></script>
+<script src="./js/cloud.js?v=20261106e"></script>
+<script src="./js/account.js?v=20261106e"></script>
+<script src="./js/board.js?v=20261106e"></script>
+<script src="./js/game.js?v=20261106e"></script>
 </body>
 </html>
