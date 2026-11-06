@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>货物徽标预览（钥匙 / 奶龙）</title>
+<style>
+  body { margin: 0; padding: 14px; font: 13px/1.5 system-ui, "Segoe UI", "Microsoft YaHei", sans-serif; background: #f6f1e6; color: #333; }
+  h2 { font-size: 14px; margin: 0 0 6px; color: #666; font-weight: 600; }
+  .wrap { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .cellbox { width: 64px; height: 64px; border-radius: 12px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+  canvas { display: block; }
+  .row { margin-bottom: 14px; }
+  .tag { font-size: 12px; color: #888; }
+</style>
+</head>
+<body>
+<h2>钥匙（矢量 + 黑描边）在深 / 中 / 浅底上的样子</h2>
+<div class="row"><div class="wrap" id="row1"></div></div>
+<h2>奶龙（抠图 + 8 方向黑边）对照</h2>
+<div class="row"><div class="wrap" id="row2"></div></div>
+<h2>放大 3 倍看边缘（看是否糊、黑边是否均匀）</h2>
+<div class="row"><div class="wrap" id="row3"></div></div>
+<script>
+const CELL = 64;
+const DPR = Math.min(2, window.devicePixelRatio || 1);
+const ctx = {};
+
+/* ---- 以下 drawKeyMark 从 js/game.js 原样注入（见 _preview/make-cargo-preview.js） ---- */
+
+  // 钥匙徽标：纯路径画出来。
+  // 为什么不用 🔑：彩色 emoji 字形在绝大多数浏览器里不吃 strokeText，描边等于没画；
+  // 想要黑边只能自己构图 —— 「先用加粗黑线整体描一遍，再填金色」，两层叠起来只剩外轮廓一圈黑。
+  function drawKeyMark(g, cell, pulse) {
+    const k = cell * 0.72;                 // 钥匙总高
+    const ringY = -k * 0.27;               // 钥匙环圆心
+    const R = k * 0.215;                   // 环外径
+    const hole = k * 0.082;                // 环内孔
+    const shaftW = k * 0.115;              // 杆宽
+    const shaftX = -shaftW / 2;
+    const shaftTop = ringY + R * 0.45;     // 杆插进环里，接缝被环的填充盖住
+    const shaftBot = k * 0.47;
+    const teeth = [
+      { y: k * 0.12, w: k * 0.19, h: k * 0.075 },
+      { y: k * 0.29, w: k * 0.14, h: k * 0.070 }
+    ];
+
+    // 背后一层金色柔光（跟着呼吸起伏）
+    g.save();
+    g.shadowBlur = 0;                      // 钥匙自己控制光晕，不用外面的阴影
+    const glow = g.createRadialGradient(0, ringY * 0.15, k * 0.04, 0, ringY * 0.15, k * 0.62);
+    glow.addColorStop(0, 'rgba(255,206,84,' + (0.30 + 0.18 * pulse).toFixed(3) + ')');
+    glow.addColorStop(1, 'rgba(255,206,84,0)');
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(0, ringY * 0.15, k * 0.62, 0, Math.PI * 2);
+    g.fill();
+
+    const paint = (fill) => {
+      // 钥匙环（反向绕内孔 → evenodd 挖空）
+      g.beginPath();
+      g.arc(0, ringY, R, 0, Math.PI * 2);
+      g.moveTo(hole, ringY);
+      g.arc(0, ringY, hole, Math.PI * 2, 0, true);
+      if (fill) g.fill('evenodd'); else g.stroke();
+      // 杆
+      g.beginPath();
+      g.rect(shaftX, shaftTop, shaftW, shaftBot - shaftTop);
+      if (fill) g.fill(); else g.stroke();
+      // 齿
+      for (let i = 0; i < teeth.length; i++) {
+        const t = teeth[i];
+        g.beginPath();
+        g.rect(shaftX + shaftW - k * 0.012, t.y, t.w, t.h);
+        if (fill) g.fill(); else g.stroke();
+      }
+    };
+
+    g.save();
+    g.lineJoin = 'round';
+    g.lineCap = 'round';
+    // 1) 黑色加粗描一遍：可见黑边 = 线宽的一半
+    g.strokeStyle = '#000';
+    g.lineWidth = Math.max(2.4, cell * 0.09);
+    paint(false);
+    // 2) 金色填进去，盖掉内部的黑线，只留外轮廓
+    const gold = g.createLinearGradient(0, ringY - R, 0, shaftBot);
+    gold.addColorStop(0, '#ffe893');
+    gold.addColorStop(0.45, '#ffcf4a');
+    gold.addColorStop(1, '#e3a017');
+    g.fillStyle = gold;
+    paint(true);
+    // 3) 环上一小段高光，看着像金属
+    g.strokeStyle = 'rgba(255,255,255,0.85)';
+    g.lineWidth = Math.max(1, cell * 0.035);
+    g.beginPath();
+    g.arc(0, ringY, (R + hole) / 2, Math.PI * 1.12, Math.PI * 1.52);
+    g.stroke();
+    g.restore();
+  }
+
+function makeCell(bg, zoom) {
+  const z = zoom || 1;
+  const px = CELL * z;
+  const d = document.createElement('div');
+  d.className = 'cellbox';
+  d.style.background = bg;
+  d.style.width = px + 'px';
+  d.style.height = px + 'px';
+  const cv = document.createElement('canvas');
+  cv.width = px * DPR; cv.height = px * DPR;
+  cv.style.width = px + 'px'; cv.style.height = px + 'px';
+  const g = cv.getContext('2d');
+  g.scale(DPR, DPR);
+  d.appendChild(cv);
+  return { el: d, g: g };
+}
+
+function drawKey(bg) {
+  const { el, g } = makeCell(bg);
+  g.save();
+  g.translate(CELL / 2, CELL / 2);
+  g.shadowColor = 'rgba(110,200,255,0.9)';
+  g.shadowBlur = CELL * 0.26;
+  drawKeyMark(g, CELL, 1);
+  g.restore();
+  return el;
+}
+
+const bgs = ['#2b3550', '#7a6ba8', '#e8dcc0', '#3d8b6a', '#c94f6d'];
+bgs.forEach((b) => document.getElementById('row1').appendChild(drawKey(b)));
+
+// 奶龙对照：用真实图片 + 同样的「先黑后图」画法
+const img = new Image();
+img.src = '../assets/nailong.png';
+img.onload = () => {
+  bgs.forEach((b) => {
+    const { el, g } = makeCell(b);
+    g.save();
+    g.translate(CELL / 2, CELL / 2);
+    const s = CELL * 0.66;
+    g.shadowColor = 'rgba(255,186,60,0.9)';
+    g.shadowBlur = CELL * 0.26;
+    g.drawImage(img, -s / 2, -s / 2, s, s);
+    g.restore();
+    document.getElementById('row2').appendChild(el);
+  });
+};
+
+// 放大 3 倍
+bgs.slice(0, 3).forEach((b) => {
+  const { el, g } = makeCell(b, 3);
+  g.save();
+  g.translate(CELL * 1.5, CELL * 1.5);
+  g.scale(3, 3);
+  drawKeyMark(g, CELL, 1);
+  g.restore();
+  document.getElementById('row3').appendChild(el);
+});
+</script>
+</body>
+</html>

@@ -749,8 +749,8 @@
     GRANTS.forEach((g) => {
       const key = g.id + ':' + acc.id;
       if (claimed.indexOf(key) >= 0) return;
-      // 补偿奖励按名字发（大小写不敏感：当年注册写的是 II 还是 ii 都算同一个人）
-      if (String(acc.name || '').trim().toLowerCase() !== String(g.name).trim().toLowerCase()) return;
+      // 补偿奖励按名字发，和账号一样区分大小写：只有名字完全一致才发
+      if (String(acc.name || '').trim() !== String(g.name).trim()) return;
       if (!deliverGrant(g)) return;
       claimed.push(key);
       got.push(g);

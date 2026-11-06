@@ -665,6 +665,77 @@
     return cv;
   }
 
+  // 钥匙徽标：纯路径画出来。
+  // 为什么不用 🔑：彩色 emoji 字形在绝大多数浏览器里不吃 strokeText，描边等于没画；
+  // 想要黑边只能自己构图 —— 「先用加粗黑线整体描一遍，再填金色」，两层叠起来只剩外轮廓一圈黑。
+  function drawKeyMark(g, cell, pulse) {
+    const k = cell * 0.72;                 // 钥匙总高
+    const ringY = -k * 0.27;               // 钥匙环圆心
+    const R = k * 0.215;                   // 环外径
+    const hole = k * 0.082;                // 环内孔
+    const shaftW = k * 0.115;              // 杆宽
+    const shaftX = -shaftW / 2;
+    const shaftTop = ringY + R * 0.45;     // 杆插进环里，接缝被环的填充盖住
+    const shaftBot = k * 0.47;
+    const teeth = [
+      { y: k * 0.12, w: k * 0.19, h: k * 0.075 },
+      { y: k * 0.29, w: k * 0.14, h: k * 0.070 }
+    ];
+
+    // 背后一层金色柔光（跟着呼吸起伏）
+    g.save();
+    g.shadowBlur = 0;                      // 钥匙自己控制光晕，不用外面的阴影
+    const glow = g.createRadialGradient(0, ringY * 0.15, k * 0.04, 0, ringY * 0.15, k * 0.62);
+    glow.addColorStop(0, 'rgba(255,206,84,' + (0.30 + 0.18 * pulse).toFixed(3) + ')');
+    glow.addColorStop(1, 'rgba(255,206,84,0)');
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(0, ringY * 0.15, k * 0.62, 0, Math.PI * 2);
+    g.fill();
+
+    const paint = (fill) => {
+      // 钥匙环（反向绕内孔 → evenodd 挖空）
+      g.beginPath();
+      g.arc(0, ringY, R, 0, Math.PI * 2);
+      g.moveTo(hole, ringY);
+      g.arc(0, ringY, hole, Math.PI * 2, 0, true);
+      if (fill) g.fill('evenodd'); else g.stroke();
+      // 杆
+      g.beginPath();
+      g.rect(shaftX, shaftTop, shaftW, shaftBot - shaftTop);
+      if (fill) g.fill(); else g.stroke();
+      // 齿
+      for (let i = 0; i < teeth.length; i++) {
+        const t = teeth[i];
+        g.beginPath();
+        g.rect(shaftX + shaftW - k * 0.012, t.y, t.w, t.h);
+        if (fill) g.fill(); else g.stroke();
+      }
+    };
+
+    g.save();
+    g.lineJoin = 'round';
+    g.lineCap = 'round';
+    // 1) 黑色加粗描一遍：可见黑边 = 线宽的一半
+    g.strokeStyle = '#000';
+    g.lineWidth = Math.max(2.4, cell * 0.09);
+    paint(false);
+    // 2) 金色填进去，盖掉内部的黑线，只留外轮廓
+    const gold = g.createLinearGradient(0, ringY - R, 0, shaftBot);
+    gold.addColorStop(0, '#ffe893');
+    gold.addColorStop(0.45, '#ffcf4a');
+    gold.addColorStop(1, '#e3a017');
+    g.fillStyle = gold;
+    paint(true);
+    // 3) 环上一小段高光，看着像金属
+    g.strokeStyle = 'rgba(255,255,255,0.85)';
+    g.lineWidth = Math.max(1, cell * 0.035);
+    g.beginPath();
+    g.arc(0, ringY, (R + hole) / 2, Math.PI * 1.12, Math.PI * 1.52);
+    g.stroke();
+    g.restore();
+  }
+
   // 发光徽标很贵（shadowBlur 逐帧重绘会让低端机发烫卡顿），
   // 把徽标按「呼吸亮度档位」预渲染进离屏画布，运行时只做廉价 drawImage
   const CARGO_SPRITES = {};   // kind -> { cell, dpr, m: { 档位: canvas } }
@@ -706,18 +777,23 @@
       }
       // 图案本体
       g.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
-    } else {
-      const t = isN ? '奶龙' : '🔑';
+    } else if (isN) {
+      // 抠图还没加载完：先拿文字兜底
       const px = Math.round(CELL * 0.54);
       g.font = px + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
       g.lineJoin = 'round';
       g.lineWidth = Math.max(3, CELL * 0.13);
       g.strokeStyle = '#000';
-      g.strokeText(t, 0, 1);
-      g.strokeText(t, 0, 1);
+      g.strokeText('奶龙', 0, 1);
+      g.strokeText('奶龙', 0, 1);
       g.shadowBlur = CELL * 0.16;
-      g.fillText(t, 0, 1);
-      g.fillText(t, 0, 1);
+      g.fillText('奶龙', 0, 1);
+      g.fillText('奶龙', 0, 1);
+    } else {
+      // 钥匙自己画：emoji 的 strokeText 在多数浏览器里不生效（彩色字形不吃描边），
+      // 想让钥匙也有黑边，只能拿路径画：先用加粗黑线整体描一遍，再填金色，
+      // 叠起来就只剩轮廓那一圈黑边。
+      drawKeyMark(g, CELL, pulse);
     }
     c.m[bucket] = sp;
     return sp;

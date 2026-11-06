@@ -1305,8 +1305,12 @@ function check(name, ok) {
     sandbox.Mail.claim('gift-yone-1360').ok === true &&
     sandbox.Store.getWallet().coins === coinsFresh + 1360);
 
-  // 32b. ii 的 666 金币（同样走邮箱，只发一次，名字大小写不敏感）
-  const iiReg = sandbox.Account.register('II', 'ii123456');
+  // 32b. ii 的 666 金币：补偿按名字发，和账号一样区分大小写
+  const iiUpper = sandbox.Account.register('II', 'ii123456');
+  const iiUpperGrant = sandbox.Account.claimGrants();
+  check('名字写成 II（大写）不发补偿：补偿也区分大小写',
+    iiUpper.ok && iiUpperGrant.length === 0 && !sandbox.Mail.get('gift-ii-666'));
+  const iiReg = sandbox.Account.register('ii', 'ii123456');
   const coinsIi = sandbox.Store.getWallet().coins;
   const iiGrant = sandbox.Account.claimGrants();
   const iiMail = sandbox.Mail.get('gift-ii-666');
@@ -1654,13 +1658,21 @@ function check(name, ok) {
     /id="hud"[\s\S]*?id="score"/.test(htmlSrc0) &&
     !/hud-mini/.test(htmlSrc0) && !/id="coins"/.test(htmlSrc0) && !/id="stars"/.test(htmlSrc0));
   check('窄屏不再隐藏任何顶栏项（各手机显示一致）', !/\.hud-mini\s*{ display: none/.test(cssSrc));
-  // 39b. 狂热改成「棋盘下方」静态倒计时小标：棋盘不再呼吸闪动、不再有横幅
+  // 39b. 狂热改成「棋盘下方」倒计时小标：不再有横幅；小标自己呼吸，不闪棋盘
   check('狂热小标放在棋盘下方（🔥 双倍 Ns），不再有闪动横幅',
     /id="frenzy-chip"/.test(htmlSrc0) && /id="frenzy-left"/.test(htmlSrc0) &&
     !/frenzy-banner/.test(htmlSrc0) && !/frenzyPulse/.test(cssSrc) &&
     /\.hud-frenzy\s*{/.test(cssSrc) && /\.frenzy-slot\s*{/.test(cssSrc) &&
     htmlSrc0.indexOf('id="frenzy-chip"') > htmlSrc0.indexOf('class="board-wrap"') &&
     !/id="hud"[\s\S]{0,400}frenzy-chip/.test(htmlSrc0));
+  // 39b-2. 双倍小标：位置再往下一点（不再负 margin 贴棋盘），并且和钥匙 / 奶龙同样呼吸
+  check('双倍小标离棋盘更远一点，并且有呼吸动效',
+    /\.frenzy-slot\s*{[^}]*margin-top:\s*0;/.test(cssSrc) &&
+    !/\.frenzy-slot\s*{[^}]*margin-top:\s*-/.test(cssSrc) &&
+    /animation:\s*frenzy-breathe/.test(cssSrc) &&
+    /@keyframes\s+frenzy-breathe/.test(cssSrc) &&
+    /@keyframes\s+frenzy-breathe[^@]*transform:\s*scale\(/.test(cssSrc) &&
+    /prefers-reduced-motion[^}]*\.hud-frenzy\s*{\s*animation:\s*none/.test(cssSrc));
   check('狂热倒计时逐秒递减并在结束时收起',
     /function paintFrenzy/.test(jsSrc) && /function stopFrenzy/.test(jsSrc) &&
     /setInterval\(paintFrenzy, 200\)/.test(jsSrc));
@@ -1753,6 +1765,13 @@ function check(name, ok) {
   check('钥匙 / 奶龙徽标用黑色描边（奶龙走剪影 8 方向铺边）',
     /g\.strokeStyle = '#000'/.test(jsSrc) && /nailongSilhouette/.test(jsSrc) &&
     /for \(let i = 0; i < 8; i\+\+\)/.test(jsSrc));
+  // 41j. 钥匙也走矢量：emoji 的 strokeText 不生效，改用「先黑描后金填」的联合轮廓
+  check('钥匙改成矢量绘制，先描黑边再填金色（不吃 emoji）',
+    /function drawKeyMark/.test(jsSrc) &&
+    /paint\(false\)/.test(jsSrc) && /paint\(true\)/.test(jsSrc) &&
+    /fill\('evenodd'\)/.test(jsSrc) &&
+    !/g\.strokeText\(t, 0, 1\)/.test(jsSrc) &&
+    !/const t = isN \? '奶龙' : '🔑'/.test(jsSrc));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
