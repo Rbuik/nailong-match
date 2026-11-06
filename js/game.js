@@ -1992,11 +1992,6 @@
     const sc = $('score');
     if (sc) sc.textContent = S.score;
 
-    const coinEl = $('coins');
-    if (coinEl) coinEl.textContent = Store.getWallet().coins;
-    const starEl = $('stars');
-    if (starEl) starEl.textContent = Store.totalStars();
-
     // 徽章只显示本局剩余次数（背包里的数量在背包面板看，避免「以为能自动补」）
     const sh = $('shuffle-count');
     if (sh) sh.textContent = S.shuffleLeft;

@@ -26,8 +26,7 @@ body[data-theme="candy"] { --board-bg: #ffffff; --board-grid: #f0f0f0; --accent:
 canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 /* ================= HUD 扩展 ================= */
-.hud-mini { font-size: 14px; color: #666; white-space: nowrap; }
-.hud-mini b { color: #d4880a; font-size: 16px; }
+/* 顶栏只留 关卡 / 步数 / 得分（金币星星原先的 hud-mini 已删，各手机统一） */
 
 /* ================= 倍数显示：棋盘中央横幅 ================= */
 
@@ -932,7 +931,6 @@ body.m-dragging .m-item { cursor: grabbing; }
 
 /* ================= 窄屏 ================= */
 @media (max-width: 420px) {
-  .hud-mini { display: none; }
   .preview-strip::before { font-size: 8px; letter-spacing: 0; }
   .stars-row span { font-size: 32px; }
   .music-box { max-height: 40vh; }

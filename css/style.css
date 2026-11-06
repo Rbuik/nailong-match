@@ -9,9 +9,15 @@ body { display: flex; align-items: center; justify-content: center; touch-action
 
 .game-container {
   position: relative; display: flex; flex-direction: column; align-items: center;
+  justify-content: center;
   gap: 14px; padding: 20px 24px; width: 100%; max-width: 620px;
+  /* 白色页面撑满整屏高度：随每台手机屏幕高度自适应（dvh 兼容浏览器地址栏收起/展开） */
+  min-height: calc(100vh - 12px);
   background: #ffffff; border-radius: 24px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05), 0 10px 30px rgba(0,0,0,0.12), 0 30px 60px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.9);
+}
+@supports (height: 100dvh) {
+  .game-container { min-height: calc(100dvh - 12px); }
 }
 
 .board-wrap {
@@ -127,9 +133,12 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
   pointer-events: none;
 }
 
-/* 主页/设置等面板显示时，容器需要更多高度，避免内容溢出、按钮互相压住 */
-body[data-view="menu"] .game-container {
-  min-height: min(calc(100vh - 12px), 780px);
+/* 手机上白色页面直接撑满整屏（上面的 min-height 已生效）；
+   宽屏（平板 / 电脑）菜单页仍限制在 780px 高度内，避免内容拉得太开 */
+@media (min-width: 600px) {
+  body[data-view="menu"] .game-container {
+    min-height: min(calc(100vh - 12px), 780px);
+  }
 }
 
 /* 所有确认窗口统一：按钮一样大（112px），肯定（红）在左、否定（绿）在右 */

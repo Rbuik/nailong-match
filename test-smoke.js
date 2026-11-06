@@ -1591,6 +1591,17 @@ function check(name, ok) {
   check('迁码后榜单上没有两条同名', sandbox.Board.list().filter((e) => e.name === '换码测试').length === 0);
   sandbox.__cloudOn = false;
 
+  // 39. 顶栏统一：只有关卡 / 步数 / 得分，金币星星一律不上顶栏
+  check('游戏顶栏只有 关卡 / 步数 / 得分 三项',
+    /id="hud"[\s\S]*?id="score"/.test(htmlSrc0) &&
+    !/hud-mini/.test(htmlSrc0) && !/id="coins"/.test(htmlSrc0) && !/id="stars"/.test(htmlSrc0));
+  check('窄屏不再隐藏任何顶栏项（各手机显示一致）', !/\.hud-mini\s*{ display: none/.test(cssSrc));
+  // 40. 白色页面撑满整屏高度：随手机屏幕高度自适应
+  check('页面容器最小高度跟随整屏（vh + dvh 双写兼容地址栏）',
+    cssSrc.includes('min-height: calc(100vh - 12px);') &&
+    cssSrc.includes('min-height: calc(100dvh - 12px);'));
+  check('游戏页内容在多出的高度里垂直居中', /\.game-container\s*{[^}]*justify-content: center;/.test(cssSrc));
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });

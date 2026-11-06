@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106x">
-<link rel="stylesheet" href="./css/themes.css?v=20261106x">
+<link rel="stylesheet" href="./css/style.css?v=20261106y">
+<link rel="stylesheet" href="./css/themes.css?v=20261106y">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -21,8 +21,6 @@
     <div class="hud-item">关卡：<b id="level">1</b></div>
     <div class="hud-item" id="moves-container">步数：<b id="moves">25</b></div>
     <div class="hud-item">得分：<b id="score">0</b></div>
-    <div class="hud-item hud-mini">🪙 <b id="coins">0</b></div>
-    <div class="hud-item hud-mini">⭐ <b id="stars">0</b></div>
     <button id="btn-pause" title="暂停">⏸</button>
   </div>
 
@@ -361,6 +359,7 @@
         <h3>🎮 基本玩法</h3>
         <p>交换相邻两块，让 <b>3 个及以上相同图案</b>连成横线或竖线即可消除；左右滑动、点选两格都行，长按可多选。</p>
         <p>每步消耗 1 步数（限时关消耗时间），用完本局结束；剩 <b>5 步</b>（限时关 <b>10 秒</b>）时顶部数字变红提醒。</p>
+        <p>局内顶栏固定只有 <b>关卡 / 步数 / 得分</b> 三项（限时关显示剩余时间）；金币和星星在主页看，局内不显示。页面高度随每台手机屏幕自适应，白色页面始终铺满整屏。</p>
         <p><b>退出页面 / 切后台 / 锁屏</b>会自动暂停，回来接着玩，不会白掉步数。找不到步就点 <b>💡 提示</b>（每局 3 次）。</p>
       </section>
 
@@ -965,22 +964,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106x"></script>
-<script src="./js/storage.js?v=20261106x"></script>
-<script src="./js/audio.js?v=20261106x"></script>
-<script src="./js/effects.js?v=20261106x"></script>
-<script src="./js/specials.js?v=20261106x"></script>
-<script src="./js/goals.js?v=20261106x"></script>
-<script src="./js/tasks.js?v=20261106x"></script>
-<script src="./js/mail.js?v=20261106x"></script>
-<script src="./js/input.js?v=20261106x"></script>
-<script src="./js/builtin-music.js?v=20261106x"></script>
-<script src="./js/music.js?v=20261106x"></script>
-<script src="./js/meta.js?v=20261106x"></script>
-<script src="./js/cloud-config.js?v=20261106x"></script>
-<script src="./js/cloud.js?v=20261106x"></script>
-<script src="./js/account.js?v=20261106x"></script>
-<script src="./js/board.js?v=20261106x"></script>
-<script src="./js/game.js?v=20261106x"></script>
+<script src="./js/rng.js?v=20261106y"></script>
+<script src="./js/storage.js?v=20261106y"></script>
+<script src="./js/audio.js?v=20261106y"></script>
+<script src="./js/effects.js?v=20261106y"></script>
+<script src="./js/specials.js?v=20261106y"></script>
+<script src="./js/goals.js?v=20261106y"></script>
+<script src="./js/tasks.js?v=20261106y"></script>
+<script src="./js/mail.js?v=20261106y"></script>
+<script src="./js/input.js?v=20261106y"></script>
+<script src="./js/builtin-music.js?v=20261106y"></script>
+<script src="./js/music.js?v=20261106y"></script>
+<script src="./js/meta.js?v=20261106y"></script>
+<script src="./js/cloud-config.js?v=20261106y"></script>
+<script src="./js/cloud.js?v=20261106y"></script>
+<script src="./js/account.js?v=20261106y"></script>
+<script src="./js/board.js?v=20261106y"></script>
+<script src="./js/game.js?v=20261106y"></script>
 </body>
 </html>
