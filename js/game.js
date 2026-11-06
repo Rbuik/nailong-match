@@ -5627,7 +5627,7 @@
   }
 
   // ---------- 再来 3 步 ----------
-  const REVIVE_COST = 200;
+  const REVIVE_COST = 300;
   function maybeOfferRevive() {
     if (!S.playing) return false;
     if (S.daily || (S.mode && S.mode !== 'main') || S.reviveUsed) return false;
@@ -5644,7 +5644,9 @@
     const yes = $('btn-revive-yes');
     if (yes) {
       yes.disabled = !can;
-      yes.textContent = can ? ('花 ' + REVIVE_COST + ' 金币，再来 3 步') : '金币不足';
+      yes.textContent = can
+        ? (S.timerOn ? ('花 ' + REVIVE_COST + ' 金币，再来 15s') : ('花 ' + REVIVE_COST + ' 金币，再来 3 步'))
+        : '金币不足';
     }
     S.busy = true;
     Input.setEnabled(false);
@@ -5669,7 +5671,7 @@
     drawStatic();
     if (S.timerOn) startTimer();
     AudioManager.playSFX('coin');
-    toast(S.timerOn ? '续命成功：+15 秒' : '续命成功：+3 步');
+    toast(S.timerOn ? '续命成功：+15s' : '续命成功：+3 步');
   }
 
   function declineRevive() {

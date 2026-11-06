@@ -584,7 +584,7 @@ function check(name, ok) {
   check('规则含 8 种目标', ['普通得分', '收集方块', '清除果冻', '限时得分', '极限步数', '敲碎冰块', '运送钥匙', '护送奶龙'].every((s) => htmlSrc.includes(s)));
   check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('落到被消掉那一格的下面一格'));
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
-  check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('200 金币'));
+  check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('300 金币') && htmlSrc.includes('+15s'));
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));  check('规则含成就配色排行榜说明', htmlSrc.includes('成就与配色') && htmlSrc.includes('排行榜与奖牌') && htmlSrc.includes('总榜 → 省榜 → 局榜'));
   check('规则里昵称只说「名字具有唯一性」，不提旧默认名 / 榜上重名',
     htmlSrc.includes('名字具有唯一性') && !htmlSrc.includes('不能和榜上的人重名') &&
@@ -2000,7 +2000,7 @@ function check(name, ok) {
     const i3 = shop.findIndex((x) => x.key === 'extraMoves');
     const i10 = shop.findIndex((x) => x.key === 'extraTime');
     return i3 >= 0 && i10 === i3 + 1 && shop[i10].price === 300 &&
-      /10/.test(shop[i10].name) && sandbox.Store.getWallet().items.extraTime === 0;
+      shop[i10].name === '+10s' && sandbox.Store.getWallet().items.extraTime === 0;
   })());
   check('「+10 秒」限时关真的加 10 秒，步数关不白扣', (() => {
     sandbox.__nl_test.start(1, { def: { id: 88, theme: 'ocean', moves: 20, goal: { type: 'timed', target: 100, time: 60 }, stars: [1, 2, 3] } });
@@ -2015,6 +2015,11 @@ function check(name, ok) {
     const still = sandbox.Store.getWallet().items.extraTime;
     return ok === true && Math.round(after) === 52 && bad === false && still === have;
   })());
+
+  // 41m. 续命：300 金币；限时关的按钮写「再来 15s」（和 HUD 的 Ns 格式一致）
+  check('续命 300 金币，限时关按钮写「再来 15s」',
+    /const REVIVE_COST = 300;/.test(jsSrc) && /再来 15s/.test(jsSrc) &&
+    !/REVIVE_COST = 200/.test(jsSrc) && htmlSrc.includes('花 300 金币，再来 3 步'));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
