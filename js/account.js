@@ -488,7 +488,20 @@
     const slot = slotOf(acc.id);
     if (!slot) return Promise.resolve(false);
     return global.Cloud.push(slot, !!force)
-      .then((r) => { if (r && r.ok && r.token) { acc.ctoken = r.token; } return !!(r && r.ok); })
+      .then((r) => {
+        if (r && r.ok) { if (r.token) acc.ctoken = r.token; return true; }
+        if (r && !r.ok && String(r.reason || '').indexOf('过期') >= 0) {
+          // 令牌失效（比如服务器上这个号被重建 / 删过）：解除绑定，
+          // 让「存到服务器」的提示能重新出现，玩家重输密码即可重新建档
+          try {
+            acc.ctoken = null; acc.cloud = 0;
+            const arr = list();
+            const i = arr.findIndex((x) => x.id === acc.id);
+            if (i >= 0) { arr[i].ctoken = null; arr[i].cloud = 0; saveList(arr); }
+          } catch (e) {}
+        }
+        return false;
+      })
       .catch(() => false);
   }
 
@@ -599,7 +612,13 @@
     };
 
     return global.Cloud.register(acc.name, p.pass, acc.id)
-      .then((r) => ((r && r.ok) ? bind(r) : global.Cloud.login(acc.name, p.pass).then(bind)))
+      .then((r) => ((r && r.ok) ? bind(r) : global.Cloud.login(acc.name, p.pass).then((r2) => {
+        if (r2 && r2.ok) return bind(r2);
+        // 服务器上已有同名号、且密码也对不上（多半是玩家在另一个链接用别的密码先占了名）：
+        // 必须给出路，不然「关不掉的存档窗」会把玩家锁死在这个页面
+        return { ok: false, nameTaken: true,
+          reason: '服务器上已经有叫「' + acc.name + '」的号，和这个密码对不上' };
+      })))
       .catch(() => ({ ok: false, reason: '网络异常，稍后再试' }));
   }
 

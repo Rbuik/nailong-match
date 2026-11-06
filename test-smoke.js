@@ -1627,6 +1627,18 @@ function check(name, ok) {
     jsSrc.indexOf('去上面切到「注册」') > 0);
   check('换链接的新号注册时提示用存档码搬回旧进度',
     jsSrc.indexOf('回原来的链接 → 设置 → 账号安全 → 生成存档码') > 0);
+  // 39d. 存服务器遇「名字被占 + 密码对不上」：给逃生口，不能把玩家锁死（用户反馈）
+  check('云窗口默认隐藏「改个名字再存」，只在名字被占时出现',
+    /id="btn-cloud-rename" style="display:none;"/.test(htmlSrc0) &&
+    /nameTaken\) \? 'block' : 'none'/.test(jsSrc));
+  check('名字被占时返回 nameTaken 标记和可读原因',
+    jsSrc.indexOf('nameTaken: true') > 0 &&
+    jsSrc.indexOf('和这个密码对不上') > 0);
+  check('逃生口：改名成功后回到存服务器窗口',
+    jsSrc.indexOf('cloudRenameEscape') > 0 &&
+    jsSrc.indexOf('openNickMenu(false, () => { try { openCloudMenu(); } catch (e) {} });') > 0);
+  check('令牌失效自动解绑，让「存到服务器」能重新提示',
+    jsSrc.indexOf("indexOf('过期') >= 0") > 0 && jsSrc.indexOf('arr[i].ctoken = null') > 0);
 
   // 39. 顶栏统一：只有关卡 / 步数 / 得分，金币星星一律不上顶栏
   check('游戏顶栏只有 关卡 / 步数 / 得分 三项',

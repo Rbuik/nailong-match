@@ -4505,6 +4505,7 @@
 
     // 账号上云（存到服务器）
     on('btn-cloud-save', submitCloud);
+    on('btn-cloud-rename', cloudRenameEscape);
     const cloudPass = $('cloud-pass');
     if (cloudPass) cloudPass.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submitCloud();
@@ -5874,9 +5875,10 @@
   }
 
   // 打开改名面板：forced=true 是「默认昵称不能玩」的强制闸（只有「确定」，没有返回），
-  // forced=false 是从主页键里主动改（底部有「返回」）
-  function openNickMenu(forced) {
+  // forced=false 是从主页键里主动改（底部有「返回」）；cb 是改名成功后的回调（比如回到存服务器窗口）
+  function openNickMenu(forced, cb) {
     nickForced = !!forced;
+    nickGateCb = typeof cb === 'function' ? cb : null;
     const title = $('nick-title');
     if (title) title.textContent = forced ? '✏️ 先起个昵称' : '✏️ 修改昵称';
     const cancel = $('btn-nick-cancel');
@@ -5943,6 +5945,7 @@
 
   function cancelNick() {
     if (nickForced) return;           // 强制闸不给关
+    nickGateCb = null;
     $('nick-menu').style.display = 'none';
     showOverlay('main-menu');
   }
@@ -6265,10 +6268,20 @@
     cloudForced = true;
     const err = $('cloud-err');
     if (err) err.textContent = '';
+    const rn = $('btn-cloud-rename');
+    if (rn) rn.style.display = 'none';
     const inp = $('cloud-pass');
     if (inp) inp.value = '';
     showOverlay('cloud-menu');
     if (inp && inp.focus) setTimeout(() => inp.focus(), 60);
+  }
+
+  // 名字在服务器被占时的逃生口：先放玩家出去改个名，改完回到存档窗重新存
+  function cloudRenameEscape() {
+    cloudForced = false;
+    const box = $('cloud-menu');
+    if (box) box.style.display = 'none';
+    openNickMenu(false, () => { try { openCloudMenu(); } catch (e) {} });
   }
 
   // 该不该提示「把账号存到服务器」：只对「本机有密码、服务器上还没有」的账号提示
@@ -6304,7 +6317,14 @@
     let r = null;
     try { r = await Account.pushAccountToCloud(pass); } catch (e) { r = { ok: false, reason: '网络异常' }; }
     if (btn) { btn.disabled = false; btn.textContent = '存到服务器'; }
-    if (!r || !r.ok) return fail((r && r.reason) || '没存上，稍后再试');
+    if (!r || !r.ok) {
+      // 名字在服务器被别的密码占了：给出「改个名字再存」的逃生口，别把玩家锁死在这
+      const rn = $('btn-cloud-rename');
+      if (rn) rn.style.display = (r && r.nameTaken) ? 'block' : 'none';
+      return fail((r && r.reason) || '没存上，稍后再试');
+    }
+    const rn2 = $('btn-cloud-rename');
+    if (rn2) rn2.style.display = 'none';
     cloudForced = false;
     $('cloud-menu').style.display = 'none';
     toast('已存到服务器，换设备也能找回了');
