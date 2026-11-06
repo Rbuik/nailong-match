@@ -2386,6 +2386,11 @@
       if (nm && needForcedRename()) nm.style.display = 'flex';
     }
     setView('game');
+    // 上云窗口同样是强制闸：只有密码存成功才会关，别的流程关掉也要顶回来
+    if (typeof cloudForced !== 'undefined' && cloudForced) {
+      const cm = $('cloud-menu');
+      if (cm) { cm.style.display = 'flex'; setView('menu'); }
+    }
   }
 
   // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
@@ -4496,7 +4501,6 @@
 
     // 账号上云（存到服务器）
     on('btn-cloud-save', submitCloud);
-    on('btn-cloud-later', laterCloud);
     const cloudPass = $('cloud-pass');
     if (cloudPass) cloudPass.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') submitCloud();
@@ -4729,7 +4733,7 @@
       const err = $('cloud-err');
       if (err) err.textContent = '';
       $('account-menu').style.display = 'none';
-      openCloudMenu('account');
+      openCloudMenu();
     });
 
     // 修改密码
@@ -6181,6 +6185,8 @@
     try {
       if (Account.claimGrants().length) { toast('📮 邮箱收到一封新邮件'); refreshMailBadge(); }
     } catch (e) {}
+    // 补齐密码的老账号也顺势存到服务器（注册的新号在注册时就已经自动存了）
+    setTimeout(() => { try { maybeCloudOffer(); } catch (e) {} }, 300);
     return true;
   }
 
@@ -6228,17 +6234,10 @@
   // 本机校验通过后，拿这串明文去服务器按「同样的名字 + 同样的密码」建档，
   // 之后进度就会自动同步上去。密码不会被改动，也不会在这里留存。
   let cloudOffered = false;
-  let cloudFrom = 'main';          // 从哪进的上云窗口：main / account
+  let cloudForced = false;      // 上云窗口开着就是强制态：不许任何流程把它关掉
 
-  function cloudSnoozeLeft() {
-    try {
-      const t = Number(localStorage.getItem('nl2:cloudoffer') || 0) || 0;
-      return t ? (t + 864e5 - Date.now()) : 0;
-    } catch (e) { return 0; }
-  }
-
-  function openCloudMenu(from) {
-    cloudFrom = from === 'account' ? 'account' : 'main';
+  function openCloudMenu() {
+    cloudForced = true;
     const err = $('cloud-err');
     if (err) err.textContent = '';
     const inp = $('cloud-pass');
@@ -6259,7 +6258,6 @@
     if (!acc || acc.cloud || acc.ctoken) return false;
     if (!acc.pass) return false;                 // 没密码的账号先去补密码
     if (need && need.any) return false;
-    if (cloudSnoozeLeft() > 0) return false;     // 上次点了「以后再说」，24 小时内不再烦
     cloudOffered = true;
     openCloudMenu();
     return true;
@@ -6282,17 +6280,11 @@
     try { r = await Account.pushAccountToCloud(pass); } catch (e) { r = { ok: false, reason: '网络异常' }; }
     if (btn) { btn.disabled = false; btn.textContent = '存到服务器'; }
     if (!r || !r.ok) return fail((r && r.reason) || '没存上，稍后再试');
+    cloudForced = false;
     $('cloud-menu').style.display = 'none';
     toast('已存到服务器，换设备也能找回了');
     try { AudioManager.playSFX('coin'); } catch (e) {}
     return true;
-  }
-
-  function laterCloud() {
-    try { localStorage.setItem('nl2:cloudoffer', String(Date.now())); } catch (e) {}
-    $('cloud-menu').style.display = 'none';
-    if (cloudFrom === 'account') { showOverlay('account-menu'); return; }
-    showOverlay('main-menu');
   }
 
   // ==================== 📮 邮箱 ====================

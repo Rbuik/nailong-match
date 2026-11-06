@@ -25,8 +25,7 @@
     'nl2:visits': 1,
     'nl2:net': 1,
     'nl2:lb-del': 1,
-    'nl2:statsVer': 1,
-    'nl2:cloudoffer': 1
+    'nl2:statsVer': 1
   };
 
   // 一次性补偿（换设备 / 找回账号时丢过金币的补偿）
@@ -315,9 +314,21 @@
     arr[i].pass = hash(p.pass);
     arr[i].last = Date.now();
     saveList(arr);
-    // 服务器上的密码一起改（本机能改成功，服务器一般也能；失败下次登录时后台会再试）
-    if (cloudOk() && useAccToken(acc)) {
-      global.Cloud.setPass(p.pass).catch(() => {});
+    // 服务器上的密码一起改：有令牌直接改；令牌丢了但有旧密码，就先登录拿令牌再改
+    // （注意只用这个号自己的令牌，别拿设备上别人的令牌去改别人的号）
+    if (cloudOk()) {
+      if (acc.ctoken) {
+        try {
+          global.Cloud.setToken(acc.ctoken);
+          global.Cloud.setPass(p.pass).catch(() => {});
+        } catch (e) {}
+      } else if (acc.cloud && oldPass) {
+        try {
+          global.Cloud.login(acc.name, oldPass)
+            .then((r) => ((r && r.ok) ? global.Cloud.setPass(p.pass) : null))
+            .catch(() => {});
+        } catch (e) {}
+      }
     }
     return { ok: true };
   }
@@ -333,9 +344,12 @@
     arr[i].name = r.name;
     saveList(arr);
     if (global.Meta && Meta.setNickname) Meta.setNickname(r.name);
-    // 服务器上的名字一起改；失败不影响本机（下次登录还会用新名字，服务端可再补）
-    if (cloudOk() && useAccToken(acc)) {
-      try { global.Cloud.rename(r.name).catch(() => {}); } catch (e) {}
+    // 服务器上的名字一起改；只用这个号自己的令牌，失败不影响本机
+    if (cloudOk() && acc.ctoken) {
+      try {
+        global.Cloud.setToken(acc.ctoken);
+        global.Cloud.rename(r.name).catch(() => {});
+      } catch (e) {}
     }
     return { ok: true, name: r.name };
   }

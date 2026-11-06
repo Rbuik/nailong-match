@@ -205,7 +205,8 @@ function check(name, ok) {
   const cssSrc = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8') +
     fs.readFileSync(path.join(__dirname, 'css', 'style.css'), 'utf8');
   const jsSrc = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8') +
-    fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8');
+    fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8') +
+    fs.readFileSync(path.join(__dirname, 'js', 'account.js'), 'utf8');
   check('主页不再有注销按钮，右下角是 📮 邮箱键',
     htmlSrc0.includes('id="btn-mail"') && htmlSrc0.indexOf('id="btn-mail"') < htmlSrc0.indexOf('id="home-menu"'));
   check('注销账号在账号安全面板里、切换账号下面',
@@ -1321,12 +1322,19 @@ function check(name, ok) {
     $('nick-menu').style.display === 'none' && sandbox.Account.current().name === '小龙人');
 
   // 35b. 账号上云：玩家自己输密码建档（没网时也要说清楚，不能静默失败）
-  check('有「存到服务器」的窗口：密码输入 + 存 / 以后再说',
+  check('上云窗口：只有黑色「存到服务器」一个按钮，没有「以后再说」',
     /id="cloud-menu"/.test(htmlSrc0) && /id="cloud-pass"/.test(htmlSrc0) &&
-    /id="btn-cloud-save"/.test(htmlSrc0) && /id="btn-cloud-later"/.test(htmlSrc0));
+    /class="btn-secondary" id="btn-cloud-save"/.test(htmlSrc0) &&
+    !/btn-cloud-later/.test(htmlSrc0));
   check('账号上云是新方法（供界面调用）',
     typeof sandbox.Account.pushAccountToCloud === 'function');
   check('账号安全页有常驻的「存到服务器」入口', /id="btn-goto-cloud"/.test(htmlSrc0));
+  check('上云窗口点遮罩 / 其它流程都关不掉（只有密码存成功才关）',
+    /'fix-menu', 'nick-menu', 'cloud-menu'/.test(jsSrc) &&
+    /cloudForced = true/.test(jsSrc) && /cloudForced = false/.test(jsSrc));
+  check('注册后自动把账号存到服务器', /bgRegister\(acc, p\.pass\)/.test(jsSrc));
+  check('改名 / 改密码会同步到服务器',
+    /Cloud\.rename/.test(jsSrc) && /Cloud\.setPass/.test(jsSrc));
   const cloudTry = await sandbox.Account.pushAccountToCloud('abcd1234');
   check('连不上服务器时上云会返回可读的失败原因',
     cloudTry && cloudTry.ok === false && !!cloudTry.reason);
