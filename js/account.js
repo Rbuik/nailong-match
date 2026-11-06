@@ -25,7 +25,8 @@
     'nl2:visits': 1,
     'nl2:net': 1,
     'nl2:lb-del': 1,
-    'nl2:statsVer': 1
+    'nl2:statsVer': 1,
+    'nl2:purged': 1      // 注销记录：注销过的号不许再从服务器"找回来"
   };
 
   // 一次性补偿（换设备 / 找回账号时丢过金币的补偿）
@@ -273,19 +274,58 @@
     return true;
   }
 
+  // ---------- 注销停机牌 ----------
+  // 注销过的号记一笔（设备级 key）：之后再用同样的名字/身份登录，不许从服务器"找回"旧进度
+  const PURGE_KEY = 'nl2:purged';
+  function purgedList() {
+    const a = read(PURGE_KEY, []);
+    return Array.isArray(a) ? a.filter((x) => x && typeof x === 'object') : [];
+  }
+  function markPurged(nick, uid) {
+    const k = nameKey(nick);
+    const now = Date.now();
+    const keep = purgedList()
+      .filter((x) => now - (Number(x.at) || 0) < 30 * 864e5)
+      .filter((x) => !(uid && x.uid === uid) && !(k && x.k === k));
+    keep.push({ k: k, uid: uid || '', at: now });
+    write(PURGE_KEY, keep.slice(-20));
+  }
+  function wasPurged(uid, nick) {
+    const k = nameKey(nick);
+    return purgedList().some((x) => (uid && x.uid === uid) || (k && x.k === k));
+  }
+
   // 注销账号 = 彻底删除：本机这份存档、账号表里的记录、榜单成绩、邮箱等全部清掉
+  // 服务器上的号也要真删（由调用方 await）：只清本机的话，玩家用同样的名字再登录，
+  // 云端会把旧存档整套拉回来，进度看起来一点没变。
   // （榜单删除广播 Board.remove 由调用方先发，它的墓碑 nl2:lb-del 是设备级 key，不会被这里清掉）
   function purge() {
     const acc = current();
     const uid = (acc && acc.id) || currentId() || '';
+    const nick = (acc && acc.name) || '';
+    const token = (acc && acc.ctoken) || (cloudOk() ? global.Cloud.token() : '');
+
+    let remote = Promise.resolve({ ok: false, gone: true });
+    if (cloudOk() && token) {
+      try {
+        global.Cloud.setToken(token);
+        remote = global.Cloud.remove().catch(() => ({ ok: false }));
+      } catch (e) {}
+    }
+    // 先立停机牌：万一服务器这次没删掉，之后同名登录也不许把旧进度拉回来
+    if (nick || uid) { try { markPurged(nick, uid); } catch (e) {} }
+
     const arr = list().filter((x) => !acc || x.id !== acc.id);
     saveList(arr);
     if (uid) { try { localStorage.removeItem(K.slot + uid); } catch (e) {} }
+    try { if (global.Store && Store.wipeAll) Store.wipeAll(); } catch (e) {}   // 顺带清 v1 老键
     wipeActive();
     write(K.cur, '');
-    if (cloudOk()) { try { global.Cloud.signOut(); } catch (e) {} }   // 令牌是这个号的，一并作废
     try { sessionStorage.clear(); } catch (e) {}
-    return { ok: true, uid: uid, left: arr.length };
+    return remote.then((r) => {
+      try { if (cloudOk()) global.Cloud.signOut(); } catch (e) {}
+      return { ok: true, uid: uid, left: arr.length, cloudGone: !!(r && r.ok) };
+    });
   }
 
   function switchTo(id) {
@@ -444,6 +484,7 @@
 
   // 注册成功后后台在服务器建同一份；名字已被服务器占用（比如之前注册过一半）
   // 就改用登录验证——密码对得上就把这个服务器身份绑到本机账号上
+  // 注意：注册出来的一定是「新号」，服务器上如果还留着同名旧存档，不能被它盖回来
   function bgRegister(acc, pass) {
     if (!cloudOk()) return;
     const bind = (r) => {
@@ -457,10 +498,22 @@
         const i = arr.findIndex((x) => x.id === acc.id);
         if (i >= 0) { arr[i].ctoken = r.token; saveList(arr); }
       }
-      return pullCloud();
+      // 新注册以本机为准（这一份是干净的），直接推上去，不拉服务器
+      cloudPulled = true;
+      return pushCloud(true);
+    };
+    // 服务器上还有这个名字但已经注销过：先把旧号删掉，再重新建档
+    const onTake = (r) => {
+      if (!r || !r.ok) return null;
+      if (wasPurged(r.uid, acc.name)) {
+        return global.Cloud.remove()
+          .then(() => global.Cloud.register(acc.name, pass, acc.id))
+          .then((r2) => ((r2 && r2.ok) ? bind(r2) : null));
+      }
+      return bind(r);
     };
     global.Cloud.register(acc.name, pass, acc.id)
-      .then((r) => (r && r.ok ? bind(r) : global.Cloud.login(acc.name, pass).then(bind)))
+      .then((r) => (r && r.ok ? bind(r) : global.Cloud.login(acc.name, pass).then(onTake)))
       .catch(() => {});
   }
 
@@ -525,6 +578,11 @@
     if (!p.ok) return Promise.resolve(p);
     return global.Cloud.login(name, pass).then((r) => {
       if (!r || !r.ok) return { ok: false, reason: (r && r.reason) || BAD_PASS, badAccount: true };
+      // 这个号在本机注销过：不能再从服务器把旧存档找回来
+      if (wasPurged(String(r.uid || ''), r.nick || name)) {
+        try { global.Cloud.remove().catch(() => {}); } catch (e) {}
+        return { ok: false, reason: '这个账号已经注销了，换个名字重新注册就行', badAccount: true, purged: true };
+      }
       const uid = String(r.uid || '');
       const nick = String(r.nick || name).trim() || String(name).trim();
       saveCurrent();

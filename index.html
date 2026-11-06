@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106v">
-<link rel="stylesheet" href="./css/themes.css?v=20261106v">
+<link rel="stylesheet" href="./css/style.css?v=20261106w">
+<link rel="stylesheet" href="./css/themes.css?v=20261106w">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -339,7 +339,7 @@
         <p><b>昵称</b>：最多 8 字，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，<b>名字具有唯一性</b>。改名点左上角 <b>🏠 主页键</b>（📖 规则键在它右边）里的「✏️ 改名」，账号名一起更新。</p>
         <p><b>默认昵称要改掉</b>：名字还是「<b>奶龙玩家</b>」的时候，进来会弹一个<b>关不掉的改名窗口</b>（没有返回键，点外面也关不掉），改好名字它才自己关掉、才能进游戏。</p>
         <p><b>切换账号</b> / <b>修改密码</b>：设置 → 🔐 账号安全，本机账号都列出来，点一下即切换，金币、星星、进度各自独立。同一个页面的 <b>☁️ 存到服务器</b> 可以随时把当前号存上云。</p>
-        <p><b>注销账号</b>：设置 → 🔐 账号安全 → 🔒 注销账号（切换账号下面）。两步确认后<b>彻底删除</b>进度、星星、金币、背包、成就、邮箱、榜单成绩，<b>无法恢复</b>；只是换号玩请用「切换账号」。</p>
+        <p><b>注销账号</b>：设置 → 🔐 账号安全 → 🔒 注销账号（切换账号下面）。两步确认后<b>彻底删除</b>进度、星星、金币、背包、成就、邮箱、榜单成绩，<b>无法恢复</b>；服务器上的账号和存档一起删掉，所以用同样的名字重新注册是<b>从零开始</b>的，不会被旧进度找回来。只是换号玩请用「切换账号」。</p>
         <p><b>账号存在服务器</b>：名字和密码会存到云服务器，打到一半的进度每 30 秒自动上传一次。换手机、换网址、微信清缓存后，用<b>原来的名字 + 密码</b>登录，进度和金币自动回来（没网时游戏照常能玩，联网后自动补传）。</p>
         <p><b>把账号存到服务器</b>：本机建的号服务器上还没有时，主页会弹这个窗口，<b>输一次你现在用的密码</b>就行（不会改密码，也不留明文）。这个窗口<b>关不掉</b>（没有返回键、点外面也不关），只有密码存成功才会自己关；也可以在 设置 → 🔐 账号安全 → ☁️ 存到服务器 随时存。以后<b>注册新号会自动存到服务器</b>，<b>改名 / 改密码也会同步过去</b>。</p>
         <p><b>存档码</b>：设置 → 🔐 账号安全 → 💾 存档码，点「生成」把所有账号和进度变成一段文字，再点「复制」存好；换网址、换设备、微信清缓存后，在新地址点登录页的「💾 导入存档码」，把那段文字粘进去点「导入」就整份搬回来了。<b>生成</b>只在设置里，<b>导入</b>只在登录页，两边各管一头。</p>
@@ -944,7 +944,7 @@
   <!-- 账号上云：玩家用自己现在的密码，把「名字 + 密码」存到服务器，换设备也能找回 -->
   <div class="overlay auth-page" id="cloud-menu" style="display:none;">
     <h2 class="title small">☁️ 把账号存到服务器</h2>
-    <p class="history-hint" id="cloud-tip">换手机 / 清缓存都能通过「名字 + 密码」登录账号<br>输入你现在的密码就行，不会改动它。</p>
+    <p class="history-hint" id="cloud-tip">换手机 / 清缓存都能通过「名字 + 密码」登录账号</p>
     <div class="auth-box">
       <label class="auth-label" for="cloud-pass">你自己的密码</label>
       <input class="auth-input" type="password" id="cloud-pass" maxlength="24" placeholder="输入现在用的密码" autocomplete="off">
@@ -965,22 +965,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106v"></script>
-<script src="./js/storage.js?v=20261106v"></script>
-<script src="./js/audio.js?v=20261106v"></script>
-<script src="./js/effects.js?v=20261106v"></script>
-<script src="./js/specials.js?v=20261106v"></script>
-<script src="./js/goals.js?v=20261106v"></script>
-<script src="./js/tasks.js?v=20261106v"></script>
-<script src="./js/mail.js?v=20261106v"></script>
-<script src="./js/input.js?v=20261106v"></script>
-<script src="./js/builtin-music.js?v=20261106v"></script>
-<script src="./js/music.js?v=20261106v"></script>
-<script src="./js/meta.js?v=20261106v"></script>
-<script src="./js/cloud-config.js?v=20261106v"></script>
-<script src="./js/cloud.js?v=20261106v"></script>
-<script src="./js/account.js?v=20261106v"></script>
-<script src="./js/board.js?v=20261106v"></script>
-<script src="./js/game.js?v=20261106v"></script>
+<script src="./js/rng.js?v=20261106w"></script>
+<script src="./js/storage.js?v=20261106w"></script>
+<script src="./js/audio.js?v=20261106w"></script>
+<script src="./js/effects.js?v=20261106w"></script>
+<script src="./js/specials.js?v=20261106w"></script>
+<script src="./js/goals.js?v=20261106w"></script>
+<script src="./js/tasks.js?v=20261106w"></script>
+<script src="./js/mail.js?v=20261106w"></script>
+<script src="./js/input.js?v=20261106w"></script>
+<script src="./js/builtin-music.js?v=20261106w"></script>
+<script src="./js/music.js?v=20261106w"></script>
+<script src="./js/meta.js?v=20261106w"></script>
+<script src="./js/cloud-config.js?v=20261106w"></script>
+<script src="./js/cloud.js?v=20261106w"></script>
+<script src="./js/account.js?v=20261106w"></script>
+<script src="./js/board.js?v=20261106w"></script>
+<script src="./js/game.js?v=20261106w"></script>
 </body>
 </html>

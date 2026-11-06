@@ -4154,14 +4154,23 @@
     });
     const logoutConfirm = $('btn-logout-confirm');
     if (logoutConfirm) logoutConfirm.addEventListener('click', () => {
-      // 注销账号 = 彻底删除：先向共享榜广播「删除我」，再把本机这个号的存档、账号记录、
-      // 邮箱、成就、进度全部清掉（`nl2:lb-del` 墓碑与访问统计是设备级的，保留）
+      // 注销账号 = 彻底删除：先向共享榜广播「删除我」，再把服务器上的号、
+      // 本机这个号的存档、账号记录、邮箱、成就、进度全部清掉
+      // （`nl2:lb-del` 墓碑与访问统计是设备级的，保留）
       try { if (typeof Board !== 'undefined' && Board.remove) Board.remove(Meta.myUid()); } catch (e) {}
-      try { if (typeof Account !== 'undefined' && Account.purge) Account.purge(); } catch (e) {}
-      $('logout-confirm2').style.display = 'none';
-      $('account-menu').style.display = 'none';
-      S.playing = false;
-      setTimeout(() => { try { location.reload(); } catch (e) {} }, 160);
+      const done = () => {
+        $('logout-confirm2').style.display = 'none';
+        $('account-menu').style.display = 'none';
+        S.playing = false;
+        setTimeout(() => { try { location.reload(); } catch (e) {} }, 160);
+      };
+      let job = null;
+      try { if (typeof Account !== 'undefined' && Account.purge) job = Account.purge(); } catch (e) {}
+      // 等服务器那边删完再走，最多等 2.5 秒，网络卡住也不让玩家干等
+      Promise.race([
+        Promise.resolve(job).catch(() => null),
+        new Promise((r) => setTimeout(r, 2500))
+      ]).then(done).catch(done);
     });
     const logoutCancel = $('btn-logout-cancel');
     if (logoutCancel) logoutCancel.addEventListener('click', () => {

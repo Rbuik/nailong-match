@@ -10,6 +10,7 @@
 //   nl_save     {p_token,p_slot}      -> {ok}
 //   nl_setpass  {p_token,p_new}       -> {ok}
 //   nl_rename   {p_token,p_nick}      -> {ok}
+//   nl_delete   {p_token}             -> {ok}        注销：服务器上整号删除
 // 暴露 window.Cloud
 (function (global) {
   'use strict';
@@ -136,6 +137,17 @@
       });
   }
 
+  // 注销：把服务器上这个号整个删掉（账号行 + 令牌 + 存档）
+  // 不删的话，玩家用同样的名字再登录，旧进度会被"找回来"
+  function remove() {
+    if (!token()) return Promise.resolve({ ok: true, gone: true });
+    return call('nl_delete', { p_token: token() })
+      .then((r) => {
+        if (r && r.ok) setToken(null);
+        return r;
+      });
+  }
+
   global.Cloud = {
     ready: () => sdkOk,
     signedIn: () => !!token(),
@@ -148,6 +160,7 @@
     push: push,
     setPass: setPass,
     rename: rename,
+    remove: remove,
     lastSync: lastSync,
     setLastSync: setLastSync,
     config: CFG

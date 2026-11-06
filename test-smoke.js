@@ -141,6 +141,59 @@ sandbox.window = sandbox;
 sandbox.globalThis = sandbox;
 vm.createContext(sandbox);
 
+// ---------- 假云服务（只在最后「注销要连服务器一起删」的用例里打开） ----------
+let curToken = '';
+const fakeServer = {
+  rows: {},          // nickKey -> { uid, nick, pass, slot }
+  tokens: {},        // token -> nickKey
+  seq: 0,
+  on: false,
+  reset() { this.rows = {}; this.tokens = {}; this.seq = 0; curToken = ''; },
+  byNick(n) { return this.rows[String(n || '').trim().toLowerCase()] || null; },
+  issue(k) { const t = 'tk' + (++this.seq); this.tokens[t] = k; return t; },
+  rowOf(t) { const k = this.tokens[t]; return k ? this.rows[k] || null : null; }
+};
+sandbox.__cloudOn = false;
+sandbox.Cloud = {
+  ready: () => !!sandbox.__cloudOn,
+  signedIn: () => !!curToken,
+  token: () => curToken,
+  setToken: (t) => { curToken = t || ''; },
+  signOut: () => { curToken = ''; },
+  register: (nick, pass, uid) => {
+    const k = String(nick || '').trim().toLowerCase();
+    if (fakeServer.rows[k]) return Promise.resolve({ ok: false, reason: '这个名字已经被注册了' });
+    const row = { uid: 'srv' + (++fakeServer.seq), nick: nick, pass: pass, slot: null };
+    fakeServer.rows[k] = row;
+    return Promise.resolve({ ok: true, token: fakeServer.issue(k), uid: row.uid, nick: row.nick, slot: null });
+  },
+  login: (nick, pass) => {
+    const row = fakeServer.byNick(nick);
+    if (!row || row.pass !== pass) return Promise.resolve({ ok: false, reason: '没有找到这个玩家' });
+    return Promise.resolve({ ok: true, token: fakeServer.issue(String(nick).trim().toLowerCase()), uid: row.uid, nick: row.nick, slot: row.slot });
+  },
+  pull: () => {
+    const row = fakeServer.rowOf(curToken);
+    if (!row) return Promise.resolve({ ok: false, reason: '登录已过期' });
+    return Promise.resolve({ ok: true, nick: row.nick, uid: row.uid, slot: row.slot });
+  },
+  push: (slot) => {
+    const row = fakeServer.rowOf(curToken);
+    if (!row) return Promise.resolve({ ok: false, reason: '登录已过期' });
+    row.slot = slot;
+    return Promise.resolve({ ok: true });
+  },
+  remove: () => {
+    const k = fakeServer.tokens[curToken];
+    if (k && fakeServer.rows[k]) delete fakeServer.rows[k];
+    return Promise.resolve({ ok: true });
+  },
+  setPass: () => Promise.resolve({ ok: true }),
+  rename: () => Promise.resolve({ ok: true }),
+  lastSync: () => 0,
+  setLastSync: () => {}
+};
+
 // ---------- 按顺序加载脚本（game.js 最后：它一加载就 boot） ----------
 const scripts = ['rng.js', 'storage.js', 'audio.js', 'effects.js', 'specials.js', 'goals.js', 'tasks.js', 'input.js', 'music.js', 'meta.js', 'mail.js', 'account.js', 'board.js'];
 function loadScript(name) {
@@ -1465,6 +1518,44 @@ function check(name, ok) {
   check('注销后本机存档全清（金币 / 进度 / 邮箱）',
     !lsMap.has('nl2:wallet') && !lsMap.has('nl2:progress') && !lsMap.has('nl2:mail'));
   check('注销后自动回到登录页', reloaded === true);
+
+  // 37. 注销要把服务器上的号一起删掉：否则同名再登录，旧进度会被云端整套"找回来"
+  fakeServer.reset();
+  sandbox.__cloudOn = true;
+  sandbox.Account.register('注销测试', 'e2e1234');
+  await sleep(60);                                   // bgRegister 是后台 promise
+  check('注册后服务器上能看到这个号', !!fakeServer.byNick('注销测试'));
+  sandbox.Store.addCoins(777);
+  sandbox.Store.recordLevel(7, 4321, 3);
+  await sandbox.Account.pushCloud(true);
+  check('玩出来的进度已经推到服务器',
+    !!(fakeServer.byNick('注销测试') && fakeServer.byNick('注销测试').slot));
+
+  const prRes = await sandbox.Account.purge();
+  check('注销把服务器上的号删掉了（含存档）',
+    !fakeServer.byNick('注销测试') && prRes && prRes.cloudGone === true);
+  check('注销后本机进度 / 金币一起清空',
+    !lsMap.has('nl2:progress') && !lsMap.has('nl2:wallet'));
+
+  // 服务器上万一没删干净（断网 / 请求失败）：停机牌要拦住"找回"
+  fakeServer.rows['注销测试'] = {
+    uid: 'srv-residue', nick: '注销测试', pass: 'e2e1234',
+    slot: { keys: { 'nl2:progress': '{"7":{"score":4321,"stars":3}}' }, savedAt: Date.now() }
+  };
+  const back = await sandbox.Account.cloudLogin('注销测试', 'e2e1234');
+  check('注销过的号不能再从服务器找回旧进度', !back.ok && back.purged === true &&
+    !sandbox.Account.loggedIn() && !lsMap.has('nl2:progress'));
+
+  // 同名重新注册：服务器上残留的旧号先删掉，新号从零开始
+  fakeServer.rows['注销测试'] = {
+    uid: 'srv-residue', nick: '注销测试', pass: 'e2e1234',
+    slot: { keys: { 'nl2:progress': '{"7":{"score":4321,"stars":3}}' }, savedAt: Date.now() }
+  };
+  sandbox.Account.register('注销测试', 'e2e1234');
+  await sleep(80);
+  check('同名重新注册后进度是空的（不被服务器旧存档盖回来）',
+    !lsMap.has('nl2:progress') && !lsMap.has('nl2:wallet'));
+  sandbox.__cloudOn = false;
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

@@ -199,6 +199,16 @@ async function doRename(env, b) {
   return json({ ok: true, nick: nick });
 }
 
+// 注销账号：把这个号在服务器上的存档、令牌、账号行一起删掉。
+// 必须真删：否则玩家注销后用同样的名字再登录，旧进度会被云端"找回来"。
+async function doDelete(env, b) {
+  const row = await accByToken(env, String(b.p_token || ''));
+  if (!row) return json({ ok: true, gone: true });   // 本来就没有，也算删掉了
+  await env.DB.prepare('DELETE FROM sessions WHERE acc_id = ?').bind(row.id).run();
+  await env.DB.prepare('DELETE FROM accounts WHERE id = ?').bind(row.id).run();
+  return json({ ok: true, uid: row.id });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -228,6 +238,7 @@ export default {
       case 'nl_save':     return doSave(env, body);
       case 'nl_setpass':  return doSetPass(env, body);
       case 'nl_rename':   return doRename(env, body);
+      case 'nl_delete':   return doDelete(env, body);
       default:            return json({ ok: false, reason: '接口不存在' }, 404);
     }
   }
