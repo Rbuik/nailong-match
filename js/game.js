@@ -1578,6 +1578,7 @@
         // 彩虹被消触发全场同图案：补一条醒目提示
         FX.text(bx, by - CELL * 0.3, '同图案消除 🌈', '#c85cff', 18);
         AudioManager.playSFX('line');
+        AudioManager.vibrate([30, 40, 30]);   // 彩虹全场扫：给它一串更长的手感
       } else {
         FX.explosion(bx, by, CELL);
       }
@@ -2359,7 +2360,7 @@
 
   // ==================== 结算 ====================
   // again = 续玩剩余步数后的第二次结算（金币照发，成就 / 任务 / 榜单不重复计）
-  function levelWin(again) {
+  async function levelWin(again) {
     if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     S.playing = false;
     S.wonContinued = false;
@@ -2428,6 +2429,8 @@
         cont.style.display = canCont ? 'inline-block' : 'none';
         cont.textContent = S.timerOn ? '还有剩余秒数点击继续游戏' : '还有剩余步数点击继续游戏';
       }
+      // 还有特效在播就先让它们播完（炸弹 / 线消 / 彩虹 / 彩带 / 双倍），别一刀切
+      await waitForEffects();
       box.style.display = 'flex';
 
       // 等面板真正显示出来再起动画（setTimeout 比 rAF 稳，后台标签页也照常跑）
@@ -2451,6 +2454,28 @@
   }
 
   // ==================== 资源耗尽 ====================
+  // 特效还在播（炸弹火球 / 线消光束 / 彩虹波纹 / 彩带 / 🔥 双倍小标刚亮起）时，
+  // 结算面板先别急着盖上来，等特效自己播完再弹。
+  // 只认「渲染循环真的在跑」的情况：FX.update 每帧打时间戳，页面没在动就不等。
+  function fxPlaying() {
+    const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+    const live = now - (FX.lastUpdateAt || 0) < 250;
+    return live && !FX.isEmpty();
+  }
+  async function waitForEffects() {
+    const cap = 2000;               // 最多等 2 秒，防止一直挂着
+    const t0 = performance.now();
+    if (FX.isEmpty() && !frenzyActive()) return;   // 没特效也没双倍，直接结算
+    await sleep(70);                // 先让这一帧刚触发的特效排上去
+    while (fxPlaying() && performance.now() - t0 < cap) await sleep(70);
+    // 🔥 双倍小标刚亮起来时给它露个脸（上限 600ms）
+    if (frenzyActive()) {
+      const left = Math.min(600, cap - (performance.now() - t0));
+      if (left > 0) await sleep(left);
+    }
+    await sleep(80);
+  }
+
   // 步数 / 时间用完：绝不碰玩家的背包。任何道具（+3 步、炸弹、线消、彩虹……）
   // 都只能由玩家自己在背包里点，系统不会代替玩家消耗。
   // 这里只给一次「再来 3 步」的花金币机会（主线），否则直接结算。
@@ -2469,7 +2494,7 @@
     endGame();
   }
 
-  function endGame() {
+  async function endGame() {
     if (!S.playing) return;
     if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     S.playing = false;
@@ -2507,6 +2532,8 @@
       // 限时关写「时间到了」，步数关写「步数耗尽」，别混用
       $('game-over-title').textContent = passed ? '目标达成' : (S.timerOn ? '时间到了' : '步数耗尽');
       $('final-new-record').style.display = 'none';
+      // 步数 / 时间刚走完时可能还有特效在播：等播完再弹结算
+      await waitForEffects();
       box.style.display = 'flex';
       // 新纪录等分数滚完再亮
       setTimeout(() => {
@@ -5635,7 +5662,7 @@
     });
   }
 
-  function endModeRun() {
+  async function endModeRun() {
     S.playing = false;
     stopTimer();
     stopBeatLoop();
@@ -5654,6 +5681,7 @@
     if ($('mode-over-best')) $('mode-over-best').textContent = r.best;
     if ($('mode-over-coins')) $('mode-over-coins').textContent = '+' + coins;
     if ($('mode-over-record')) $('mode-over-record').style.display = r.isNew ? 'inline-flex' : 'none';
+    await waitForEffects();
     if ($('mode-over')) $('mode-over').style.display = 'flex';
     setTimeout(() => countUp($('mode-over-score'), S.score, 620), 30);
     S.mode = 'main';
