@@ -6074,6 +6074,17 @@
       afterAuthEnter(r.taken
         ? '找回没设密码的账号「' + r.account.name + '」，进度都在，密码已设置'
         : '注册成功，欢迎「' + r.account.name + '」');
+      // 新号和榜上一条「本机码旧成绩」同名：多半是换了链接 / 换了设备的老玩家
+      // （存档按网址隔离，这边是空的）。提示用存档码把原进度搬过来。
+      if (!r.taken && typeof Board !== 'undefined' && Board.list) {
+        try {
+          const ghost = Board.list().some((e) => e && e.name === r.account.name &&
+            /^u[0-9a-z]+$/i.test(String(e.uid || '')) && (e.score || 0) > 0);
+          if (ghost) setTimeout(() => {
+            toast('榜上有同名的旧成绩：如果你以前在别的链接玩，回原来的链接 → 设置 → 账号安全 → 生成存档码，再在这边登录页「导入存档码」即可搬回进度');
+          }, 1200);
+        } catch (e) {}
+      }
     } else {
       const r = Account.login(name, pass);
       if (!r.ok) {

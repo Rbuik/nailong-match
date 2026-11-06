@@ -1625,6 +1625,8 @@ function check(name, ok) {
     sandbox.Account.login('没密码的号', 'wrongpass').ok === false);
   check('登录页对无密码账号给出「去注册找回」的引导',
     jsSrc.indexOf('去上面切到「注册」') > 0);
+  check('换链接的新号注册时提示用存档码搬回旧进度',
+    jsSrc.indexOf('回原来的链接 → 设置 → 账号安全 → 生成存档码') > 0);
 
   // 39. 顶栏统一：只有关卡 / 步数 / 得分，金币星星一律不上顶栏
   check('游戏顶栏只有 关卡 / 步数 / 得分 三项',
