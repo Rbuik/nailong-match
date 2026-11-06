@@ -422,6 +422,7 @@
   function migrateAccId(acc, uid) {
     if (!/^[A-Za-z0-9_-]{3,24}$/.test(String(uid || '')) ||
         !acc || acc.id === uid || find(uid)) return false;
+    const oldId = acc.id;
     try {
       const oldSlot = raw(K.slot + acc.id);
       if (oldSlot != null) { try { localStorage.setItem(K.slot + uid, oldSlot); } catch (e1) {} }
@@ -433,6 +434,11 @@
     if (currentId() === acc.id) { write(K.cur, uid); write('nl2:muid', uid); }
     acc.id = uid;
     acc.cloud = 1;
+    // 身份码换了，榜单上按旧码存的那条要撤掉（广播注销墓碑）：
+    // 否则新码再发一次成绩，榜单上就出现两个一模一样的名字
+    if (oldId && /^[A-Za-z0-9_-]{3,24}$/.test(oldId) && oldId !== uid) {
+      try { if (global.Board && Board.remove) Board.remove(oldId); } catch (e2) {}
+    }
     return true;
   }
 

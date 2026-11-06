@@ -1557,6 +1557,40 @@ function check(name, ok) {
     !lsMap.has('nl2:progress') && !lsMap.has('nl2:wallet'));
   sandbox.__cloudOn = false;
 
+  // 38. 换身份码（本机码 u… → 服务器码 p…）后，榜单不能出现两个一模一样的名字
+  sandbox.Board.publish({ uid: 'uabc12345', name: '重名去重', score: 500, level: 2 }, true);
+  check('本机码成绩进榜', sandbox.Board.list().filter((e) => e.name === '重名去重').length === 1);
+  sandbox.Board.publish({ uid: 'p0123456789abcdef', name: '重名去重', score: 900, level: 4 }, true);
+  const dup1 = sandbox.Board.list().filter((e) => e.name === '重名去重');
+  check('同一人换码后榜单只剩一条', dup1.length === 1 && dup1[0].uid === 'p0123456789abcdef');
+  check('合并后分数取两边最高（不掉分）', dup1[0].score === 900);
+
+  sandbox.Board.publish({ uid: 'uabc99999', name: '重名去重2', score: 1500, level: 5 }, true);
+  sandbox.Board.publish({ uid: 'pfedcba9876543210', name: '重名去重2', score: 100, level: 1 }, true);
+  const dup2 = sandbox.Board.list().filter((e) => e.name === '重名去重2');
+  check('旧码分数更高时并到新码上，不掉分', dup2.length === 1 && dup2[0].score === 1500);
+
+  sandbox.Board.publish({ uid: 'uabc11111', name: '同名两人', score: 100, level: 1 }, true);
+  sandbox.Board.publish({ uid: 'uabc22222', name: '同名两人', score: 200, level: 2 }, true);
+  check('两条都是本机码时不合并（不误伤重名玩家）',
+    sandbox.Board.list().filter((e) => e.name === '同名两人').length === 2);
+
+  // 真的走一遍「存到服务器」：迁码时要把旧码那条从榜单撤掉
+  fakeServer.reset();
+  sandbox.__cloudOn = false;
+  sandbox.Account.register('换码测试', 'e2e1234');
+  const oldUid = sandbox.Account.current().id;
+  sandbox.Board.publish({ uid: oldUid, name: '换码测试', score: 1234, level: 3 }, true);
+  check('迁码前榜单上有本机码那条', !!sandbox.Board.get(oldUid));
+  sandbox.__cloudOn = true;
+  const up = await sandbox.Account.pushAccountToCloud('e2e1234');
+  check('存到服务器成功', !!(up && up.ok));
+  const newUid = sandbox.Account.current().id;
+  check('身份码换成了服务器码', newUid !== oldUid && newUid.indexOf('srv') === 0);
+  check('迁码后旧码那条已经从榜单撤掉', !sandbox.Board.get(oldUid));
+  check('迁码后榜单上没有两条同名', sandbox.Board.list().filter((e) => e.name === '换码测试').length === 0);
+  sandbox.__cloudOn = false;
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });

@@ -60,6 +60,8 @@
       const j = raw ? JSON.parse(raw) : null;
       if (j && Array.isArray(j.list)) entries = j.list.map(clean).filter(Boolean);
       if (j && typeof j.ts === 'number') lastSync = j.ts;
+      // 老缓存里可能留着「同一人两条」的旧数据，进来就收一次
+      if (dedupeSameName()) save();
     } catch (e) {}
   }
 
@@ -171,6 +173,37 @@
     entries = entries.slice(0, MAX);
   }
 
+  // ---------- 同一个人换了身份码，榜单上会留下两条同名记录 ----------
+  // 把账号存到服务器时，本机码 uXXXX 会换成服务器码 pXXXXXX，旧码那条成绩
+  // 还留在公共频道和各设备缓存里；新码再发一次，榜单上就出现两个一模一样的名字。
+  // 这里只处理「同名 + 一条本机码 + 一条服务器码」这种明确的情况：
+  // 合并成服务器码那条，分数 / 局分取两边最高，避免掉分。
+  function isSrvUid(u) { return /^p[0-9a-f]{8,}$/i.test(String(u || '')); }
+  function isLocalUid(u) { return /^u[a-z0-9]{6,}$/i.test(String(u || '')); }
+
+  function dedupeSameName() {
+    let changed = false;
+    for (let i = entries.length - 1; i >= 0; i--) {
+      const old = entries[i];
+      if (!isLocalUid(old.uid)) continue;
+      const key = String(old.name || '').trim().toLowerCase();
+      if (!key) continue;
+      const srv = entries.filter((b) => b !== old && isSrvUid(b.uid) &&
+        String(b.name || '').trim().toLowerCase() === key)[0];
+      if (!srv) continue;
+      // 旧码上的成绩不能丢：能拿的最高分 / 局分都并到新码那条上
+      if ((old.score || 0) > (srv.score || 0)) srv.score = old.score;
+      if ((old.level || 0) > (srv.level || 0)) srv.level = old.level;
+      if (!srv.lv) srv.lv = {};
+      mergeLv(srv.lv, old.lv);
+      if ((old.ts || 0) > (srv.ts || 0)) srv.ts = old.ts;
+      if (!srv.pv && old.pv) srv.pv = old.pv;
+      entries.splice(i, 1);
+      changed = true;
+    }
+    return changed;
+  }
+
   function byScore(a, b) { return (b.score || 0) - (a.score || 0); }
 
   // 一条中转消息：单条成绩（t:'e'）、整榜快照（t:'s'）、局分分包（t:'v'）
@@ -213,6 +246,7 @@
     } else {
       if (mergeOne(msg)) changed = true;
     }
+    if (dedupeSameName()) changed = true;
     return changed;
   }
 
@@ -322,6 +356,7 @@
     const before = findIdx(e.uid) >= 0 ? entries[findIdx(e.uid)].score : -1;
     lastPub = now;
     mergeOne({ uid: e.uid, name: e.name, score: e.score, level: e.level, ts: now, pv: e.pv, lv: e.lv });
+    dedupeSameName();
     save();
     if (before !== e.score) emit();
     post(JSON.stringify({

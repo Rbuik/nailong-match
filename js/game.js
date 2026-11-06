@@ -6292,6 +6292,8 @@
     cloudForced = false;
     $('cloud-menu').style.display = 'none';
     toast('已存到服务器，换设备也能找回了');
+    // 身份码换成了服务器码：旧码那条榜单记录已经撤掉，用新码重新发一次成绩
+    setTimeout(() => { try { publishMyScore(true); } catch (e) {} }, 300);
     try { AudioManager.playSFX('coin'); } catch (e) {}
     return true;
   }
