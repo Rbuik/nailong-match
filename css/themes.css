@@ -1647,6 +1647,7 @@ body[data-skin="black"]   { --skin-target-bg: rgba(40, 40, 48, 0.18); }
   justify-content: center;
   margin-bottom: 10px;
 }
+.btn-row .btn-primary,
 .btn-row .btn-secondary { flex: 1; width: auto; margin: 0; }
 
 /* 存档码：两段等宽小字文本框 */
