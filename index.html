@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261107j">
-<link rel="stylesheet" href="./css/themes.css?v=20261107j">
+<link rel="stylesheet" href="./css/style.css?v=20261107k">
+<link rel="stylesheet" href="./css/themes.css?v=20261107k">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -392,7 +392,7 @@
           <b>限时得分</b>：限定时间内达到目标分。<br>
           <b>极限步数</b>：用很少的步数达到目标分。<br>
           <b>敲碎冰块</b>：把冰全部砸开（按<b>块</b>算，厚冰多砸一次也算一块）。<br>
-          <b>运送钥匙</b>：把钥匙送到最底行。<br>
+          <b>运送钥匙</b>：把货物送到最底行（<b>第四章开始</b>货物里混有<b>糖果 🍬</b>，钥匙和糖果都算运送数）。<br>
           <b>护送奶龙</b>：把奶龙送到最底行。</p>
         <p>冰块 / 钥匙 / 奶龙的<b>目标数就是棋盘上的实际数量</b>，中途有货物没归位时目标会按场上剩余自动校准，不会打不过去。</p>
       </section>
@@ -401,7 +401,7 @@
         <h3>🧊 障碍与货物</h3>
         <p><b>冰块</b>：冻住的方块不能交换、不参与连消，靠<b>旁边消除</b>或特殊块砸开；厚冰多层，越砸越透，每砸一次都有<b>碎冰声</b>。</p>
         <p><b>锁链</b>：第一次被消只解链、方块留下，之后才能正常交换。</p>
-        <p><b>货物（钥匙 / 奶龙）</b>：贴在方块上发呼吸光，带<b>黑色描边</b>，<b>目标是送到最底行</b>；消掉它下面的方块就往下掉一格，到底行算送达。</p>
+        <p><b>货物（钥匙 / 奶龙 / 糖果）</b>：贴在方块上发呼吸光，带<b>黑色描边</b>，<b>目标是送到最底行</b>；消掉它下面的方块就往下掉一格，到底行算送达。<b>糖果 🍬 从第四章开始出现</b>，混在运送关的货物里，和钥匙一起计进目标数。</p>
         <p><b>一个方块只放一样东西</b>：已有钥匙 / 奶龙、冰、锁链或特殊块的格子不会再叠新东西。</p>
         <p><b>货物只往下走</b>：所在方块被消时，它<b>落到被消掉那一格的下面一格</b>——下面已有货也照掉，两件重合叠在一格里（后到的缩小贴左上角），一起到底行就一起送达。不会往上跑、也不会瞬移。</p>
       </section>
@@ -696,7 +696,7 @@
     <h2 class="title small">关卡记录</h2>
     <div class="history-list" id="history-list"></div>
     <button class="btn-secondary" id="btn-history-back">返回</button>
-    <button class="btn-primary" id="btn-replay-ending" style="display:none;">🎊 重现结算画面</button>
+    <button id="btn-replay-ending">结算</button>
   </div>
 
   <!-- 背包 -->
@@ -805,7 +805,6 @@
   <!-- 章节地图 -->
   <div class="overlay" id="chapters-menu" style="display:none;">
     <h2 class="title small">🗺️ 章节地图</h2>
-    <p class="history-hint">点章节里的任意一关直接开始</p>
     <div class="chapters-list" id="chapters-list"></div>
     <button class="btn-secondary" id="btn-close-chapters">返回</button>
   </div>
@@ -961,22 +960,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261107j"></script>
-<script src="./js/storage.js?v=20261107j"></script>
-<script src="./js/audio.js?v=20261107j"></script>
-<script src="./js/effects.js?v=20261107j"></script>
-<script src="./js/specials.js?v=20261107j"></script>
-<script src="./js/goals.js?v=20261107j"></script>
-<script src="./js/tasks.js?v=20261107j"></script>
-<script src="./js/mail.js?v=20261107j"></script>
-<script src="./js/input.js?v=20261107j"></script>
-<script src="./js/builtin-music.js?v=20261107j"></script>
-<script src="./js/music.js?v=20261107j"></script>
-<script src="./js/meta.js?v=20261107j"></script>
-<script src="./js/cloud-config.js?v=20261107j"></script>
-<script src="./js/cloud.js?v=20261107j"></script>
-<script src="./js/account.js?v=20261107j"></script>
-<script src="./js/board.js?v=20261107j"></script>
-<script src="./js/game.js?v=20261107j"></script>
+<script src="./js/rng.js?v=20261107k"></script>
+<script src="./js/storage.js?v=20261107k"></script>
+<script src="./js/audio.js?v=20261107k"></script>
+<script src="./js/effects.js?v=20261107k"></script>
+<script src="./js/specials.js?v=20261107k"></script>
+<script src="./js/goals.js?v=20261107k"></script>
+<script src="./js/tasks.js?v=20261107k"></script>
+<script src="./js/mail.js?v=20261107k"></script>
+<script src="./js/input.js?v=20261107k"></script>
+<script src="./js/builtin-music.js?v=20261107k"></script>
+<script src="./js/music.js?v=20261107k"></script>
+<script src="./js/meta.js?v=20261107k"></script>
+<script src="./js/cloud-config.js?v=20261107k"></script>
+<script src="./js/cloud.js?v=20261107k"></script>
+<script src="./js/account.js?v=20261107k"></script>
+<script src="./js/board.js?v=20261107k"></script>
+<script src="./js/game.js?v=20261107k"></script>
 </body>
 </html>

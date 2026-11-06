@@ -1015,6 +1015,32 @@ function check(name, ok) {
   check('货运关放置 4 件货物', cargoN === 4);
   check('货运关目标值 = 货物数', st.goal.target === cargoN);
 
+  // 16b. 第四章开始：运送关的货物里混入糖果，目标栏文案换成「运送货物」
+  sandbox.__nl_test.start(1, { def: { id: 33, chapter: 4, theme: 'candy', moves: 30, goal: { type: 'drop', target: 10 }, cargo: 10, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  let candyCnt = 0, keyCnt = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const b = st.board[r][c];
+    if (b && b.cargo) {
+      const list = Array.isArray(b.cargo) ? b.cargo : [b.cargo];
+      list.forEach((cg) => { if (cg.kind === 'candy') candyCnt++; else if (cg.kind === 'key') keyCnt++; });
+    }
+  }
+  check('第四章运送关钥匙 + 糖果混装（数量和目标一致）',
+    candyCnt === 5 && keyCnt === 5 && st.goal.hasCandy === true && st.goal.target === 10);
+  // 第三章（id < 31）仍是纯钥匙
+  sandbox.__nl_test.start(1, { def: { id: 21, chapter: 3, theme: 'ocean', moves: 30, goal: { type: 'drop', target: 7 }, cargo: 7, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  let ch3Candy = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    const b = st.board[r][c];
+    if (b && b.cargo) {
+      const list = Array.isArray(b.cargo) ? b.cargo : [b.cargo];
+      list.forEach((cg) => { if (cg.kind === 'candy') ch3Candy++; });
+    }
+  }
+  check('第四章之前没有糖果', ch3Candy === 0 && st.goal.hasCandy !== true);
+
   // 17. 护送关
   const rescueDef = { id: 97, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 3 }, rescue: 3, stars: [1, 2, 3] };
   sandbox.__nl_test.start(1, { def: rescueDef });
@@ -2035,15 +2061,17 @@ function check(name, ok) {
 
   // 41o. 星星整列右移 / 后台玩家分数字左带星 / 名字 1~8 个字符 / 结算音效跟面板同拍
   const workerSrc = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
-  check('排行榜星星整列往右挪一点（和名字拉开距离）', (() => {
+  check('排行榜星星整列往右挪（margin-left 12px，且后台星星也左对齐）', (() => {
     const host = /\.lb-stars\s*\{[^}]*\}/.exec(cssSrc);
-    return !!host && /margin-left:\s*6px/.test(host[0]);
+    const ul = /\.ul-stars\s*\{[^}]*\}/.exec(cssSrc);
+    return !!host && /margin-left:\s*12px/.test(host[0]) &&
+      !!ul && /justify-content:\s*flex-start/.test(ul[0]);
   })());
   check('后台玩家名单每行带总星数（分数左边 ★ N）', (() => {
     const rows = sandbox.__nl_test.userList();
     return Array.isArray(rows) && rows.every((u) => typeof u.stars === 'number') &&
       /class="lb-stars ul-stars"/.test(jsSrc) && /\.ul-stars\s*\{/.test(cssSrc) &&
-      /admin-ul-list \.lb-swipe \{ padding-right: 4px; \}/.test(cssSrc);
+      !/admin-ul-list \.lb-swipe \{ padding-right: 4px; \}/.test(cssSrc);
   })());
   check('名字长度只能 1~8 个字符（一个字母或符号都算一个）', (() => {
     const v1 = sandbox.Meta.validateNick('a');

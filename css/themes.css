@@ -1020,6 +1020,14 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* ================= 章节地图 ================= */
 .chapters-list {
   width: 90%;
+  max-height: 58vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  /* 和「关卡记录」同款：内列表自己滚，底色比周围深一点 */
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1501,8 +1509,8 @@ body.m-dragging .m-item { cursor: grabbing; }
   color: #ffb300;
   letter-spacing: -0.5px;
   white-space: nowrap;
-  /* 整列星星集体往右挪一点，和名字拉开距离 */
-  margin-left: 6px;
+  /* 整列星星集体往右挪，和名字拉开距离（比上一版再往右一点） */
+  margin-left: 12px;
   margin-right: 2px;
   font-variant-numeric: tabular-nums;
 }
@@ -1537,12 +1545,28 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* 后台名单的星星列：比榜单窄一点，放在分数左边、右对齐 */
 .ul-stars {
   min-width: 34px;
-  justify-content: flex-end;
-  margin-left: 4px;
+  /* 和榜单一样：星星贴左对齐（min-width 保证一列看下去是一条竖线） */
+  justify-content: flex-start;
+  margin-left: 12px;
   font-size: 10px;
 }
-/* 后台「玩家」名单：整行内容往右靠一点（分数跟着右移） */
-.admin-ul-list .lb-swipe { padding-right: 4px; }
+/* 后台「玩家」名单：省份贴右的间距 = 序号贴左的间距（都是行的 12px 内边距） */
+/* 关卡记录左下角的「结算」键：黄色、一直显示（打没打完都能看结算画面） */
+#history-menu #btn-replay-ending {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  margin: 0;
+  padding: 10px 24px;
+  border: none;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffd75c, #ffb300);
+  color: #5c4300;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 3px 10px rgba(255, 179, 0, 0.35);
+  cursor: pointer;
+}
 .ul-prov {
   font-weight: 700;
   font-size: 12px;

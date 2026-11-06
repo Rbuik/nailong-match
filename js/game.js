@@ -289,7 +289,15 @@
         addCargo(S.board[p.r][p.c], { kind: kind });
       }
     };
-    putCargo('key', Math.max(0, d.cargo || 0));
+    // 第四章开始：运送的货物里混入糖果（钥匙 + 糖果各一半），目标照常按「总送达数」算
+    const cargoN = Math.max(0, d.cargo || 0);
+    if ((d.id || 0) >= 31 && cargoN > 0) {
+      putCargo('key', Math.ceil(cargoN / 2));
+      putCargo('candy', Math.floor(cargoN / 2));
+      if (S.goal) S.goal.hasCandy = true;   // 目标栏文案从「运送钥匙」换成「运送货物」
+    } else {
+      putCargo('key', cargoN);
+    }
     putCargo('nailong', Math.max(0, d.rescue || 0));
 
     // 冰块 / 锁链放在剩下的格子里（不和货物重叠）
@@ -822,12 +830,99 @@
     g.restore();
   }
 
+  // 糖果：圆糖体 + 两端拧出来的糖纸，和钥匙一样纯路径画（emoji 吃不了黑描边）
+  function drawCandyMark(g, cell, pulse) {
+    const k = cell * 0.72;            // 糖果总宽
+    const bodyR = k * 0.26;           // 糖体半径
+    const wingL = k * 0.48;           // 糖纸尖到中心的距离
+    const wingH = k * 0.17;           // 糖纸半高
+    const notch = k * 0.075;          // 糖纸尖的分叉缺口
+
+    // 背后一层粉色柔光
+    g.save();
+    g.shadowBlur = 0;
+    const glow = g.createRadialGradient(0, 0, k * 0.05, 0, 0, k * 0.62);
+    glow.addColorStop(0, 'rgba(255,140,190,' + (0.30 + 0.18 * pulse).toFixed(3) + ')');
+    glow.addColorStop(1, 'rgba(255,140,190,0)');
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(0, 0, k * 0.62, 0, Math.PI * 2);
+    g.fill();
+
+    const paint = (fill) => {
+      // 左糖纸（带分叉的燕尾）
+      g.beginPath();
+      g.moveTo(-bodyR * 0.6, 0);
+      g.lineTo(-wingL, -wingH);
+      g.lineTo(-wingL + notch, 0);
+      g.lineTo(-wingL, wingH);
+      g.closePath();
+      if (fill) g.fill(); else g.stroke();
+      // 右糖纸
+      g.beginPath();
+      g.moveTo(bodyR * 0.6, 0);
+      g.lineTo(wingL, -wingH);
+      g.lineTo(wingL - notch, 0);
+      g.lineTo(wingL, wingH);
+      g.closePath();
+      if (fill) g.fill(); else g.stroke();
+      // 圆糖体
+      g.beginPath();
+      g.arc(0, 0, bodyR, 0, Math.PI * 2);
+      if (fill) g.fill(); else g.stroke();
+    };
+
+    g.save();
+    g.lineJoin = 'round';
+    g.lineCap = 'round';
+    // 1) 黑色加粗描一遍
+    g.strokeStyle = '#000';
+    g.lineWidth = Math.max(2.4, cell * 0.09);
+    paint(false);
+    // 2) 填色：糖纸稍深、糖体粉白渐变
+    const wrap = g.createLinearGradient(-wingL, -wingH, wingL, wingH);
+    wrap.addColorStop(0, '#ff8fc0');
+    wrap.addColorStop(0.5, '#ffc3dd');
+    wrap.addColorStop(1, '#ff8fc0');
+    g.fillStyle = wrap;
+    paint(true);
+    // 糖体重填（盖掉糖纸填色侵入圆内的部分）
+    const body = g.createRadialGradient(-bodyR * 0.35, -bodyR * 0.35, bodyR * 0.15, 0, 0, bodyR);
+    body.addColorStop(0, '#ffffff');
+    body.addColorStop(0.55, '#ffd9e8');
+    body.addColorStop(1, '#ff9ec6');
+    g.beginPath();
+    g.arc(0, 0, bodyR, 0, Math.PI * 2);
+    g.fill();
+    // 糖体上的斜条纹
+    g.save();
+    g.beginPath();
+    g.arc(0, 0, bodyR, 0, Math.PI * 2);
+    g.clip();
+    g.strokeStyle = 'rgba(255,110,170,0.75)';
+    g.lineWidth = Math.max(1.6, cell * 0.055);
+    for (let i = -2; i <= 2; i++) {
+      g.beginPath();
+      g.moveTo(i * bodyR * 0.62 - bodyR, bodyR);
+      g.lineTo(i * bodyR * 0.62 + bodyR, -bodyR);
+      g.stroke();
+    }
+    g.restore();
+    // 糖体左上一粒高光
+    g.fillStyle = 'rgba(255,255,255,0.95)';
+    g.beginPath();
+    g.arc(-bodyR * 0.38, -bodyR * 0.4, bodyR * 0.18, 0, Math.PI * 2);
+    g.fill();
+    g.restore();
+  }
+
   // 发光徽标很贵（shadowBlur 逐帧重绘会让低端机发烫卡顿），
   // 把徽标按「呼吸亮度档位」预渲染进离屏画布，运行时只做廉价 drawImage
   const CARGO_SPRITES = {};   // kind -> { cell, dpr, m: { 档位: canvas } }
   function cargoSprite(kind, pulse) {
     const isN = kind === 'nailong';
-    const rgb = isN ? '255,186,60' : '110,200,255';
+    const isC = kind === 'candy';
+    const rgb = isN ? '255,186,60' : (isC ? '255,140,190' : '110,200,255');
     // 徽标按屏幕物理像素栅格化（DPR 倍，封顶 2 省内存），再按逻辑尺寸 drawImage 回去，
     // 高分屏上钥匙 / 奶龙边缘才不糊
     const dpr = Math.min(2, Math.max(1, DPR || 1));
@@ -875,6 +970,9 @@
       g.shadowBlur = CELL * 0.16;
       g.fillText('奶龙', 0, 1);
       g.fillText('奶龙', 0, 1);
+    } else if (isC) {
+      // 糖果：圆糖体 + 两端糖纸，纯路径画黑描边
+      drawCandyMark(g, CELL, pulse);
     } else {
       // 钥匙自己画：emoji 的 strokeText 在多数浏览器里不生效（彩色字形不吃描边），
       // 想让钥匙也有黑边，只能拿路径画：先用加粗黑线整体描一遍，再填金色，
@@ -1656,7 +1754,7 @@
       });
       const last = list[list.length - 1];
       FX.text(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2,
-        last.kind === 'nailong' ? '奶龙送达！' : '送达 🔑', '#2fa84f', 16);
+        last.kind === 'nailong' ? '奶龙送达！' : (last.kind === 'candy' ? '送达 🍬' : '送达 🔑'), '#2fa84f', 16);
       FX.burst(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2, '#7cf29a', 5);
       AudioManager.playSFX('coin');
     }
@@ -2453,13 +2551,7 @@
       winSfx();
     }
 
-    // 毕业面板（§10）：全通关后弹一次；「关卡记录」里也能重现
-    if (S.levelDef.final) {
-      setTimeout(() => {
-        if (box) box.style.display = 'none';
-        showCompletePanel();
-      }, 1400);
-    }
+    // 最后一关打完不再自动跳「结算画面」：想看就到 关卡记录 左下角的「结算」键
     // 本关已结算：清掉局内存档，避免主页还显示「继续游戏」
     Store.clearRun();
   }
@@ -2942,9 +3034,6 @@
   function renderHistory() {
     const list = $('history-list');
     if (!list) return;
-    // 全通关才显示「重现结算画面」
-    const replay = $('btn-replay-ending');
-    if (replay) replay.style.display = allLevelsCleared() ? 'inline-block' : 'none';
     const prog = Store.getProgress();
     const maxUnlocked = Store.maxUnlockedLevel(maxMainLevel());
     const total = maxMainLevel();
@@ -3022,33 +3111,13 @@
     setTimeout(step, 40);
   }
 
-  // 章节地图：和关卡记录一样，把当前关卡平滑滑到列表中间
+  // 章节地图：和关卡记录一样，内列表自己滚，把当前关卡平滑滑到中间
   function scrollChaptersToCurrent() {
     const box = $('chapters-list');
     if (!box) return;
     const cur = box.querySelector('.level-chip.current');
     if (!cur) return;
-    // 章节列表自身不滚，滚动发生在章节地图面板（overlay）上
-    const menu = $('chapters-menu');
-    if (!menu) return;
-    // 把 chip 相对面板内容的位置换算后滚动面板
-    const menuRect = menu.getBoundingClientRect();
-    const chipRect = cur.getBoundingClientRect();
-    const chipTop = chipRect.top - menuRect.top + menu.scrollTop;
-    const max = Math.max(0, menu.scrollHeight - menu.clientHeight);
-    const target = chipTop - (menu.clientHeight - chipRect.height) / 2;
-    const top = Math.max(0, Math.min(target, max));
-    const from = menu.scrollTop;
-    if (Math.abs(top - from) < 1) return;
-    const dur = 320;
-    const t0 = performance.now();
-    const step = () => {
-      const p = Math.min(1, (performance.now() - t0) / dur);
-      const e = 1 - Math.pow(1 - p, 3);
-      menu.scrollTop = from + (top - from) * e;
-      if (p < 1) setTimeout(step, 16);
-    };
-    setTimeout(step, 40);
+    scrollMenuToCenter(box, cur);
   }
 
   // ==================== 后台统计：全网次数 / 设备 / 地址 / 进度 ====================
@@ -4397,7 +4466,7 @@
       showOverlay('main-menu');
       refreshMenu();
     });
-    // 全通关后：在「返回」下面多一个「重现结算画面」，数据实时取最新存档
+    // 「结算」键（关卡记录左下角，黄色）：打开结算画面，数据实时取最新存档
     const replayEnding = $('btn-replay-ending');
     if (replayEnding) replayEnding.addEventListener('click', () => {
       $('history-menu').style.display = 'none';
