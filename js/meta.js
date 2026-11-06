@@ -508,10 +508,10 @@
       const own = stars >= s.stars;
       const row = document.createElement('div');
       row.className = 'skin-row' + (own ? '' : ' locked') + (s.id === cur ? ' active' : '');
-      // 「彩色」的图标用彩虹渐变图（assets/rainbow.jpg），其余还是纯色小方块
+      // 「彩色」的图标用彩虹渐变图（assets/rainbow.jpg），其余用同款大小的纯色铺满方块
       const iconHtml = s.id === 'black'
         ? '<span class="skin-icon skin-icon-img"></span>'
-        : '<span class="skin-icon" style="color:' + (s.color || '#ffd94a') + '">' + s.icon + '</span>';
+        : '<span class="skin-icon" style="background-color:' + (s.color || '#ffd94a') + '"></span>';
       row.innerHTML =
         iconHtml +
         '<span class="skin-main"><b>' + s.name + '</b><i>' + s.desc + '</i></span>' +

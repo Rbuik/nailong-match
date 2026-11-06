@@ -630,6 +630,7 @@ function check(name, ok) {
     jsSrc.includes("ctx.fillText('🌈'") && !jsSrc.includes('RAINBOW_IMG') &&
     fs.existsSync(path.join(__dirname, 'assets', 'rainbow.jpg')) &&
     fs.readFileSync(path.join(__dirname, 'js', 'meta.js'), 'utf8').includes("s.id === 'black'") &&
+    fs.readFileSync(path.join(__dirname, 'js', 'meta.js'), 'utf8').includes("background-color:' + (s.color") &&
     cssSrc.includes('.skin-icon-img') && cssSrc.includes("url('../assets/rainbow.jpg')"));
   check('快递小哥改名为快递达人', (() => {
     const a = sandbox.Meta.ACHIEVEMENTS.filter((x) => x.id === 'cargo50')[0];
