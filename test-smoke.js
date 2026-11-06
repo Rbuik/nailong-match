@@ -1994,6 +1994,28 @@ function check(name, ok) {
     /chapter-clear-' \+ ch\.id/.test(jsSrc) && /Mail\.sendMail\(\{/.test(jsSrc) &&
     /coins: CHAPTER_COIN/.test(jsSrc) && /grantChapterMails\(\)/.test(jsSrc));
 
+  // 41l. 商店新增「+10 秒」（300 金币，排在 +3 步下面，限时关专用）
+  check('商店在「+3 步」下面有「+10 秒」道具（300 金币）', (() => {
+    const shop = sandbox.Tasks.SHOP;
+    const i3 = shop.findIndex((x) => x.key === 'extraMoves');
+    const i10 = shop.findIndex((x) => x.key === 'extraTime');
+    return i3 >= 0 && i10 === i3 + 1 && shop[i10].price === 300 &&
+      /10/.test(shop[i10].name) && sandbox.Store.getWallet().items.extraTime === 0;
+  })());
+  check('「+10 秒」限时关真的加 10 秒，步数关不白扣', (() => {
+    sandbox.__nl_test.start(1, { def: { id: 88, theme: 'ocean', moves: 20, goal: { type: 'timed', target: 100, time: 60 }, stars: [1, 2, 3] } });
+    sandbox.__nl_test.state().timeLeft = 42;
+    sandbox.Store.addItem('extraTime', 1);
+    const ok = sandbox.__nl_test.useItem('extraTime');
+    const after = sandbox.__nl_test.state().timeLeft;
+    sandbox.__nl_test.start(1, { def: { id: 87, theme: 'candy', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
+    sandbox.Store.addItem('extraTime', 1);
+    const have = sandbox.Store.getWallet().items.extraTime;
+    const bad = sandbox.__nl_test.useItem('extraTime');
+    const still = sandbox.Store.getWallet().items.extraTime;
+    return ok === true && Math.round(after) === 52 && bad === false && still === have;
+  })());
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });

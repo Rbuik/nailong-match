@@ -2762,6 +2762,7 @@
   // 背包：展示买到的道具，并可在局内直接使用
   const ITEM_ACTION = {
     extraMoves: '使用',
+    extraTime: '使用',
     shuffle: '使用',
     undo: '使用',
     startBomb: '放置',
@@ -2786,6 +2787,11 @@
       toast('道具数量不足');
       return false;
     }
+    // +10 秒只对限时关有意义：步数关先拦下，别白扣一个
+    if (key === 'extraTime' && !S.timerOn) {
+      toast('这一关按步数算，用不上时间道具');
+      return false;
+    }
 
     // 先扣道具再刷新数值，避免徽章把刚用掉的那 1 个也算进总数
     Store.useItem(key);
@@ -2800,6 +2806,10 @@
       }
       updateHUD();
       checkMovesWarning();
+    } else if (key === 'extraTime') {
+      S.timeLeft += 10;
+      updateHUD();
+      toast('时间 +10 秒');
     } else if (key === 'shuffle') {
       S.shuffleLeft += 1;
       updateHUD();
@@ -6947,6 +6957,7 @@
     pickSpotIn: pickSpotIn,
     reshuffle: reshuffle,
     undoMove: undo,
+    useItem: useBackpackItem,
     findMatches: findMatches,
     autoPause: autoPauseIfPlaying,
     pause: pauseGame,

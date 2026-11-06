@@ -20,7 +20,7 @@
     save: NS + ':save'            // 当前局
   };
 
-  const DEFAULT_ITEMS = { extraMoves: 0, shuffle: 0, undo: 0, startBomb: 0, rainbow: 0 };
+  const DEFAULT_ITEMS = { extraMoves: 0, extraTime: 0, shuffle: 0, undo: 0, startBomb: 0, rainbow: 0 };
 
   function read(key, fallback) {
     try {
