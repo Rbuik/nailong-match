@@ -26,7 +26,7 @@
   const T = Specials.TYPE;
 
   const COMBO_WINDOW = 2500;   // 跨步连击窗口（ms）
-  const COMBO_DECAY = 900;     // 连击条显示窗口（ms）
+  const COMBO_DECAY = 620;     // 连击条显示窗口（ms）：中央弹窗停留短一点，不挡棋盘
   const MULT = [1, 1, 1.5, 2, 3]; // combo -> 倍率
 
   // 内置关卡兜底（file:// 下 fetch 失败时用）
@@ -231,6 +231,30 @@
   }
   function isLocked(r, c) {
     return isIced(r, c) || isChained(r, c);
+  }
+
+  // 一格只放一样东西：已经贴了货物（钥匙 / 奶龙）、有冰 / 锁链、或已经是特殊块的格子，
+  // 不再往上叠新的特殊块 / 道具。要生成的东西改放到「这一轮会被消掉」的其他空格上。
+  function canPlaceNew(r, c) {
+    const b = S.board[r] && S.board[r][c];
+    if (!b) return false;
+    if (b.special !== T.NORMAL) return false;
+    if (b.cargo) return false;
+    if (isIced(r, c) || isChained(r, c)) return false;
+    return true;
+  }
+
+  // 从一组将被消除的格子（"r,c" 集合）里随机挑一个还能放东西的
+  function pickSpotIn(cells) {
+    const list = [];
+    cells.forEach((k) => {
+      const parts = String(k).split(',');
+      const r = Number(parts[0]);
+      const c = Number(parts[1]);
+      if (canPlaceNew(r, c)) list.push({ r: r, c: c });
+    });
+    if (!list.length) return null;
+    return list[randInt(list.length)];
   }
 
   function placeObstacles() {
@@ -622,44 +646,76 @@
   const NAILONG_IMG = new Image();
   NAILONG_IMG.src = './assets/nailong.png';
   // 抠图加载完成后作废已缓存兜底文字徽标，并重绘一次
-  NAILONG_IMG.onload = () => { delete CARGO_SPRITES.nailong; if (!S.busy) drawStatic(); };
+  NAILONG_IMG.onload = () => { delete CARGO_SPRITES.nailong; NAILONG_SIL = null; if (!S.busy) drawStatic(); };
+
+  // 奶龙抠图的纯黑剪影（描边用），按尺寸缓存一次
+  let NAILONG_SIL = null;
+  function nailongSilhouette(px, dpr) {
+    const key = px + '@' + dpr;
+    if (NAILONG_SIL && NAILONG_SIL.key === key) return NAILONG_SIL.cv;
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(px));
+    cv.height = Math.max(1, Math.round(px));
+    const g = cv.getContext('2d');
+    g.drawImage(NAILONG_IMG, 0, 0, cv.width, cv.height);
+    g.globalCompositeOperation = 'source-in';   // 只留形状，全部涂黑
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, cv.width, cv.height);
+    NAILONG_SIL = { key: key, cv: cv };
+    return cv;
+  }
 
   // 发光徽标很贵（shadowBlur 逐帧重绘会让低端机发烫卡顿），
   // 把徽标按「呼吸亮度档位」预渲染进离屏画布，运行时只做廉价 drawImage
-  const CARGO_SPRITES = {};   // kind -> { cell, m: { 档位: canvas } }
+  const CARGO_SPRITES = {};   // kind -> { cell, dpr, m: { 档位: canvas } }
   function cargoSprite(kind, pulse) {
     const isN = kind === 'nailong';
     const rgb = isN ? '255,186,60' : '110,200,255';
+    // 徽标按屏幕物理像素栅格化（DPR 倍，封顶 2 省内存），再按逻辑尺寸 drawImage 回去，
+    // 高分屏上钥匙 / 奶龙边缘才不糊
+    const dpr = Math.min(2, Math.max(1, DPR || 1));
     let c = CARGO_SPRITES[kind];
-    if (!c || c.cell !== CELL) { c = { cell: CELL, m: {} }; CARGO_SPRITES[kind] = c; }
-    const bucket = Math.min(11, Math.max(0, Math.round(pulse * 11)));   // 12 档足够平滑
+    if (!c || c.cell !== CELL || c.dpr !== dpr) { c = { cell: CELL, dpr: dpr, m: {} }; CARGO_SPRITES[kind] = c; }
+    const bucket = Math.min(7, Math.max(0, Math.round(pulse * 7)));   // 8 档足够平滑
     let sp = c.m[bucket];
     if (sp) return sp;
 
     const size = Math.ceil(CELL * 2.2);
     sp = document.createElement('canvas');
-    sp.width = size; sp.height = size;
+    sp.width = Math.round(size * dpr);
+    sp.height = Math.round(size * dpr);
     const g = sp.getContext('2d');
+    g.scale(dpr, dpr);              // 之后所有坐标都按逻辑 px 写
     g.translate(size / 2, size / 2);
     g.textAlign = 'center';
     g.textBaseline = 'middle';
     g.shadowColor = 'rgba(' + rgb + ',' + (0.70 + 0.30 * pulse).toFixed(3) + ')';
     g.shadowBlur = CELL * (0.26 + 0.22 * pulse);
+    // 统一黑色描边：钥匙 / 奶龙都勾一圈黑边，在任何底图上都看得清轮廓
+    const outline = Math.max(1.4, CELL * 0.05);
     if (isN && NAILONG_IMG.complete && NAILONG_IMG.naturalWidth) {
       const s = CELL * 0.66;
-      // 画两遍：第一遍铺光，第二遍让图案本身更实
-      g.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
-      g.shadowBlur = CELL * 0.10;
+      const sil = nailongSilhouette(Math.round(s * dpr), dpr);
+      // 先用剪影铺一层淡光晕，再沿 8 个方向铺黑边
+      g.shadowBlur = CELL * (0.18 + 0.10 * pulse);
+      g.drawImage(sil, -s / 2, -s / 2, s, s);
+      g.shadowBlur = 0;
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4;
+        g.drawImage(sil, -s / 2 + Math.cos(a) * outline, -s / 2 + Math.sin(a) * outline, s, s);
+      }
+      // 图案本体
       g.drawImage(NAILONG_IMG, -s / 2, -s / 2, s, s);
     } else {
       const t = isN ? '奶龙' : '🔑';
       const px = Math.round(CELL * 0.54);
       g.font = px + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
       g.lineJoin = 'round';
-      g.lineWidth = Math.max(2, CELL * 0.06);
-      g.strokeStyle = 'rgba(' + rgb + ',' + (0.55 + 0.35 * pulse).toFixed(3) + ')';
+      g.lineWidth = Math.max(3, CELL * 0.13);
+      g.strokeStyle = '#000';
       g.strokeText(t, 0, 1);
-      g.shadowBlur = CELL * 0.12;
+      g.strokeText(t, 0, 1);
+      g.shadowBlur = CELL * 0.16;
       g.fillText(t, 0, 1);
       g.fillText(t, 0, 1);
     }
@@ -673,7 +729,7 @@
     // 呼吸放大缩小：最大就是原来的大小，最小只小一点点
     const scale = 0.88 + 0.12 * pulse;
     const sp = cargoSprite(kind, pulse);
-    const w = sp.width * scale;
+    const w = (sp.width / Math.max(1, DPR || 1)) * scale;   // 位图是 DPR 倍，显示时换算回逻辑尺寸
     ctx.drawImage(sp, cx - w / 2, cy - w / 2, w, w);
   }
 
@@ -1186,12 +1242,19 @@
       if (runs.some((x) => x.len === 4)) Tasks.report('match4', 1);
 
       // 生成特殊块：从待消除集合里剔除该格
-      if (plan && S.board[plan.r][plan.c] && S.board[plan.r][plan.c].special === T.NORMAL) {
-        markSpecial(plan.r, plan.c, plan.type);
-        matched.delete(kOf(plan.r, plan.c));
+      // 定点已经有东西（货物 / 冰 / 锁链 / 特殊块）时，改放到这一轮要消掉的别的空格上；
+      // 实在没有空位就不生成，绝不把两样东西叠在同一个方块上。
+      let planAt = null;
+      if (plan) {
+        if (canPlaceNew(plan.r, plan.c)) planAt = { r: plan.r, c: plan.c };
+        else planAt = pickSpotIn(matched);
+      }
+      if (plan && planAt) {
+        markSpecial(planAt.r, planAt.c, plan.type);
+        matched.delete(kOf(planAt.r, planAt.c));
         // 这一格虽然要留下来变成特殊块（不消除方块），但它属于本次连消，
         // 底下的果冻必须一起消掉，否则果冻关永远清不完
-        if (clearJellyAt(plan.r, plan.c)) {
+        if (clearJellyAt(planAt.r, planAt.c)) {
           Tasks.report('jelly', 1);
           if (S.goal) {
             Goals.progress(S.goal, { jelly: 1 });
@@ -1199,13 +1262,13 @@
           }
         }
         if (plan.type === T.RAINBOW) {
-          FX.text(plan.c * CELL + CELL / 2, plan.r * CELL + CELL / 2, '生成彩虹 🌈', '#c85cff', 16);
+          FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成彩虹 🌈', '#c85cff', 16);
           AudioManager.playSFX('coin');
         } else if (plan.type === T.BOMB) {
-          FX.text(plan.c * CELL + CELL / 2, plan.r * CELL + CELL / 2, '生成炸弹 💣', '#ff5c5c', 16);
+          FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成炸弹 💣', '#ff5c5c', 16);
           AudioManager.playSFX('coin');
         } else {
-          FX.text(plan.c * CELL + CELL / 2, plan.r * CELL + CELL / 2, '生成线消', '#5c8fff', 16);
+          FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成线消', '#5c8fff', 16);
           AudioManager.playSFX('coin');
         }
         swapPos = null; // 一局只生成一次，避免递归刷
@@ -1369,7 +1432,13 @@
     // 同一列有多个货物时从下往上放，避免互相抢格子。
     kickedCargo.sort((x, y) => y.r - x.r).forEach((d) => {
       let tr = Math.min(ROWS - 1, d.r + 1);
-      while (tr < ROWS - 1 && S.board[tr] && S.board[tr][d.c] && S.board[tr][d.c].cargo) tr++;
+      // 一格只放一样东西：往下找第一个「没货物、也不是特殊块」的格子，
+      // 别让钥匙 / 奶龙贴在炸弹、彩虹上
+      const busy = (r) => {
+        const b = S.board[r] && S.board[r][d.c];
+        return !!b && (b.cargo || b.special !== T.NORMAL);
+      };
+      while (tr < ROWS - 1 && busy(tr)) tr++;
       const cell = S.board[tr] && S.board[tr][d.c];
       if (cell && !cell.cargo) cell.cargo = d.cargo;
       else if (S.board[0][d.c] && !S.board[0][d.c].cargo) S.board[0][d.c].cargo = d.cargo;
@@ -1501,6 +1570,9 @@
       drawStatic();
       return;
     }
+    // 玩家照着提示走了这一步 → 棋盘上的虚线提示框立刻收掉，别跟着棋盘继续晃
+    if (S.hintCells && S.hintCells.some((p) =>
+      (p.r === a.r && p.c === a.c) || (p.r === b.r && p.c === b.c))) clearHint();
     // 冰块 / 锁链：动不了，提示一下就好
     if (isLocked(a.r, a.c) || isLocked(b.r, b.c)) {
       S.selected = null;
@@ -1529,6 +1601,7 @@
       // 组合技（§2）：两个特殊块相邻
       const combo = Specials.comboAt(S.board, ROWS, COLS, a, b);
       if (combo) {
+        clearHint();
         commitSnap(snap);
         await runCombo(combo, a, b);
         spendMove();
@@ -1553,6 +1626,7 @@
       }
 
       commitSnap(snap);
+      clearHint();                 // 棋盘要变了，旧提示作废
       spendMove();
       await resolveBoard({ a: { r: a.r, c: a.c }, b: { r: b.r, c: b.c } });
       await afterTurn();
@@ -1740,6 +1814,7 @@
       S.goal.rescueGot = f.goal.rescueGot || 0;
     }
     S.selected = null;
+    clearHint();
     updateHUD();
     updateTargetBar();
     drawStatic();
@@ -1756,6 +1831,7 @@
     }
     S.shuffleLeft--;
     pushHistory();
+    clearHint();
     reshuffle();
     drawStatic();
     AudioManager.playSFX('swap');
@@ -1860,10 +1936,16 @@
     else if (S.goal.type === 'drop') S.goal.target = Math.max(1, S.cargoLeft);
     else if (S.goal.type === 'rescue') S.goal.target = Math.max(1, S.rescueLeft);
 
-    // 道具：开局炸弹（§7）
+    // 道具：开局炸弹（§7）——随机挑一个「还空着」的格子，不和货物 / 冰 / 锁链叠在一起
     if (opts.startBomb) {
-      const r = randInt(ROWS), c = randInt(COLS);
-      markSpecial(r, c, T.BOMB);
+      const free = [];
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) if (canPlaceNew(r, c)) free.push([r, c]);
+      }
+      if (free.length) {
+        const p = free[randInt(free.length)];
+        markSpecial(p[0], p[1], T.BOMB);
+      }
     }
 
     $('level').textContent = S.daily ? '每日挑战'
@@ -2180,89 +2262,21 @@
     Store.clearRun();
   }
 
-  // ==================== 资源耗尽时的道具救场 ====================
-  // 步数用完 / 时间耗尽时，背包里剩下的道具（洗牌、撤回除外）按商店顺序自动发挥用处：
-  //  · +3 步（限时关为 +10 秒）：直接续命，游戏继续
-  //  · 炸弹 / 彩虹：随机落到棋盘上并立即引爆
-  // 全部用完后仍未过关，才弹出结算
+  // ==================== 资源耗尽 ====================
+  // 步数 / 时间用完：绝不碰玩家的背包。任何道具（+3 步、炸弹、线消、彩虹……）
+  // 都只能由玩家自己在背包里点，系统不会代替玩家消耗。
+  // 这里只给一次「再来 3 步」的花金币机会（主线），否则直接结算。
   let rescuing = false;
-
-  async function autoUseLeftoverItems() {
-    for (let guard = 0; guard < 24; guard++) {
-      const items = Store.getWallet().items || {};
-
-      if ((items.extraMoves || 0) > 0) {
-        Store.useItem('extraMoves');
-        if (S.timerOn) S.timeLeft += 10;
-        else S.moves += 3;
-        updateHUD();
-        checkMovesWarning();
-        renderBackpack();
-        toast('步数用完了，自动使用「' + (S.timerOn ? '时间 +10 秒' : '+3 步') + '」');
-        return true;
-      }
-
-      let key = null;
-      if ((items.startBomb || 0) > 0) key = 'startBomb';
-      else if ((items.startLine || 0) > 0) key = 'startLine';
-      else if ((items.rainbow || 0) > 0) key = 'rainbow';
-      if (!key) return false;
-
-      const spots = [];
-      for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) {
-          if (S.board[r][c] && S.board[r][c].special === T.NORMAL) spots.push([r, c]);
-        }
-      }
-      if (!spots.length) return false;
-
-      const spot = spots[randInt(spots.length)];
-      Store.useItem(key);
-      markSpecial(spot[0], spot[1],
-        key === 'startBomb' ? T.BOMB
-          : key === 'startLine' ? (Math.random() < 0.5 ? T.LINE_H : T.LINE_V)
-          : T.RAINBOW);
-      renderBackpack();
-      drawStatic();
-      toast(key === 'startBomb' ? '自动放置炸弹并引爆 💣'
-        : key === 'startLine' ? '自动放置线消并引爆 ➖'
-        : '自动使用彩虹 🌈');
-      AudioManager.playSFX('bomb');
-      await sleep(280);
-      await detonateAt(spot[0], spot[1]);
-      // 引爆后的掉落可能凑出自然连消，一并消完
-      if (findMatches().size) await resolveBoard(null);
-
-      if (S.goal && Goals.isComplete(S.goal)) {
-        await sleep(240);
-        levelWin();
-        return true;
-      }
-    }
-    return false;
-  }
 
   async function handleOutOfResource() {
     if (rescuing || !S.playing) return;
-    // 无尽 / 冲刺 / 节奏：步数或时间用完直接结束，不动背包道具
+    // 无尽 / 冲刺 / 节奏：步数或时间用完直接结束
     if (S.mode && S.mode !== 'main') { endModeRun(); return; }
     rescuing = true;
     S.busy = true;
     Input.setEnabled(false);
-
-    // 1) 背包里剩下的道具（+3 步 / 炸弹 / 彩虹）救场
-    const saved = await autoUseLeftoverItems();
     S.busy = false;
     rescuing = false;
-    if (saved) {
-      // 救回来了：限时关要把计时器重新跑起来
-      if (S.playing) {
-        Input.setEnabled(true);
-        if (S.timerOn && S.timeLeft > 0) startTimer();
-      }
-      return;
-    }
-    // 3) 差一点点：给一次「再来 3 步」的机会（主线才有）
     if (maybeOfferRevive()) return;
     endGame();
   }
@@ -2570,11 +2584,11 @@
       updateHUD();
       toast('撤回 +1 次');
     } else if (key === 'startBomb' || key === 'startLine' || key === 'rainbow') {
-      // 随机挑一个普通格变成炸弹 / 线消 / 彩虹
+      // 随机挑一个「还空着」的普通格变成炸弹 / 线消 / 彩虹（货物、冰、锁链上的格子不动）
       const spots = [];
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          if (!S.board[r][c] || S.board[r][c].special) continue;
+          if (!canPlaceNew(r, c)) continue;
           spots.push([r, c]);
         }
       }
@@ -4527,7 +4541,6 @@
     });
 
     on('btn-story-go', closeStory);
-    on('btn-story-skip', closeStory);
     on('btn-revive-yes', doRevive);
     on('btn-revive-no', declineRevive);
 
@@ -5292,6 +5305,15 @@
   }
 
   // ---------- 提示：花一次机会高亮一组可走的交换 ----------
+  // 提示高亮框（棋盘上的虚线脉动框）随时可收：玩家照着走了那一步、洗牌、撤回、
+  // 或者自己又走了一步，都立刻清掉，不让它留在棋盘上继续晃。
+  function clearHint() {
+    if (!S.hintCells && !S.hintUntil) return;
+    S.hintCells = null;
+    S.hintUntil = 0;
+    drawStatic();
+  }
+
   function useHint() {
     if (!S.playing || S.busy || S.paused) return;
     if (S.hintLeft <= 0) {
@@ -5925,7 +5947,7 @@
       // 两行显示：规则一行，「不能和别人重名」另起一行
       hint.innerHTML = forced
         ? '「奶龙玩家」是默认昵称，不能直接用<br>最多 8 个字，特殊符号只能用 - . _'
-        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 . - _<br>不能和别人重名';
+        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 . - _<br>不能和别人重名（区分大小写）';
     }
     // 强制改名时输入框一律留空：预填旧名字会让人以为点一下就过了
     if ($('nick-input')) $('nick-input').value = forced ? '' : (Meta.isDefaultNick() ? '' : Meta.nickname());
@@ -6575,6 +6597,10 @@
     end: endGame,
     outOfResource: handleOutOfResource,
     swap: trySwap,
+    hint: useHint,
+    clearHint: clearHint,
+    canPlaceNew: canPlaceNew,
+    pickSpotIn: pickSpotIn,
     undoMove: undo,
     findMatches: findMatches,
     autoPause: autoPauseIfPlaying,

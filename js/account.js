@@ -111,7 +111,8 @@
   }
   function saveList(a) { write(K.accounts, a); }
 
-  function nameKey(n) { return String(n == null ? '' : n).trim().toLowerCase(); }
+  // 名字区分大小写：Yone 和 yone 是两个不同的号（登录 / 注册 / 改名都按原样比）
+  function nameKey(n) { return String(n == null ? '' : n).trim(); }
 
   function find(id) {
     if (!id) return null;
@@ -121,6 +122,15 @@
     const k = nameKey(n);
     if (!k) return null;
     return list().filter((x) => x.name && nameKey(x.name) === k)[0] || null;
+  }
+  // 登录兜底：精确匹配不到时按大小写不敏感找一个（只有一个候选才认）。
+  // 名字本身区分大小写，但老玩家当年注册写的是「Yone」、今天顺手输「yone」，
+  // 不该直接被判「查无此人」。
+  function findByNameLoose(n) {
+    const k = nameKey(n).toLowerCase();
+    if (!k) return null;
+    const hits = list().filter((x) => x.name && String(x.name).trim().toLowerCase() === k);
+    return hits.length === 1 ? hits[0] : null;
   }
   function currentId() { const v = read(K.cur, ''); return typeof v === 'string' ? v : ''; }
   function current() { return find(currentId()); }
@@ -277,7 +287,7 @@
   const BAD_PASS = '名字或密码不正确，请确认后再次输入';
 
   function login(name, pass) {
-    const acc = findByName(name);
+    const acc = findByName(name) || findByNameLoose(name);
     if (!acc) return { ok: false, reason: BAD_PASS, badAccount: true };
     if (!acc.pass) return { ok: false, reason: '这个账号还没设置密码', needPass: true, account: acc };
     if (hash(pass) !== acc.pass) return { ok: false, reason: BAD_PASS, badAccount: true };
@@ -739,7 +749,8 @@
     GRANTS.forEach((g) => {
       const key = g.id + ':' + acc.id;
       if (claimed.indexOf(key) >= 0) return;
-      if (nameKey(acc.name) !== nameKey(g.name)) return;
+      // 补偿奖励按名字发（大小写不敏感：当年注册写的是 II 还是 ii 都算同一个人）
+      if (String(acc.name || '').trim().toLowerCase() !== String(g.name).trim().toLowerCase()) return;
       if (!deliverGrant(g)) return;
       claimed.push(key);
       got.push(g);

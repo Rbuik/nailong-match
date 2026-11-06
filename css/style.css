@@ -220,7 +220,7 @@ input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
   pointer-events: none;
   z-index: 99; /* 确保在 canvas 之上 */
   opacity: 0;
-  transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   white-space: nowrap;
   box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 0 10px rgba(255,255,255,0.2);
   border: 2px solid rgba(255, 255, 255, 0.3);
@@ -241,7 +241,7 @@ input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
 /* 连击横幅内的文字弹出动画（每次连击升级重放） */
 #center-banner.show #center-banner-text {
   display: inline-block;
-  animation: combo-pop 0.34s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  animation: combo-pop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
 @keyframes combo-pop {

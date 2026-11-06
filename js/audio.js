@@ -66,10 +66,18 @@
     // 第一下触摸就把音频上下文叫醒：音效独立于背景音乐，
     // 哪怕音乐一直关着，只要碰一下屏幕，之后所有音效都能正常出声。
     _gestureBound: false,
+    // 每次点屏幕都 resume + 重设音量 + 补播队列是很贵的，跑起来之后就直接跳过，
+    // 免得每一下点击都给音频线程添一次无谓的工作（听感上就是「抖一下」）。
+    kickResume() {
+      const running = !!(this.ctx && this.ctx.state === 'running');
+      const customPaused = !!(this._custom && this._custom.paused);
+      if (running && !customPaused) return;
+      this.resumeCtx();
+    },
     bindGestureUnlock() {
       if (this._gestureBound || typeof document === 'undefined') return;
       this._gestureBound = true;
-      const kick = () => { this.resumeCtx(); };
+      const kick = () => { this.kickResume(); };
       ['pointerdown', 'touchstart', 'touchend', 'click', 'keydown'].forEach((ev) =>
         document.addEventListener(ev, kick, { passive: true, capture: true }));
     },
@@ -378,11 +386,20 @@
     },
 
     // ---------- 合成 BGM ----------
+    // 关键：提前排程（lookahead），而不是「到点才响」。
+    // 以前是 setInterval 每 250ms 现响一个音——玩家一点按钮 / 棋盘动画卡一下主线程，
+    // 定时器就晚到，音乐听起来一卡一卡的。现在每 150ms 把接下来 0.9 秒的音
+    // 一次性排进 WebAudio 时间轴，主线程抖一下也不影响已经排好的音。
+    BGM_STEP: 0.25,     // 每个音 250ms（和原来的节奏一样）
+    BGM_AHEAD: 0.9,     // 提前排多久
+    _bgmNext: 0,
     startBGM() {
       if (!this.bgmAllowed) return;   // 登录页等场景不放音乐
       if (this._custom) return;
       if (this._bgmTimer) clearInterval(this._bgmTimer);
-      this._bgmTimer = setInterval(() => this._bgmNote(), 250);
+      this._bgmNext = 0;
+      this._bgmNote();
+      this._bgmTimer = setInterval(() => this._bgmNote(), 150);
     },
 
     stopBGM() {
@@ -390,14 +407,25 @@
         clearInterval(this._bgmTimer);
         this._bgmTimer = null;
       }
+      this._bgmNext = 0;
       this.setDrum(false);
     },
 
     _bgmNote() {
-      if (!this.ctx || this.ctx.state !== 'running' || !this.musicOn) return;
+      if (!this.ctx || this.ctx.state !== 'running' || !this.musicOn || !this.bgmAllowed) return;
+      const now = this.ctx.currentTime;
+      // 切后台再回来：时间轴对不上了，重新起拍，不补一堆过期音
+      if (!this._bgmNext || this._bgmNext < now - 0.2) this._bgmNext = now + 0.08;
+      let guard = 0;
+      while (this._bgmNext < now + this.BGM_AHEAD && guard++ < 24) {
+        this._bgmNoteAt(this._bgmNext);
+        this._bgmNext += this.BGM_STEP;
+      }
+    },
+
+    _bgmNoteAt(t0) {
       const f = NOTE[this._noteIndex % NOTE.length];
       try {
-        const t0 = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const g = this.ctx.createGain();
         osc.type = 'sine';
@@ -421,7 +449,8 @@
       this._noteIndex++;
     },
 
-    // 连击鼓点层（§15：连击 x3 以上叠鼓点）
+    // 连击鼓点层（§15：连击 x3 以上叠鼓点）——同样提前排程
+    _drumNext: 0,
     setDrum(on) {
       if (on === this._drumOn) return;
       this._drumOn = on;
@@ -429,22 +458,35 @@
         clearInterval(this._drumTimer);
         this._drumTimer = null;
       }
+      this._drumNext = 0;
       if (!on) return;
-      this._drumTimer = setInterval(() => {
-        if (!this.ctx || this.ctx.state !== 'running' || !this.musicOn) return;
-        try {
-          const t0 = this.ctx.currentTime;
-          const osc = this.ctx.createOscillator();
-          const g = this.ctx.createGain();
-          osc.type = 'sine';
-          osc.frequency.setValueAtTime(70, t0);
-          osc.frequency.exponentialRampToValueAtTime(38, t0 + 0.09);
-          g.gain.setValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * 0.8 * this.bgmVol), t0);
-          g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
-          osc.connect(g); g.connect(this.ctx.destination);
-          osc.start(t0); osc.stop(t0 + 0.13);
-        } catch (e) {}
-      }, 250);
+      this._drumTick();
+      this._drumTimer = setInterval(() => this._drumTick(), 150);
+    },
+
+    _drumTick() {
+      if (!this.ctx || this.ctx.state !== 'running' || !this.musicOn) return;
+      const now = this.ctx.currentTime;
+      if (!this._drumNext || this._drumNext < now - 0.2) this._drumNext = now + 0.05;
+      let guard = 0;
+      while (this._drumNext < now + this.BGM_AHEAD && guard++ < 24) {
+        this._drumAt(this._drumNext);
+        this._drumNext += this.BGM_STEP;
+      }
+    },
+
+    _drumAt(t0) {
+      try {
+        const osc = this.ctx.createOscillator();
+        const g = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(70, t0);
+        osc.frequency.exponentialRampToValueAtTime(38, t0 + 0.09);
+        g.gain.setValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * 0.8 * this.bgmVol), t0);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
+        osc.connect(g); g.connect(this.ctx.destination);
+        osc.start(t0); osc.stop(t0 + 0.13);
+      } catch (e) {}
     },
 
     // ---------- 自定义 BGM ----------

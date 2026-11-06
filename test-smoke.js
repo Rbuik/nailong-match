@@ -149,7 +149,14 @@ const fakeServer = {
   seq: 0,
   on: false,
   reset() { this.rows = {}; this.tokens = {}; this.seq = 0; curToken = ''; },
-  byNick(n) { return this.rows[String(n || '').trim().toLowerCase()] || null; },
+  byNick(n) {
+    // 和真服务器一致：先精确匹配；不行再大小写不敏感找一个（唯一才认）
+    const t = String(n || '').trim();
+    if (this.rows[t]) return this.rows[t];
+    const k = t.toLowerCase();
+    const hits = Object.keys(this.rows).filter((x) => x.toLowerCase() === k);
+    return hits.length === 1 ? this.rows[hits[0]] : null;
+  },
   issue(k) { const t = 'tk' + (++this.seq); this.tokens[t] = k; return t; },
   rowOf(t) { const k = this.tokens[t]; return k ? this.rows[k] || null : null; }
 };
@@ -161,7 +168,7 @@ sandbox.Cloud = {
   setToken: (t) => { curToken = t || ''; },
   signOut: () => { curToken = ''; },
   register: (nick, pass, uid) => {
-    const k = String(nick || '').trim().toLowerCase();
+    const k = String(nick || '').trim();
     if (fakeServer.rows[k]) return Promise.resolve({ ok: false, reason: '这个名字已经被注册了' });
     const row = { uid: 'srv' + (++fakeServer.seq), nick: nick, pass: pass, slot: null };
     fakeServer.rows[k] = row;
@@ -170,7 +177,7 @@ sandbox.Cloud = {
   login: (nick, pass) => {
     const row = fakeServer.byNick(nick);
     if (!row || row.pass !== pass) return Promise.resolve({ ok: false, reason: '没有找到这个玩家' });
-    return Promise.resolve({ ok: true, token: fakeServer.issue(String(nick).trim().toLowerCase()), uid: row.uid, nick: row.nick, slot: row.slot });
+    return Promise.resolve({ ok: true, token: fakeServer.issue(String(nick).trim()), uid: row.uid, nick: row.nick, slot: row.slot });
   },
   pull: () => {
     const row = fakeServer.rowOf(curToken);
@@ -627,7 +634,7 @@ function check(name, ok) {
   $('btn-play').dispatch('click');
   await sleep(30);
   // 第 1 关是第一章开头 → 先过剧情，再进关卡
-  if ($('story-menu').style.display === 'flex') $('btn-story-skip').dispatch('click');
+  if ($('story-menu').style.display === 'flex') $('btn-story-go').dispatch('click');
   await sleep(10);
   const walletShuffle = sandbox.Store.getWallet().items.shuffle || 0;
   for (let i = 0; i < 4; i++) $('btn-shuffle').dispatch('click');
@@ -1647,11 +1654,13 @@ function check(name, ok) {
     /id="hud"[\s\S]*?id="score"/.test(htmlSrc0) &&
     !/hud-mini/.test(htmlSrc0) && !/id="coins"/.test(htmlSrc0) && !/id="stars"/.test(htmlSrc0));
   check('窄屏不再隐藏任何顶栏项（各手机显示一致）', !/\.hud-mini\s*{ display: none/.test(cssSrc));
-  // 39b. 狂热改成顶栏静态倒计时小标：棋盘不再呼吸闪动、不再有横幅
-  check('狂热改成顶栏倒计时小标（🔥 双倍 Ns），不再有闪动横幅',
+  // 39b. 狂热改成「棋盘下方」静态倒计时小标：棋盘不再呼吸闪动、不再有横幅
+  check('狂热小标放在棋盘下方（🔥 双倍 Ns），不再有闪动横幅',
     /id="frenzy-chip"/.test(htmlSrc0) && /id="frenzy-left"/.test(htmlSrc0) &&
     !/frenzy-banner/.test(htmlSrc0) && !/frenzyPulse/.test(cssSrc) &&
-    /\.hud-frenzy\s*{/.test(cssSrc));
+    /\.hud-frenzy\s*{/.test(cssSrc) && /\.frenzy-slot\s*{/.test(cssSrc) &&
+    htmlSrc0.indexOf('id="frenzy-chip"') > htmlSrc0.indexOf('class="board-wrap"') &&
+    !/id="hud"[\s\S]{0,400}frenzy-chip/.test(htmlSrc0));
   check('狂热倒计时逐秒递减并在结束时收起',
     /function paintFrenzy/.test(jsSrc) && /function stopFrenzy/.test(jsSrc) &&
     /setInterval\(paintFrenzy, 200\)/.test(jsSrc));
@@ -1669,6 +1678,81 @@ function check(name, ok) {
     cssSrc.includes('min-height: calc(100vh - 12px);') &&
     cssSrc.includes('min-height: calc(100dvh - 12px);'));
   check('游戏页内容在多出的高度里垂直居中', /\.game-container\s*{[^}]*justify-content: center;/.test(cssSrc));
+
+  // 41. 本轮改动（2026-11-06 晚）
+  // 41a. 名字区分大小写：Yone / yone 是两个不同的号；登录有大小写唯一兜底
+  check('名字区分大小写：大小写不同的两个名字都能注册成功', (() => {
+    const a = sandbox.Account.register('CaseGuy', 'pass1234');
+    const b = sandbox.Account.register('caseguy', 'pass5678');
+    return a.ok === true && b.ok === true;
+  })());
+  check('名字区分大小写：它们是两个不同的号', (() => {
+    try {
+      const arr = JSON.parse(lsMap.get('nl2:accounts') || '[]');
+      const names = arr.map((x) => x.name);
+      return names.indexOf('CaseGuy') >= 0 && names.indexOf('caseguy') >= 0;
+    } catch (e) { return false; }
+  })());
+  check('登录写错大小写：唯一候选时能兜底找回', (() => {
+    sandbox.Account.register('SoloOne', 'solo1234');
+    const r = sandbox.Account.login('soloone', 'solo1234');
+    return r.ok === true && sandbox.Account.current().name === 'SoloOne';
+  })());
+  // 41b. 提示：照着走那一步 / 洗牌 / 撤回后高亮立刻消失
+  sandbox.__nl_test.start(1, { def: { id: 96, theme: 'candy', moves: 20, goal: { type: 'score', target: 5000 }, stars: [1, 2, 3] } });
+  sandbox.__nl_test.hint();
+  const hintCells0 = sandbox.__nl_test.state().hintCells;
+  check('提示：点击后棋盘上出现高亮对', Array.isArray(hintCells0) && hintCells0.length === 2);
+  await sandbox.__nl_test.swap(hintCells0[0], hintCells0[1]);
+  check('照着提示走那一步后，提示框立刻消失', !sandbox.__nl_test.state().hintCells && !sandbox.__nl_test.state().hintUntil);
+  // 41c. 连击弹窗停留缩短
+  check('连击弹窗显示窗口 620ms', /COMBO_DECAY = 620/.test(jsSrc));
+  check('连击弹窗淡出过渡 0.16s', /transition: opacity 0\.16s ease/.test(cssSrc));
+  // 41d. 任何道具都不许系统代用
+  check('自动使用道具的代码已整体移除', !/autoUseLeftoverItems/.test(jsSrc));
+  await (async () => {
+    sandbox.__nl_test.start(1, { def: { id: 96, theme: 'candy', moves: 1, goal: { type: 'score', target: 5000 }, stars: [1, 2, 3] } });
+    sandbox.Store.addItem('extraMoves', 2);
+    const before = sandbox.Store.getWallet().items.extraMoves;
+    const movesBefore = sandbox.__nl_test.state().moves;
+    await sandbox.__nl_test.outOfResource();
+    const after = sandbox.Store.getWallet().items.extraMoves;
+    check('步数走完：背包「+3 步」原封不动、步数也不偷偷加',
+      after === before && sandbox.__nl_test.state().moves === movesBefore);
+  })();
+  // 41e. 钥匙 / 奶龙徽标高清：按屏幕 DPR 栅格化
+  check('货物徽标按 DPR 栅格化（高分屏不糊）',
+    /g\.scale\(dpr, dpr\)/.test(jsSrc) &&
+    /sp\.width \/ Math\.max\(1, DPR/.test(jsSrc) &&
+    /c\.dpr !== dpr/.test(jsSrc));
+  // 41f. 背景音乐提前排程：点按钮 / 动画卡顿不再拖慢音乐
+  const audioSrc = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
+  check('BGM / 鼓点改为提前排程（lookahead）',
+    /BGM_AHEAD/.test(audioSrc) && /_bgmNoteAt\(/.test(audioSrc) && /_drumAt\(/.test(audioSrc));
+  check('每次点击不再无脑 resume / 重设音量', /kickResume/.test(audioSrc) &&
+    !/const kick = \(\) => \{ this\.resumeCtx\(\); \}/.test(audioSrc));
+  // 41g. 剧情过场去掉「跳过剧情」
+  check('剧情过场只有「继续前进」，没有「跳过剧情」',
+    htmlSrc0.includes('id="btn-story-go"') && !htmlSrc0.includes('btn-story-skip') &&
+    !htmlSrc0.includes('跳过剧情'));
+  // 41h. 一格只放一样东西：货物 / 冰 / 锁链 / 特殊块上不再叠新东西
+  sandbox.__nl_test.start(1, { def: { id: 96, theme: 'candy', moves: 20, goal: { type: 'score', target: 5000 }, stars: [1, 2, 3] } });
+  const stOne = sandbox.__nl_test.state();
+  stOne.board[3][3].cargo = { kind: 'key' };
+  stOne.ice[3][4] = 2;
+  stOne.chain[3][5] = 1;
+  check('有货物 / 冰 / 锁链 / 特殊块的格子不放新东西',
+    sandbox.__nl_test.canPlaceNew(3, 3) === false &&
+    sandbox.__nl_test.canPlaceNew(3, 4) === false &&
+    sandbox.__nl_test.canPlaceNew(3, 5) === false &&
+    sandbox.__nl_test.canPlaceNew(3, 6) === true);
+  const altSpot = sandbox.__nl_test.pickSpotIn(new Set(['3,3', '3,4', '3,6']));
+  check('原定点被占时，新东西挪到本轮要消掉的其他空格上',
+    !!altSpot && altSpot.r === 3 && altSpot.c === 6);
+  // 41i. 钥匙 / 奶龙黑色描边
+  check('钥匙 / 奶龙徽标用黑色描边（奶龙走剪影 8 方向铺边）',
+    /g\.strokeStyle = '#000'/.test(jsSrc) && /nailongSilhouette/.test(jsSrc) &&
+    /for \(let i = 0; i < 8; i\+\+\)/.test(jsSrc));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

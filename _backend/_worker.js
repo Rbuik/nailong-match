@@ -95,7 +95,8 @@ function passOk(pass) {
 }
 
 function nickKey(nick) {
-  return nick.trim().toLowerCase();
+  // 名字区分大小写：Yone / yone 是两个不同的号（只去掉首尾空格）
+  return nick.trim();
 }
 
 async function issueToken(env, accId) {
@@ -151,10 +152,20 @@ async function doLogin(env, b) {
   const row = await env.DB.prepare(
     'SELECT id, nick, pass, slot FROM accounts WHERE nick_key = ?'
   ).bind(nickKey(nick)).first();
-  if (!row) return json({ ok: false, reason: '没有找到这个玩家' });
-  if (!await checkPass(pass, row.pass)) return json({ ok: false, reason: '密码不对' });
-  const token = await issueToken(env, row.id);
-  return json({ ok: true, token: token, nick: row.nick, uid: row.id, slot: parseSlot(row.slot) });
+  // 登录兜底：精确匹配不到时，允许大小写不同（只有一个候选才认）——
+  // 老玩家当年注册写的是「Yone」，今天顺手输「yone」不该直接查无此人
+  let acc = row;
+  if (!acc) {
+    const rs = await env.DB.prepare(
+      'SELECT id, nick, pass, slot FROM accounts WHERE lower(nick_key) = lower(?)'
+    ).bind(nickKey(nick)).all();
+    const hits = (rs && rs.results) || [];
+    if (hits.length === 1) acc = hits[0];
+  }
+  if (!acc) return json({ ok: false, reason: '没有找到这个玩家' });
+  if (!await checkPass(pass, acc.pass)) return json({ ok: false, reason: '密码不对' });
+  const token = await issueToken(env, acc.id);
+  return json({ ok: true, token: token, nick: acc.nick, uid: acc.id, slot: parseSlot(acc.slot) });
 }
 
 async function doLoad(env, b) {
@@ -185,7 +196,7 @@ async function doSetPass(env, b) {
   return json({ ok: true });
 }
 
-// 改昵称：账号名就是榜单 / 登录用的名字，必须全服唯一（忽略大小写）
+// 改昵称：账号名就是榜单 / 登录用的名字，全服唯一（区分大小写）
 async function doRename(env, b) {
   const row = await accByToken(env, String(b.p_token || ''));
   if (!row) return json({ ok: false, reason: '登录已过期，请重新登录' });

@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106af">
-<link rel="stylesheet" href="./css/themes.css?v=20261106af">
+<link rel="stylesheet" href="./css/style.css?v=20261106ag">
+<link rel="stylesheet" href="./css/themes.css?v=20261106ag">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -21,7 +21,6 @@
     <div class="hud-item">关卡：<b id="level">1</b></div>
     <div class="hud-item" id="moves-container">步数：<b id="moves">25</b></div>
     <div class="hud-item">得分：<b id="score">0</b></div>
-    <div class="hud-item hud-frenzy" id="frenzy-chip" style="display:none;">🔥 双倍 <b id="frenzy-left">6</b>s</div>
     <button id="btn-pause" title="暂停">⏸</button>
   </div>
 
@@ -60,6 +59,11 @@
     <canvas id="game" width="480" height="480"></canvas>
     <div id="center-banner"><span id="center-banner-text"></span></div>
     <div id="loading">加载中…</div>
+  </div>
+
+  <!-- 狂热（双倍）倒计时：棋盘正下方的空位，固定占位，出现/消失都不挤动棋盘 -->
+  <div class="frenzy-slot">
+    <div class="hud-frenzy" id="frenzy-chip" style="display:none;">🔥 双倍 <b id="frenzy-left">6</b>s</div>
   </div>
 
   <!-- 节奏关：节拍条（光点走到最右端 = 节拍点） -->
@@ -287,6 +291,7 @@
         <p>通关、每日任务、签到都给金币，可在商店买道具：<b>+3 步</b>（限时关改成 +10 秒）、<b>洗牌</b>、<b>撤回</b>、<b>开局线消</b>、<b>开局炸弹</b>、<b>彩虹</b>。</p>
         <p>买到后进背包（主页音乐键下方 / 游戏界面 🎒）<b>点「使用」才生效</b>。商店会先弹确认框再扣金币，防手滑。</p>
         <p>洗牌和撤回每局各送 3 次，<b>用完不自动补</b>；还想用就在背包里用道具加次数。</p>
+        <p><b>系统永远不会替你用道具</b>：步数 / 时间走完没通关，也不会偷偷扣背包里的「+3 步」「炸弹」「彩虹」——想用就自己在背包里点。</p>
       </section>
 
       <section class="rule-sec">
@@ -334,7 +339,7 @@
       <section class="rule-sec">
         <h3>👤 账号与昵称</h3>
         <p><b>第一次进来</b>先选登录或注册：注册只需名字 + 密码（4~24 位，不含空格）就是一个新空号；登录要两项都正确，输错提示「名字或密码不正确，请确认后再次输入」。<b>老账号没设过密码</b>的，登录页会提示：切到「注册」，用<b>同一个名字</b> + 想用的密码注册一次，就能找回原进度（进度原样保留，密码设成新的）。</p>
-        <p><b>昵称</b>：最多 8 字，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，<b>名字具有唯一性</b>。改名点左上角 <b>🏠 主页键</b>（📖 规则键在它右边）里的「✏️ 改名」，账号名一起更新。</p>
+        <p><b>昵称</b>：最多 8 字，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，<b>名字具有唯一性</b>。名字<b>区分大小写</b>：<b>Yone</b> 和 <b>yone</b> 是两个不同的名字（登录时输错大小写会自动试着找回同一个号）。改名点左上角 <b>🏠 主页键</b>（📖 规则键在它右边）里的「✏️ 改名」，账号名一起更新。</p>
         <p><b>默认昵称要改掉</b>：名字还是「<b>奶龙玩家</b>」的时候，进来会弹一个<b>关不掉的改名窗口</b>（没有返回键，点外面也关不掉），改好名字它才自己关掉、才能进游戏。</p>
         <p><b>切换账号</b> / <b>修改密码</b>：设置 → 🔐 账号安全，本机账号都列出来，点一下即切换，金币、星星、进度各自独立。同一个页面的 <b>☁️ 存到服务器</b> 可以随时把当前号存上云。</p>
         <p><b>注销账号</b>：设置 → 🔐 账号安全 → 🔒 注销账号（切换账号下面）。两步确认后<b>彻底删除</b>进度、星星、金币、背包、成就、邮箱、榜单成绩，<b>无法恢复</b>；服务器上的账号和存档一起删掉，所以用同样的名字重新注册是<b>从零开始</b>的，不会被旧进度找回来。只是换号玩请用「切换账号」。</p>
@@ -369,6 +374,7 @@
         <p><b>炸弹 💣</b>：L 型 / T 型消除 → 生成炸弹，炸掉周围 3×3；背包的「开局炸弹」也能直接放一颗。</p>
         <p><b>彩虹 🌈</b>：5 个连成一线 → 生成彩虹。彩虹块<b>整块显示彩虹渐变图</b>（和其他方块一样大小、一样位置）。彩虹<b>自己被消掉</b>时触发：清掉全盘同图案方块，彩虹自身也消失。和普通块交换但彩虹没被消时，只按普通三连算。</p>
         <p><b>使用特效</b>：特殊块引爆都有专属效果——💣 爆炸火光 + 震屏、线消蓝光束横 / 竖扫过棋盘、🌈 彩虹五色波纹全屏闪。</p>
+        <p><b>不会叠在一起</b>：要生成的炸弹 / 线消 / 彩虹如果预定格子已经贴了钥匙、奶龙、冰或锁链，会改生成到<b>同一次消除里的其他格子</b>上。</p>
       </section>
 
       <section class="rule-sec">
@@ -381,7 +387,7 @@
       <section class="rule-sec">
         <h3>🔥 连击与倍率</h3>
         <p>连续消除不断链（间隔 2.5 秒内）累积连击：<b>2 连 ×1.5</b>、<b>3 连 ×2</b>、<b>4 连及以上 ×3</b>，倍率显示在棋盘中央。</p>
-        <p>打到 <b>4 连击</b>触发 <b>狂热 6 秒</b>：期间分数<b>再翻一倍</b>，顶栏会出现 <b>🔥 双倍</b> 倒计时小标，剩几秒一目了然，趁这时多消。</p>
+        <p>打到 <b>4 连击</b>触发 <b>狂热 6 秒</b>：期间分数<b>再翻一倍</b>，<b>棋盘下方</b>会出现 <b>🔥 双倍</b> 倒计时小标，剩几秒一目了然，趁这时多消。</p>
       </section>
 
       <section class="rule-sec">
@@ -400,7 +406,8 @@
         <h3>🧊 障碍与货物</h3>
         <p><b>冰块</b>：冻住的方块不能交换、不参与连消，只能靠<b>旁边消除</b>或特殊块砸开；厚冰多层，越砸越透。</p>
         <p><b>锁链</b>：锁住的方块第一次被消只解链、方块留下，之后才能正常交换。</p>
-        <p><b>货物（钥匙 / 奶龙）</b>：贴在方块上、发着呼吸光，<b>目标是送到最底行</b>。消掉它下面的方块就往下掉一格，掉到最后一排算送达。</p>
+        <p><b>货物（钥匙 / 奶龙）</b>：贴在方块上、发着呼吸光，<b>黑色描边</b>让轮廓在任何底图上都清楚，<b>目标是送到最底行</b>。消掉它下面的方块就往下掉一格，掉到最后一排算送达。</p>
+        <p><b>一个方块只放一样东西</b>：已经有钥匙 / 奶龙、冰、锁链或特殊块的格子，不会再叠上新的东西；新生成的炸弹 / 线消 / 彩虹会落到<b>这一轮要消掉的其他方块</b>上，没有空位就不生成，绝不会两样叠在一起。</p>
         <p>· 被冰或锁链挡住时先清障碍，否则掉不下去<br>
           · 货物所在方块被消掉时，它会<b>落到被消掉那一格的下面一格</b>，不会消失也不会从顶端重来<br>
           · 目标数量就是场上货物总数，全部送到底即过关</p>
@@ -425,7 +432,7 @@
 
       <section class="rule-sec">
         <h3>💡 提示与续命</h3>
-        <p><b>提示</b>：每局免费 <b>3 次</b>，点 💡 高亮一组可走的交换，用完不补。</p>
+        <p><b>提示</b>：每局免费 <b>3 次</b>，点 💡 高亮一组可走的交换；照着走那一步、洗牌或撤回之后，提示框会自动消失，不会留在棋盘上碍眼。用完不补。</p>
         <p><b>续命</b>：主线关卡步数 / 时间用完时，可花 <b>200 金币</b>再来一次——限步关 <b>+3 步</b>，限时关 <b>+15 秒</b>。每局 1 次，金币不够会提示还差多少；每日挑战和更多玩法没有续命。</p>
       </section>
     </div>
@@ -821,7 +828,6 @@
       <p class="story-text" id="story-text"></p>
     </div>
     <button class="btn-primary" id="btn-story-go">继续前进</button>
-    <button class="btn-secondary" id="btn-story-skip">跳过剧情</button>
   </div>
 
   <!-- 更多玩法 -->
@@ -965,22 +971,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106af"></script>
-<script src="./js/storage.js?v=20261106af"></script>
-<script src="./js/audio.js?v=20261106af"></script>
-<script src="./js/effects.js?v=20261106af"></script>
-<script src="./js/specials.js?v=20261106af"></script>
-<script src="./js/goals.js?v=20261106af"></script>
-<script src="./js/tasks.js?v=20261106af"></script>
-<script src="./js/mail.js?v=20261106af"></script>
-<script src="./js/input.js?v=20261106af"></script>
-<script src="./js/builtin-music.js?v=20261106af"></script>
-<script src="./js/music.js?v=20261106af"></script>
-<script src="./js/meta.js?v=20261106af"></script>
-<script src="./js/cloud-config.js?v=20261106af"></script>
-<script src="./js/cloud.js?v=20261106af"></script>
-<script src="./js/account.js?v=20261106af"></script>
-<script src="./js/board.js?v=20261106af"></script>
-<script src="./js/game.js?v=20261106af"></script>
+<script src="./js/rng.js?v=20261106ag"></script>
+<script src="./js/storage.js?v=20261106ag"></script>
+<script src="./js/audio.js?v=20261106ag"></script>
+<script src="./js/effects.js?v=20261106ag"></script>
+<script src="./js/specials.js?v=20261106ag"></script>
+<script src="./js/goals.js?v=20261106ag"></script>
+<script src="./js/tasks.js?v=20261106ag"></script>
+<script src="./js/mail.js?v=20261106ag"></script>
+<script src="./js/input.js?v=20261106ag"></script>
+<script src="./js/builtin-music.js?v=20261106ag"></script>
+<script src="./js/music.js?v=20261106ag"></script>
+<script src="./js/meta.js?v=20261106ag"></script>
+<script src="./js/cloud-config.js?v=20261106ag"></script>
+<script src="./js/cloud.js?v=20261106ag"></script>
+<script src="./js/account.js?v=20261106ag"></script>
+<script src="./js/board.js?v=20261106ag"></script>
+<script src="./js/game.js?v=20261106ag"></script>
 </body>
 </html>
