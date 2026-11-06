@@ -131,7 +131,7 @@
       case 'clear':
         return `还剩 ${Math.max(0, state.target - state.jellyCleared)} 格`;
       case 'ice':
-        return `还剩 ${Math.max(0, state.target - state.iceCleared)} 层冰`;
+        return `还剩 ${Math.max(0, state.target - state.iceCleared)} 块冰`;
       case 'drop':
         return `还差 ${Math.max(0, state.target - state.cargoGot)} 个`;
       case 'rescue':
@@ -155,7 +155,7 @@
       return `目标：清除果冻 ${Math.min(state.jellyCleared, state.target)} / ${state.target}`;
     }
     if (state.type === 'ice') {
-      return `目标：敲碎冰块 ${Math.min(state.iceCleared, state.target)} / ${state.target} 层`;
+      return `目标：敲碎冰块 ${Math.min(state.iceCleared, state.target)} / ${state.target} 块`;
     }
     if (state.type === 'drop') {
       return `目标：运送钥匙 ${Math.min(state.cargoGot, state.target)} / ${state.target}`;

@@ -966,7 +966,8 @@ function check(name, ok) {
   let iceLayers = 0;
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) iceLayers += st.ice[r][c] || 0;
   check('每块冰一出现就是 2 层', iceLayers === iceN * 2);
-  check('冰块目标值按实际层数校准', st.goal.target === iceLayers);
+  // 目标按「块」算：玩家数得出 10 块冰，目标就是 10（不再按层数虚高到 20）
+  check('冰块目标值按实际块数校准（不是按层）', st.goal.target === iceN);
 
   // 16. 货运关：货物数量 + 目标值
   const dropDef = { id: 98, theme: 'candy', moves: 20, goal: { type: 'drop', target: 4 }, cargo: 4, stars: [1, 2, 3] };
@@ -983,7 +984,66 @@ function check(name, ok) {
   st = sandbox.__nl_test.state();
   check('护送关目标值 = 奶龙数', st.goal.target === 3 && st.rescueLeft === 3);
 
-  // 18. 提示按钮：消耗次数并高亮
+  // 17b. 关卡数据写错（要求 5 只但只铺了 4 只）时，目标跟着场上实际数量走
+  sandbox.__nl_test.start(1, { def: { id: 95, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 5 }, rescue: 4, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  let nlOnBoard = 0;
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    if (st.board[r][c] && st.board[r][c].cargo && st.board[r][c].cargo.kind === 'nailong') nlOnBoard++;
+  }
+  check('目标数永远和棋盘上的奶龙数一致（写错也不会出现打不过的关）',
+    nlOnBoard === 4 && st.goal.target === 4);
+
+  // 17c. 货物被消掉时绝不凭空消失：下面堵死也要在别处落下来
+  sandbox.__nl_test.start(1, { def: { id: 94, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 1 }, rescue: 1, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.board[r][c]) st.board[r][c].cargo = null;
+  st.board[2][0].cargo = { kind: 'nailong' };      // 要被消掉的那只
+  st.board[3][0].cargo = { kind: 'key' };          // 正下方堵着一件货
+  for (let r = 4; r < 7; r++) st.board[r][0].cargo = { kind: 'key' };   // 整列堵死
+  const countCargo = () => {
+    let n = 0;
+    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.board[r][c] && st.board[r][c].cargo) n++;
+    return n;
+  };
+  // cargoGot 记的是「送达的货物总数」（奶龙也算在内），和场上剩的一起就是全部
+  const cargoTotal = () => countCargo() + (st.goal.cargoGot || 0);
+  const cargoCntBefore = cargoTotal();
+  await sandbox.__nl_test.resolveClear(new Set(['2,0']), []);
+  // 场上 + 已送达的总和不变 = 一只都没丢（落到最底行算送达，那也是正常归宿）
+  check('货物被顶下时不会丢（整列堵死也能落到别处）', cargoTotal() === cargoCntBefore);
+
+  // 17d. 总分只算通关的关卡：没过关那一局的分数不进总分
+  sandbox.Store.recordLevel(40, 9999, 0);    // 第 40 关没通关，分再高也不算
+  sandbox.Store.recordLevel(39, 1200, 3);    // 通关了才算
+  const progAll = sandbox.Store.getProgress();
+  const expectTotal = Object.keys(progAll).reduce(
+    (n, k) => n + ((progAll[k] && progAll[k].stars > 0) ? (progAll[k].score || 0) : 0), 0);
+  const myEntry = sandbox.__nl_test.myEntry();
+  check('总分只累加已通关关卡（没过关的高分不算）',
+    expectTotal > 0 && myEntry.score === expectTotal &&
+    expectTotal < 9999 + 1200);
+  check('总分口径的代码里带着 stars > 0 的过滤',
+    /r\.stars > 0 \? \(r\.score \|\| 0\) : 0/.test(jsSrc) &&
+    /if \(!\(all\[k\] && all\[k\]\.stars > 0\)\) return;/.test(jsSrc));
+
+  // 17e. 过关后还能接着玩：步数关显示「剩余步数」，限时关显示「剩余秒数」（除了单位完全一样）
+  sandbox.__nl_test.start(1, { def: { id: 92, theme: 'ocean', moves: 20, goal: { type: 'score', target: 100 }, stars: [100, 200, 300] } });
+  sandbox.__nl_test.state().moves = 7;
+  sandbox.__nl_test.win();
+  check('步数关过关后：还有剩余步数是否继续游戏',
+    $('btn-clear-continue').style.display === 'inline-block' &&
+    $('btn-clear-continue').textContent === '还有剩余步数是否继续游戏');
+  sandbox.__nl_test.start(1, { def: { id: 91, theme: 'ocean', moves: 20, goal: { type: 'timed', target: 100, time: 60 }, stars: [100, 200, 300] } });
+  sandbox.__nl_test.state().timeLeft = 42;
+  sandbox.__nl_test.win();
+  check('限时关过关后：还有剩余秒数是否继续游戏（只把步数换成秒数）',
+    $('btn-clear-continue').style.display === 'inline-block' &&
+    $('btn-clear-continue').textContent === '还有剩余秒数是否继续游戏' &&
+    $('clear-moves-label').textContent === '剩余时间');
+
+  // 18. 提示按钮：消耗次数并高亮（先开一局正常的，上面两局已经结算掉了）
+  sandbox.__nl_test.start(1, { def: { id: 90, theme: 'candy', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
   const hintBefore = sandbox.__nl_test.state().hintLeft;
   $('btn-hint').dispatch('click');
   st = sandbox.__nl_test.state();
@@ -1024,7 +1084,14 @@ function check(name, ok) {
   await sandbox.__nl_test.resolveClear(new Set([nb.r + ',' + nb.c]), []);
   // 厚冰有 2 层，一次相邻消除只砸掉一层
   check('相邻消除砸掉一层冰', st.ice[iceCell.r][iceCell.c] === iceBeforeVal - 1);
-  check('冰块目标进度推进', (st.goal.iceCleared || 0) >= iceBefore + 1);
+  // 进度按「块」算：只掉一层还不算清掉一块，砸透那一块才 +1
+  check('只砸掉一层时目标进度不动（按块算）', (st.goal.iceCleared || 0) === iceBefore);
+  if (st.ice[iceCell.r][iceCell.c] > 0) {
+    // 再砸一次把这整块砸透（新的一步：每步每格只砸一层，这里手动清一次记账）
+    st.iceHitMove = {};
+    await sandbox.__nl_test.resolveClear(new Set([nb.r + ',' + nb.c]), []);
+  }
+  check('整块冰砸透后目标进度 +1', (st.goal.iceCleared || 0) === iceBefore + 1);
 
   // 22b. 厚冰：一次相邻消除只能砸掉 1 层（2 层厚冰必须砸两次）
   sandbox.__nl_test.start(1, { def: { id: 97, theme: 'candy', moves: 20, goal: { type: 'ice', target: 8 }, iceHard: 4, stars: [1, 2, 3] } });

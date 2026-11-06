@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106aj">
-<link rel="stylesheet" href="./css/themes.css?v=20261106aj">
+<link rel="stylesheet" href="./css/style.css?v=20261106ak">
+<link rel="stylesheet" href="./css/themes.css?v=20261106ak">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -323,6 +323,7 @@
       <section class="rule-sec">
         <h3>📊 排行榜与奖牌</h3>
         <p>进去先选榜：<b>总榜 → 省榜 → 局榜</b>。总榜按总分（每关最高分之和），省榜先选省再列该省玩家，局榜先选某一关只比这局最高分。列表页只有标题、选择器和名次，想看别的榜返回上一层重选。</p>
+        <p><b>总分只算通关的关卡</b>：某关没过（0 星）时那局的分数不计入总分，等真正通关拿到星之后才加上去，所以反复重打没过关的关卡不会把总分刷高。</p>
         <p>打完分直接上共享榜，别人更新时你开着榜单会立刻刷新，最多显示 20 名；<b>0 分不上榜</b>，显示「未上榜」。</p>
         <p><b>奖牌</b>：前三名挂 🥇 🥈 🥉，榜上只有自己也算名次。主页贴在「本关最高分」的<b>分数左边</b>，关卡记录里在<b>星星左边</b>。</p>
       </section>
@@ -397,9 +398,10 @@
           <b>清除果冻</b>：清掉棋盘上全部果冻格。<br>
           <b>限时得分</b>：限定时间内达到目标分。<br>
           <b>极限步数</b>：用很少的步数达到目标分。<br>
-          <b>敲碎冰块</b>：砸掉指定层数的冰。<br>
+          <b>敲碎冰块</b>：把棋盘上的冰全部砸开（按<b>块</b>算，厚冰多砸一次也算一块）。<br>
           <b>运送钥匙</b>：把钥匙送到最底行。<br>
           <b>护送奶龙</b>：把奶龙送到最底行。</p>
+        <p>冰块 / 钥匙 / 奶龙的<b>目标数就是棋盘上的实际数量</b>，进关时数得出来多少就要求多少；万一中途有货物没归位，目标会跟着场上剩下的数量自动校准，不会出现打不过去的情况。</p>
       </section>
 
       <section class="rule-sec">
@@ -421,6 +423,7 @@
           · <b>3 星</b>：得分到 3 星线，<b>或</b>过关时剩 60% 以上步数</p>
         <p>也就是<b>分数够了给星，步数省得多也给星</b>，满足一条即可。例：第 1 关 28 步，用 11 步打完（剩 61%）直接 3 星；分数只有 1100，步数剩够 60% 同样 3 星。限时关按剩余时间比例算。</p>
         <p>星星只记历史最好成绩，重打不会掉星。</p>
+        <p>过关时如果<b>步数还没用完</b>（限时关则是<b>时间还没走完</b>），结算面板会多一个「还有剩余步数／秒数是否继续游戏」的按钮，点它就回到棋盘，用剩下的步数或秒数接着刷分，刷到的分照常计入本关最好成绩。</p>
       </section>
 
       <section class="rule-sec">
@@ -970,22 +973,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106aj"></script>
-<script src="./js/storage.js?v=20261106aj"></script>
-<script src="./js/audio.js?v=20261106aj"></script>
-<script src="./js/effects.js?v=20261106aj"></script>
-<script src="./js/specials.js?v=20261106aj"></script>
-<script src="./js/goals.js?v=20261106aj"></script>
-<script src="./js/tasks.js?v=20261106aj"></script>
-<script src="./js/mail.js?v=20261106aj"></script>
-<script src="./js/input.js?v=20261106aj"></script>
-<script src="./js/builtin-music.js?v=20261106aj"></script>
-<script src="./js/music.js?v=20261106aj"></script>
-<script src="./js/meta.js?v=20261106aj"></script>
-<script src="./js/cloud-config.js?v=20261106aj"></script>
-<script src="./js/cloud.js?v=20261106aj"></script>
-<script src="./js/account.js?v=20261106aj"></script>
-<script src="./js/board.js?v=20261106aj"></script>
-<script src="./js/game.js?v=20261106aj"></script>
+<script src="./js/rng.js?v=20261106ak"></script>
+<script src="./js/storage.js?v=20261106ak"></script>
+<script src="./js/audio.js?v=20261106ak"></script>
+<script src="./js/effects.js?v=20261106ak"></script>
+<script src="./js/specials.js?v=20261106ak"></script>
+<script src="./js/goals.js?v=20261106ak"></script>
+<script src="./js/tasks.js?v=20261106ak"></script>
+<script src="./js/mail.js?v=20261106ak"></script>
+<script src="./js/input.js?v=20261106ak"></script>
+<script src="./js/builtin-music.js?v=20261106ak"></script>
+<script src="./js/music.js?v=20261106ak"></script>
+<script src="./js/meta.js?v=20261106ak"></script>
+<script src="./js/cloud-config.js?v=20261106ak"></script>
+<script src="./js/cloud.js?v=20261106ak"></script>
+<script src="./js/account.js?v=20261106ak"></script>
+<script src="./js/board.js?v=20261106ak"></script>
+<script src="./js/game.js?v=20261106ak"></script>
 </body>
 </html>

@@ -297,11 +297,53 @@
     }
   }
 
-  // 冰块层数总量（冰块关的目标值以场上实际层数为准）
+  // 冰块层数总量（仅用于提示 / 统计）
   function iceTotal() {
     let n = 0;
     for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) n += (S.ice[r] && S.ice[r][c]) || 0;
     return n;
+  }
+
+  // 冰块「格」数：玩家眼睛数的是几块冰，关卡目标就得跟它一致
+  function iceCells() {
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (S.ice[r] && S.ice[r][c] > 0) n++;
+    }
+    return n;
+  }
+
+  // 目标数永远 = 「已完成 + 场上还剩」：
+  //  · 冰块按格算（厚冰也算一块），果冻按格算，钥匙 / 奶龙按只算
+  // 开局、读档、每次结算后都同步一次。这样关卡数据写错、或者中途出意外，
+  // 都不会出现「要求 5 只、场上只有 4 只」这种永远打不过去的死局。
+  function syncGoalFromBoard() {
+    const g = S.goal;
+    if (!g) return;
+    if (g.type === 'ice') {
+      g.target = Math.max(1, (g.iceCleared || 0) + iceCells());
+      return;
+    }
+    if (g.type === 'clear') {
+      let cells = 0;
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) if (S.jelly[r] && S.jelly[r][c]) cells++;
+      }
+      g.target = Math.max(1, (g.jellyCleared || 0) + cells);
+      return;
+    }
+    if (g.type !== 'drop' && g.type !== 'rescue') return;
+    let keys = 0, nailongs = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const b = S.board[r] && S.board[r][c];
+        if (!b || !b.cargo) continue;
+        if (b.cargo.kind === 'nailong') nailongs++;
+        else keys++;
+      }
+    }
+    if (g.type === 'drop') g.target = Math.max(1, (g.cargoGot || 0) + keys);
+    else g.target = Math.max(1, (g.rescueGot || 0) + nailongs);
   }
 
   // 砸掉一层冰（返回是否真的砸掉了）
@@ -315,7 +357,8 @@
     S.ice[r][c]--;
     AudioManager.playSFX('line');
     FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#9fe8ff', 5);
-    if (S.goal) {
+    // 目标按「块」算：一整块冰彻底砸开才 +1（厚冰要砸透，进度才不会虚高）
+    if (S.goal && S.ice[r][c] <= 0) {
       Goals.progress(S.goal, { ice: 1 });
       updateTargetBar();
     }
@@ -1509,17 +1552,31 @@
     // 被消掉的货物往下掉一格：落在「被消掉那一格的下面一格」，不从顶端重新开始。
     // 同一列有多个货物时从下往上放，避免互相抢格子。
     kickedCargo.sort((x, y) => y.r - x.r).forEach((d) => {
-      let tr = Math.min(ROWS - 1, d.r + 1);
-      // 一格只放一样东西：往下找第一个「没货物、也不是特殊块」的格子，
-      // 别让钥匙 / 奶龙贴在炸弹、彩虹上
-      const busy = (r) => {
-        const b = S.board[r] && S.board[r][d.c];
-        return !!b && (b.cargo || b.special !== T.NORMAL);
+      const fits = (r, c) => {
+        const b = S.board[r] && S.board[r][c];
+        return !!b && !b.cargo && b.special === T.NORMAL;
       };
-      while (tr < ROWS - 1 && busy(tr)) tr++;
-      const cell = S.board[tr] && S.board[tr][d.c];
-      if (cell && !cell.cargo) cell.cargo = d.cargo;
-      else if (S.board[0][d.c] && !S.board[0][d.c].cargo) S.board[0][d.c].cargo = d.cargo;
+      let placed = false;
+      // 1) 正常情况：落到被消那一格的下面
+      for (let tr = Math.min(ROWS - 1, d.r + 1); tr < ROWS; tr++) {
+        if (fits(tr, d.c)) { S.board[tr][d.c].cargo = d.cargo; placed = true; break; }
+      }
+      // 2) 这一列下面堵死了（货物 / 特殊块）：在同一列往上找
+      for (let tr = d.r; !placed && tr >= 0; tr--) {
+        if (fits(tr, d.c)) { S.board[tr][d.c].cargo = d.cargo; placed = true; }
+      }
+      // 3) 整列都没位置：全盘找空位。
+      //    钥匙 / 奶龙一旦凭空消失，这一关就永远打不过去了，宁可挪到别处也不能丢
+      for (let rr = ROWS - 1; !placed && rr >= 0; rr--) {
+        for (let cc = 0; !placed && cc < COLS; cc++) {
+          if (fits(rr, cc)) { S.board[rr][cc].cargo = d.cargo; placed = true; }
+        }
+      }
+      // 4) 极端情况（满盘特殊块）：先贴回原来那一格，至少还在场上
+      if (!placed) {
+        const home = S.board[d.r] && S.board[d.r][d.c];
+        if (home) home.cargo = d.cargo;
+      }
     });
     await animateDrop(fallFrom);
     S.landAnims = [];
@@ -1532,6 +1589,9 @@
       }
     }
     collectCargo();
+    // 每次结算后校准目标数：万一有货物没归位，目标跟着场上实际数量走，绝不让关卡变成死局
+    syncGoalFromBoard();
+    updateTargetBar();
     drawStatic();
     return gained;
   }
@@ -1780,10 +1840,11 @@
 
     S.busy = false;
 
-    // 过关后续玩剩余步数：目标早已达成，不再重复判胜；
-    // 等步数真正用完再弹一次结算（金币照发，成就 / 任务 / 榜单不重复计）
+    // 过关后续玩剩余步数 / 秒数：目标早已达成，不再重复判胜；
+    // 等步数（或时间）真正用完再弹一次结算（金币照发，成就 / 任务 / 榜单不重复计）
     if (S.wonContinued) {
-      if (S.moves <= 0) {
+      const usedUp = S.timerOn ? S.timeLeft <= 0 : S.moves <= 0;
+      if (usedUp) {
         await sleep(220);
         levelWin(true);
         return;
@@ -2009,10 +2070,9 @@
     applyTheme(S.levelDef.theme);
     initBoard();
 
-    // 冰块 / 货运 / 护送关：目标值以场上实际数量为准，保证一定能完成
-    if (S.goal.type === 'ice') S.goal.target = Math.max(1, iceTotal());
-    else if (S.goal.type === 'drop') S.goal.target = Math.max(1, S.cargoLeft);
-    else if (S.goal.type === 'rescue') S.goal.target = Math.max(1, S.rescueLeft);
+    // 冰块 / 货运 / 护送 / 果冻关：目标值统一按「场上实际数量」重算，
+    // 数字永远和棋盘上能数出来的东西一致（冰块按块算，不按层算）
+    syncGoalFromBoard();
 
     // 道具：开局炸弹（§7）——随机挑一个「还空着」的格子，不和货物 / 冰 / 锁链叠在一起
     if (opts.startBomb) {
@@ -2055,7 +2115,9 @@
       updateTargetBar();
       if (S.timeLeft <= 0) {
         stopTimer();
-        handleOutOfResource();
+        // 过关后接着玩到时间用完：直接进第二次结算（和步数关一致），不是失败
+        if (S.wonContinued) levelWin(true);
+        else handleOutOfResource();
       }
     }, 1000);
   }
@@ -2311,12 +2373,13 @@
       // 每日挑战没有"下一关"
       const nxt = $('btn-next-level');
       if (nxt) nxt.style.display = S.daily ? 'none' : 'inline-block';
-      // 主线限步关还有剩余步数 → 给一个「继续游戏」的入口（限时关 / 每日挑战不给）
+      // 过关后还有剩余步数 / 剩余时间 → 给一个「继续游戏」的入口接着刷分
+      // （两套文案除了「步数 / 秒数」完全一致，每日挑战不给）
       const cont = $('btn-clear-continue');
       if (cont) {
-        const canCont = !S.daily && !S.timerOn && S.moves > 0;
+        const canCont = !S.daily && (S.timerOn ? S.timeLeft > 0 : S.moves > 0);
         cont.style.display = canCont ? 'inline-block' : 'none';
-        cont.textContent = '还有剩余步数是否继续游戏';
+        cont.textContent = S.timerOn ? '还有剩余秒数是否继续游戏' : '还有剩余步数是否继续游戏';
       }
       box.style.display = 'flex';
 
@@ -2394,7 +2457,8 @@
         : Store.getLevelRecord(S.level).score;
       $('final-level').textContent = S.daily ? '每日挑战' : S.level;
       $('final-coins').textContent = '+' + coins;
-      $('game-over-title').textContent = passed ? '目标达成' : '步数耗尽';
+      // 限时关写「时间到了」，步数关写「步数耗尽」，别混用
+      $('game-over-title').textContent = passed ? '目标达成' : (S.timerOn ? '时间到了' : '步数耗尽');
       $('final-new-record').style.display = 'none';
       box.style.display = 'flex';
       // 新纪录等分数滚完再亮
@@ -2450,6 +2514,14 @@
     if (s.goalCurrent && S.goal) {
       S.goal.current = s.goalCurrent.current || 0;
       S.goal.jellyCleared = s.goalCurrent.jellyCleared || 0;
+    }
+    // 读档后按「恢复出来的棋盘」重算目标：冰块 / 果冻 / 货物数量都以场上剩下的为准，
+    // 否则会出现「目标比场上还多」的死局（老存档里冰的进度是按层记的，这里也一并纠正）
+    if (S.goal) {
+      S.goal.iceCleared = 0;
+      S.goal.cargoGot = 0;
+      S.goal.rescueGot = 0;
+      syncGoalFromBoard();
     }
     // 收集关：恢复存档时随机好的目标方块和各自进度（不重新随机）
     if (s.collectTarget && S.goal && S.goal.type === 'collect') {
@@ -2754,8 +2826,10 @@
     const prog = Store.getProgress() || {};
     let totalScore = 0, totalStars = 0;
     Object.keys(prog).forEach((k) => {
-      totalScore += (prog[k] && prog[k].score) || 0;
-      totalStars += (prog[k] && prog[k].stars) || 0;
+      const r = prog[k] || {};
+      // 只有真的通关（有星）的关卡才计入总分；没通关的那局分数不算
+      if (r.stars > 0) totalScore += r.score || 0;
+      totalStars += r.stars || 0;
     });
     const sc = $('complete-total-score'), st = $('complete-total-stars');
     if (st) st.textContent = String(totalStars);
@@ -3693,7 +3767,8 @@
     let sum = 0;
     Object.keys(prog).forEach((k) => {
       const rec = prog[k];
-      if (rec && typeof rec.score === 'number') sum += rec.score;
+      // 和排行榜同一口径：没过关的关卡分数不计入总分
+      if (rec && typeof rec.score === 'number' && rec.stars > 0) sum += rec.score;
     });
     return sum;
   }
@@ -4634,18 +4709,22 @@
       S.menuLevel = S.level + 1;
       playLevel(S.level + 1);
     });
-    // 过关后还剩步数：点「继续游戏」回到棋盘，用剩下的步数接着刷分
+    // 过关后还剩步数 / 剩时间：点「继续游戏」回到棋盘，用剩下的步数或秒数接着刷分
     const contBtn = $('btn-clear-continue');
     if (contBtn) contBtn.addEventListener('click', () => {
-      if (S.daily || S.timerOn || !(S.moves > 0)) return;
+      if (S.daily) return;
+      if (S.timerOn ? !(S.timeLeft > 0) : !(S.moves > 0)) return;
       $('level-clear').style.display = 'none';
       S.wonContinued = true;
       S.playing = true;
       S.busy = false;
       Input.setEnabled(true);
+      if (S.timerOn) startTimer();     // 限时关要把表重新跑起来
       setView('game');
-      // 「剩X步，继续！」打在棋盘正中间（不再走底部 toast）
-      FX.text(VIEW_W / 2, VIEW_H / 2, '剩 ' + S.moves + ' 步，继续！', '#ffd75c', 26);
+      // 「剩X步 / X秒，继续！」打在棋盘正中间（不再走底部 toast）
+      FX.text(VIEW_W / 2, VIEW_H / 2,
+        S.timerOn ? '剩 ' + Math.round(S.timeLeft) + ' 秒，继续！' : '剩 ' + S.moves + ' 步，继续！',
+        '#ffd75c', 26);
     });
     const home1 = $('btn-clear-home');
     if (home1) home1.addEventListener('click', () => {
@@ -5686,12 +5765,17 @@
     const all = Store.getProgress();
     let best = { score: 0, level: 0 };
     Object.keys(all).forEach((k) => {
+      // 没过关的那一局不计入总分，也不拿它当「最高单关」（星数是 0 就是没通关）
+      if (!(all[k] && all[k].stars > 0)) return;
       const s = all[k].score || 0;
       if (s > best.score) best = { score: s, level: Number(k) || 0 };
     });
     const lv = myLevelMap();
-    // 总分 = 各关最高分之和（和「局榜」的口径完全一致，不会两套数打架）
-    const total = Object.keys(lv).reduce((n, k) => n + lv[k], 0);
+    // 总分 = 已通关关卡的最高分之和（没过关的分数不加；每关失败重打都不会把总分刷高）
+    const total = Object.keys(all).reduce((n, k) => {
+      const r = all[k];
+      return n + (r && r.stars > 0 ? (r.score || 0) : 0);
+    }, 0);
     return {
       uid: Meta.myUid(), name: Meta.nickname(),
       score: Math.max(best.score, total), level: best.level,
@@ -6670,6 +6754,7 @@
   // 调试 / 自动化测试钩子（不影响正常玩法）
   window.__nl_test = {
     start: startLevel,
+    myEntry: myBestEntry,
     state: () => S,
     win: levelWin,
     end: endGame,
