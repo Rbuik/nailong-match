@@ -2406,11 +2406,11 @@
       try { recordMyScore(); } catch (e) {}
     }
 
-    // 星星音效稍等一下，和逐颗弹出对齐
-    setTimeout(() => AudioManager.playSFX('star', { stars }), 180);
     updateHUD();
 
     const box = $('level-clear');
+    // 结算音效由面板出现的那一刻来播，别提前响（以前提前 180ms，听着比画面早半拍）
+    const winSfx = () => AudioManager.playSFX('star', { stars });
     if (box) {
       const starEls = $('clear-stars').children;
       // 先把上一局的星星和分数复位，等面板出现后再播动画（隐藏状态下 class 变化不会有动画）
@@ -2440,6 +2440,7 @@
       // 还有特效在播就先让它们播完（炸弹 / 线消 / 彩虹 / 彩带 / 双倍），别一刀切
       await waitForEffects();
       box.style.display = 'flex';
+      winSfx();          // 音效和结算画面同一拍出来
 
       // 等面板真正显示出来再起动画（setTimeout 比 rAF 稳，后台标签页也照常跑）
       setTimeout(() => {
@@ -2448,6 +2449,8 @@
         });
         popStars(starEls, stars, 240);
       }, 30);
+    } else {
+      winSfx();
     }
 
     // 毕业面板（§10）：全通关后弹一次；「关卡记录」里也能重现
@@ -2526,10 +2529,10 @@
     Tasks.report('score', S.score);
     try { recordMyScore(); } catch (e) {}   // 没通关也刷一次局榜 / 总榜
 
-    AudioManager.playSFX(passed ? 'star' : 'gameover', { stars: Math.max(1, stars) });
     updateHUD();
 
     const box = $('game-over');
+    const endSfx = () => AudioManager.playSFX(passed ? 'star' : 'gameover', { stars: Math.max(1, stars) });
     if (box) {
       $('final-score').textContent = '0';
       $('final-high').textContent = S.daily
@@ -2543,12 +2546,15 @@
       // 步数 / 时间刚走完时可能还有特效在播：等播完再弹结算
       await waitForEffects();
       box.style.display = 'flex';
+      endSfx();          // 音效和结算画面同一拍出来
       // 新纪录等分数滚完再亮
       setTimeout(() => {
         countUp($('final-score'), S.score, 720, () => {
           if (rec.isNewScore) $('final-new-record').style.display = 'inline-flex';
         });
       }, 30);
+    } else {
+      endSfx();
     }
     Store.clearRun();
   }
@@ -4027,14 +4033,16 @@
     const map = Object.create(null);
     let localProv = '';
     try { localProv = myProvCode(); } catch (e) { localProv = ''; }
-    const add = (name, pv) => {
+    const add = (name, pv, entry) => {
       const n = String(name || '').trim();
       if (!n) return;
       const k = n.toLowerCase();
       const p = String(pv || '').toLowerCase();
+      const st = entry ? totalStarsOf(entry) : 0;
       const cur = map[k];
-      if (!cur) { map[k] = { name: n, prov: p, score: 0 }; return; }
+      if (!cur) { map[k] = { name: n, prov: p, score: 0, stars: st }; return; }
       if (p) cur.prov = p;   // 名字相同（大小写不同）只留一条，省份以有值的为准
+      if (st > (cur.stars || 0)) cur.stars = st;   // 星星只取最大值
     };
     try {
       if (typeof Account !== 'undefined' && Account.list) {
@@ -4043,7 +4051,7 @@
     } catch (e) {}
     try {
       if (typeof Board !== 'undefined' && Board.list) {
-        Board.list().forEach((e) => { if (e) add(e && e.name, e && e.pv); });
+        Board.list().forEach((e) => { if (e) add(e && e.name, e && e.pv, e); });
       }
     } catch (e) {}
     // 总分：取共享榜里同名（不分大小写）的最高分，没上榜的就是 0 分
@@ -4124,8 +4132,14 @@
       row.className = 'lb-row' + (u.score > 0 ? '' : ' none');
       const inner = document.createElement('div');
       inner.className = 'lb-swipe';
+      // 分数左边也带总星数（和排行榜同一个写法），0 星留空位，分数不挪窝
+      const st = Math.max(0, u.stars || 0);
+      const starHtml = st > 0
+        ? '<span class="lb-stars ul-stars"><i class="lb-star-ico">★</i><b>' + st + '</b></span>'
+        : '<span class="lb-stars ul-stars"></span>';
       inner.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
-        '<span class="lb-name">' + escHtml(String(u.name).slice(0, 12)) + '</span>' +
+        '<span class="lb-name">' + escHtml(String(u.name).slice(0, 8)) + '</span>' +
+        starHtml +
         '<span class="lb-score ul-score">' + (u.score > 0 ? String(u.score) : '—') + '</span>' +
         '<span class="lb-score ul-prov">' + escHtml(p) + '</span>';
       row.appendChild(inner);
@@ -6309,8 +6323,8 @@
     if (hint) {
       // 两行显示：规则一行，「不能和别人重名」另起一行
       hint.innerHTML = forced
-        ? '「奶龙玩家」是默认昵称，不能直接用<br>最多 8 个字，特殊符号只能用 - . _'
-        : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 . - _<br>不能和别人重名（区分大小写）';
+        ? '「奶龙玩家」是默认昵称，不能直接用<br>1~8 个字符，特殊符号只能用 - . _'
+        : '1~8 个字符（一个字母或符号都算一个）<br>中文 / 字母 / 数字，特殊符号只能用 . - _，不能重名';
     }
     // 强制改名时输入框一律留空：预填旧名字会让人以为点一下就过了
     if ($('nick-input')) $('nick-input').value = forced ? '' : (Meta.isDefaultNick() ? '' : Meta.nickname());
@@ -6461,7 +6475,7 @@
     const tip = $('auth-tip');
     if (tip) {
       tip.innerHTML = authMode === 'register'
-        ? '最多 8 个字，特殊符号只能用 - . _<br>密码 4~24 位，不能有空格'
+        ? '1~8 个字符，特殊符号只能用 - . _<br>密码 4~24 位，不能有空格'
         : '';
     }
     ['auth-name', 'auth-pass'].forEach((id) => {

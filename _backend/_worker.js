@@ -17,7 +17,7 @@ const CORS = {
 
 const ITER = 12000;          // PBKDF2 迭代（兼顾免费版 CPU 限额）
 const TOKEN_DAYS = 365;      // 令牌有效期
-const NICK_MAX = 12;
+const NICK_MAX = 8;
 const PASS_MIN = 4;
 const PASS_MAX = 24;
 
@@ -129,7 +129,7 @@ function parseSlot(raw) {
 async function doRegister(env, b) {
   const nick = String(b.p_nick || '').trim();
   const pass = String(b.p_pass || '');
-  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1-12 个字，不能有空格' });
+  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1~8 个字符（一个字母或符号都算一个），不能有空格' });
   if (!passOk(pass)) return json({ ok: false, reason: '密码要 4-24 位，不能有空格' });
   const key = nickKey(nick);
   const exist = await env.DB.prepare('SELECT id FROM accounts WHERE nick_key = ?').bind(key).first();
@@ -201,7 +201,7 @@ async function doRename(env, b) {
   const row = await accByToken(env, String(b.p_token || ''));
   if (!row) return json({ ok: false, reason: '登录已过期，请重新登录' });
   const nick = String(b.p_nick || '').trim();
-  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1-12 个字，不能有空格' });
+  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1~8 个字符（一个字母或符号都算一个），不能有空格' });
   const key = nickKey(nick);
   const exist = await env.DB.prepare('SELECT id FROM accounts WHERE nick_key = ?').bind(key).first();
   if (exist && exist.id !== row.id) return json({ ok: false, reason: '这个名字已经被别人用了' });

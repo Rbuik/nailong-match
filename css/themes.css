@@ -1501,6 +1501,8 @@ body.m-dragging .m-item { cursor: grabbing; }
   color: #ffb300;
   letter-spacing: -0.5px;
   white-space: nowrap;
+  /* 整列星星集体往右挪一点，和名字拉开距离 */
+  margin-left: 6px;
   margin-right: 2px;
   font-variant-numeric: tabular-nums;
 }
@@ -1526,12 +1528,21 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 .lb-score.none { font-weight: 600; font-size: 11px; color: #b0a9c0; }
 /* 后台「全服用户名单」：右边的省份标签比分数低调 */
-/* 后台「玩家」名单：名次 / 名字 / 总分 / 省份 四列，分数在省份左边且竖向对齐 */
+/* 后台「玩家」名单：名次 / 名字 / 星星 / 总分 / 省份，分数在省份左边且竖向对齐 */
 .ul-score {
-  min-width: 68px;
+  min-width: 66px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
+/* 后台名单的星星列：比榜单窄一点，放在分数左边、右对齐 */
+.ul-stars {
+  min-width: 34px;
+  justify-content: flex-end;
+  margin-left: 4px;
+  font-size: 10px;
+}
+/* 后台「玩家」名单：整行内容往右靠一点（分数跟着右移） */
+.admin-ul-list .lb-swipe { padding-right: 4px; }
 .ul-prov {
   font-weight: 700;
   font-size: 12px;

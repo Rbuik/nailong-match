@@ -331,7 +331,7 @@
     const s = String(v || '').trim();
     if (!s) return { ok: false, reason: '昵称不能为空' };
     if (s === '奶龙玩家') return { ok: false, reason: '不能再用「奶龙玩家」，换一个吧' };
-    if (s.length > 8) return { ok: false, reason: '昵称最多 8 个字' };
+    if (s.length > 8) return { ok: false, reason: '昵称要 1~8 个字符（一个字母或符号都算一个）' };
     if (!/^[\u4e00-\u9fa5A-Za-z0-9._\-]+$/.test(s)) return { ok: false, reason: '特殊符号只能用 - . _ 三个' };
     if (hasSensitive(s)) return { ok: false, reason: '改名字含敏感词，请重新输入', sensitive: true };
     if (taken && taken.indexOf(s) >= 0) return { ok: false, reason: '这个名字已经被别人用了' };

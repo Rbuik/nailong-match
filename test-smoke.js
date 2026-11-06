@@ -2033,6 +2033,30 @@ function check(name, ok) {
     /Math\.max\(starsNow, bestStars\)/.test(jsSrc) &&
     /popStars\(starEls, stars, 240\)/.test(jsSrc));
 
+  // 41o. 星星整列右移 / 后台玩家分数字左带星 / 名字 1~8 个字符 / 结算音效跟面板同拍
+  const workerSrc = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
+  check('排行榜星星整列往右挪一点（和名字拉开距离）', (() => {
+    const host = /\.lb-stars\s*\{[^}]*\}/.exec(cssSrc);
+    return !!host && /margin-left:\s*6px/.test(host[0]);
+  })());
+  check('后台玩家名单每行带总星数（分数左边 ★ N）', (() => {
+    const rows = sandbox.__nl_test.userList();
+    return Array.isArray(rows) && rows.every((u) => typeof u.stars === 'number') &&
+      /class="lb-stars ul-stars"/.test(jsSrc) && /\.ul-stars\s*\{/.test(cssSrc) &&
+      /admin-ul-list \.lb-swipe \{ padding-right: 4px; \}/.test(cssSrc);
+  })());
+  check('名字长度只能 1~8 个字符（一个字母或符号都算一个）', (() => {
+    const v1 = sandbox.Meta.validateNick('a');
+    const v8 = sandbox.Meta.validateNick('abcdefgh');
+    const v9 = sandbox.Meta.validateNick('abcdefghi');
+    return v1.ok && v8.ok && !v9.ok && /NICK_MAX = 8;/.test(workerSrc) &&
+      workerSrc.includes('1~8 个字符') && !/NICK_MAX = 12/.test(workerSrc);
+  })());
+  check('结算音效和结算画面同一拍出来（通关 / 失败都是）',
+    /box\.style\.display = 'flex';\s*\n\s*winSfx\(\);/.test(jsSrc) &&
+    /box\.style\.display = 'flex';\s*\n\s*endSfx\(\);/.test(jsSrc) &&
+    !/setTimeout\(\(\) => AudioManager\.playSFX\('star'/.test(jsSrc));
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });
