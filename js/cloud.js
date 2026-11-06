@@ -9,6 +9,7 @@
 //   nl_load     {p_token}             -> {ok, nick, uid, slot}
 //   nl_save     {p_token,p_slot}      -> {ok}
 //   nl_setpass  {p_token,p_new}       -> {ok}
+//   nl_rename   {p_token,p_nick}      -> {ok}
 // 暴露 window.Cloud
 (function (global) {
   'use strict';
@@ -125,6 +126,16 @@
       });
   }
 
+  // 改名字：账号名就是服务器上的昵称，改完排行榜 / 换设备登录都用新名字
+  function rename(nick) {
+    if (!token()) return Promise.resolve({ ok: false, offline: true, reason: '还没登录' });
+    return call('nl_rename', { p_token: token(), p_nick: String(nick || '') })
+      .then((r) => {
+        if (r && r.ok === false && String(r.reason || '').indexOf('过期') >= 0) setToken(null);
+        return r;
+      });
+  }
+
   global.Cloud = {
     ready: () => sdkOk,
     signedIn: () => !!token(),
@@ -136,6 +147,7 @@
     pull: pull,
     push: push,
     setPass: setPass,
+    rename: rename,
     lastSync: lastSync,
     setLastSync: setLastSync,
     config: CFG

@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106r">
-<link rel="stylesheet" href="./css/themes.css?v=20261106r">
+<link rel="stylesheet" href="./css/style.css?v=20261106s">
+<link rel="stylesheet" href="./css/themes.css?v=20261106s">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -337,9 +337,11 @@
         <h3>👤 账号与昵称</h3>
         <p><b>第一次进来</b>先选登录或注册：注册只需名字 + 密码（4~24 位，不含空格）就是一个新空号；登录要两项都正确，输错提示「名字或密码不正确，请确认后再次输入」。</p>
         <p><b>昵称</b>：最多 8 字，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，<b>名字具有唯一性</b>。改名点左上角 <b>🏠 主页键</b>（📖 规则键在它右边）里的「✏️ 改名」，账号名一起更新。</p>
+        <p><b>默认昵称要改掉</b>：名字还是「<b>奶龙玩家</b>」的时候，进来会弹一个<b>关不掉的改名窗口</b>（没有返回键，点外面也关不掉），改好名字它才自己关掉、才能进游戏。</p>
         <p><b>切换账号</b> / <b>修改密码</b>：设置 → 🔐 账号安全，本机账号都列出来，点一下即切换，金币、星星、进度各自独立。</p>
         <p><b>注销账号</b>：设置 → 🔐 账号安全 → 🔒 注销账号（切换账号下面）。两步确认后<b>彻底删除</b>进度、星星、金币、背包、成就、邮箱、榜单成绩，<b>无法恢复</b>；只是换号玩请用「切换账号」。</p>
         <p><b>账号存在服务器</b>：名字和密码会存到云服务器，打到一半的进度每 30 秒自动上传一次。换手机、换网址、微信清缓存后，用<b>原来的名字 + 密码</b>登录，进度和金币自动回来（没网时游戏照常能玩，联网后自动补传）。</p>
+        <p><b>把账号存到服务器</b>：本机建的号服务器上还没有时，主页会提示「☁️ 把账号存到服务器」，<b>输一次你现在用的密码</b>就行（不会改密码，也不留明文），存好后这个号才算真正上了云；点「以后再说」隔一天再提醒。</p>
         <p><b>存档码</b>：设置 → 🔐 账号安全 → 💾 存档码，点「生成」把所有账号和进度变成一段文字，再点「复制」存好；换网址、换设备、微信清缓存后，在新地址点登录页的「💾 导入存档码」，把那段文字粘进去点「导入」就整份搬回来了。<b>生成</b>只在设置里，<b>导入</b>只在登录页，两边各管一头。</p>
       </section>
     </div>
@@ -926,15 +928,29 @@
     <button class="btn-secondary lb-back" id="btn-lb-view-back">返回</button>
   </div>
 
-  <!-- 改名（默认昵称会被强制弹窗，不能关闭；从主页键进来可以取消） -->
+  <!-- 改名：昵称还是「奶龙玩家」时必须改，窗口不能关闭（没有返回键，点外面也不关） -->
   <div class="overlay" id="nick-menu" style="display:none;">
     <h2 class="title small" id="nick-title">✏️ 先起个昵称</h2>
-    <p class="history-hint">最多 8 个字，特殊符号只能用 - . _<br>不能和别人重名</p>
+    <p class="history-hint" id="nick-hint">「奶龙玩家」是默认昵称，不能直接用<br>最多 8 个字，特殊符号只能用 - . _</p>
     <div class="lb-form">
-      <input type="text" id="nick-input" maxlength="8" placeholder="输入昵称">
+      <input type="text" id="nick-input" maxlength="8" placeholder="输入你的昵称">
     </div>
+    <p class="auth-err" id="nick-err"></p>
     <button class="btn-primary nick-save" id="btn-nick-save">确定</button>
     <button class="btn-secondary" id="btn-nick-cancel" style="display:none;">返回</button>
+  </div>
+
+  <!-- 账号上云：玩家用自己现在的密码，把「名字 + 密码」存到服务器，换设备也能找回 -->
+  <div class="overlay auth-page" id="cloud-menu" style="display:none;">
+    <h2 class="title small">☁️ 把账号存到服务器</h2>
+    <p class="history-hint" id="cloud-tip">存好以后，换手机 / 清缓存都能用「名字 + 你自己的密码」把进度找回来。<br>输入你现在的密码就行，不会改动它。</p>
+    <div class="auth-box">
+      <label class="auth-label" for="cloud-pass">你自己的密码</label>
+      <input class="auth-input" type="password" id="cloud-pass" maxlength="24" placeholder="输入现在用的密码" autocomplete="off">
+      <p class="auth-err" id="cloud-err"></p>
+    </div>
+    <button class="btn-primary" id="btn-cloud-save">存到服务器</button>
+    <button class="btn-secondary" id="btn-cloud-later">以后再说</button>
   </div>
 
   <!-- 再来 3 步 -->
@@ -949,22 +965,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106r"></script>
-<script src="./js/storage.js?v=20261106r"></script>
-<script src="./js/audio.js?v=20261106r"></script>
-<script src="./js/effects.js?v=20261106r"></script>
-<script src="./js/specials.js?v=20261106r"></script>
-<script src="./js/goals.js?v=20261106r"></script>
-<script src="./js/tasks.js?v=20261106r"></script>
-<script src="./js/mail.js?v=20261106r"></script>
-<script src="./js/input.js?v=20261106r"></script>
-<script src="./js/builtin-music.js?v=20261106r"></script>
-<script src="./js/music.js?v=20261106r"></script>
-<script src="./js/meta.js?v=20261106r"></script>
-<script src="./js/cloud-config.js?v=20261106r"></script>
-<script src="./js/cloud.js?v=20261106r"></script>
-<script src="./js/account.js?v=20261106r"></script>
-<script src="./js/board.js?v=20261106r"></script>
-<script src="./js/game.js?v=20261106r"></script>
+<script src="./js/rng.js?v=20261106s"></script>
+<script src="./js/storage.js?v=20261106s"></script>
+<script src="./js/audio.js?v=20261106s"></script>
+<script src="./js/effects.js?v=20261106s"></script>
+<script src="./js/specials.js?v=20261106s"></script>
+<script src="./js/goals.js?v=20261106s"></script>
+<script src="./js/tasks.js?v=20261106s"></script>
+<script src="./js/mail.js?v=20261106s"></script>
+<script src="./js/input.js?v=20261106s"></script>
+<script src="./js/builtin-music.js?v=20261106s"></script>
+<script src="./js/music.js?v=20261106s"></script>
+<script src="./js/meta.js?v=20261106s"></script>
+<script src="./js/cloud-config.js?v=20261106s"></script>
+<script src="./js/cloud.js?v=20261106s"></script>
+<script src="./js/account.js?v=20261106s"></script>
+<script src="./js/board.js?v=20261106s"></script>
+<script src="./js/game.js?v=20261106s"></script>
 </body>
 </html>

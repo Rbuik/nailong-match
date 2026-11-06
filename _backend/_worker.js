@@ -5,6 +5,7 @@
 //   POST /api/rpc/nl_load     {p_token}             -> {ok,nick,uid,slot}
 //   POST /api/rpc/nl_save     {p_token,p_slot}      -> {ok}
 //   POST /api/rpc/nl_setpass  {p_token,p_new}       -> {ok}
+//   POST /api/rpc/nl_rename   {p_token,p_nick}      -> {ok}
 // 其它路径全部交给静态资源。密码 PBKDF2-SHA256 加盐，明文不落库。
 
 const CORS = {
@@ -184,6 +185,20 @@ async function doSetPass(env, b) {
   return json({ ok: true });
 }
 
+// 改昵称：账号名就是榜单 / 登录用的名字，必须全服唯一（忽略大小写）
+async function doRename(env, b) {
+  const row = await accByToken(env, String(b.p_token || ''));
+  if (!row) return json({ ok: false, reason: '登录已过期，请重新登录' });
+  const nick = String(b.p_nick || '').trim();
+  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1-12 个字，不能有空格' });
+  const key = nickKey(nick);
+  const exist = await env.DB.prepare('SELECT id FROM accounts WHERE nick_key = ?').bind(key).first();
+  if (exist && exist.id !== row.id) return json({ ok: false, reason: '这个名字已经被别人用了' });
+  await env.DB.prepare('UPDATE accounts SET nick = ?, nick_key = ?, updated_at = ? WHERE id = ?')
+    .bind(nick, key, Date.now(), row.id).run();
+  return json({ ok: true, nick: nick });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -212,6 +227,7 @@ export default {
       case 'nl_load':     return doLoad(env, body);
       case 'nl_save':     return doSave(env, body);
       case 'nl_setpass':  return doSetPass(env, body);
+      case 'nl_rename':   return doRename(env, body);
       default:            return json({ ok: false, reason: '接口不存在' }, 404);
     }
   }

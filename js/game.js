@@ -2375,11 +2375,16 @@
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-      'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu',
+      'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
     });
+    // 强制改名期间，任何流程都不许把改名窗关掉（否则玩家能绕过）
+    if (typeof nickForced !== 'undefined' && nickForced) {
+      const nm = $('nick-menu');
+      if (nm && needForcedRename()) nm.style.display = 'flex';
+    }
     setView('game');
   }
 
@@ -2391,7 +2396,7 @@
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-    'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu'];
+    'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -4489,6 +4494,14 @@
       if (e.key === 'Enter' && nickSave) nickSave.click();
     });
 
+    // 账号上云（存到服务器）
+    on('btn-cloud-save', submitCloud);
+    on('btn-cloud-later', laterCloud);
+    const cloudPass = $('cloud-pass');
+    if (cloudPass) cloudPass.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') submitCloud();
+    });
+
     on('btn-story-go', closeStory);
     on('btn-story-skip', closeStory);
     on('btn-revive-yes', doRevive);
@@ -4848,9 +4861,9 @@
     // 遮罩点击关闭（§25）
     document.querySelectorAll('.overlay').forEach((ov) => {
       ov.addEventListener('click', (e) => {
-        // 主页 / 结算 / 登录 / 补资料这些面板点遮罩不关闭（必须点按钮）
+        // 主页 / 结算 / 登录 / 补资料 / 强制改名这些面板点遮罩不关闭（必须点按钮）
         if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete',
-          'auth-menu', 'auth-form', 'fix-menu'].indexOf(ov.id) < 0) {
+          'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'].indexOf(ov.id) < 0) {
           ov.style.display = 'none';
         }
       });
@@ -5063,6 +5076,8 @@
       showOverlay('main-menu');
       claimCompensation();
       setTimeout(() => { try { maybeAccountGate(); } catch (e) {} }, 400);
+      // 本机账号还没存到服务器 → 进主页后提示一次（改名 / 补密码优先，所以晚一点）
+      setTimeout(() => { try { maybeCloudOffer(); } catch (e) {} }, 1600);
     } else {
       AudioManager.gateBGM(false);   // 登录页不放背景音乐
       showAuthScreen();
@@ -5822,6 +5837,17 @@
   let nickGateCb = null;
   let nickForced = false;
 
+  // 昵称还是默认的「奶龙玩家」？这种情况必须改名才能继续（窗口不可关闭）
+  function needForcedRename() {
+    try {
+      const acc = (typeof Account !== 'undefined' && Account.current) ? Account.current() : null;
+      if (acc && String(acc.name || '').trim() === '奶龙玩家') return true;
+    } catch (e) {}
+    try {
+      return !!(global.Meta && Meta.isDefaultNick && Meta.isDefaultNick());
+    } catch (e) { return false; }
+  }
+
   // 打开改名面板：forced=true 是「默认昵称不能玩」的强制闸（只有「确定」，没有返回），
   // forced=false 是从主页键里主动改（底部有「返回」）
   function openNickMenu(forced) {
@@ -5833,14 +5859,17 @@
       cancel.textContent = '返回';
       cancel.style.display = forced ? 'none' : 'block';
     }
-    const hint = $('nick-menu') && $('nick-menu').querySelector('.history-hint');
+    const err = $('nick-err');
+    if (err) err.textContent = '';
+    const hint = $('nick-hint') || ($('nick-menu') && $('nick-menu').querySelector('.history-hint'));
     if (hint) {
       // 两行显示：规则一行，「不能和别人重名」另起一行
       hint.innerHTML = forced
-        ? '最多 8 个字，特殊符号只能用 - . _<br>不能和别人重名'
+        ? '「奶龙玩家」是默认昵称，不能直接用<br>最多 8 个字，特殊符号只能用 - . _'
         : '最多 8 个字，中文 / 字母 / 数字，特殊符号只能用 . - _<br>不能和别人重名';
     }
-    if ($('nick-input')) $('nick-input').value = Meta.isDefaultNick() ? '' : Meta.nickname();
+    // 强制改名时输入框一律留空：预填旧名字会让人以为点一下就过了
+    if ($('nick-input')) $('nick-input').value = forced ? '' : (Meta.isDefaultNick() ? '' : Meta.nickname());
     showOverlay('nick-menu');
     if ($('nick-input') && $('nick-input').focus) setTimeout(() => $('nick-input').focus(), 60);
   }
@@ -5869,12 +5898,22 @@
 
   function saveNick() {
     const r = saveNickFrom($('nick-input') ? $('nick-input').value : '', true);
-    if (r.ok) {
-      $('nick-menu').style.display = 'none';
-      const cb = nickGateCb; nickGateCb = null;
-      if (cb) cb();
-      else showOverlay('main-menu');
+    const err = $('nick-err');
+    if (!r.ok) {
+      if (err) err.textContent = r.reason || '';
+      return;
     }
+    if (err) err.textContent = '';
+    $('nick-menu').style.display = 'none';
+    nickForced = false;
+    const cb = nickGateCb; nickGateCb = null;
+    if (cb) { cb(); return; }
+    // 名字改好了，但可能还缺密码 → 接着补密码，别直接放去玩
+    let need = null;
+    try { need = Account.needsFix(); } catch (e) {}
+    if (need && need.any) { openFixMenu(need); return; }
+    showOverlay('main-menu');
+    setTimeout(() => { try { maybeCloudOffer(); } catch (e) {} }, 200);
   }
 
   function cancelNick() {
@@ -6137,6 +6176,19 @@
   function maybeAccountGate() {
     if (!accountOk()) return false;
     if (S.playing) return false;
+
+    // ① 昵称还是默认的「奶龙玩家」→ 强制改名。窗口没有返回键、点外面也不关，
+    //    只有改名成功才会自己关掉，然后才轮到下面「补密码」的流程。
+    if (needForcedRename()) {
+      const nm = $('nick-menu');
+      if (nm && nm.style.display === 'flex') return true;
+      if (Date.now() - lastFixPop < 3000) return true;
+      lastFixPop = Date.now();
+      openNickMenu(true);
+      return true;
+    }
+
+    // ② 其它资料不全（缺密码 / 名字含敏感词）→ 补齐才能玩
     const need = Account.needsFix();
     if (!need.any) return false;
     const box = $('fix-menu');
@@ -6150,9 +6202,81 @@
   // 玩之前必须先有完整账号
   function ensureAccount(then) {
     if (!accountOk()) { showAuthScreen(); return false; }
+    // 还叫「奶龙玩家」→ 先改名，别的地方都不许去
+    if (needForcedRename()) { openNickMenu(true); return false; }
     if (Account.needsFix().any) { openFixMenu(); return false; }
     then();
     return true;
+  }
+
+  // ==================== ☁️ 账号上云（用玩家自己的密码） ====================
+  // 本机账号只在 localStorage 里有哈希，服务器上并没有这个人。
+  // 要让「换手机 / 清缓存还能找回」，只能让玩家自己把密码输一次：
+  // 本机校验通过后，拿这串明文去服务器按「同样的名字 + 同样的密码」建档，
+  // 之后进度就会自动同步上去。密码不会被改动，也不会在这里留存。
+  let cloudOffered = false;
+
+  function cloudSnoozeLeft() {
+    try {
+      const t = Number(localStorage.getItem('nl2:cloudoffer') || 0) || 0;
+      return t ? (t + 864e5 - Date.now()) : 0;
+    } catch (e) { return 0; }
+  }
+
+  function openCloudMenu() {
+    const err = $('cloud-err');
+    if (err) err.textContent = '';
+    const inp = $('cloud-pass');
+    if (inp) inp.value = '';
+    showOverlay('cloud-menu');
+    if (inp && inp.focus) setTimeout(() => inp.focus(), 60);
+  }
+
+  // 该不该提示「把账号存到服务器」：只对「本机有密码、服务器上还没有」的账号提示
+  function maybeCloudOffer() {
+    if (cloudOffered) return false;
+    if (!accountOk() || S.playing) return false;
+    if (typeof Account.pushAccountToCloud !== 'function') return false;
+    if (!Account.cloudOk || !Account.cloudOk()) return false;
+    if (needForcedRename()) return false;
+    let acc = null, need = null;
+    try { acc = Account.current(); need = Account.needsFix(); } catch (e) { return false; }
+    if (!acc || acc.cloud || acc.ctoken) return false;
+    if (!acc.pass) return false;                 // 没密码的账号先去补密码
+    if (need && need.any) return false;
+    if (cloudSnoozeLeft() > 0) return false;     // 上次点了「以后再说」，24 小时内不再烦
+    cloudOffered = true;
+    openCloudMenu();
+    return true;
+  }
+
+  async function submitCloud() {
+    const pass = ($('cloud-pass') || {}).value || '';
+    const err = $('cloud-err');
+    const fail = (m) => {
+      if (err) err.textContent = m;
+      try { AudioManager.playSFX('invalid'); } catch (e) {}
+      return false;
+    };
+    if (err) err.textContent = '';
+    if (!pass) return fail('请输入密码');
+    if (typeof Account.pushAccountToCloud !== 'function') return fail('页面版本太旧，请刷新后再试');
+    const btn = $('btn-cloud-save');
+    if (btn) { btn.disabled = true; btn.textContent = '正在存…'; }
+    let r = null;
+    try { r = await Account.pushAccountToCloud(pass); } catch (e) { r = { ok: false, reason: '网络异常' }; }
+    if (btn) { btn.disabled = false; btn.textContent = '存到服务器'; }
+    if (!r || !r.ok) return fail((r && r.reason) || '没存上，稍后再试');
+    $('cloud-menu').style.display = 'none';
+    toast('已存到服务器，换设备也能找回了');
+    try { AudioManager.playSFX('coin'); } catch (e) {}
+    return true;
+  }
+
+  function laterCloud() {
+    try { localStorage.setItem('nl2:cloudoffer', String(Date.now())); } catch (e) {}
+    $('cloud-menu').style.display = 'none';
+    showOverlay('main-menu');
   }
 
   // ==================== 📮 邮箱 ====================

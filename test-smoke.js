@@ -1297,6 +1297,43 @@ function check(name, ok) {
   check('改完名字就放行', sandbox.Account.needsFix().any === false &&
     sandbox.Account.current().name === '老玩家2');
 
+  // 35. 名字还是默认的「奶龙玩家」→ 强制改名窗口（没有返回键，改完才自己关）
+  const nickAccs = JSON.parse(lsMap.get('nl2:accounts'));
+  nickAccs.filter((a) => a.id === sandbox.Account.current().id)[0].name = '奶龙玩家';
+  lsMap.set('nl2:accounts', JSON.stringify(nickAccs));
+  $('btn-play').dispatch('click');
+  await sleep(20);
+  check('名字是「奶龙玩家」→ 点开始游戏被拦下，弹出改名窗口',
+    $('nick-menu').style.display === 'flex');
+  check('强制改名窗口没有返回键（关不掉）', $('btn-nick-cancel').style.display === 'none');
+  $('btn-nick-cancel').dispatch('click');
+  check('点返回也关不掉这个窗口', $('nick-menu').style.display === 'flex');
+  $('btn-nick-save').dispatch('click');
+  check('空名字点确定 → 窗口还在，并给出原因',
+    $('nick-menu').style.display === 'flex' && $('nick-err').textContent.length > 0);
+  $('nick-input').value = '奶龙玩家';
+  $('btn-nick-save').dispatch('click');
+  check('还想叫「奶龙玩家」→ 被拒绝', $('nick-menu').style.display === 'flex' &&
+    $('nick-err').textContent.indexOf('奶龙玩家') >= 0);
+  $('nick-input').value = '小龙人';
+  $('btn-nick-save').dispatch('click');
+  check('改名成功 → 窗口自动关闭，账号名一起更新',
+    $('nick-menu').style.display === 'none' && sandbox.Account.current().name === '小龙人');
+
+  // 35b. 账号上云：玩家自己输密码建档（没网时也要说清楚，不能静默失败）
+  check('有「存到服务器」的窗口：密码输入 + 存 / 以后再说',
+    /id="cloud-menu"/.test(htmlSrc0) && /id="cloud-pass"/.test(htmlSrc0) &&
+    /id="btn-cloud-save"/.test(htmlSrc0) && /id="btn-cloud-later"/.test(htmlSrc0));
+  check('账号上云是新方法（供界面调用）',
+    typeof sandbox.Account.pushAccountToCloud === 'function');
+  const cloudTry = await sandbox.Account.pushAccountToCloud('abcd1234');
+  check('连不上服务器时上云会返回可读的失败原因',
+    cloudTry && cloudTry.ok === false && !!cloudTry.reason);
+
+  // 名字改回测试用的「老玩家2」，后面的用例还按这个名字找账号
+  sandbox.Account.rename('老玩家2');
+  check('测试账号名复位', sandbox.Account.current().name === '老玩家2');
+
   // 35. 📮 邮箱：系统邮件 / 未读角标 / 领取奖励
   const mailListAll = sandbox.Mail.list();
   const giftMail = mailListAll.filter((m) => m.hasGift)[0];

@@ -25,7 +25,8 @@
     'nl2:visits': 1,
     'nl2:net': 1,
     'nl2:lb-del': 1,
-    'nl2:statsVer': 1
+    'nl2:statsVer': 1,
+    'nl2:cloudoffer': 1
   };
 
   // 一次性补偿（换设备 / 找回账号时丢过金币的补偿）
@@ -332,6 +333,10 @@
     arr[i].name = r.name;
     saveList(arr);
     if (global.Meta && Meta.setNickname) Meta.setNickname(r.name);
+    // 服务器上的名字一起改；失败不影响本机（下次登录还会用新名字，服务端可再补）
+    if (cloudOk() && useAccToken(acc)) {
+      try { global.Cloud.rename(r.name).catch(() => {}); } catch (e) {}
+    }
     return { ok: true, name: r.name };
   }
 
@@ -461,6 +466,42 @@
       }
       return pullCloud();
     }).catch(() => false);
+  }
+
+  // 用玩家自己输入的密码，把本机账号存到服务器（同名同密码）
+  // 为什么要输密码：本机只存哈希，服务器建档必须要一次明文，只有玩家本人有。
+  // 校验通过后建号 / 认领，再按 savedAt 决定是上传本机存档还是取回服务器存档。
+  function pushAccountToCloud(pass) {
+    const acc = current();
+    if (!acc) return Promise.resolve({ ok: false, reason: '还没有登录' });
+    if (!cloudOk()) return Promise.resolve({ ok: false, reason: '现在连不上服务器，稍后再试' });
+    if (acc.pass && hash(pass) !== acc.pass) {
+      return Promise.resolve({ ok: false, reason: '这个密码和本机账号对不上，再想想', oldBad: true });
+    }
+    const p = checkPass(pass);
+    if (!p.ok) return Promise.resolve(p);
+    if (!acc.name || acc.name === '奶龙玩家') {
+      return Promise.resolve({ ok: false, reason: '先把昵称改好，再存到服务器' });
+    }
+
+    const bind = (r) => {
+      if (!r || !r.ok) return Promise.resolve({ ok: false, reason: (r && r.reason) || '没存上，稍后再试' });
+      markCloud(acc);
+      const uid = String(r.uid || '');
+      if (uid && acc.id !== uid && !find(uid)) migrateAccId(acc, uid);
+      if (r.token) {
+        acc.ctoken = r.token;
+        const arr = list();
+        const i = arr.findIndex((x) => x.id === acc.id);
+        if (i >= 0) { arr[i].ctoken = r.token; saveList(arr); }
+      }
+      // 服务器上可能已有旧存档：让 pullCloud 按 savedAt 决定谁覆盖谁，别盲目推
+      return pullCloud().then(() => ({ ok: true, uid: uid, merged: true }));
+    };
+
+    return global.Cloud.register(acc.name, p.pass, acc.id)
+      .then((r) => ((r && r.ok) ? bind(r) : global.Cloud.login(acc.name, p.pass).then(bind)))
+      .catch(() => ({ ok: false, reason: '网络异常，稍后再试' }));
   }
 
   // 本机没有这个号 → 去服务器找（名字和密码在服务器上）
@@ -717,6 +758,6 @@
     setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick, purge,
     saveCurrent, checkName, checkPass,
     exportBackup, importBackup,
-    cloudLogin, pushCloud, pullCloud, startCloudSync, cloudOk
+    cloudLogin, pushCloud, pullCloud, pushAccountToCloud, startCloudSync, cloudOk
   };
 })(window);

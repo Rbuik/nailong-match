@@ -19,7 +19,9 @@
 ## 账号与邮箱
 
 - 本机多账号（`js/account.js`）：进入先登录 / 注册，名字唯一、4~24 位密码，名字含敏感词会被拦。**登录 / 注册 / 补资料页面不播背景音乐**，进主界面后才有。
-- 云端账号（`js/cloud.js` + `js/cloud-config.js`）：后端是 Cloudflare Pages Functions + D1 数据库，接口 `${endpoint}/api/rpc/nl_*`（`register` / `login` / `load` / `save` / `setpass`），密码 PBKDF2-SHA256 加盐存库、明文不落库。登录成功后本地账号静默建档上云，进度每 30 秒推一次、`pagehide` 再强推一次；换设备 / 清缓存后用同一个名字密码登录即拉回存档。云端不可达时静默降级为纯本机，不影响游玩。
+- 云端账号（`js/cloud.js` + `js/cloud-config.js`）：后端是 Cloudflare Pages Functions + D1 数据库，接口 `${endpoint}/api/rpc/nl_*`（`register` / `login` / `load` / `save` / `setpass` / `rename`），密码 PBKDF2-SHA256 加盐存库、明文不落库。登录成功后本地账号静默建档上云，进度每 30 秒推一次、`pagehide` 再强推一次；换设备 / 清缓存后用同一个名字密码登录即拉回存档。云端不可达时静默降级为纯本机，不影响游玩。
+- 账号上云（`Account.pushAccountToCloud`）：本机账号在服务器上没有时，主页提示「☁️ 把账号存到服务器」，玩家输一次自己的密码——本机比对哈希通过后，用**同一名字 + 同一密码**去服务器建档并合并存档，不改密码、不留明文。「以后再说」记 24 小时（`nl2:cloudoffer`），期间不再打扰。
+- 默认昵称闸门：昵称还是「奶龙玩家」时，进主页 / 点开始游戏都会弹出**关不掉的改名窗口**（`#nick-menu`，无返回键、点遮罩不关、`hideAllOverlays` 也会把它顶回来），改名成功才自动关闭并继续；输入框强制态下留空，防止点一下就过。改名同步写回服务器（`nl_rename`），榜单立刻更新。
 - 设置 → 账号安全：切换账号 / 修改密码 / 注销账号（彻底删除本机存档、邮箱、进度、金币，不可恢复）。
 - 存档码（`Account.exportBackup` / `importBackup`）：两处入口分工——账号安全页「💾 存档码」只有生成框 + 生成 / 复制（生成后压成一段 `NL2BK1.` 开头的文本，含全部账号 + 各号进度）；登录页「💾 导入存档码」只有粘贴框 + 导入 / 返回。换网址 / 换设备 / 微信清缓存后粘回去即可整份搬回（合并式，同 id 覆盖）。
 - 主页 🏠 下面的 📮 是邮箱（`js/mail.js`）：系统公告和奖励都发到这里，带附件的邮件点「领取」才到账；左滑出小删除键（轻点不会误触露出），点邮件直接打开详情，一键删除先弹确认窗口。邮件标题带「：」时，详情页自动拆成主标题 + 副标题（副标题单独一行、字号更小），详情页主标题不带 emoji，列表仍显示完整标题。
@@ -45,7 +47,7 @@ test-longpress.js 播放列表长按拖动测试（node test-longpress.js）
 
 ## 存档
 
-全部在 `localStorage`，前缀 `nl2:`；每个账号一份快照 `nl2:acc:<id>`，切换时与当前数据互相倒腾。设备级 key：`nl2:accounts` / `nl2:cur` / `nl2:comp` / `nl2:visits` / `nl2:net` / `nl2:lb-del` / `nl2:statsVer` / `nl2:acc:*`，注销和切换都不动它们。
+全部在 `localStorage`，前缀 `nl2:`；每个账号一份快照 `nl2:acc:<id>`，切换时与当前数据互相倒腾。设备级 key：`nl2:accounts` / `nl2:cur` / `nl2:comp` / `nl2:visits` / `nl2:net` / `nl2:lb-del` / `nl2:statsVer` / `nl2:cloudoffer` / `nl2:acc:*`，注销和切换都不动它们。
 
 ## 已知限制
 
