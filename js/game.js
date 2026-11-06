@@ -25,7 +25,7 @@
   ];
   const T = Specials.TYPE;
 
-  const COMBO_WINDOW = 2500;   // 跨步连击窗口（ms）
+  const COMBO_WINDOW = 1600;   // 跨步连击窗口（ms）：改短了，停手一拍连击就断
   const COMBO_DECAY = 620;     // 连击条显示窗口（ms）：中央弹窗停留短一点，不挡棋盘
   const MULT = [1, 1, 1.5, 2, 3]; // combo -> 倍率
 
@@ -233,6 +233,20 @@
     return isIced(r, c) || isChained(r, c);
   }
 
+  // ---------- 货物（钥匙 / 奶龙）允许重叠 ----------
+  // 一格上可以压着多件货：`cell.cargo` 平时是单个对象，压了第二件就变成数组。
+  // 所有读取都走 cargoList()，别直接读 .kind（会漏掉叠着的那几件）。
+  function cargoList(cell) {
+    if (!cell || !cell.cargo) return [];
+    return Array.isArray(cell.cargo) ? cell.cargo : [cell.cargo];
+  }
+  function addCargo(cell, cargo) {
+    if (!cell || !cargo) return;
+    if (!cell.cargo) { cell.cargo = cargo; return; }
+    if (Array.isArray(cell.cargo)) { cell.cargo.push(cargo); return; }
+    cell.cargo = [cell.cargo, cargo];
+  }
+
   // 一格只放一样东西：已经贴了货物（钥匙 / 奶龙）、有冰 / 锁链、或已经是特殊块的格子，
   // 不再往上叠新的特殊块 / 道具。要生成的东西改放到「这一轮会被消掉」的其他空格上。
   function canPlaceNew(r, c) {
@@ -272,7 +286,7 @@
     const putCargo = (kind, n) => {
       for (let k = 0; k < n && ti < top.length; k++) {
         const p = top[ti++];
-        S.board[p.r][p.c].cargo = { kind: kind };
+        addCargo(S.board[p.r][p.c], { kind: kind });
       }
     };
     putCargo('key', Math.max(0, d.cargo || 0));
@@ -288,11 +302,10 @@
 
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        const b = S.board[r][c];
-        if (b && b.cargo) {
+        cargoList(S.board[r][c]).forEach((cg) => {
           S.cargoLeft++;
-          if (b.cargo.kind === 'nailong') S.rescueLeft++;
-        }
+          if (cg.kind === 'nailong') S.rescueLeft++;
+        });
       }
     }
   }
@@ -336,10 +349,10 @@
     let keys = 0, nailongs = 0;
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        const b = S.board[r] && S.board[r][c];
-        if (!b || !b.cargo) continue;
-        if (b.cargo.kind === 'nailong') nailongs++;
-        else keys++;
+        cargoList(S.board[r] && S.board[r][c]).forEach((cg) => {
+          if (cg.kind === 'nailong') nailongs++;
+          else keys++;
+        });
       }
     }
     if (g.type === 'drop') g.target = Math.max(1, (g.cargoGot || 0) + keys);
@@ -732,46 +745,50 @@
     return cv;
   }
 
-  // 钥匙徽标：纯路径画出来。
+  // 钥匙徽标：银蓝色「古堡钥匙」—— 圆角菱形手柄 + 圆孔 + 直杆 + 底部双齿。
   // 为什么不用 🔑：彩色 emoji 字形在绝大多数浏览器里不吃 strokeText，描边等于没画；
-  // 想要黑边只能自己构图 —— 「先用加粗黑线整体描一遍，再填金色」，两层叠起来只剩外轮廓一圈黑。
+  // 想要黑边只能自己构图 —— 「先用加粗黑线整体描一遍，再填银色」，两层叠起来只剩外轮廓一圈黑。
   function drawKeyMark(g, cell, pulse) {
-    const k = cell * 0.72;                 // 钥匙总高
-    const ringY = -k * 0.27;               // 钥匙环圆心
-    const R = k * 0.215;                   // 环外径
-    const hole = k * 0.082;                // 环内孔
-    const shaftW = k * 0.115;              // 杆宽
+    const k = cell * 0.74;                 // 钥匙总高
+    const bowY = -k * 0.21;                // 菱形手柄中心
+    const bw = k * 0.255;                  // 菱形半宽
+    const hole = k * 0.078;                // 手柄圆孔
+    const shaftW = k * 0.105;              // 杆宽
     const shaftX = -shaftW / 2;
-    const shaftTop = ringY + R * 0.45;     // 杆插进环里，接缝被环的填充盖住
+    const shaftTop = bowY + bw * 0.30;     // 杆插进柄里，接缝被柄的填充盖住
     const shaftBot = k * 0.47;
     const teeth = [
-      { y: k * 0.12, w: k * 0.19, h: k * 0.075 },
-      { y: k * 0.29, w: k * 0.14, h: k * 0.070 }
+      { y: k * 0.15, w: k * 0.16, h: k * 0.072 },
+      { y: k * 0.30, w: k * 0.115, h: k * 0.066 }
     ];
 
-    // 背后一层金色柔光（跟着呼吸起伏）
+    // 背后一层银蓝柔光（跟着呼吸起伏）
     g.save();
     g.shadowBlur = 0;                      // 钥匙自己控制光晕，不用外面的阴影
-    const glow = g.createRadialGradient(0, ringY * 0.15, k * 0.04, 0, ringY * 0.15, k * 0.62);
-    glow.addColorStop(0, 'rgba(255,206,84,' + (0.30 + 0.18 * pulse).toFixed(3) + ')');
-    glow.addColorStop(1, 'rgba(255,206,84,0)');
+    const glow = g.createRadialGradient(0, bowY * 0.4, k * 0.04, 0, bowY * 0.4, k * 0.62);
+    glow.addColorStop(0, 'rgba(150,208,255,' + (0.30 + 0.18 * pulse).toFixed(3) + ')');
+    glow.addColorStop(1, 'rgba(150,208,255,0)');
     g.fillStyle = glow;
     g.beginPath();
-    g.arc(0, ringY * 0.15, k * 0.62, 0, Math.PI * 2);
+    g.arc(0, bowY * 0.4, k * 0.62, 0, Math.PI * 2);
     g.fill();
 
     const paint = (fill) => {
-      // 钥匙环（反向绕内孔 → evenodd 挖空）
+      // 菱形手柄（圆孔反向绕圈 → evenodd 挖空）
       g.beginPath();
-      g.arc(0, ringY, R, 0, Math.PI * 2);
-      g.moveTo(hole, ringY);
-      g.arc(0, ringY, hole, Math.PI * 2, 0, true);
+      g.moveTo(0, bowY - bw);
+      g.lineTo(bw, bowY);
+      g.lineTo(0, bowY + bw);
+      g.lineTo(-bw, bowY);
+      g.closePath();
+      g.moveTo(hole, bowY);
+      g.arc(0, bowY, hole, Math.PI * 2, 0, true);
       if (fill) g.fill('evenodd'); else g.stroke();
       // 杆
       g.beginPath();
       g.rect(shaftX, shaftTop, shaftW, shaftBot - shaftTop);
       if (fill) g.fill(); else g.stroke();
-      // 齿
+      // 齿（右侧两级台阶）
       for (let i = 0; i < teeth.length; i++) {
         const t = teeth[i];
         g.beginPath();
@@ -787,18 +804,20 @@
     g.strokeStyle = '#000';
     g.lineWidth = Math.max(2.4, cell * 0.09);
     paint(false);
-    // 2) 金色填进去，盖掉内部的黑线，只留外轮廓
-    const gold = g.createLinearGradient(0, ringY - R, 0, shaftBot);
-    gold.addColorStop(0, '#ffe893');
-    gold.addColorStop(0.45, '#ffcf4a');
-    gold.addColorStop(1, '#e3a017');
-    g.fillStyle = gold;
+    // 2) 银蓝金属色填进去，盖掉内部的黑线，只留外轮廓
+    const steel = g.createLinearGradient(-bw, bowY - bw, shaftX + shaftW, shaftBot);
+    steel.addColorStop(0, '#ffffff');
+    steel.addColorStop(0.4, '#d9edff');
+    steel.addColorStop(0.75, '#a8cdf0');
+    steel.addColorStop(1, '#7ba7d4');
+    g.fillStyle = steel;
     paint(true);
-    // 3) 环上一小段高光，看着像金属
-    g.strokeStyle = 'rgba(255,255,255,0.85)';
+    // 3) 菱形左上棱一道高光，看着像抛光金属
+    g.strokeStyle = 'rgba(255,255,255,0.9)';
     g.lineWidth = Math.max(1, cell * 0.035);
     g.beginPath();
-    g.arc(0, ringY, (R + hole) / 2, Math.PI * 1.12, Math.PI * 1.52);
+    g.moveTo(-bw * 0.55, bowY - bw * 0.42);
+    g.lineTo(-bw * 0.14, bowY - bw * 0.82);
     g.stroke();
     g.restore();
   }
@@ -866,16 +885,28 @@
     return sp;
   }
 
-  function drawCargoBadge(cx, cy, kind) {
+  function drawCargoBadge(cx, cy, kind, shrink) {
     const now = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
     const pulse = 0.5 + 0.5 * Math.sin(now / 1000 * 3.4);
     // 呼吸放大缩小：最大就是原来的大小，最小只小一点点
-    const scale = 0.88 + 0.12 * pulse;
+    const scale = (0.88 + 0.12 * pulse) * (shrink || 1);
     const sp = cargoSprite(kind, pulse);
     // 位图按 DPR（封顶 2）栅格化，显示时按同一个系数换算回逻辑尺寸，大小才和以前一致
     const dpr = Math.min(2, Math.max(1, DPR || 1));
     const w = (sp.width / dpr) * scale;
     ctx.drawImage(sp, cx - w / 2, cy - w / 2, w, w);
+  }
+
+  // 一格上压着多件货（允许重合）：第一件画正中，后面的缩小一圈往左上错开，
+  // 一眼能看出这里叠了两件 / 三件
+  function drawCargoStack(cx, cy, list) {
+    if (!list || !list.length) return;
+    // 先画缩小错位的那几件（垫在后面），最后画正中那件盖上去
+    for (let i = list.length - 1; i >= 1; i--) {
+      const off = CELL * 0.20 * (1 + (i - 1) * 0.35);
+      drawCargoBadge(cx - off, cy - off, list[i].kind, 0.58);
+    }
+    drawCargoBadge(cx, cy, list[0].kind, 1);
   }
 
   // 静态重绘（无动画）
@@ -893,10 +924,13 @@
         const b = S.board[r] && S.board[r][c];
         const k = kOf(r, c);
 
-        // 货物：贴在方块上的钥匙 / 奶龙
-        if (b && b.cargo && !(skip && skip[k])) {
-          const cy = (cargoAt && cargoAt[k] != null) ? cargoAt[k] : y;
-          drawCargoBadge(x + CELL / 2, cy + CELL / 2, b.cargo.kind);
+        // 货物：贴在方块上的钥匙 / 奶龙（一格可能压着多件，允许重合）
+        if (b && !(skip && skip[k])) {
+          const list = cargoList(b);
+          if (list.length) {
+            const cy = (cargoAt && cargoAt[k] != null) ? cargoAt[k] : y;
+            drawCargoStack(x + CELL / 2, cy + CELL / 2, list);
+          }
         }
 
         // 冰块
@@ -1169,8 +1203,8 @@
       skip[kOf(a.r, a.c)] = 1;
       skip[kOf(b.r, b.c)] = 1;
       drawCellOverlays({ skip: skip });
-      if (ta && ta.cargo) drawCargoBadge(ax + (bx - ax) * e + CELL / 2, ay + (by - ay) * e + CELL / 2, ta.cargo.kind);
-      if (tb && tb.cargo) drawCargoBadge(bx + (ax - bx) * e + CELL / 2, by + (ay - by) * e + CELL / 2, tb.cargo.kind);
+      if (ta) drawCargoStack(ax + (bx - ax) * e + CELL / 2, ay + (by - ay) * e + CELL / 2, cargoList(ta));
+      if (tb) drawCargoStack(bx + (ax - bx) * e + CELL / 2, by + (ay - by) * e + CELL / 2, cargoList(tb));
       FX.render(ctx);
       ctx.restore();
     });
@@ -1487,7 +1521,8 @@
       const b = S.board[p.r][p.c];
       if (b) {
         colors[b.type] = (colors[b.type] || 0) + 1;
-        if (b.cargo) kickedCargo.push({ r: p.r, c: p.c, cargo: b.cargo });
+        // 一格可能压着好几件货（允许重合），全部踢下去
+        cargoList(b).forEach((cg) => kickedCargo.push({ r: p.r, c: p.c, cargo: cg }));
       }
       if (S.jelly[p.r] && S.jelly[p.r][p.c]) jellyHit++;
     });
@@ -1573,33 +1608,19 @@
 
     // 掉落 + 补充
     const fallFrom = dropAndFill();
-    // 被消掉的货物往下掉一格：落在「被消掉那一格的下面一格」，不从顶端重新开始。
-    // 同一列有多个货物时从下往上放，避免互相抢格子。
+    // 被消掉的货物往下掉一格：**不管下面那一格已经有货还是特殊块，照掉不误**，
+    // 两件货压在同一格就重合着显示（送到底行时一起送达）。
+    // 这样钥匙 / 奶龙永远只会往下走，不会出现「往上跑 / 瞬移到别列」的怪相。
     kickedCargo.sort((x, y) => y.r - x.r).forEach((d) => {
-      const fits = (r, c) => {
-        const b = S.board[r] && S.board[r][c];
-        return !!b && !b.cargo && b.special === T.NORMAL;
-      };
-      let placed = false;
-      // 1) 正常情况：落到被消那一格的下面
-      for (let tr = Math.min(ROWS - 1, d.r + 1); tr < ROWS; tr++) {
-        if (fits(tr, d.c)) { S.board[tr][d.c].cargo = d.cargo; placed = true; break; }
-      }
-      // 2) 这一列下面堵死了（货物 / 特殊块）：在同一列往上找
-      for (let tr = d.r; !placed && tr >= 0; tr--) {
-        if (fits(tr, d.c)) { S.board[tr][d.c].cargo = d.cargo; placed = true; }
-      }
-      // 3) 整列都没位置：全盘找空位。
-      //    钥匙 / 奶龙一旦凭空消失，这一关就永远打不过去了，宁可挪到别处也不能丢
-      for (let rr = ROWS - 1; !placed && rr >= 0; rr--) {
-        for (let cc = 0; !placed && cc < COLS; cc++) {
-          if (fits(rr, cc)) { S.board[rr][cc].cargo = d.cargo; placed = true; }
-        }
-      }
-      // 4) 极端情况（满盘特殊块）：先贴回原来那一格，至少还在场上
-      if (!placed) {
+      let tr = Math.min(ROWS - 1, d.r + 1);
+      // 下面那一格被整块消掉了（掉落后可能还是空的）：一路往下找第一块能贴的方块
+      while (tr < ROWS - 1 && !(S.board[tr] && S.board[tr][d.c])) tr++;
+      const cell = S.board[tr] && S.board[tr][d.c];
+      if (cell) addCargo(cell, d.cargo);
+      else {
+        // 整列都空了（极少见）：至少留在原来那一格，绝不凭空消失
         const home = S.board[d.r] && S.board[d.r][d.c];
-        if (home) home.cargo = d.cargo;
+        if (home) addCargo(home, d.cargo);
       }
     });
     await animateDrop(fallFrom);
@@ -1620,21 +1641,23 @@
     return gained;
   }
 
-  // 落到最底行的货物就算送达
+  // 落到最底行的货物就算送达（一格可能压着好几件，一起送达）
   function collectCargo() {
     let n = 0, res = 0;
     for (let c = 0; c < COLS; c++) {
       const b = S.board[ROWS - 1][c];
-      if (b && b.cargo) {
-        const kind = b.cargo.kind;
-        b.cargo = null;
+      const list = cargoList(b);
+      if (!list.length) continue;
+      b.cargo = null;
+      list.forEach((cg) => {
         n++;
-        if (kind === 'nailong') res++;
-        FX.text(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2,
-          kind === 'nailong' ? '奶龙送达！' : '送达 🔑', '#2fa84f', 16);
-        FX.burst(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2, '#7cf29a', 5);
-        AudioManager.playSFX('coin');
-      }
+        if (cg.kind === 'nailong') res++;
+      });
+      const last = list[list.length - 1];
+      FX.text(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2,
+        last.kind === 'nailong' ? '奶龙送达！' : '送达 🔑', '#2fa84f', 16);
+      FX.burst(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2, '#7cf29a', 5);
+      AudioManager.playSFX('coin');
     }
     if (!n) return 0;
     S.cargoLeft = Math.max(0, S.cargoLeft - n);
@@ -2403,7 +2426,7 @@
       if (cont) {
         const canCont = !S.daily && (S.timerOn ? S.timeLeft > 0 : S.moves > 0);
         cont.style.display = canCont ? 'inline-block' : 'none';
-        cont.textContent = S.timerOn ? '还有剩余秒数是否继续游戏' : '还有剩余步数是否继续游戏';
+        cont.textContent = S.timerOn ? '还有剩余秒数点击继续游戏' : '还有剩余步数点击继续游戏';
       }
       box.style.display = 'flex';
 
@@ -5785,6 +5808,54 @@
     return out;
   }
 
+  // 我的每关星级（只记通关过的关）
+  function myStarMap() {
+    const all = Store.getProgress();
+    const out = {};
+    Object.keys(all).forEach((k) => {
+      const lv = Number(k);
+      const st = (all[k] && all[k].stars) || 0;
+      if (lv >= 1 && st > 0) out[String(lv)] = Math.min(3, st);
+    });
+    return out;
+  }
+
+  // 老榜单数据没带星级：按这一关的分数门槛反推（3 星 / 2 星 / 1 星达标线）
+  function starsFromScore(level, score) {
+    if (!(score > 0)) return 0;
+    try {
+      const def = getLevelDef(level);
+      const th = (def && def.stars) || [];
+      const s1 = th[0] || 1;
+      const s2 = th[1] || s1 * 1.4;
+      const s3 = th[2] || s1 * 1.9;
+      if (score >= s3) return 3;
+      if (score >= s2) return 2;
+      if (score >= s1) return 1;
+      return 0;      // 分数没到一星线 = 这局没通关
+    } catch (e) { return 0; }
+  }
+
+  // 某一关的星星：优先用对方自己公布的星级，没有就反推
+  function starsOf(entry, level) {
+    const key = String(level);
+    const st = entry && entry.st;
+    if (st && st[key] > 0) return Math.min(3, st[key]);
+    const lv = entry && entry.lv;
+    return starsFromScore(level, lv ? lv[key] : 0);
+  }
+
+  // 总星数：优先把对方公布的每关星级加起来，没有就按分数反推
+  function totalStarsOf(entry) {
+    let n = 0;
+    const st = (entry && entry.st) || {};
+    Object.keys(st).forEach((k) => { n += Math.min(3, st[k] || 0); });
+    if (n > 0) return n;
+    const lv = (entry && entry.lv) || {};
+    Object.keys(lv).forEach((k) => { n += starsFromScore(Number(k), lv[k]); });
+    return n;
+  }
+
   function myBestEntry() {
     const all = Store.getProgress();
     let best = { score: 0, level: 0 };
@@ -5803,7 +5874,7 @@
     return {
       uid: Meta.myUid(), name: Meta.nickname(),
       score: Math.max(best.score, total), level: best.level,
-      ts: Date.now(), pv: myProvCode(), lv: lv, me: true
+      ts: Date.now(), pv: myProvCode(), lv: lv, st: myStarMap(), me: true
     };
   }
 
@@ -5837,19 +5908,20 @@
     const key = String(lv);
     const mine = Meta.myUid();
     const map = {};
-    const push = (uid, name, sc, ts, pv) => {
+    const push = (uid, name, sc, ts, pv, stars) => {
       if (!uid || !(sc > 0)) return;
       const cur = map[uid];
-      if (!cur) { map[uid] = { uid: uid, name: name || '玩家', score: sc, ts: ts || 0, pv: pv || '' }; return; }
-      if (sc > cur.score) cur.score = sc;
+      if (!cur) { map[uid] = { uid: uid, name: name || '玩家', score: sc, ts: ts || 0, pv: pv || '', stars: stars || 0 }; return; }
+      if (sc > cur.score) { cur.score = sc; cur.stars = stars || 0; }
       if ((ts || 0) >= (cur.ts || 0)) { cur.name = name || cur.name; cur.ts = ts || 0; }
       if (!cur.pv && pv) cur.pv = pv;
+      if ((stars || 0) > (cur.stars || 0)) cur.stars = stars || 0;
     };
     if (typeof Board !== 'undefined') {
-      Board.list().forEach((e) => { if (e.lv) push(e.uid, e.name, e.lv[key], e.ts, e.pv); });
+      Board.list().forEach((e) => { if (e.lv) push(e.uid, e.name, e.lv[key], e.ts, e.pv, starsOf(e, lv)); });
     }
-    Meta.friends().forEach((f) => { if (f.lv) push(f.uid, f.name, f.lv[key], f.ts, f.pv); });
-    push(mine, Meta.nickname(), myLevelMap()[key], Date.now(), myProvCode());
+    Meta.friends().forEach((f) => { if (f.lv) push(f.uid, f.name, f.lv[key], f.ts, f.pv, starsOf(f, lv)); });
+    push(mine, Meta.nickname(), myLevelMap()[key], Date.now(), myProvCode(), starsOf(myBestEntry(), lv));
     return Object.keys(map).map((k) => {
       const r = map[k];
       r.me = r.uid === mine;
@@ -6001,20 +6073,26 @@
       if (!r || !r.uid) return;
       // 0 分的（还没通关过）不占榜位
       if (!(r.score > 0) && r.uid !== me.uid) return;
+      const stars = totalStarsOf(r);
       const cur = byId[r.uid];
       if (!cur) {
-        byId[r.uid] = { uid: r.uid, name: r.name, score: r.score || 0, ts: r.ts || 0, pv: r.pv || '' };
+        byId[r.uid] = { uid: r.uid, name: r.name, score: r.score || 0, ts: r.ts || 0, pv: r.pv || '', stars: stars };
         return;
       }
       if ((r.ts || 0) >= (cur.ts || 0)) { cur.name = r.name; if (r.pv) cur.pv = r.pv; }
       if ((r.score || 0) > cur.score) cur.score = r.score;
+      if (stars > (cur.stars || 0)) cur.stars = stars;
     });
-    byId[me.uid] = { uid: me.uid, name: Meta.nickname(), score: me.score, ts: Date.now(), pv: myProvCode() };
+    byId[me.uid] = {
+      uid: me.uid, name: Meta.nickname(), score: me.score, ts: Date.now(),
+      pv: myProvCode(), stars: totalStarsOf(me)
+    };
 
     const totalRows = Object.keys(byId).map((k) => {
       const r = byId[k];
       return {
         uid: r.uid, name: r.name, score: r.score, pv: r.pv || '',
+        stars: r.stars || 0,
         me: r.uid === me.uid,
         friend: !!friendUids[r.uid] && r.uid !== me.uid
       };
@@ -6040,9 +6118,15 @@
       const inner = document.createElement('div');
       inner.className = 'lb-swipe';
       const rank = !onBoard ? '—' : (i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1));
+      // 分数左边带星星：局榜是这一局的星（最多 3 颗），总榜 / 省榜是总星数
+      const stars = Math.max(0, r.stars || 0);
+      const starHtml = lbTab === 'level'
+        ? (stars > 0 ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>' : '')
+        : (stars > 0 ? '<span class="lb-stars">★ ' + stars + '</span>' : '');
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
         '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
         (r.me ? '<i class="lb-me">我</i>' : r.friend ? '<i>好友</i>' : '') + '</span>' +
+        starHtml +
         '<span class="lb-score' + (onBoard ? '' : ' none') + '">' + (onBoard ? r.score : '未上榜') + '</span>';
       row.appendChild(inner);
       if (r.friend) {

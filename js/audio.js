@@ -255,6 +255,7 @@
     // 第一次点击时上下文还没跑起来（iOS 冷启动最明显），先排进队列，
     // 等 resume 成功再补播，避免「刚进来没声音」。
     _pendingTones: [],
+    _pendingNoise: [],
     _tone(freq, type, dur, vol, delay) {
       this.ensureCtx();
       if (!this.ctx) return;
@@ -278,6 +279,11 @@
       q.forEach((it) => {
         if (now - it.at > 900) return;      // 太旧的丢弃，别一股脑炸出来
         this._toneNow.apply(this, it.args);
+      });
+      const nq = this._pendingNoise.splice(0);
+      nq.forEach((it) => {
+        if (now - it.at > 900) return;
+        this._noiseNow.apply(this, it.args);   // 碎冰这类噪声也要补播，否则前几声是哑的
       });
     },
 
@@ -324,20 +330,38 @@
       return this._noiseBuf;
     },
 
-    _noiseNow(dur, vol, freq, q, delay) {
+    // 和 _tone 一样：上下文还没跑起来时先排队，解锁后补播
+    _noise(dur, vol, freq, q, delay, type) {
+      this.ensureCtx();
+      if (!this.ctx) return;
+      if (this.ctx.state !== 'running') {
+        const now = Date.now();
+        this._pendingNoise.push({ args: [dur, vol, freq, q, delay, type], at: now });
+        if (this._pendingNoise.length > 8) this._pendingNoise.shift();
+        if (this._flushTimer) clearTimeout(this._flushTimer);
+        this._flushTimer = setTimeout(() => this._flushTones(), 140);
+        this.resumeCtx();
+        return;
+      }
+      this._noiseNow(dur, vol, freq, q, delay, type);
+    },
+
+    _noiseNow(dur, vol, freq, q, delay, type) {
       if (!this.ctx || this.ctx.state !== 'running') return;
       try {
         const t0 = this.ctx.currentTime + (delay || 0);
         const src = this.ctx.createBufferSource();
         src.buffer = this._noiseBuffer();
         const bp = this.ctx.createBiquadFilter();
-        bp.type = 'bandpass';
+        // highpass：整段高频噪声（碎冰的「咔嚓」）；bandpass：窄带嘶声
+        bp.type = type || 'bandpass';
         bp.frequency.setValueAtTime(freq, t0);
-        bp.Q.setValueAtTime(q || 1.2, t0);
+        bp.Q.setValueAtTime(bp.type === 'highpass' ? 0.6 : (q || 1.2), t0);
         const g = this.ctx.createGain();
         const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
         g.gain.setValueAtTime(0.0001, t0);
-        g.gain.linearRampToValueAtTime(peak, t0 + 0.006);
+        // 起音越快越像「裂」，慢一点就变成「呼」
+        g.gain.linearRampToValueAtTime(peak, t0 + 0.003);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
         src.connect(bp);
         bp.connect(g);
@@ -387,18 +411,29 @@
           this.vibrate(20);
           break;
         case 'ice': {
-          // 碎冰：三下短促的高频噪声「咔、嚓、叮」，最后一下是冰块整块裂开的清脆声
+          // 碎冰：① 极短的高通噪声「咔嚓」破口 ② 一下低频闷响当冰体
+          // ③ 几颗随机音高的高频「叮」当飞溅的碎渣 —— 冰是「脆 + 叮」，不能只是一声嘶
           const fin = !!opts.final;
-          this._noiseNow(0.075, 0.20, 3400, 1.7);
-          this._noiseNow(0.065, 0.15, 2300, 1.2, 0.05);
-          this._tone(1500, 'triangle', 0.05, 0.055, 0.01);
+          this._noise(0.11, 0.28, 1500, 0.6, 0, 'highpass');
+          this._noise(0.06, 0.20, 3200, 0.6, 0.011, 'highpass');
+          this._tone(170, 'sine', 0.08, 0.11);
+          // 碎渣在嘴里「嘎吱」的那种颗粒感：几下很短的高频噪声，时间 / 音量都随机
+          const grains = fin ? 5 : 2;
+          for (let i = 0; i < grains; i++) {
+            this._noise(0.03 + Math.random() * 0.03, 0.10 + Math.random() * 0.06,
+              1200 + Math.random() * 2600, 0.6, 0.03 + Math.random() * (fin ? 0.20 : 0.10), 'highpass');
+          }
+          const tinks = fin ? 7 : 3;
+          for (let i = 0; i < tinks; i++) {
+            const f = 2600 + Math.random() * 3600;
+            this._tone(f, 'triangle', 0.045 + Math.random() * 0.035,
+              0.05 + Math.random() * 0.03, 0.02 + Math.random() * (fin ? 0.20 : 0.09));
+          }
           if (fin) {
-            this._noiseNow(0.16, 0.20, 4600, 2.2, 0.1);
-            this._noiseNow(0.20, 0.12, 1800, 0.9, 0.12);
-            this._tone(2100, 'triangle', 0.10, 0.07, 0.11);
-            this.vibrate([14, 26, 22]);
+            this._noise(0.18, 0.18, 2400, 0.6, 0.10, 'highpass');
+            this.vibrate([12, 22, 18]);
           } else {
-            this.vibrate(10);
+            this.vibrate(8);
           }
           break;
         }

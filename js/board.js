@@ -22,8 +22,9 @@
   const SNAP_MIN_MS = 90e3;              // 合成快照最小间隔
   const POLL_MS = 20e3;                  // 开着面板时的轮询兜底
 
-  // entries: [{ uid, name, score, level, ts, pv, lv }]
-  //   pv = 省份代码（省榜用），lv = { 关卡号: 本关最高分 }（局榜用）
+  // entries: [{ uid, name, score, level, ts, pv, lv, st }]
+  //   pv = 省份代码（省榜用），lv = { 关卡号: 本关最高分 }（局榜用），
+  //   st = { 关卡号: 星级 1~3 }（榜上星星用，老数据没有就按分数反推）
   let entries = [];
   let status = 'idle';     // idle | syncing | live | offline
   let listeners = [];
@@ -122,6 +123,34 @@
     return changed;
   }
 
+  // 星级：{ "3": 3, "7": 2 } —— 只认 1~999 关、1~3 星，最多 80 关
+  function cleanSt(raw) {
+    const out = {};
+    if (!raw || typeof raw !== 'object') return out;
+    const keys = Object.keys(raw);
+    let n = 0;
+    for (let i = 0; i < keys.length && n < 80; i++) {
+      const lv = Math.round(Number(keys[i]));
+      const st = Math.round(Number(raw[keys[i]]));
+      if (!(lv >= 1 && lv <= 999)) continue;
+      if (!(st >= 1 && st <= 3)) continue;
+      out[String(lv)] = st;
+      n++;
+    }
+    return out;
+  }
+
+  function mergeSt(dst, src) {
+    let changed = false;
+    Object.keys(src || {}).forEach((k) => {
+      const v = src[k];
+      if (!(v > (dst[k] || 0))) return;
+      dst[k] = v;
+      changed = true;
+    });
+    return changed;
+  }
+
   function clean(e) {
     if (!e) return null;
     const uid = String(e.uid || e.u || '');
@@ -134,7 +163,8 @@
     const pvRaw = String(e.pv || e.p || '').toLowerCase();
     const pv = /^[a-z]{2,20}$/.test(pvRaw) ? pvRaw : '';
     const lv = cleanLv(e.lv || e.v || e.lvm);
-    return { uid: uid, name: name, score: score, level: level, ts: ts, pv: pv, lv: lv };
+    const st = cleanSt(e.st || e.sm || e.stm);
+    return { uid: uid, name: name, score: score, level: level, ts: ts, pv: pv, lv: lv, st: st };
   }
 
   function findIdx(uid) {
@@ -164,6 +194,8 @@
     if (e.ts > cur.ts) { cur.ts = e.ts; changed = true; }
     if (!cur.lv) cur.lv = {};
     if (mergeLv(cur.lv, e.lv)) changed = true;
+    if (!cur.st) cur.st = {};
+    if (mergeSt(cur.st, e.st)) changed = true;
     return changed;
   }
 
@@ -196,6 +228,8 @@
       if ((old.level || 0) > (srv.level || 0)) srv.level = old.level;
       if (!srv.lv) srv.lv = {};
       mergeLv(srv.lv, old.lv);
+      if (!srv.st) srv.st = {};
+      mergeSt(srv.st, old.st);
       if ((old.ts || 0) > (srv.ts || 0)) srv.ts = old.ts;
       if (!srv.pv && old.pv) srv.pv = old.pv;
       entries.splice(i, 1);
@@ -219,9 +253,9 @@
     let changed = false;
     if (msg.t === 's' && Array.isArray(msg.d)) {
       msg.d.forEach((row) => {
-        // 快照里是紧凑数组 [uid, name, score, level, ts, pv, lv]
+        // 快照里是紧凑数组 [uid, name, score, level, ts, pv, lv, st]
         const e = Array.isArray(row)
-          ? { uid: row[0], name: row[1], score: row[2], level: row[3], ts: row[4], pv: row[5], lv: row[6] }
+          ? { uid: row[0], name: row[1], score: row[2], level: row[3], ts: row[4], pv: row[5], lv: row[6], st: row[7] }
           : row;
         if (mergeOne(e)) changed = true;
       });
@@ -328,7 +362,7 @@
     const top = entries.filter((e) => !deleted[e.uid]).sort(byScore).slice(0, 30);
     post(JSON.stringify({
       t: 's',
-      d: top.map((e) => [e.uid, e.name, e.score, e.level, e.ts, e.pv || ''])
+      d: top.map((e) => [e.uid, e.name, e.score, e.level, e.ts, e.pv || '', e.lv || {}, e.st || {}])
     }));
     // 局分分包：只发这一批关卡里有分数的玩家
     const from = snapChunk * SNAP_CHUNK + 1;
@@ -355,12 +389,12 @@
     if (!force && now - lastPub < PUB_MIN_MS) return false;
     const before = findIdx(e.uid) >= 0 ? entries[findIdx(e.uid)].score : -1;
     lastPub = now;
-    mergeOne({ uid: e.uid, name: e.name, score: e.score, level: e.level, ts: now, pv: e.pv, lv: e.lv });
+    mergeOne({ uid: e.uid, name: e.name, score: e.score, level: e.level, ts: now, pv: e.pv, lv: e.lv, st: e.st });
     dedupeSameName();
     save();
     if (before !== e.score) emit();
     post(JSON.stringify({
-      t: 'e', u: e.uid, n: e.name, s: e.score, l: e.level, ts: now, pv: e.pv || '', lv: e.lv || {}
+      t: 'e', u: e.uid, n: e.name, s: e.score, l: e.level, ts: now, pv: e.pv || '', lv: e.lv || {}, st: e.st || {}
     }));
     return true;
   }

@@ -1411,12 +1411,19 @@ body.m-dragging .m-item { cursor: grabbing; }
   border-color: #7c5cff;
 }
 
-/* 结算页「还有剩余步数　是否继续游戏」：一行写完不换行 */
+/* 结算页「还有剩余步数　点击继续游戏」：绿色主行动按钮，一行写完不换行 */
 #btn-clear-continue {
   width: auto;
   padding: 14px 20px;
   white-space: nowrap;
   font-size: 14px;
+  background: linear-gradient(180deg, #3ecf75, #27ab5a);
+  color: #fff;
+  border: none;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.12);
+}
+#btn-clear-continue:active {
+  background: linear-gradient(180deg, #33b966, #1f9750);
 }
 .lb-row {
   position: relative;
@@ -1462,6 +1469,15 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-name { flex: 1; color: #3d3556; }
 .lb-name i { font-style: normal; font-size: 10px; color: #8a7fb5; margin-left: 5px; }
 .lb-name i.lb-me { color: #7c5cff; font-weight: 700; }
+/* 分数左边的星星：局榜是这一局的星（★★★），总榜 / 省榜是总星数（★ 87） */
+.lb-stars {
+  font-size: 11px;
+  font-weight: 800;
+  color: #ffb300;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+  margin-right: 2px;
+}
 .lb-score { font-weight: 800; color: #ff8c00; }
 .lb-score.none { font-weight: 600; font-size: 11px; color: #b0a9c0; }
 /* 后台「全服用户名单」：右边的省份标签比分数低调 */

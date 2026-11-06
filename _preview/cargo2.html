@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>钥匙样式预览</title>
+<style>
+ body{margin:0;padding:14px;font:13px/1.5 system-ui,"Segoe UI","Microsoft YaHei",sans-serif;background:#f6f1e6;color:#333}
+ h2{font-size:13px;margin:0 0 8px;color:#666;font-weight:600}
+ .wrap{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:14px}
+ .cellbox{width:64px;height:64px;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08)}
+ .big{width:180px;height:180px;border-radius:18px}
+ canvas{display:block}
+</style></head><body>
+<h2>新版钥匙（银蓝菱形柄）在深 / 中 / 浅底上的样子</h2>
+<div class="wrap" id="row1"></div>
+<h2>放大 3 倍</h2>
+<div class="wrap" id="row3"></div>
+<h2>实际棋盘尺寸 34px（小格）</h2>
+<div class="wrap" id="row4"></div>
+<script>
+  // 钥匙徽标：银蓝色「古堡钥匙」—— 圆角菱形手柄 + 圆孔 + 直杆 + 底部双齿。
+  // 为什么不用 🔑：彩色 emoji 字形在绝大多数浏览器里不吃 strokeText，描边等于没画；
+  // 想要黑边只能自己构图 —— 「先用加粗黑线整体描一遍，再填银色」，两层叠起来只剩外轮廓一圈黑。
+  function drawKeyMark(g, cell, pulse) {
+    const k = cell * 0.74;                 // 钥匙总高
+    const bowY = -k * 0.21;                // 菱形手柄中心
+    const bw = k * 0.255;                  // 菱形半宽
+    const hole = k * 0.078;                // 手柄圆孔
+    const shaftW = k * 0.105;              // 杆宽
+    const shaftX = -shaftW / 2;
+    const shaftTop = bowY + bw * 0.30;     // 杆插进柄里，接缝被柄的填充盖住
+    const shaftBot = k * 0.47;
+    const teeth = [
+      { y: k * 0.15, w: k * 0.16, h: k * 0.072 },
+      { y: k * 0.30, w: k * 0.115, h: k * 0.066 }
+    ];
+
+    // 背后一层银蓝柔光（跟着呼吸起伏）
+    g.save();
+    g.shadowBlur = 0;                      // 钥匙自己控制光晕，不用外面的阴影
+    const glow = g.createRadialGradient(0, bowY * 0.4, k * 0.04, 0, bowY * 0.4, k * 0.62);
+    glow.addColorStop(0, 'rgba(150,208,255,' + (0.30 + 0.18 * pulse).toFixed(3) + ')');
+    glow.addColorStop(1, 'rgba(150,208,255,0)');
+    g.fillStyle = glow;
+    g.beginPath();
+    g.arc(0, bowY * 0.4, k * 0.62, 0, Math.PI * 2);
+    g.fill();
+
+    const paint = (fill) => {
+      // 菱形手柄（圆孔反向绕圈 → evenodd 挖空）
+      g.beginPath();
+      g.moveTo(0, bowY - bw);
+      g.lineTo(bw, bowY);
+      g.lineTo(0, bowY + bw);
+      g.lineTo(-bw, bowY);
+      g.closePath();
+      g.moveTo(hole, bowY);
+      g.arc(0, bowY, hole, Math.PI * 2, 0, true);
+      if (fill) g.fill('evenodd'); else g.stroke();
+      // 杆
+      g.beginPath();
+      g.rect(shaftX, shaftTop, shaftW, shaftBot - shaftTop);
+      if (fill) g.fill(); else g.stroke();
+      // 齿（右侧两级台阶）
+      for (let i = 0; i < teeth.length; i++) {
+        const t = teeth[i];
+        g.beginPath();
+        g.rect(shaftX + shaftW - k * 0.012, t.y, t.w, t.h);
+        if (fill) g.fill(); else g.stroke();
+      }
+    };
+
+    g.save();
+    g.lineJoin = 'round';
+    g.lineCap = 'round';
+    // 1) 黑色加粗描一遍：可见黑边 = 线宽的一半
+    g.strokeStyle = '#000';
+    g.lineWidth = Math.max(2.4, cell * 0.09);
+    paint(false);
+    // 2) 银蓝金属色填进去，盖掉内部的黑线，只留外轮廓
+    const steel = g.createLinearGradient(-bw, bowY - bw, shaftX + shaftW, shaftBot);
+    steel.addColorStop(0, '#ffffff');
+    steel.addColorStop(0.4, '#d9edff');
+    steel.addColorStop(0.75, '#a8cdf0');
+    steel.addColorStop(1, '#7ba7d4');
+    g.fillStyle = steel;
+    paint(true);
+    // 3) 菱形左上棱一道高光，看着像抛光金属
+    g.strokeStyle = 'rgba(255,255,255,0.9)';
+    g.lineWidth = Math.max(1, cell * 0.035);
+    g.beginPath();
+    g.moveTo(-bw * 0.55, bowY - bw * 0.42);
+    g.lineTo(-bw * 0.14, bowY - bw * 0.82);
+    g.stroke();
+    g.restore();
+  }
+const ctx2 = {};
+function make(bg, cell, scale, parent) {
+  const d = document.createElement('div');
+  d.className = 'cellbox' + (cell > 100 ? ' big' : '');
+  if (cell > 100) { d.style.width = cell + 'px'; d.style.height = cell + 'px'; }
+  d.style.background = bg;
+  const cv = document.createElement('canvas');
+  const dpr = 2;
+  cv.width = cell * dpr; cv.height = cell * dpr;
+  cv.style.width = cell + 'px'; cv.style.height = cell + 'px';
+  const g = cv.getContext('2d');
+  g.scale(dpr, dpr);
+  d.appendChild(cv);
+  parent.appendChild(d);
+  g.save(); g.translate(cell / 2, cell / 2); g.scale(scale, scale);
+  drawKeyMark(g, cell, 0.75);
+  g.restore();
+}
+const bgs = ['#2d3a63', '#6f5fa8', '#f2e7d0', '#3f8a68', '#d8546b'];
+bgs.forEach((b) => make(b, 64, 1, document.getElementById('row1')));
+['#2d3a63', '#f2e7d0'].forEach((b) => make(b, 180, 1, document.getElementById('row3')));
+bgs.forEach((b) => make(b, 34, 1, document.getElementById('row4')));
+</script></body></html>

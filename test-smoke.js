@@ -876,7 +876,43 @@ function check(name, ok) {
     return ok;
   })());
 
-  // 14d4.（已撤销）刷新恢复功能：刷新后统一回到主页
+  // 14d3-2. 分数左边带星星：总榜 = 总星数，局榜 = 这一局的星
+  check('榜上分数左边带星星（总榜总星数 / 局榜本局星）', (() => {
+    sandbox.__nl_test.refreshMenu();
+    const entry = sandbox.__nl_test.myEntry();
+    const st = entry.st || {};
+    const totalStars = Object.keys(st).reduce((n, k) => n + (st[k] || 0), 0);
+    const rowHtml = () => Array.prototype.map.call($('lb-list').children || [], (r) =>
+      Array.prototype.map.call(r.children || [], (c) => String(c.innerHTML || '')).join('')
+    ).join('|');
+    $('btn-leaderboard').dispatch('click');
+    $('btn-lb-hub-all').dispatch('click');
+    const allTxt = rowHtml();
+    $('btn-lb-view-back').dispatch('click');
+    $('btn-lb-hub-level').dispatch('click');
+    // 挑一个「有星」的关卡（局榜默认可能停在没打过的关上）
+    const wantLv = Object.keys(st).filter((k) => st[k] > 0)
+      .sort((a, b) => Number(a) - Number(b))[0];
+    $('lb-level-swap').dispatch('click');
+    const pick = ($('lb-picker').children || [])
+      .filter((b) => String(b.textContent) === '第 ' + wantLv + ' 关')[0];
+    if (pick) pick.dispatch('click');
+    const lvTxt = rowHtml();
+    $('btn-lb-view-back').dispatch('click');
+    $('btn-close-lb').dispatch('click');
+    const lvStars = (st[wantLv] || 0);
+    return totalStars > 0 && allTxt.indexOf('★ ' + totalStars) >= 0 &&
+      lvStars > 0 && lvTxt.indexOf('★'.repeat(lvStars)) >= 0;
+  })());
+  // 14d3-3. 星星跟着榜单一起同步（发出去 / 快照里都带 st）
+  check('排行榜协议带真星级（st），老数据按分数门槛反推', (() => {
+    const src = fs.readFileSync(path.join(__dirname, 'js', 'board.js'), 'utf8');
+    return /st: e\.st \|\| \{\}/.test(src) && /function cleanSt/.test(src) &&
+      /e\.lv \|\| \{\}, e\.st \|\| \{\}\]/.test(src) &&
+      /st: row\[7\]/.test(src) && /function starsFromScore/.test(jsSrc) &&
+      /function totalStarsOf/.test(jsSrc);
+  })());
+
 
   // 14d4a. 签到入口：日期条状态 + 点红色漏签日补签（300 金币 / 天，不发奖励）
   check('漏签日子标红、点击弹补签窗口，确认后扣金币补签', (() => {
@@ -994,24 +1030,32 @@ function check(name, ok) {
   check('目标数永远和棋盘上的奶龙数一致（写错也不会出现打不过的关）',
     nlOnBoard === 4 && st.goal.target === 4);
 
-  // 17c. 货物被消掉时绝不凭空消失：下面堵死也要在别处落下来
+  // 17c. 货物被消掉时会往下掉一格；下面那格已经有货也照掉，两件重合在一起
   sandbox.__nl_test.start(1, { def: { id: 94, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 1 }, rescue: 1, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.board[r][c]) st.board[r][c].cargo = null;
   st.board[2][0].cargo = { kind: 'nailong' };      // 要被消掉的那只
-  st.board[3][0].cargo = { kind: 'key' };          // 正下方堵着一件货
-  for (let r = 4; r < 7; r++) st.board[r][0].cargo = { kind: 'key' };   // 整列堵死
+  st.board[3][0].cargo = { kind: 'key' };          // 正下方已经有一件货（照掉，重合）
+  for (let r = 4; r < 7; r++) st.board[r][0].cargo = { kind: 'key' };   // 整列都是货
   const countCargo = () => {
     let n = 0;
-    for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.board[r][c] && st.board[r][c].cargo) n++;
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const b = st.board[r][c];
+        if (!b || !b.cargo) continue;
+        n += Array.isArray(b.cargo) ? b.cargo.length : 1;   // 一格可能压着多件
+      }
+    }
     return n;
   };
   // cargoGot 记的是「送达的货物总数」（奶龙也算在内），和场上剩的一起就是全部
   const cargoTotal = () => countCargo() + (st.goal.cargoGot || 0);
   const cargoCntBefore = cargoTotal();
   await sandbox.__nl_test.resolveClear(new Set(['2,0']), []);
-  // 场上 + 已送达的总和不变 = 一只都没丢（落到最底行算送达，那也是正常归宿）
-  check('货物被顶下时不会丢（整列堵死也能落到别处）', cargoTotal() === cargoCntBefore);
+  check('货物被顶下时不会丢（下面有货也照掉，重合显示）', cargoTotal() === cargoCntBefore);
+  const k1 = st.board[3][0] && st.board[3][0].cargo;
+  check('掉下来的奶龙和原来那件货压在同一格', Array.isArray(k1) && k1.length >= 2 &&
+    k1.some((x) => x.kind === 'nailong') && k1.some((x) => x.kind === 'key'));
 
   // 17c-2. 洗牌：钥匙 / 奶龙钉在原位，只有底下的方块参与洗牌
   sandbox.__nl_test.start(1, { def: { id: 95, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 2 }, rescue: 2, drop: 1, stars: [1, 2, 3] } });
@@ -1057,15 +1101,15 @@ function check(name, ok) {
   sandbox.__nl_test.start(1, { def: { id: 92, theme: 'ocean', moves: 20, goal: { type: 'score', target: 100 }, stars: [100, 200, 300] } });
   sandbox.__nl_test.state().moves = 7;
   sandbox.__nl_test.win();
-  check('步数关过关后：还有剩余步数是否继续游戏',
+  check('步数关过关后：还有剩余步数点击继续游戏',
     $('btn-clear-continue').style.display === 'inline-block' &&
-    $('btn-clear-continue').textContent === '还有剩余步数是否继续游戏');
+    $('btn-clear-continue').textContent === '还有剩余步数点击继续游戏');
   sandbox.__nl_test.start(1, { def: { id: 91, theme: 'ocean', moves: 20, goal: { type: 'timed', target: 100, time: 60 }, stars: [100, 200, 300] } });
   sandbox.__nl_test.state().timeLeft = 42;
   sandbox.__nl_test.win();
-  check('限时关过关后：还有剩余秒数是否继续游戏（只把步数换成秒数）',
+  check('限时关过关后：还有剩余秒数点击继续游戏（只把步数换成秒数）',
     $('btn-clear-continue').style.display === 'inline-block' &&
-    $('btn-clear-continue').textContent === '还有剩余秒数是否继续游戏' &&
+    $('btn-clear-continue').textContent === '还有剩余秒数点击继续游戏' &&
     $('clear-moves-label').textContent === '剩余时间');
 
   // 18. 提示按钮：消耗次数并高亮（先开一局正常的，上面两局已经结算掉了）
@@ -1843,6 +1887,21 @@ function check(name, ok) {
     /case 'ice': \{/.test(audioSrc) && /_noiseNow\(/.test(audioSrc) &&
     /_noiseBuffer\(\)/.test(audioSrc) && /opts\.final/.test(audioSrc) &&
     /AudioManager\.playSFX\('ice', \{ final:/.test(jsSrc));
+  // 41f-3. 连击窗口改短：停手一拍连击就断
+  check('连击窗口缩到 1600ms', /const COMBO_WINDOW = 1600;/.test(jsSrc));
+  // 41f-4. 结算「继续游戏」按钮：绿色 + 新文案（DOM 断言在上面 17e 附近）
+  check('继续游戏按钮是绿色（渐变 + 白字）',
+    /#btn-clear-continue\s*{[^}]*linear-gradient\(180deg, #3ecf75, #27ab5a\)/.test(cssSrc) &&
+    /#btn-clear-continue\s*{[^}]*color: #fff;/.test(cssSrc));
+  // 41f-5. 钥匙换样式：银蓝「菱形柄」古堡钥匙
+  check('钥匙换新样式（菱形手柄 + 银蓝金属渐变 + 黑描边）',
+    /菱形手柄/.test(jsSrc) && /菱形左上棱一道高光/.test(jsSrc) &&
+    /steel\.addColorStop\(1, '#7ba7d4'\)/.test(jsSrc) &&
+    /g\.strokeStyle = '#000'/.test(jsSrc));
+  // 41f-6. 规则页：改名位置写进基本玩法；不举 Yone / yone 的例子
+  check('规则页把改名位置写进「基本玩法」，且不再举大小写的例子',
+    /改名位置.*主页键/.test(htmlSrc0.replace(/\n/g, '')) &&
+    !/Yone/.test(htmlSrc0));
   // 41g. 剧情过场去掉「跳过剧情」
   check('剧情过场只有「继续前进」，没有「跳过剧情」',
     htmlSrc0.includes('id="btn-story-go"') && !htmlSrc0.includes('btn-story-skip') &&

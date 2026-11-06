@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106al">
-<link rel="stylesheet" href="./css/themes.css?v=20261106al">
+<link rel="stylesheet" href="./css/style.css?v=20261107a">
+<link rel="stylesheet" href="./css/themes.css?v=20261107a">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -341,7 +341,7 @@
       <section class="rule-sec">
         <h3>👤 账号与昵称</h3>
         <p><b>第一次进来</b>先选登录或注册：注册只需名字 + 密码（4~24 位，不含空格）就是一个新空号；登录要两项都正确，输错提示「名字或密码不正确，请确认后再次输入」。<b>老账号没设过密码</b>的，登录页会提示：切到「注册」，用<b>同一个名字</b> + 想用的密码注册一次，就能找回原进度（进度原样保留，密码设成新的）。</p>
-        <p><b>昵称</b>：最多 8 字，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，<b>名字具有唯一性</b>。名字<b>区分大小写</b>：<b>Yone</b> 和 <b>yone</b> 是两个不同的名字（登录时输错大小写会自动试着找回同一个号）。改名点左上角 <b>🏠 主页键</b>（📖 规则键在它右边）里的「✏️ 改名」，账号名一起更新。</p>
+        <p><b>昵称</b>：最多 8 字，特殊符号只能用 <b>-</b> <b>.</b> <b>_</b>，<b>名字具有唯一性</b>，且<b>区分大小写</b>（登录时输错大小写会自动试着找回同一个号）。</p>
         <p><b>默认昵称要改掉</b>：名字还是「<b>奶龙玩家</b>」的时候，进来会弹一个<b>关不掉的改名窗口</b>（没有返回键，点外面也关不掉），改好名字它才自己关掉、才能进游戏。</p>
         <p><b>切换账号</b> / <b>修改密码</b>：设置 → 🔐 账号安全，本机账号都列出来，点一下即切换，金币、星星、进度各自独立。同一个页面的 <b>☁️ 存到服务器</b> 可以随时把当前号存上云。</p>
         <p><b>注销账号</b>：设置 → 🔐 账号安全 → 🔒 注销账号（切换账号下面）。两步确认后<b>彻底删除</b>进度、星星、金币、背包、成就、邮箱、榜单成绩，<b>无法恢复</b>；服务器上的账号和存档一起删掉，所以用同样的名字重新注册是<b>从零开始</b>的，不会被旧进度找回来。只是换号玩请用「切换账号」。</p>
@@ -367,6 +367,7 @@
         <p>交换相邻两块，让 <b>3 个及以上相同图案</b>连成横线或竖线即可消除；左右滑动、点选两格都行，长按可多选。</p>
         <p>每步消耗 1 步数（限时关消耗时间），用完本局结束；剩 <b>5 步</b>（限时关 <b>10 秒</b>）时顶部数字变红提醒。</p>
         <p>局内顶栏固定只有 <b>关卡 / 步数 / 得分</b> 三项（限时关显示剩余时间）；金币和星星在主页看，局内不显示。页面高度随每台手机屏幕自适应，白色页面始终铺满整屏。</p>
+        <p><b>改名位置</b>：点左上角 <b>🏠 主页键</b>（📖 规则键在它右边）里的「✏️ 改名」，改名后账号名一起更新。</p>
         <p><b>退出页面 / 切后台 / 锁屏</b>会自动暂停，回来接着玩，不会白掉步数。找不到步就点 <b>💡 提示</b>（每局 3 次）。</p>
       </section>
 
@@ -410,9 +411,10 @@
         <p><b>冰块</b>：冻住的方块不能交换、不参与连消，只能靠<b>旁边消除</b>或特殊块砸开；厚冰多层，越砸越透。每砸一次都有<b>碎冰声</b>，整块冰砸透时是一串清脆的裂开声。</p>
         <p><b>锁链</b>：锁住的方块第一次被消只解链、方块留下，之后才能正常交换。</p>
         <p><b>货物（钥匙 / 奶龙）</b>：贴在方块上、发着呼吸光，<b>黑色描边</b>让轮廓在任何底图上都清楚（钥匙是矢量画的，边缘再放大也不糊），<b>目标是送到最底行</b>。消掉它下面的方块就往下掉一格，掉到最后一排算送达。</p>
-        <p><b>一个方块只放一样东西</b>：已经有钥匙 / 奶龙、冰、锁链或特殊块的格子，不会再叠上新的东西；新生成的炸弹 / 线消 / 彩虹会落到<b>这一轮要消掉的其他方块</b>上，没有空位就不生成，绝不会两样叠在一起。</p>
+        <p><b>一个方块只放一样东西</b>：已经有钥匙 / 奶龙、冰、锁链或特殊块的格子，不会再叠上新的东西；新生成的炸弹 / 线消 / 彩虹会落到<b>这一轮要消掉的其他方块</b>上，没有空位就不生成。</p>
+        <p><b>货物只往下走</b>：钥匙 / 奶龙所在方块被消掉时，它一定往下掉一格——<b>哪怕下面那一格已经有货也照掉</b>，两件就重合叠在一格里（后面那件缩小错开贴左上角，一眼能看出叠了几件），一起掉到底行就一起送达。货物不会往上跑、也不会瞬移到别的列。</p>
         <p>· 被冰或锁链挡住时先清障碍，否则掉不下去<br>
-          · 货物所在方块被消掉时，它会<b>落到被消掉那一格的下面一格</b>，不会消失也不会从顶端重来<br>
+          · 货物所在方块被消掉时，它会<b>落到被消掉那一格的下面一格</b>（下面有货就重合），不会消失也不会从顶端重来<br>
           · 目标数量就是场上货物总数，全部送到底即过关</p>
       </section>
 
@@ -424,7 +426,7 @@
           · <b>3 星</b>：得分到 3 星线，<b>或</b>过关时剩 60% 以上步数</p>
         <p>也就是<b>分数够了给星，步数省得多也给星</b>，满足一条即可。例：第 1 关 28 步，用 11 步打完（剩 61%）直接 3 星；分数只有 1100，步数剩够 60% 同样 3 星。限时关按剩余时间比例算。</p>
         <p>星星只记历史最好成绩，重打不会掉星。</p>
-        <p>过关时如果<b>步数还没用完</b>（限时关则是<b>时间还没走完</b>），结算面板会多一个「还有剩余步数／秒数是否继续游戏」的按钮，点它就回到棋盘，用剩下的步数或秒数接着刷分，刷到的分照常计入本关最好成绩。</p>
+        <p>过关时如果<b>步数还没用完</b>（限时关则是<b>时间还没走完</b>），结算面板会多一个<b>绿色的「还有剩余步数／秒数点击继续游戏」</b>按钮，点它就回到棋盘，用剩下的步数或秒数接着刷分，刷到的分照常计入本关最好成绩。</p>
       </section>
 
       <section class="rule-sec">
@@ -763,7 +765,7 @@
       <p><span id="clear-moves-label">剩余步数</span><b id="clear-moves">0</b></p>
       <p><span>金币奖励</span><b id="clear-coins">+0</b></p>
     </div>
-    <button class="btn-secondary" id="btn-clear-continue" style="display:none;">还有剩余步数是否继续游戏</button>
+    <button class="btn-secondary" id="btn-clear-continue" style="display:none;">还有剩余步数点击继续游戏</button>
     <button class="btn-primary" id="btn-next-level">进入下一关</button>
     <button class="btn-secondary" id="btn-clear-home">返回主页</button>
   </div>
@@ -974,22 +976,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106al"></script>
-<script src="./js/storage.js?v=20261106al"></script>
-<script src="./js/audio.js?v=20261106al"></script>
-<script src="./js/effects.js?v=20261106al"></script>
-<script src="./js/specials.js?v=20261106al"></script>
-<script src="./js/goals.js?v=20261106al"></script>
-<script src="./js/tasks.js?v=20261106al"></script>
-<script src="./js/mail.js?v=20261106al"></script>
-<script src="./js/input.js?v=20261106al"></script>
-<script src="./js/builtin-music.js?v=20261106al"></script>
-<script src="./js/music.js?v=20261106al"></script>
-<script src="./js/meta.js?v=20261106al"></script>
-<script src="./js/cloud-config.js?v=20261106al"></script>
-<script src="./js/cloud.js?v=20261106al"></script>
-<script src="./js/account.js?v=20261106al"></script>
-<script src="./js/board.js?v=20261106al"></script>
-<script src="./js/game.js?v=20261106al"></script>
+<script src="./js/rng.js?v=20261107a"></script>
+<script src="./js/storage.js?v=20261107a"></script>
+<script src="./js/audio.js?v=20261107a"></script>
+<script src="./js/effects.js?v=20261107a"></script>
+<script src="./js/specials.js?v=20261107a"></script>
+<script src="./js/goals.js?v=20261107a"></script>
+<script src="./js/tasks.js?v=20261107a"></script>
+<script src="./js/mail.js?v=20261107a"></script>
+<script src="./js/input.js?v=20261107a"></script>
+<script src="./js/builtin-music.js?v=20261107a"></script>
+<script src="./js/music.js?v=20261107a"></script>
+<script src="./js/meta.js?v=20261107a"></script>
+<script src="./js/cloud-config.js?v=20261107a"></script>
+<script src="./js/cloud.js?v=20261107a"></script>
+<script src="./js/account.js?v=20261107a"></script>
+<script src="./js/board.js?v=20261107a"></script>
+<script src="./js/game.js?v=20261107a"></script>
 </body>
 </html>
