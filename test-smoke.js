@@ -1013,6 +1013,32 @@ function check(name, ok) {
   // 场上 + 已送达的总和不变 = 一只都没丢（落到最底行算送达，那也是正常归宿）
   check('货物被顶下时不会丢（整列堵死也能落到别处）', cargoTotal() === cargoCntBefore);
 
+  // 17c-2. 洗牌：钥匙 / 奶龙钉在原位，只有底下的方块参与洗牌
+  sandbox.__nl_test.start(1, { def: { id: 95, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 2 }, rescue: 2, drop: 1, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.board[r][c]) st.board[r][c].cargo = null;
+  st.board[1][2].cargo = { kind: 'nailong' };
+  st.board[4][5].cargo = { kind: 'nailong' };
+  st.board[6][1].cargo = { kind: 'key' };
+  const cargoMap = () => {
+    const m = [];
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const b = st.board[r][c];
+        if (b && b.cargo) m.push(r + ',' + c + ':' + b.cargo.kind);
+      }
+    }
+    return m.join('|');
+  };
+  const cargoSnapshot = cargoMap();
+  let cargoKept = cargoSnapshot.split('|').length === 3;
+  for (let i = 0; i < 8 && cargoKept; i++) {
+    sandbox.__nl_test.reshuffle();
+    if (cargoMap() !== cargoSnapshot) cargoKept = false;
+  }
+  check('洗牌时钥匙 / 奶龙位置不变（只洗底下的方块）', cargoKept);
+  check('洗牌后棋盘没有现成的三消', sandbox.__nl_test.findMatches().size === 0);
+
   // 17d. 总分只算通关的关卡：没过关那一局的分数不进总分
   sandbox.Store.recordLevel(40, 9999, 0);    // 第 40 关没通关，分再高也不算
   sandbox.Store.recordLevel(39, 1200, 3);    // 通关了才算
@@ -1812,6 +1838,11 @@ function check(name, ok) {
     /BGM_AHEAD/.test(audioSrc) && /_bgmNoteAt\(/.test(audioSrc) && /_drumAt\(/.test(audioSrc));
   check('每次点击不再无脑 resume / 重设音量', /kickResume/.test(audioSrc) &&
     !/const kick = \(\) => \{ this\.resumeCtx\(\); \}/.test(audioSrc));
+  // 41f-2. 碎冰音效：噪声带通合成的「咔 / 嚓」，整块砸透再多一下
+  check('破冰有碎冰音效（噪声合成，整块砸透更响）',
+    /case 'ice': \{/.test(audioSrc) && /_noiseNow\(/.test(audioSrc) &&
+    /_noiseBuffer\(\)/.test(audioSrc) && /opts\.final/.test(audioSrc) &&
+    /AudioManager\.playSFX\('ice', \{ final:/.test(jsSrc));
   // 41g. 剧情过场去掉「跳过剧情」
   check('剧情过场只有「继续前进」，没有「跳过剧情」',
     htmlSrc0.includes('id="btn-story-go"') && !htmlSrc0.includes('btn-story-skip') &&

@@ -355,7 +355,8 @@
     if (!S.iceHitMove) S.iceHitMove = {};
     S.iceHitMove[k] = 1;
     S.ice[r][c]--;
-    AudioManager.playSFX('line');
+    // 碎冰声：只裂一层是「咔」的闷响，整块砸透再加一串清脆的裂开声
+    AudioManager.playSFX('ice', { final: S.ice[r][c] <= 0 });
     FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#9fe8ff', 5);
     // 目标按「块」算：一整块冰彻底砸开才 +1（厚冰要砸透，进度才不会虚高）
     if (S.goal && S.ice[r][c] <= 0) {
@@ -459,13 +460,35 @@
   }
 
   function reshuffle() {
-    const all = [];
-    for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) if (S.board[r][c]) all.push(S.board[r][c]);
+    // 钥匙 / 奶龙钉死在原来的格子上：先把货物从方块上摘下来记好坐标，
+    // 只让底下的方块参与洗牌，洗完再按原坐标贴回去。
+    // （否则护送 / 运货关一洗牌货物就跑到别处，玩家会觉得目标被洗乱了）
+    const pinned = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const b = S.board[r][c];
+        if (b && b.cargo) { pinned.push({ r: r, c: c, cargo: b.cargo }); b.cargo = null; }
+      }
+    }
+    const cells = [];   // 参与洗牌的方块池
+    const slots = [];   // 这些方块可以落的位置（棋盘上所有有方块的格子）
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (S.board[r][c]) { cells.push(S.board[r][c]); slots.push([r, c]); }
+      }
+    }
+    const putBack = () => {
+      // 先清掉池子里所有方块的货物，再按原坐标贴回，
+      // 否则上一次试排时贴上去的货会跟着方块一起被洗到别处，越洗越多
+      for (let i = 0; i < cells.length; i++) cells[i].cargo = null;
+      for (let i = 0; i < slots.length; i++) S.board[slots[i][0]][slots[i][1]] = cells[i];
+      // 货物按原坐标贴回（不管落下来的是哪个方块，货都留在原地）
+      pinned.forEach((p) => { if (S.board[p.r][p.c]) S.board[p.r][p.c].cargo = p.cargo; });
+    };
     let tries = 0;
     do {
-      shuffleArr(all);
-      let i = 0;
-      for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) S.board[r][c] = all[i++];
+      shuffleArr(cells);
+      putBack();
       tries++;
     } while ((findMatches().size > 0 || !hasPossibleMove()) && tries < 40);
     // 兜底：只重排图案，绝不清掉冰块 / 锁链 / 货物（否则障碍关会被洗牌洗回原点）
@@ -478,6 +501,7 @@
         }
         if (findMatches().size === 0 && hasPossibleMove()) break;
       }
+      putBack();
     }
   }
 
@@ -6764,6 +6788,7 @@
     clearHint: clearHint,
     canPlaceNew: canPlaceNew,
     pickSpotIn: pickSpotIn,
+    reshuffle: reshuffle,
     undoMove: undo,
     findMatches: findMatches,
     autoPause: autoPauseIfPlaying,

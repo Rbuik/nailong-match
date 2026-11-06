@@ -308,6 +308,45 @@
       }
     },
 
+    // ---------- 噪声（碎冰 / 裂开类音效） ----------
+    // 用一段白噪声 + 带通滤波 + 极快包络模拟「咔」的脆裂声，
+    // 纯正弦叠不出来这种碎裂质感。
+    _noiseBuf: null,
+    _noiseBuffer() {
+      if (!this.ctx) return null;
+      if (!this._noiseBuf) {
+        const len = Math.floor(this.ctx.sampleRate * 0.5);
+        const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+        this._noiseBuf = buf;
+      }
+      return this._noiseBuf;
+    },
+
+    _noiseNow(dur, vol, freq, q, delay) {
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      try {
+        const t0 = this.ctx.currentTime + (delay || 0);
+        const src = this.ctx.createBufferSource();
+        src.buffer = this._noiseBuffer();
+        const bp = this.ctx.createBiquadFilter();
+        bp.type = 'bandpass';
+        bp.frequency.setValueAtTime(freq, t0);
+        bp.Q.setValueAtTime(q || 1.2, t0);
+        const g = this.ctx.createGain();
+        const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(peak, t0 + 0.006);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        src.connect(bp);
+        bp.connect(g);
+        g.connect(this.ctx.destination);
+        src.start(t0);
+        src.stop(t0 + dur + 0.02);
+      } catch (e) {}
+    },
+
     // ---------- 音效 ----------
     playSFX(name, opts) {
       opts = opts || {};
@@ -347,6 +386,22 @@
           this._tone(1100, 'square', 0.12, 0.09, 0.06);
           this.vibrate(20);
           break;
+        case 'ice': {
+          // 碎冰：三下短促的高频噪声「咔、嚓、叮」，最后一下是冰块整块裂开的清脆声
+          const fin = !!opts.final;
+          this._noiseNow(0.075, 0.20, 3400, 1.7);
+          this._noiseNow(0.065, 0.15, 2300, 1.2, 0.05);
+          this._tone(1500, 'triangle', 0.05, 0.055, 0.01);
+          if (fin) {
+            this._noiseNow(0.16, 0.20, 4600, 2.2, 0.1);
+            this._noiseNow(0.20, 0.12, 1800, 0.9, 0.12);
+            this._tone(2100, 'triangle', 0.10, 0.07, 0.11);
+            this.vibrate([14, 26, 22]);
+          } else {
+            this.vibrate(10);
+          }
+          break;
+        }
         case 'coin':
           this._tone(1200, 'sine', 0.08, 0.12);
           this._tone(1600, 'sine', 0.12, 0.1, 0.06);

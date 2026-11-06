@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106ak">
-<link rel="stylesheet" href="./css/themes.css?v=20261106ak">
+<link rel="stylesheet" href="./css/style.css?v=20261106al">
+<link rel="stylesheet" href="./css/themes.css?v=20261106al">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -291,6 +291,7 @@
         <p>通关、每日任务、签到都给金币，可在商店买道具：<b>+3 步</b>（限时关改成 +10 秒）、<b>洗牌</b>、<b>撤回</b>、<b>开局线消</b>、<b>开局炸弹</b>、<b>彩虹</b>。</p>
         <p>买到后进背包（主页音乐键下方 / 游戏界面 🎒）<b>点「使用」才生效</b>。商店会先弹确认框再扣金币，防手滑。</p>
         <p>洗牌和撤回每局各送 3 次，<b>用完不自动补</b>；还想用就在背包里用道具加次数。</p>
+        <p>洗牌只重排<b>方块图案</b>：冰块、锁链、钥匙 / 奶龙都留在原位——货物连位置都不动，只换它底下压着的方块，绝不会把要送的货洗跑。</p>
         <p><b>系统永远不会替你用道具</b>：步数 / 时间走完没通关，也不会偷偷扣背包里的「+3 步」「炸弹」「彩虹」——想用就自己在背包里点。</p>
       </section>
 
@@ -406,7 +407,7 @@
 
       <section class="rule-sec">
         <h3>🧊 障碍与货物</h3>
-        <p><b>冰块</b>：冻住的方块不能交换、不参与连消，只能靠<b>旁边消除</b>或特殊块砸开；厚冰多层，越砸越透。</p>
+        <p><b>冰块</b>：冻住的方块不能交换、不参与连消，只能靠<b>旁边消除</b>或特殊块砸开；厚冰多层，越砸越透。每砸一次都有<b>碎冰声</b>，整块冰砸透时是一串清脆的裂开声。</p>
         <p><b>锁链</b>：锁住的方块第一次被消只解链、方块留下，之后才能正常交换。</p>
         <p><b>货物（钥匙 / 奶龙）</b>：贴在方块上、发着呼吸光，<b>黑色描边</b>让轮廓在任何底图上都清楚（钥匙是矢量画的，边缘再放大也不糊），<b>目标是送到最底行</b>。消掉它下面的方块就往下掉一格，掉到最后一排算送达。</p>
         <p><b>一个方块只放一样东西</b>：已经有钥匙 / 奶龙、冰、锁链或特殊块的格子，不会再叠上新的东西；新生成的炸弹 / 线消 / 彩虹会落到<b>这一轮要消掉的其他方块</b>上，没有空位就不生成，绝不会两样叠在一起。</p>
@@ -973,22 +974,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106ak"></script>
-<script src="./js/storage.js?v=20261106ak"></script>
-<script src="./js/audio.js?v=20261106ak"></script>
-<script src="./js/effects.js?v=20261106ak"></script>
-<script src="./js/specials.js?v=20261106ak"></script>
-<script src="./js/goals.js?v=20261106ak"></script>
-<script src="./js/tasks.js?v=20261106ak"></script>
-<script src="./js/mail.js?v=20261106ak"></script>
-<script src="./js/input.js?v=20261106ak"></script>
-<script src="./js/builtin-music.js?v=20261106ak"></script>
-<script src="./js/music.js?v=20261106ak"></script>
-<script src="./js/meta.js?v=20261106ak"></script>
-<script src="./js/cloud-config.js?v=20261106ak"></script>
-<script src="./js/cloud.js?v=20261106ak"></script>
-<script src="./js/account.js?v=20261106ak"></script>
-<script src="./js/board.js?v=20261106ak"></script>
-<script src="./js/game.js?v=20261106ak"></script>
+<script src="./js/rng.js?v=20261106al"></script>
+<script src="./js/storage.js?v=20261106al"></script>
+<script src="./js/audio.js?v=20261106al"></script>
+<script src="./js/effects.js?v=20261106al"></script>
+<script src="./js/specials.js?v=20261106al"></script>
+<script src="./js/goals.js?v=20261106al"></script>
+<script src="./js/tasks.js?v=20261106al"></script>
+<script src="./js/mail.js?v=20261106al"></script>
+<script src="./js/input.js?v=20261106al"></script>
+<script src="./js/builtin-music.js?v=20261106al"></script>
+<script src="./js/music.js?v=20261106al"></script>
+<script src="./js/meta.js?v=20261106al"></script>
+<script src="./js/cloud-config.js?v=20261106al"></script>
+<script src="./js/cloud.js?v=20261106al"></script>
+<script src="./js/account.js?v=20261106al"></script>
+<script src="./js/board.js?v=20261106al"></script>
+<script src="./js/game.js?v=20261106al"></script>
 </body>
 </html>
