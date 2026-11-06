@@ -1665,10 +1665,12 @@ function check(name, ok) {
     /\.hud-frenzy\s*{/.test(cssSrc) && /\.frenzy-slot\s*{/.test(cssSrc) &&
     htmlSrc0.indexOf('id="frenzy-chip"') > htmlSrc0.indexOf('class="board-wrap"') &&
     !/id="hud"[\s\S]{0,400}frenzy-chip/.test(htmlSrc0));
-  // 39b-2. 双倍小标：位置再往下一点（不再负 margin 贴棋盘），并且和钥匙 / 奶龙同样呼吸
-  check('双倍小标离棋盘更远一点，并且有呼吸动效',
-    /\.frenzy-slot\s*{[^}]*margin-top:\s*0;/.test(cssSrc) &&
+  // 39b-2. 双倍小标：位置再往下一点（不再负 margin 贴棋盘）、字号再大一点，并且和钥匙 / 奶龙同样呼吸
+  check('双倍小标离棋盘更远、字号更大，并且有呼吸动效',
+    /\.frenzy-slot\s*{[^}]*margin-top:\s*5px;/.test(cssSrc) &&
     !/\.frenzy-slot\s*{[^}]*margin-top:\s*-/.test(cssSrc) &&
+    /\.hud-frenzy\s*{[^}]*font-size:\s*15px;/.test(cssSrc) &&
+    /\.hud-frenzy b\s*{\s*color:\s*#e0561a;\s*font-size:\s*18px;/.test(cssSrc) &&
     /animation:\s*frenzy-breathe/.test(cssSrc) &&
     /@keyframes\s+frenzy-breathe/.test(cssSrc) &&
     /@keyframes\s+frenzy-breathe[^@]*transform:\s*scale\(/.test(cssSrc) &&

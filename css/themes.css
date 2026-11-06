@@ -1531,8 +1531,8 @@ body.m-dragging .m-item { cursor: grabbing; }
    呼吸节奏跟棋盘上的钥匙 / 奶龙一致（同样的缩放 + 光晕起伏，周期约 1.85s） */
 .frenzy-slot {
   width: 100%;
-  height: 24px;            /* 固定占位：出现/消失都不挤动棋盘 */
-  margin-top: 0;           /* 离棋盘下沿再空一点，别贴着 */
+  height: 32px;            /* 固定占位：出现/消失都不挤动棋盘 */
+  margin-top: 5px;         /* 离棋盘下沿再空一点，别贴着 */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1540,12 +1540,12 @@ body.m-dragging .m-item { cursor: grabbing; }
 .hud-frenzy {
   display: none;
   align-items: center;
-  gap: 3px;
-  padding: 2px 9px;
+  gap: 4px;
+  padding: 3px 12px;
   border-radius: 999px;
   background: rgba(255, 140, 0, 0.13);
   color: #b4550a;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 700;
   white-space: nowrap;
   letter-spacing: 0;
@@ -1565,7 +1565,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 @media (prefers-reduced-motion: reduce) {
   .hud-frenzy { animation: none; }
 }
-.hud-frenzy b { color: #e0561a; font-size: 15px; }
+.hud-frenzy b { color: #e0561a; font-size: 18px; }
 /* 状态提示只留一圈静态描边，不做透明度/亮度动画，避免棋盘忽明忽暗 */
 body.frenzy .board-wrap {
   box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.35) !important;
