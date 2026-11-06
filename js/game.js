@@ -3589,32 +3589,6 @@
   // ==================== 后台分层 ====================
   // 两边同时按住 3 秒才触发（手机上手指微动 / 滚动会让 pointer 被 cancel，
   // 所以按「两边都按住才计时」来做，任一边松开或移动超过 12px 就取消）
-  // 单元素长按：按住 ms（默认 900）毫秒不动触发 fire，移动/松开取消
-  function bindLongPress(el, fire, ms) {
-    if (!el) return;
-    let timer = null;
-    let sx = 0, sy = 0;
-    const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
-    el.addEventListener('pointerdown', (e) => {
-      if (e && e.pointerType === 'mouse' && e.button !== 0) return;
-      sx = (e && e.clientX) || 0;
-      sy = (e && e.clientY) || 0;
-      cancel();
-      timer = setTimeout(() => {
-        timer = null;
-        try { AudioManager.playSFX('coin'); } catch (err) {}
-        fire();
-      }, ms || 900);
-    });
-    el.addEventListener('pointermove', (e) => {
-      if (!timer) return;
-      if (Math.abs(((e && e.clientX) || 0) - sx) > 12 ||
-          Math.abs(((e && e.clientY) || 0) - sy) > 12) cancel();
-    });
-    ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => el.addEventListener(ev, cancel));
-    el.addEventListener('contextmenu', (e) => e.preventDefault());   // 长按不弹系统菜单
-  }
-
   function bindHoldTogether(elA, elB, fire) {
     if (!elA || !elB) return;
     const holds = { a: false, b: false };
@@ -4226,9 +4200,11 @@
     });
 
     // 「用户详情」= 原来的玩家名单页；「省份详情」= 有用户的省份，点省份看该省玩家
-    // 入口：长按「用户数量」→ 用户详情，长按「省份数量」→ 省份详情
-    bindLongPress($('admin-users-row'), () => openAdminUserList(''));
-    bindLongPress($('admin-provs-row'), openProvUserList);
+    // 入口：点「用户数量」→ 用户详情，点「省份数量」→ 省份详情
+    const uRow = $('admin-users-row');
+    if (uRow) uRow.addEventListener('click', () => openAdminUserList(''));
+    const pRow = $('admin-provs-row');
+    if (pRow) pRow.addEventListener('click', openProvUserList);
     const pvUlBack = $('btn-prov-ul-back');
     if (pvUlBack) pvUlBack.addEventListener('click', () => {
       $('prov-user-list').style.display = 'none';

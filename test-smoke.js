@@ -336,17 +336,17 @@ function check(name, ok) {
   ulSearch.dispatch('input');
   check('清空搜索恢复全部', $('admin-ul-list').children.length === su2.users);
 
-  // 4f. 用户详情 / 省份详情改为长按「用户数量 / 省份数量」进入
-  check('用户详情 / 省份详情改为长按数量进入（按键已删）', (() => {
+  // 4f. 用户详情 / 省份详情：点击「用户数量 / 省份数量」进入
+  check('用户详情 / 省份详情改为点击数量进入（按键和提示已删）', (() => {
     const iU = htmlSrc0.indexOf('id="admin-users-row"');
     const iP = htmlSrc0.indexOf('id="admin-provs-row"');
     const iBack = htmlSrc0.indexOf('id="btn-admin-users-back"');
     return iU > 0 && iP > iU && iBack > iP &&
       !htmlSrc0.includes('id="btn-admin-ul-open"') &&
       !htmlSrc0.includes('id="btn-admin-prov-open"') &&
-      jsSrc.includes("bindLongPress($('admin-users-row')") &&
-      jsSrc.includes("bindLongPress($('admin-provs-row'), openProvUserList)") &&
-      htmlSrc0.includes('长按「用户数量」看用户详情');
+      jsSrc.includes("addEventListener('click', () => openAdminUserList(''))") &&
+      jsSrc.includes("addEventListener('click', openProvUserList)") &&
+      !htmlSrc0.includes('长按「用户数量」');
   })());
   check('隐藏手势入口已搬走（不再长按进名单）',
     !htmlSrc0.includes("$('admin-user-sec-title'), openAdminUserList"));
@@ -409,11 +409,11 @@ function check(name, ok) {
     cssSrc.includes('background: rgba(0, 0, 0, 0.05);') &&
     cssSrc.includes('border: 2px solid rgba(0, 0, 0, 0.65);'));
   check('海外列表显示「未识别出国家」', jsSrc.includes('未识别出国家') && !jsSrc.includes('未细分国家'));
-  check('棋盘选中框保持黑色、彩色配色用方块拼边不用彩虹',
+  check('棋盘选中框保持黑色、彩色配色用彩虹渐变光晕',
     jsSrc.includes("ctx.strokeStyle = '#333';") && htmlSrc0.includes('彩 150') &&
-    !jsSrc.includes('彩虹光晕') &&
-    cssSrc.includes('repeating-conic-gradient') && cssSrc.includes('mask-composite: exclude') &&
-    !cssSrc.includes('rgba(255, 92, 138, 0.5)'));
+    !jsSrc.includes('彩虹光晕') && !jsSrc.includes('彩色方块拼边') &&
+    cssSrc.includes('linear-gradient(135deg, #f5a06b') && cssSrc.includes('mask-composite: exclude') &&
+    !cssSrc.includes('repeating-conic-gradient'));
   check('邮件删除键更小、轻点不露删除键',
     cssSrc.includes('width: 54px;') && jsSrc.includes('TAP_TOL = 12'));
   check('一键删除 / 恢复默认音乐都弹确认窗口',

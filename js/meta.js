@@ -182,7 +182,7 @@
     { id: 'cyan',    name: '青色', icon: '■', color: '#4ecbff', stars: 55,  desc: '青色光晕，目标栏淡青底' },
     { id: 'blue',    name: '蓝色', icon: '■', color: '#5c8fff', stars: 80,  desc: '蓝色光晕，目标栏淡蓝底' },
     { id: 'galaxy',  name: '紫色', icon: '■', color: '#9a8cf0', stars: 110, desc: '紫色光晕，目标栏淡紫底' },
-    { id: 'black',   name: '彩色', icon: '🎨', color: '#ff8fab', stars: 150, desc: '彩色方块拼边，目标栏淡彩底' }
+    { id: 'black',   name: '彩色', icon: '🎨', color: '#ff8fab', stars: 150, desc: '彩色光晕，目标栏淡彩底' }
   ];
 
   function currentSkin() {
