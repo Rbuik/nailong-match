@@ -606,7 +606,7 @@ function check(name, ok) {
   check('点「功能介绍」进入功能介绍页', $('features-menu').style.display === 'flex' && $('rules-menu').style.display === 'none');
   const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="btn-features-back"'));
   check('功能介绍里放的是系统功能（章节 / 签到 / 账号）',
-    featsHtml.includes('主线与章节') && featsHtml.includes('签到入口') && featsHtml.includes('账号与昵称') &&
+    featsHtml.includes('主线与章节') && featsHtml.includes('签到与转盘') && featsHtml.includes('账号与昵称') &&
     featsHtml.includes('📮 邮箱') && featsHtml.includes('注销账号') &&
     !featsHtml.includes('基本玩法'));
   $('btn-features-back').dispatch('click');
@@ -901,7 +901,8 @@ function check(name, ok) {
     $('btn-lb-view-back').dispatch('click');
     $('btn-close-lb').dispatch('click');
     const lvStars = (st[wantLv] || 0);
-    return totalStars > 0 && allTxt.indexOf('★ ' + totalStars) >= 0 &&
+    // 总榜：图标 + 右对齐数字（★ 87）；局榜：这一局的 ★★★
+    return totalStars > 0 && allTxt.indexOf('★</i><b>' + totalStars + '</b>') >= 0 &&
       lvStars > 0 && lvTxt.indexOf('★'.repeat(lvStars)) >= 0;
   })());
   // 14d3-3. 星星跟着榜单一起同步（发出去 / 快照里都带 st）
@@ -1878,6 +1879,7 @@ function check(name, ok) {
     /c\.dpr !== dpr/.test(jsSrc));
   // 41f. 背景音乐提前排程：点按钮 / 动画卡顿不再拖慢音乐
   const audioSrc = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
+  const fxSrc = fs.readFileSync(path.join(__dirname, 'js', 'effects.js'), 'utf8');
   check('BGM / 鼓点改为提前排程（lookahead）',
     /BGM_AHEAD/.test(audioSrc) && /_bgmNoteAt\(/.test(audioSrc) && /_drumAt\(/.test(audioSrc));
   check('每次点击不再无脑 resume / 重设音量', /kickResume/.test(audioSrc) &&
@@ -1887,6 +1889,15 @@ function check(name, ok) {
     /case 'ice': \{/.test(audioSrc) && /_noiseNow\(/.test(audioSrc) &&
     /_noiseBuffer\(\)/.test(audioSrc) && /opts\.final/.test(audioSrc) &&
     /AudioManager\.playSFX\('ice', \{ final:/.test(jsSrc));
+  // 41f-2b. 炸弹音效：礼炮「砰」+ 彩带，必须是亮的（不再是一记闷低音）
+  check('炸弹音效改成明亮的礼炮声（高频噪声 + 上扬音头）',
+    /case 'bomb': \{[\s\S]*?highpass[\s\S]*?彩带/.test(audioSrc) &&
+    /case 'bomb': \{[\s\S]{0,300}_tone\(520/.test(audioSrc) &&
+    !/case 'bomb':[\s\S]{0,120}_tone\(60, 'sine'/.test(audioSrc));
+  // 41f-2c. 炸弹爆炸喷彩带（纸带翻转飘落）
+  check('炸弹爆炸喷彩带（纸带翻转飘落）',
+    /confetti\(x, y, 26\)/.test(fxSrc) && /kind === 'confetti'/.test(fxSrc) &&
+    /Math\.abs\(Math\.cos\(p\.rot\)\)/.test(fxSrc) && /kind = 'confetti'/.test(fxSrc));
   // 41f-3. 连击窗口改短：停手一拍连击就断
   check('连击窗口缩到 1600ms', /const COMBO_WINDOW = 1600;/.test(jsSrc));
   // 41f-4. 结算「继续游戏」按钮：绿色 + 新文案（DOM 断言在上面 17e 附近）
@@ -1898,10 +1909,26 @@ function check(name, ok) {
     /菱形手柄/.test(jsSrc) && /菱形左上棱一道高光/.test(jsSrc) &&
     /steel\.addColorStop\(1, '#7ba7d4'\)/.test(jsSrc) &&
     /g\.strokeStyle = '#000'/.test(jsSrc));
-  // 41f-6. 规则页：改名位置写进基本玩法；不举 Yone / yone 的例子
-  check('规则页把改名位置写进「基本玩法」，且不再举大小写的例子',
-    /改名位置.*主页键/.test(htmlSrc0.replace(/\n/g, '')) &&
-    !/Yone/.test(htmlSrc0));
+  // 41f-6. 说明页：改名属于功能，写进「功能介绍」；玩法说明里不再重复；不举 Yone / yone 的例子
+  check('改名位置写进「功能介绍」，玩法说明里不再重复，也不举大小写的例子',
+    /改名[\s\S]{0,80}主页键/.test(htmlSrc0) && (() => {
+      const f0 = htmlSrc0.indexOf('id="features-box"');
+      const f1 = htmlSrc0.indexOf('id="btn-features-back"');
+      const p0 = htmlSrc0.indexOf('id="play-rules-box"');
+      const p1 = htmlSrc0.indexOf('id="btn-play-rules-back"');
+      return /改名[\s\S]{0,80}主页键/.test(htmlSrc0.slice(f0, f1)) &&
+        !/改名/.test(htmlSrc0.slice(p0, p1));
+    })() && !/Yone/.test(htmlSrc0));
+  // 41f-7. 入口叫「说明」：📖 说明 / 🎮 玩法说明 / 说明字号
+  check('入口文案改成「说明」：📖 说明 + 🎮 玩法说明，不再叫玩法规则',
+    htmlSrc0.includes('<h2 class="title small">📖 说明</h2>') &&
+    htmlSrc0.includes('🎮 玩法说明') && !htmlSrc0.includes('🎮 玩法规则') &&
+    htmlSrc0.includes('说明字号'));
+  // 41f-8. 榜上星星占固定一格：★ 一列对齐、数字右对齐
+  check('榜上星星占固定一格（★ 对齐、数字右对齐）',
+    /\.lb-stars\s*\{[\s\S]*?min-width:\s*42px/.test(cssSrc) &&
+    /\.lb-stars b\s*\{[\s\S]*?text-align:\s*right/.test(cssSrc) &&
+    /lb-star-ico/.test(jsSrc));
   // 41g. 剧情过场去掉「跳过剧情」
   check('剧情过场只有「继续前进」，没有「跳过剧情」',
     htmlSrc0.includes('id="btn-story-go"') && !htmlSrc0.includes('btn-story-skip') &&
