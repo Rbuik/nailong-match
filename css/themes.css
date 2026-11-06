@@ -1469,8 +1469,8 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-name { flex: 1; color: #3d3556; }
 .lb-name i { font-style: normal; font-size: 10px; color: #8a7fb5; margin-left: 5px; }
 .lb-name i.lb-me { color: #7c5cff; font-weight: 700; }
-/* 分数左边的星星：局榜是这一局的星（★★★），总榜 / 省榜是总星数（★ 87）
-   固定成一格，★ 图标贴左、数字右对齐 —— 一列看下去对齐 */
+/* 分数左边的星星：局榜是这一局的星（★★★），总榜 / 省榜是总星数（★87）
+   整格固定宽度 → ★ 一列对齐；数字紧跟 ★ 后面不拉开 */
 .lb-stars {
   flex: 0 0 auto;
   display: inline-flex;
@@ -1489,14 +1489,13 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-stars .lb-star-ico {
   font-style: normal;
   display: inline-block;
-  width: 12px;
-  margin-right: 3px;
+  width: 1em;
+  margin-right: 2px;
   text-align: left;
 }
 .lb-stars b {
   font-weight: 800;
-  min-width: 2.1em;
-  text-align: right;
+  text-align: left;
   color: #ffb300;
 }
 .lb-score { font-weight: 800; color: #ff8c00; }
