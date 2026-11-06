@@ -421,7 +421,7 @@
         case 'line':
           this._tone(700, 'square', 0.12, 0.12);
           this._tone(1100, 'square', 0.12, 0.09, 0.06);
-          this.vibrate(20);
+          this.vibrate(18);          // 线消扫过去，手上跟着一下
           break;
         case 'ice': {
           // 碎冰：① 极短的高通噪声「咔嚓」破口 ② 一下低频闷响当冰体
