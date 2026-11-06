@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/themes.css">
+<style>
+ body{background:#fbf6ea;margin:0;padding:14px;font:13px system-ui,"Microsoft YaHei",sans-serif;display:block;}
+ .sim{width:340px;background:#f4ecff;border-radius:16px;padding:12px 0;margin-bottom:16px;flex:0 0 auto;}
+ .cap{font:12px system-ui;color:#8b84a0;margin:0 0 6px 4px;}
+ .lb-list{width:90%;margin:0 auto;}
+</style>
+</head>
+<body>
+<div class="sim">
+  <div class="cap">总榜（★ + 总星数）</div>
+  <div class="lb-list" id="all"></div>
+</div>
+<div class="sim">
+  <div class="cap">局榜（本局 ★★★）</div>
+  <div class="lb-list" id="lv"></div>
+</div>
+<script>
+function escHtml(s){return s;}
+function row(rank,name,starHtml,score,me){
+  return '<div class="lb-row'+(me?' me':'')+'"><div class="lb-swipe">'+
+    '<span class="lb-rank">'+rank+'</span>'+
+    '<span class="lb-name">'+name+(me?'<i class="lb-me">我</i>':'')+'</span>'+
+    starHtml+
+    '<span class="lb-score">'+score+'</span></div></div>';
+}
+const starAll=(n)=> n<=0?'<span class="lb-stars"></span>'
+  :'<span class="lb-stars"><i class="lb-star-ico">★</i><b>'+n+'</b></span>';
+const starLv=(n)=> n<=0?'<span class="lb-stars"></span>'
+  :'<span class="lb-stars">'+'★'.repeat(n)+'</span>';
+
+const allRows=[[120,'奶龙大王',120,98765],[87,'小明',87,65432],[86,'阿狗',86,61200],
+  [9,'nana',9,40210],[3,'Yone',3,33890],[0,'新玩家',0,1200]];
+document.getElementById('all').innerHTML=allRows.map((r,i)=>
+  row(i<3?['🥇','🥈','🥉'][i]:String(i+1),r[1],starAll(r[2]),r[3],i===1)).join('');
+
+const lvRows=[[3,'奶龙大王',3,3120],[3,'小明',3,2980],[2,'阿狗',2,2100],
+  [1,'nana',1,1500],[0,'新玩家',0,300]];
+document.getElementById('lv').innerHTML=lvRows.map((r,i)=>
+  row(i<3?['🥇','🥈','🥉'][i]:String(i+1),r[1],starLv(r[2]),r[3],i===1)).join('');
+</script>
+</body>
+</html>
