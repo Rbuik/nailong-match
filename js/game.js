@@ -148,6 +148,7 @@
 
   // ==================== 图片资源 ====================
   const IMAGES = [];
+  let RAINBOW_IMG = null;   // 彩虹特殊块整块铺的渐变图
   let imagesReady = false;
 
   function loadImages() {
@@ -177,6 +178,12 @@
     setTimeout(() => {
       if (!imagesReady) settle();
     }, 2000);
+    // 彩虹特殊块整块铺的彩虹渐变图（不参与加载计数）
+    const rb = new Image();
+    rb.decoding = 'async';
+    rb.onload = () => drawStatic();
+    rb.src = './assets/rainbow.jpg';
+    RAINBOW_IMG = rb;
   }
 
   // ==================== 棋盘 ====================
@@ -463,15 +470,26 @@
       ctx.fillText('💣', cx, cy + s * 0.02);
       ctx.restore();
     } else if (type === T.RAINBOW) {
-      // 只叠彩虹 emoji，不加白底（白底会盖住方块原图）
+      // 整块铺彩虹渐变图（大小位置和其他方块一致），图没到之前用渐变占位
       ctx.save();
       ctx.globalAlpha = 0.88 + 0.12 * pulse;
       ctx.shadowColor = 'rgba(200, 92, 255, 0.9)';
       ctx.shadowBlur = s * 0.22 * pulse;
-      ctx.font = (s * 0.72) + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('🌈', cx, cy + s * 0.02);
+      const rad = Math.max(4, s * 0.18);
+      roundRect(x, y, s, s, rad);
+      ctx.clip();
+      if (RAINBOW_IMG && RAINBOW_IMG.complete && RAINBOW_IMG.naturalWidth > 0) {
+        ctx.drawImage(RAINBOW_IMG, x, y, s, s);
+      } else {
+        const g = ctx.createLinearGradient(x, y, x + s, y + s);
+        g.addColorStop(0, '#f5a06b');
+        g.addColorStop(0.28, '#ffd23c');
+        g.addColorStop(0.55, '#9fe8a8');
+        g.addColorStop(0.78, '#86ccf5');
+        g.addColorStop(1, '#c78ce8');
+        ctx.fillStyle = g;
+        ctx.fillRect(x, y, s, s);
+      }
       ctx.restore();
     }
   }

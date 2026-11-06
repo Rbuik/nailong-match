@@ -620,6 +620,10 @@ function check(name, ok) {
   $('btn-achievements').dispatch('click');
   check('成就墙渲染出全部成就', $('ach-list').children.length === sandbox.Meta.ACHIEVEMENTS.length);
   check('成就面板可视区加大（66vh、更密排列）', cssSrc.includes('max-height: 66vh;') && cssSrc.includes('gap: 6px;'));
+  check('彩虹特殊块整块铺彩虹图（不再用 emoji）',
+    fs.existsSync(path.join(__dirname, 'assets', 'rainbow.jpg')) &&
+    jsSrc.includes('RAINBOW_IMG') && jsSrc.includes("rb.src = './assets/rainbow.jpg'") &&
+    !jsSrc.includes("ctx.fillText('🌈'"));
   check('快递小哥改名为快递达人', (() => {
     const a = sandbox.Meta.ACHIEVEMENTS.filter((x) => x.id === 'cargo50')[0];
     return !!a && a.name === '快递达人';
