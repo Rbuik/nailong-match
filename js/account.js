@@ -226,10 +226,33 @@
 
   // ---------- 注册 / 登录 / 注销 / 切换 ----------
   function register(name, pass) {
-    const n = checkName(name);
-    if (!n.ok) return n;
     const p = checkPass(pass);
     if (!p.ok) return p;
+    // 老玩家的号还没设过密码：注册同名直接接管这份账号（进度保留），把新密码设上——
+    // 不然登录没密码可输、注册又被本机这个无密码号拦住，两头堵死进不来
+    const orphan = findByName(name);
+    if (orphan && !orphan.pass) {
+      const v = (global.Meta && Meta.validateNick)
+        ? Meta.validateNick(name, [])
+        : { ok: true, name: String(name || '').trim() };
+      if (!v.ok) return v;
+      const arr = list();
+      const i = arr.findIndex((x) => x.id === orphan.id);
+      if (i < 0) return { ok: false, reason: '账号不存在' };
+      arr[i].pass = hash(p.pass);
+      arr[i].last = Date.now();
+      saveList(arr);
+      saveCurrent();                    // 当前登录着别的号就先存好它的进度
+      write(K.cur, orphan.id);
+      loadSlot(orphan.id);              // 这份老进度铺回来
+      const acc = find(orphan.id);
+      syncNick(acc);
+      saveCurrent();
+      bgRegister(acc, p.pass);          // 顺手把号建到服务器
+      return { ok: true, account: acc, taken: true };
+    }
+    const n = checkName(name);
+    if (!n.ok) return n;
 
     saveCurrent();                      // 已登录时注册新号，别把当前号的进度弄丢
     wipeActive();                       // 新号：从零开始

@@ -1607,6 +1607,25 @@ function check(name, ok) {
   check('改名菜单的占用判断同样只认服务器码',
     /\/\^p\[0-9a-f\]\{8,\}\$\/i\.test\(String\(e\.uid \|\| ''\)\)/.test(jsSrc));
 
+  // 39c. 老账号没设密码：注册同名直接接管（进度保留），登录页给出找回引导（用户反馈）
+  sandbox.Account.register('没密码的号', 'temp1234');
+  const arrNp = JSON.parse(lsMap.get('nl2:accounts'));
+  arrNp[arrNp.length - 1].pass = '';
+  lsMap.set('nl2:accounts', JSON.stringify(arrNp));
+  const coinsBefore = sandbox.Store.getWallet().coins;
+  sandbox.Store.addCoins(77);
+  sandbox.Account.register('过渡账号', 'temp1234');     // 切走，触发保存「没密码的号」的快照
+  check('没密码的号用同名注册会被接管而不是被拒',
+    (() => { const r = sandbox.Account.register('没密码的号', 'newpass99');
+      return r.ok === true && r.taken === true && sandbox.Account.current().name === '没密码的号'; })());
+  check('接管后进度还在（77 金币铺回来）',
+    sandbox.Store.getWallet().coins === coinsBefore + 77);
+  check('接管后密码已设置，能用新密码登录',
+    sandbox.Account.login('没密码的号', 'newpass99').ok === true &&
+    sandbox.Account.login('没密码的号', 'wrongpass').ok === false);
+  check('登录页对无密码账号给出「去注册找回」的引导',
+    jsSrc.indexOf('去上面切到「注册」') > 0);
+
   // 39. 顶栏统一：只有关卡 / 步数 / 得分，金币星星一律不上顶栏
   check('游戏顶栏只有 关卡 / 步数 / 得分 三项',
     /id="hud"[\s\S]*?id="score"/.test(htmlSrc0) &&

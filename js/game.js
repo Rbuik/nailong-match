@@ -6071,10 +6071,16 @@
     if (authMode === 'register') {
       const r = Account.register(name, pass);
       if (!r.ok) return fail(r.reason);
-      afterAuthEnter('注册成功，欢迎「' + r.account.name + '」');
+      afterAuthEnter(r.taken
+        ? '找回没设密码的账号「' + r.account.name + '」，进度都在，密码已设置'
+        : '注册成功，欢迎「' + r.account.name + '」');
     } else {
       const r = Account.login(name, pass);
       if (!r.ok) {
+        // 老账号没设过密码：登录页没密码可输，引导去「注册」用同名设新密码找回（进度保留）
+        if (r.needPass) {
+          return fail('这个账号还没设置密码：去上面切到「注册」，用这个名字 + 想用的密码设一次，就能找回原进度');
+        }
         // 本机没有 / 密码对不上 → 去服务器找（名字和密码在服务器上也有一份）
         if (r.badAccount && Account.cloudLogin) {
           setAuthError('正在服务器上查找这个账号…');
