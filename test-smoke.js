@@ -1647,6 +1647,23 @@ function check(name, ok) {
     /id="hud"[\s\S]*?id="score"/.test(htmlSrc0) &&
     !/hud-mini/.test(htmlSrc0) && !/id="coins"/.test(htmlSrc0) && !/id="stars"/.test(htmlSrc0));
   check('窄屏不再隐藏任何顶栏项（各手机显示一致）', !/\.hud-mini\s*{ display: none/.test(cssSrc));
+  // 39b. 狂热改成顶栏静态倒计时小标：棋盘不再呼吸闪动、不再有横幅
+  check('狂热改成顶栏倒计时小标（🔥 双倍 Ns），不再有闪动横幅',
+    /id="frenzy-chip"/.test(htmlSrc0) && /id="frenzy-left"/.test(htmlSrc0) &&
+    !/frenzy-banner/.test(htmlSrc0) && !/frenzyPulse/.test(cssSrc) &&
+    /\.hud-frenzy\s*{/.test(cssSrc));
+  check('狂热倒计时逐秒递减并在结束时收起',
+    /function paintFrenzy/.test(jsSrc) && /function stopFrenzy/.test(jsSrc) &&
+    /setInterval\(paintFrenzy, 200\)/.test(jsSrc));
+  // 39c. 搜索区分大小写：不再 toLowerCase 归一化后再比对
+  check('玩家 / 省份搜索区分大小写',
+    /String\(adminUlQuery \|\| ''\)\.trim\(\);/.test(jsSrc) &&
+    /String\(u\.name\)\.indexOf\(q\) >= 0/.test(jsSrc) &&
+    /String\(provUlQuery \|\| ''\)\.trim\(\);/.test(jsSrc) &&
+    !/adminUlQuery \|\| ''\)\.trim\(\)\.toLowerCase/.test(jsSrc) &&
+    !/provUlQuery \|\| ''\)\.trim\(\)\.toLowerCase/.test(jsSrc));
+  // 39d. 提示停留 3 秒（原来 1.6 秒看不及）
+  check('提示条停留 3 秒', /remove\('show'\), 3000\)/.test(jsSrc));
   // 40. 白色页面撑满整屏高度：随手机屏幕高度自适应
   check('页面容器最小高度跟随整屏（vh + dvh 双写兼容地址栏）',
     cssSrc.includes('min-height: calc(100vh - 12px);') &&

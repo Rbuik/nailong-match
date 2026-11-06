@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261106ad">
-<link rel="stylesheet" href="./css/themes.css?v=20261106ad">
+<link rel="stylesheet" href="./css/style.css?v=20261106af">
+<link rel="stylesheet" href="./css/themes.css?v=20261106af">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -21,6 +21,7 @@
     <div class="hud-item">关卡：<b id="level">1</b></div>
     <div class="hud-item" id="moves-container">步数：<b id="moves">25</b></div>
     <div class="hud-item">得分：<b id="score">0</b></div>
+    <div class="hud-item hud-frenzy" id="frenzy-chip" style="display:none;">🔥 双倍 <b id="frenzy-left">6</b>s</div>
     <button id="btn-pause" title="暂停">⏸</button>
   </div>
 
@@ -58,7 +59,6 @@
   <div class="board-wrap">
     <canvas id="game" width="480" height="480"></canvas>
     <div id="center-banner"><span id="center-banner-text"></span></div>
-    <div id="frenzy-banner">🔥 狂热模式 · 双倍得分 🔥</div>
     <div id="loading">加载中…</div>
   </div>
 
@@ -381,7 +381,7 @@
       <section class="rule-sec">
         <h3>🔥 连击与倍率</h3>
         <p>连续消除不断链（间隔 2.5 秒内）累积连击：<b>2 连 ×1.5</b>、<b>3 连 ×2</b>、<b>4 连及以上 ×3</b>，倍率显示在棋盘中央。</p>
-        <p>打到 <b>4 连击</b>触发 <b>狂热 6 秒</b>：期间分数<b>再翻一倍</b>，棋盘边缘亮红光，趁这时多消。</p>
+        <p>打到 <b>4 连击</b>触发 <b>狂热 6 秒</b>：期间分数<b>再翻一倍</b>，顶栏会出现 <b>🔥 双倍</b> 倒计时小标，剩几秒一目了然，趁这时多消。</p>
       </section>
 
       <section class="rule-sec">
@@ -965,22 +965,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261106ad"></script>
-<script src="./js/storage.js?v=20261106ad"></script>
-<script src="./js/audio.js?v=20261106ad"></script>
-<script src="./js/effects.js?v=20261106ad"></script>
-<script src="./js/specials.js?v=20261106ad"></script>
-<script src="./js/goals.js?v=20261106ad"></script>
-<script src="./js/tasks.js?v=20261106ad"></script>
-<script src="./js/mail.js?v=20261106ad"></script>
-<script src="./js/input.js?v=20261106ad"></script>
-<script src="./js/builtin-music.js?v=20261106ad"></script>
-<script src="./js/music.js?v=20261106ad"></script>
-<script src="./js/meta.js?v=20261106ad"></script>
-<script src="./js/cloud-config.js?v=20261106ad"></script>
-<script src="./js/cloud.js?v=20261106ad"></script>
-<script src="./js/account.js?v=20261106ad"></script>
-<script src="./js/board.js?v=20261106ad"></script>
-<script src="./js/game.js?v=20261106ad"></script>
+<script src="./js/rng.js?v=20261106af"></script>
+<script src="./js/storage.js?v=20261106af"></script>
+<script src="./js/audio.js?v=20261106af"></script>
+<script src="./js/effects.js?v=20261106af"></script>
+<script src="./js/specials.js?v=20261106af"></script>
+<script src="./js/goals.js?v=20261106af"></script>
+<script src="./js/tasks.js?v=20261106af"></script>
+<script src="./js/mail.js?v=20261106af"></script>
+<script src="./js/input.js?v=20261106af"></script>
+<script src="./js/builtin-music.js?v=20261106af"></script>
+<script src="./js/music.js?v=20261106af"></script>
+<script src="./js/meta.js?v=20261106af"></script>
+<script src="./js/cloud-config.js?v=20261106af"></script>
+<script src="./js/cloud.js?v=20261106af"></script>
+<script src="./js/account.js?v=20261106af"></script>
+<script src="./js/board.js?v=20261106af"></script>
+<script src="./js/game.js?v=20261106af"></script>
 </body>
 </html>

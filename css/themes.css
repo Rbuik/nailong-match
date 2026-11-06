@@ -1527,32 +1527,24 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-form .btn-mini { padding: 9px 14px; font-size: 13px; }
 
 /* ================= 狂热模式 / 节拍 ================= */
-#frenzy-banner {
-  position: absolute;
-  left: 50%;
-  top: 14px;
-  transform: translate(-50%, -12px) scale(0.9);
-  padding: 7px 16px;
+/* 顶栏的倒计时小标：静态、不闪不抖，只显示「🔥 双倍 6s」并逐秒递减 */
+.hud-frenzy {
+  display: none;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 9px;
   border-radius: 999px;
-  background: linear-gradient(120deg, #ff8c00, #ff5c5c);
-  color: #fff;
+  background: rgba(255, 140, 0, 0.13);
+  color: #b4550a;
   font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 1px;
-  box-shadow: 0 6px 18px rgba(255, 110, 60, 0.45);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.22s ease, transform 0.22s ease;
-  z-index: 6;
+  font-weight: 700;
+  white-space: nowrap;
+  letter-spacing: 0;
 }
-#frenzy-banner.on { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.hud-frenzy b { color: #e0561a; font-size: 15px; }
+/* 状态提示只留一圈静态描边，不做透明度/亮度动画，避免棋盘忽明忽暗 */
 body.frenzy .board-wrap {
-  box-shadow: 0 0 0 3px rgba(255, 140, 0, 0.45), 0 0 26px rgba(255, 92, 92, 0.35) !important;
-  animation: frenzyPulse 0.85s ease-in-out infinite alternate;
-}
-@keyframes frenzyPulse {
-  from { filter: saturate(1); }
-  to { filter: saturate(1.35) brightness(1.04); }
+  box-shadow: 0 0 0 2px rgba(255, 140, 0, 0.35) !important;
 }
 
 /* ================= 棋盘配色（黄色/绿色/粉色/紫色/金色） ================= */

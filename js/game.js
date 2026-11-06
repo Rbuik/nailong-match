@@ -1032,27 +1032,43 @@
   }
 
   // ==================== 狂热模式（连击 x4 触发 6 秒双倍） ====================
+  // 表现：顶栏一枚静态倒计时小标（🔥 双倍 6s → 5s …），棋盘不再呼吸闪动 / 忽明忽暗
   const FRENZY_MS = 6000;
   let frenzyTimer = null;
+  let frenzyTick = null;
   function frenzyActive() {
     return performance.now() < S.frenzyUntil;
   }
   function frenzyMult() {
     return frenzyActive() ? 2 : 1;
   }
+  function paintFrenzy() {
+    const chip = $('frenzy-chip');
+    if (!chip) return;
+    const left = Math.max(0, S.frenzyUntil - performance.now());
+    const sec = Math.max(1, Math.ceil(left / 1000));
+    const num = $('frenzy-left');
+    if (num) num.textContent = sec;
+    chip.style.display = left > 0 ? 'inline-flex' : 'none';
+  }
+  function stopFrenzy() {
+    if (frenzyTimer) { clearTimeout(frenzyTimer); frenzyTimer = null; }
+    if (frenzyTick) { clearInterval(frenzyTick); frenzyTick = null; }
+    S.frenzyUntil = 0;
+    document.body.classList.remove('frenzy');
+    const chip = $('frenzy-chip');
+    if (chip) chip.style.display = 'none';
+  }
   function startFrenzy() {
     S.frenzyUntil = performance.now() + FRENZY_MS;
-    const banner = $('frenzy-banner');
-    if (banner) {
-      banner.classList.add('on');
-      setTimeout(() => banner.classList.remove('on'), 1400);
-    }
     document.body.classList.add('frenzy');
+    paintFrenzy();
     AudioManager.playSFX('star', { stars: 3 });
+    if (frenzyTick) clearInterval(frenzyTick);
+    frenzyTick = setInterval(paintFrenzy, 200);
     if (frenzyTimer) clearTimeout(frenzyTimer);
     frenzyTimer = setTimeout(() => {
-      document.body.classList.remove('frenzy');
-      S.frenzyUntil = 0;
+      stopFrenzy();
       drawStatic();
     }, FRENZY_MS);
   }
@@ -1832,12 +1848,9 @@
     S.hintUntil = 0;
     S.reviveUsed = false;
     S.wonContinued = false;   // 过关后是否正在续玩剩余步数
-    S.frenzyUntil = 0;
     S.cargoLeft = 0;
     S.rescueLeft = 0;
-    document.body.classList.remove('frenzy');
-    const fzBanner = $('frenzy-banner');
-    if (fzBanner) fzBanner.classList.remove('on');
+    stopFrenzy();             // 清掉双倍状态 + 顶栏倒计时
 
     applyTheme(S.levelDef.theme);
     initBoard();
@@ -2047,7 +2060,7 @@
     el.textContent = msg;
     el.classList.add('show');
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('show'), 1600);
+    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
   }
 
   // ==================== 规则字号 ====================
@@ -3803,8 +3816,9 @@
     let rows = adminUlProv
       ? list.filter((u) => u.prov === adminUlProv)
       : list.slice();
-    const q = String(adminUlQuery || '').trim().toLowerCase();
-    if (q) rows = rows.filter((u) => String(u.name).toLowerCase().indexOf(q) >= 0);
+    // 搜索区分大小写：输 yone 不再匹配 YONE / yOne（名字里的大小写是有意义的）
+    const q = String(adminUlQuery || '').trim();
+    if (q) rows = rows.filter((u) => String(u.name).indexOf(q) >= 0);
     // 按总分从高到低排（同分按名字）
     return rows.sort((a, b) => (b.score - a.score) ||
       String(a.name).localeCompare(String(b.name), 'zh'));
@@ -3882,8 +3896,9 @@
       name: k === '__none__' ? '未定位' : ((provByCode(k) || {}).name || k),
       count: cnt[k]
     }));
-    const q = String(provUlQuery || '').trim().toLowerCase();
-    if (q) rows = rows.filter((r) => r.name.toLowerCase().indexOf(q) >= 0);
+    // 搜索区分大小写（省份多为中文，海外国家名大小写按输入原样匹配）
+    const q = String(provUlQuery || '').trim();
+    if (q) rows = rows.filter((r) => r.name.indexOf(q) >= 0);
     return rows.sort((a, b) => (b.count - a.count) || a.name.localeCompare(b.name, 'zh'));
   }
 
@@ -5399,7 +5414,7 @@
     stopTimer();
     stopBeatLoop();
     Input.setEnabled(false);
-    document.body.classList.remove('frenzy');
+    stopFrenzy();
     const mode = S.mode === 'main' ? 'endless' : S.mode;
     const r = Meta.recordBest(mode, S.score);
     const coins = Math.max(5, Math.floor(S.score / 200));
