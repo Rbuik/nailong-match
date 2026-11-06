@@ -1382,6 +1382,8 @@ function check(name, ok) {
   check('账号上云是新方法（供界面调用）',
     typeof sandbox.Account.pushAccountToCloud === 'function');
   check('账号安全页有常驻的「存到服务器」入口', /id="btn-goto-cloud"/.test(htmlSrc0));
+  check('已绑定的号点「存到服务器」先真实推送验证（号被删过会自动解绑重弹窗口）',
+    /pushCloud\(true\)\.then/.test(jsSrc) && !/已经存到服务器了/.test(jsSrc));
   check('上云窗口点遮罩 / 其它流程都关不掉（只有密码存成功才关）',
     /'fix-menu', 'nick-menu', 'cloud-menu'/.test(jsSrc) &&
     /cloudForced = true/.test(jsSrc) && /cloudForced = false/.test(jsSrc));

@@ -4732,7 +4732,24 @@
     on('btn-goto-cloud', () => {
       const acc = Account.current();
       if (acc && (acc.cloud || acc.ctoken)) {
-        toast('这个账号已经存到服务器了');
+        // 绑定标记在 ≠ 服务器上号还在（号可能被后台删过 / 重建过）。
+        // 推一次真实验证：推成功 = 真的同步了；令牌失效会自动解绑，
+        // 解绑后照常弹存档窗，玩家重输密码即可重新建档
+        toast('正在检查云端存档…');
+        Account.pushCloud(true).then((okPush) => {
+          if (okPush) { toast('进度已同步到服务器'); return; }
+          const now = Account.current();
+          if (now && (now.cloud || now.ctoken)) {
+            // 没解绑 → 只是网络问题等原因没推上去
+            toast(typeof Account.cloudOk === 'function' && !Account.cloudOk()
+              ? '网络不可用，稍后再试' : '没同步上，稍后再试');
+            return;
+          }
+          const err = $('cloud-err');
+          if (err) err.textContent = '';
+          $('account-menu').style.display = 'none';
+          openCloudMenu('account');
+        });
         return;
       }
       const err = $('cloud-err');
