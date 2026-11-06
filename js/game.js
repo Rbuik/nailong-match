@@ -2379,6 +2379,7 @@
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
     if (S.daily) refreshMenu();
+    if (!S.daily) grantChapterMails();   // 这一关刚好是本章最后一关 → 发章节奖励
 
     // 金币产出（§7）；续玩后的第二次结算也照发金币
     const coins = Math.max(10, Math.floor(S.score / 100));
@@ -5211,6 +5212,7 @@
   }
 
   function refreshMenu() {
+    try { grantChapterMails(); } catch (e) {}   // 之前就通过的章节，进主页时补发到邮箱
     const prog = Store.getProgress();
     const maxUnlocked = Store.maxUnlockedLevel(maxMainLevel());
     const max = maxMainLevel();
@@ -5445,6 +5447,45 @@
     let stars = 0;
     for (let lv = ch.from; lv <= ch.to; lv++) stars += Store.getLevelRecord(lv).stars || 0;
     return { stars: stars, total: (ch.to - ch.from + 1) * 3 };
+  }
+
+  // ==================== 章节奖励 ====================
+  // 把一整章（该章每一关都拿到星）打通 → 发一封「恭喜通过第X章」，附件 200 金币。
+  // 邮件 id 固定（chapter-clear-N），重复调用不会重复发；老玩家下次进主页会把
+  // 之前已经通过的章节一次性补齐，直接去邮箱领就行。
+  const CHAPTER_COIN = 200;
+  function chapterCleared(ch) {
+    for (let lv = ch.from; lv <= ch.to; lv++) {
+      const rec = Store.getLevelRecord(lv) || {};
+      if (!(rec.stars > 0)) return false;
+    }
+    return true;
+  }
+  function stampNow() {
+    const d = new Date();
+    const p = (n) => (n < 10 ? '0' : '') + n;
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+      ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+  function grantChapterMails() {
+    if (typeof Mail === 'undefined' || !Mail.sendMail) return;
+    chapters().forEach((ch) => {
+      if (!chapterCleared(ch)) return;
+      const id = 'chapter-clear-' + ch.id;
+      try {
+        if (Mail.get(id)) return;
+        Mail.sendMail({
+          id: id,
+          at: stampNow(),
+          icon: '🏆',
+          title: '恭喜通过第' + ch.id + '章',
+          from: '系统',
+          body: '你已经把「' + (ch.name || ('第' + ch.id + '章')) + '」的关卡全部打通了！\n\n' +
+            '这 ' + CHAPTER_COIN + ' 金币是章节奖励，点下面的「领取」就进钱包。下一章继续加油～',
+          coins: CHAPTER_COIN
+        });
+      } catch (e) {}
+    });
   }
 
   function renderChapterMap() {

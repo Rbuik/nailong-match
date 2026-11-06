@@ -256,19 +256,19 @@
     // 等 resume 成功再补播，避免「刚进来没声音」。
     _pendingTones: [],
     _pendingNoise: [],
-    _tone(freq, type, dur, vol, delay) {
+    _tone(freq, type, dur, vol, delay, to) {
       this.ensureCtx();
       if (!this.ctx) return;
       if (this.ctx.state !== 'running') {
         const now = Date.now();
-        this._pendingTones.push({ args: [freq, type, dur, vol, delay], at: now });
+        this._pendingTones.push({ args: [freq, type, dur, vol, delay, to], at: now });
         if (this._pendingTones.length > 8) this._pendingTones.shift();
         if (this._flushTimer) clearTimeout(this._flushTimer);
         this._flushTimer = setTimeout(() => this._flushTones(), 140);
         this.resumeCtx();
         return;
       }
-      this._toneNow(freq, type, dur, vol, delay);
+      this._toneNow(freq, type, dur, vol, delay, to);
     },
 
     _flushTones() {
@@ -287,7 +287,7 @@
       });
     },
 
-    _toneNow(freq, type, dur, vol, delay) {
+    _toneNow(freq, type, dur, vol, delay, to) {
       if (!this.ctx || this.ctx.state !== 'running') return;
       delay = delay || 0;
       try {
@@ -296,6 +296,10 @@
         const g = this.ctx.createGain();
         osc.type = type;
         osc.frequency.setValueAtTime(freq, t0);
+        // 带滑音：炸弹的「轰」要从高处一路坠下去，纯固定频率只能弹出「嘟」
+        if (to && to > 0 && to !== freq) {
+          osc.frequency.exponentialRampToValueAtTime(to, t0 + dur * 0.85);
+        }
         // 统一响度：所有音效与音乐在同一条响度线上（原来 ×2 偏响）
         const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
         g.gain.setValueAtTime(0, t0);
@@ -400,22 +404,14 @@
           break;
         }
         case 'bomb': {
-          // 炸弹 = 礼花筒「砰」+ 彩带飘出来：要亮、要脆，不能闷成一记低音鼓
-          // ① 爆口：极短的高频噪声（纸炮「啪」），两层叠出厚度
-          this._noise(0.07, 0.30, 2400, 0.6, 0, 'highpass');
-          this._noise(0.04, 0.22, 4200, 0.6, 0.012, 'highpass');
-          // ② 音头上扬的「砰」：几个高音快速叠上去，把整体亮度提起来
-          this._tone(520, 'triangle', 0.10, 0.20);
-          this._tone(780, 'triangle', 0.09, 0.14, 0.03);
-          this._tone(1060, 'sine', 0.09, 0.10, 0.06);
-          // ③ 彩带散开：随机高频颗粒，像纸带擦过空气的沙沙声
-          for (let i = 0; i < 8; i++) {
-            this._noise(0.03 + Math.random() * 0.04, 0.07 + Math.random() * 0.06,
-              1600 + Math.random() * 4200, 0.6, 0.05 + Math.random() * 0.22, 'highpass');
-          }
-          // ④ 只留一丝低频当「体积」，多了就闷
-          this._tone(160, 'sine', 0.09, 0.06);
-          this.vibrate([20, 30, 15]);
+          // 炸弹 = 「轰！」：低频下坠的闷响 + 一记中频冲击 + 低频尾噪。
+          // 高频噪声 / 碎粒是碎冰的招牌（脆、嘶），这里一点都不要，否则听着像冰块碎了。
+          this._tone(150, 'sine', 0.55, 0.45, 0, 42);        // 主「轰」：150Hz 坠到 42Hz
+          this._tone(320, 'triangle', 0.18, 0.20, 0.004, 105); // 爆点的「砰」冲击
+          this._noise(0.36, 0.17, 380, 1, 0.02, 'lowpass');    // 低频尾巴（烟尘感）
+          this._tone(78, 'sine', 0.42, 0.16, 0.02, 50);        // 胸腔那一下
+          this._tone(640, 'sine', 0.07, 0.12, 0, 300);         // 手机小喇叭也能听见的「bwup」
+          this.vibrate([35, 45, 25]);
           break;
         }
         case 'line':

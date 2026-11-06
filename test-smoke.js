@@ -1889,11 +1889,16 @@ function check(name, ok) {
     /case 'ice': \{/.test(audioSrc) && /_noiseNow\(/.test(audioSrc) &&
     /_noiseBuffer\(\)/.test(audioSrc) && /opts\.final/.test(audioSrc) &&
     /AudioManager\.playSFX\('ice', \{ final:/.test(jsSrc));
-  // 41f-2b. 炸弹音效：礼炮「砰」+ 彩带，必须是亮的（不再是一记闷低音）
-  check('炸弹音效改成明亮的礼炮声（高频噪声 + 上扬音头）',
-    /case 'bomb': \{[\s\S]*?highpass[\s\S]*?彩带/.test(audioSrc) &&
-    /case 'bomb': \{[\s\S]{0,300}_tone\(520/.test(audioSrc) &&
-    !/case 'bomb':[\s\S]{0,120}_tone\(60, 'sine'/.test(audioSrc));
+  // 41f-2b. 炸弹音效：必须是「轰」的低频下坠，不能像碎冰那样高频「咔」
+  check('炸弹音效是低频「轰」（滑音下坠 + 低频尾噪，不含高频碎粒）', (() => {
+    const m = /case 'bomb': \{[\s\S]*?break;\s*\}/.exec(audioSrc);
+    if (!m) return false;
+    const blk = m[0];
+    return /_tone\(150, 'sine', 0\.55, 0\.45, 0, 42\)/.test(blk) &&
+      /exponentialRampToValueAtTime/.test(audioSrc) &&
+      /'lowpass'/.test(blk) && !/'highpass'/.test(blk) &&
+      !/_noise\(0\.03 \+ Math\.random/.test(blk);
+  })());
   // 41f-2c. 炸弹爆炸喷彩带（纸带翻转飘落）
   check('炸弹爆炸喷彩带（纸带翻转飘落）',
     /confetti\(x, y, 26\)/.test(fxSrc) && /kind === 'confetti'/.test(fxSrc) &&
@@ -1924,11 +1929,14 @@ function check(name, ok) {
     htmlSrc0.includes('<h2 class="title small">📖 说明</h2>') &&
     htmlSrc0.includes('🎮 玩法说明') && !htmlSrc0.includes('🎮 玩法规则') &&
     htmlSrc0.includes('说明字号'));
-  // 41f-8. 榜上星星占固定一格：★ 一列对齐、数字右对齐
-  check('榜上星星占固定一格（★ 对齐、数字右对齐）',
-    /\.lb-stars\s*\{[\s\S]*?min-width:\s*42px/.test(cssSrc) &&
-    /\.lb-stars b\s*\{[\s\S]*?text-align:\s*right/.test(cssSrc) &&
-    /lb-star-ico/.test(jsSrc));
+  // 41f-8. 榜上星星占固定一格：★ 一列对齐，数字紧跟 ★（不右推、不留大空档）
+  check('榜上星星占固定一格（★ 一列对齐，数字紧跟 ★）', (() => {
+    const host = /\.lb-stars\s*\{[^}]*\}/.exec(cssSrc);
+    const num = /\.lb-stars b\s*\{[^}]*\}/.exec(cssSrc);
+    return !!host && /min-width:\s*42px/.test(host[0]) &&
+      !!num && /text-align:\s*left/.test(num[0]) && !/min-width/.test(num[0]) &&
+      /lb-star-ico/.test(jsSrc) && cssSrc.includes('lb-star-ico');
+  })());
   // 41g. 剧情过场去掉「跳过剧情」
   check('剧情过场只有「继续前进」，没有「跳过剧情」',
     htmlSrc0.includes('id="btn-story-go"') && !htmlSrc0.includes('btn-story-skip') &&
@@ -1963,6 +1971,28 @@ function check(name, ok) {
     /fill\('evenodd'\)/.test(jsSrc) &&
     !/g\.strokeText\(t, 0, 1\)/.test(jsSrc) &&
     !/const t = isN \? '奶龙' : '🔑'/.test(jsSrc));
+
+  // 41k. 章节奖励：打通一整章 → 邮箱收到「恭喜通过第X章」+200 金币，只发一次
+  check('通过一整章发「恭喜通过第X章」邮件（200 金币，只发一次）', (() => {
+    // 先把第 1 章清空，再一关一关补上，确认「没打通不发、打通才发、不重复发」
+    for (let lv = 1; lv <= 10; lv++) sandbox.Store.recordLevel(lv, 0, 0);
+    sandbox.__nl_test.refreshMenu();
+    const none = sandbox.Mail.list().filter((m) => m.id === 'chapter-clear-1').length;
+    for (let lv = 1; lv <= 9; lv++) sandbox.Store.recordLevel(lv, 1000, 1);
+    sandbox.__nl_test.refreshMenu();
+    const partial = sandbox.Mail.list().filter((m) => m.id === 'chapter-clear-1').length;
+    sandbox.Store.recordLevel(10, 1000, 1);
+    sandbox.__nl_test.refreshMenu();
+    sandbox.__nl_test.refreshMenu();
+    const list = sandbox.Mail.list().filter((m) => m.id === 'chapter-clear-1');
+    const m = list[0] || {};
+    return none === 0 && partial === 0 && list.length === 1 &&
+      m.title === '恭喜通过第1章' && m.coins === 200 && m.hasGift === true &&
+      sandbox.Mail.claim('chapter-clear-1').coins === 200;
+  })());
+  check('章节奖励发到邮箱、由玩家自己领（不会直接塞进钱包）',
+    /chapter-clear-' \+ ch\.id/.test(jsSrc) && /Mail\.sendMail\(\{/.test(jsSrc) &&
+    /coins: CHAPTER_COIN/.test(jsSrc) && /grantChapterMails\(\)/.test(jsSrc));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
