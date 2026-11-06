@@ -43,6 +43,7 @@
     _shakePower: 0,
     _shakeLeft: 0,
     _shakeDur: 0,
+    lastUpdateAt: 0,     // 最近一次 update 的时间（渲染循环没跑 = 没在播特效）
 
     // §14 屏幕轻微震动
     shake(power, dur) {
@@ -206,6 +207,8 @@
     update(dt) {
       dt = Math.min(dt || 0.016, 0.05);
       const f = dt * 60; // 以 60fps 为单位
+      this.lastUpdateAt = (typeof performance !== 'undefined' && performance.now)
+        ? performance.now() : Date.now();   // 结算前判断「特效是不是真的在播」
 
       for (let i = pPool.active.length - 1; i >= 0; i--) {
         const p = pPool.active[i];
