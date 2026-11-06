@@ -648,6 +648,67 @@
     return arr;
   }
 
+  // ---------- 存档码：把账号表 + 每个账号的进度打成一段可复制的文本 ----------
+  // 用途：换网址 / 换设备 / 微信清缓存后 localStorage 会丢，粘回来就能恢复
+  const BACKUP_TAG = 'NL2BK1';
+
+  function b64enc(str) {
+    try {
+      const bytes = new TextEncoder().encode(str);
+      let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return btoa(bin);
+    } catch (e) {
+      try { return btoa(unescape(encodeURIComponent(str))); } catch (e2) { return ''; }
+    }
+  }
+
+  function b64dec(s) {
+    const bin = atob(String(s || '').replace(/\s+/g, ''));
+    try {
+      const bytes = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      return new TextDecoder().decode(bytes);
+    } catch (e) {
+      return decodeURIComponent(escape(bin));
+    }
+  }
+
+  function exportBackup() {
+    saveCurrent();                       // 当前账号先落一份快照，别漏了最新进度
+    const data = { v: 1, at: Date.now(), cur: currentId(), accounts: list(), slots: {} };
+    data.accounts.forEach((a) => {
+      const s = read(K.slot + a.id, null);
+      if (s && s.keys) data.slots[a.id] = s;
+    });
+    return BACKUP_TAG + '.' + b64enc(JSON.stringify(data));
+  }
+
+  // 合并式导入：同 id 的账号 / 快照用备份里的覆盖，本机独有的账号保留
+  function importBackup(code) {
+    const raw = String(code == null ? '' : code).trim();
+    if (!raw) return { ok: false, reason: '请粘贴存档码' };
+    if (raw.indexOf(BACKUP_TAG + '.') !== 0) return { ok: false, reason: '存档码格式不对，要整段复制' };
+    let data = null;
+    try { data = JSON.parse(b64dec(raw.slice(BACKUP_TAG.length + 1))); }
+    catch (e) { return { ok: false, reason: '存档码解析失败，可能没复制完整' }; }
+    if (!data || !Array.isArray(data.accounts)) return { ok: false, reason: '存档码里没有账号数据' };
+    const valid = data.accounts.filter((a) => a && a.id && a.name);
+    if (!valid.length) return { ok: false, reason: '存档码里没有账号数据' };
+
+    const byId = Object.create(null);
+    list().forEach((a) => { byId[a.id] = a; });
+    valid.forEach((a) => { byId[a.id] = a; });
+    saveList(Object.keys(byId).map((k) => byId[k]));
+
+    const src = data.slots || {};
+    Object.keys(src).forEach((id) => {
+      const s = src[id];
+      if (s && s.keys) write(K.slot + id, s);
+    });
+    return { ok: true, count: valid.length };
+  }
+
   global.Account = {
     K, GRANTS, BAD_PASS,
     hash,
@@ -655,6 +716,7 @@
     register, login, logout, switchTo,
     setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick, purge,
     saveCurrent, checkName, checkPass,
+    exportBackup, importBackup,
     cloudLogin, pushCloud, pullCloud, startCloudSync, cloudOk
   };
 })(window);

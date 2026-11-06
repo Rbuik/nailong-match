@@ -1046,6 +1046,32 @@ function check(name, ok) {
     (sandbox.Store.getProgress()[1] || {}).stars === 3);
   check('切回来名字也回到原号', sandbox.Meta.nickname() === '测试奶龙');
 
+  // 31b-3. 存档码：换网址 / 换设备时整份搬回来
+  check('账号安全页和登录页都有存档码入口',
+    htmlSrc0.includes('id="btn-goto-backup"') && htmlSrc0.includes('id="backup-menu"') &&
+    htmlSrc0.includes('id="btn-auth-backup"'));
+  check('存档码：导出 → 清空存储 → 导入，账号和进度都回来', (() => {
+    const curIdBefore = sandbox.Account.currentId();
+    const code = sandbox.Account.exportBackup();
+    const nAcc = sandbox.Account.list().length;
+    const coins = sandbox.Store.getWallet().coins;
+    const stars = Object.keys(sandbox.Store.getProgress()).length;
+    Array.from(lsMap.keys()).filter((k) => k.indexOf('nl2:') === 0).forEach((k) => lsMap.delete(k));
+    const curId = curIdBefore;
+    const cleared = sandbox.Account.list().length;
+    const r = sandbox.Account.importBackup(code);
+    const back = sandbox.Account.list();
+    const sw = sandbox.Account.switchTo(curId);
+    return cleared === 0 && r.ok === true && back.length === nAcc && sw.ok === true &&
+      sandbox.Store.getWallet().coins === coins &&
+      Object.keys(sandbox.Store.getProgress()).length === stars;
+  })());
+  check('存档码乱贴会被挡下', (() => {
+    const before = sandbox.Account.list().length;
+    const r = sandbox.Account.importBackup('随便一段文字');
+    return r.ok === false && sandbox.Account.list().length === before;
+  })());
+
   // 32. yone 的 1360 金币奖励：发到邮箱，自己领
   const coinsBeforeYone = sandbox.Store.getWallet().coins;
   const yReg = sandbox.Account.register('yone', 'yone1234');

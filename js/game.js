@@ -2324,7 +2324,7 @@
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-      'fix-menu',
+      'backup-menu', 'fix-menu',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2340,7 +2340,7 @@
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-    'fix-menu'];
+    'backup-menu', 'fix-menu'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -4348,6 +4348,90 @@
       showOverlay('settings-menu');
     });
 
+    // 📄 存档码前后端
+    let backupFrom = 'account';
+
+    function openBackupMenu(from) {
+      backupFrom = from === 'auth' ? 'auth' : 'account';
+      ['backup-code', 'backup-input'].forEach((id) => {
+        const el = $(id);
+        if (el) el.value = '';
+      });
+      const err = $('backup-err');
+      if (err) err.textContent = '';
+      if (backupFrom === 'auth') {
+        if ($('auth-menu')) $('auth-menu').style.display = 'none';
+        if ($('auth-form')) $('auth-form').style.display = 'none';
+      } else if ($('account-menu')) {
+        $('account-menu').style.display = 'none';
+      }
+      showOverlay('backup-menu');
+      setView('menu');
+    }
+
+    function genBackupCode() {
+      if (typeof Account === 'undefined' || !Account.exportBackup) { toast('账号功能没加载出来，请刷新页面'); return false; }
+      const box = $('backup-code');
+      if (box) box.value = Account.exportBackup();
+      const err = $('backup-err');
+      if (err) err.textContent = '';
+      toast('已生成，点「复制」保存好');
+      return true;
+    }
+
+    function copyBackupCode() {
+      const box = $('backup-code');
+      const code = (box && box.value) || '';
+      if (!code) { toast('先点「生成」'); return; }
+      const fallback = () => {
+        try {
+          if (box && box.focus) box.focus();
+          if (box && box.select) box.select();
+          if (document.execCommand) document.execCommand('copy');
+          toast('已复制');
+        } catch (e) { toast('复制失败，请长按文本框手动复制'); }
+      };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(() => toast('已复制')).catch(fallback);
+          return;
+        }
+      } catch (e) {}
+      fallback();
+    }
+
+    function doImportBackup() {
+      const box = $('backup-input');
+      const err = $('backup-err');
+      const code = (box && box.value) || '';
+      if (typeof Account === 'undefined' || !Account.importBackup) { toast('账号功能没加载出来，请刷新页面'); return false; }
+      const r = Account.importBackup(code);
+      if (!r.ok) {
+        if (err) err.textContent = r.reason;
+        try { AudioManager.playSFX('invalid'); } catch (e) {}
+        return false;
+      }
+      if (err) err.textContent = '';
+      toast('已导入 ' + r.count + ' 个账号');
+      $('backup-menu').style.display = 'none';
+      setTimeout(() => { try { location.reload(); } catch (e) {} }, 700);
+      return true;
+    }
+
+    // 📄 存档码：换网址 / 换设备时把账号和进度整份搬过去
+    on('btn-goto-backup', () => openBackupMenu('account'));
+    on('btn-backup-gen', genBackupCode);
+    on('btn-backup-copy', copyBackupCode);
+    on('btn-backup-import', doImportBackup);
+    on('btn-auth-backup', () => openBackupMenu('auth'));
+    on('btn-backup-back', () => {
+      $('backup-menu').style.display = 'none';
+      if (backupFrom === 'auth') { showAuthScreen(); return; }
+      const n = $('account-cur-name');
+      if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
+      showOverlay('account-menu');
+    });
+
     // 修改密码
     on('btn-goto-password', () => {
       ['pass-old', 'pass-new', 'pass-new2'].forEach((id) => {
@@ -5569,6 +5653,8 @@
     if (f) f.style.display = 'none';
     const fix = $('fix-menu');
     if (fix) fix.style.display = 'none';
+    const bk = $('backup-menu');
+    if (bk) bk.style.display = 'none';
     setAuthError('');
     renderAuthAccounts();
     showOverlay('auth-menu');
