@@ -5933,14 +5933,22 @@
     const tier = Math.min(Math.max(1, achDetail.tier), maxTier);
     achDetail.tier = tier;
 
-    if ($('ach-d-name')) $('ach-d-name').textContent = '🏅 ' + a.name;
+    // 标题：成就图标放在名字左边（用剪影，不用原来的彩色 emoji）
+    if ($('ach-d-name')) {
+      const icoHtml = a.iconImg
+        ? '<img src="' + a.iconImg + '" alt="">'
+        : '<i class="ach-d-emoji">' + a.icon + '</i>';
+      $('ach-d-name').innerHTML = '<span class="ach-d-ico">' + icoHtml + '</span>' + a.name;
+    }
+
+    // 卡片 / 整页随奖杯颜色一起换（铜棕 / 银灰 / 金黄 / 彩虹）
+    const card = $('ach-d-card');
+    if (card) card.className = 'ach-detail-card t' + tier;
+    const dPanel = $('ach-detail');
+    if (dPanel) dPanel.className = 'overlay t' + tier;
 
     const trophy = $('ach-trophy');
     if (trophy) trophy.className = 'ach-trophy t' + tier;
-    const ico = $('ach-d-icon');
-    if (ico) {
-      ico.innerHTML = a.iconImg ? '<img src="' + a.iconImg + '" alt="">' : a.icon;
-    }
 
     // 奖杯下面一排小点：一共几阶、当前停在哪一阶
     const dots = $('ach-d-dots');

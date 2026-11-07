@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261108c">
-<link rel="stylesheet" href="./css/themes.css?v=20261108c">
+<link rel="stylesheet" href="./css/style.css?v=20261108d">
+<link rel="stylesheet" href="./css/themes.css?v=20261108d">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -336,7 +336,8 @@
       <section class="rule-sec">
         <h3>🎮 基本玩法</h3>
         <p>交换相邻两格，让 <b>3 个及以上相同图案</b>连成横线或竖线即可消除；滑动、点选都行。</p>
-        <p>每步消耗 1 步（限时关走秒），剩 <b>5 步 / 10 秒</b>时顶部数字变红。退出或切后台会自动暂停。</p>
+        <p>每步消耗 1 步（限时关走秒），剩 <b>5 步 / 10 秒</b>时顶部数字变红。</p>
+        <p>退出或切后台会自动暂停。</p>
       </section>
 
       <section class="rule-sec">
@@ -350,24 +351,33 @@
       <section class="rule-sec">
         <h3>💥 组合技</h3>
         <p>两个特殊块交换触发：</p>
-        <p>· 线消 + 线消 → 三行 / 三列（交叉则十字）<br>
-          · 线消 + 炸弹 → 十字炸弹<br>
-          · 炸弹 + 炸弹 → 5×5<br>
-          · 彩虹 + 线消 / 炸弹 → 同色全变线消 / 炸弹<br>
-          · 彩虹 + 彩虹 → 全屏清场</p>
+        <p>· 线消 + 线消 → 三行 / 三列（交叉则十字）</p>
+        <p>· 线消 + 炸弹 → 十字炸弹</p>
+        <p>· 炸弹 + 炸弹 → 5×5</p>
+        <p>· 彩虹 + 线消 / 炸弹 → 同色全变线消 / 炸弹</p>
+        <p>· 彩虹 + 彩虹 → 全屏清场</p>
       </section>
 
       <section class="rule-sec">
         <h3>🔥 连击与倍率</h3>
-        <p>约 <b>1.6 秒</b>内接着消：<b>2 连 ×1.5</b>、<b>3 连 ×2</b>、<b>4 连及以上 ×3</b>。</p>
+        <p>约 <b>1.6 秒</b>内接着消就算连击：</p>
+        <p><b>2 连</b>：分数 ×1.5。</p>
+        <p><b>3 连</b>：分数 ×2。</p>
+        <p><b>4 连及以上</b>：分数 ×3。</p>
         <p>打到 4 连触发 <b>狂热 6 秒</b>，分数再翻倍，棋盘下方有倒计时。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>🎯 关卡目标（8 种）</h3>
-        <p><b>普通得分</b>：步数内到目标分。<b>收集方块</b>：集齐指定图案与数量。<b>清除果冻</b>：清掉全部果冻。<br>
-          <b>限时得分</b>：时间内到目标分。<b>极限步数</b>：很少的步数到目标分。<b>敲碎冰块</b>：把冰全部砸开。<br>
-          <b>运送钥匙</b>：把货物送到最底行（<b>第四章起</b>货物里混有<b>糖果 🍬</b>，一起算）。<b>护送奶龙</b>：把奶龙送到最底行。</p>
+        <h3>🎯 关卡目标（9 种）</h3>
+        <p><b>普通得分</b>：步数内到目标分。</p>
+        <p><b>收集方块</b>：集齐指定图案与数量。</p>
+        <p><b>清除果冻</b>：清掉全部果冻。</p>
+        <p><b>限时得分</b>：时间内到目标分。</p>
+        <p><b>极限步数</b>：很少的步数到目标分。</p>
+        <p><b>敲碎冰块</b>：把冰全部砸开。</p>
+        <p><b>运送钥匙</b>：把钥匙送到最底行。</p>
+        <p><b>运送糖果</b>：把糖果送到最底行。</p>
+        <p><b>护送奶龙</b>：把奶龙送到最底行。</p>
       </section>
 
       <section class="rule-sec">
@@ -380,7 +390,10 @@
 
       <section class="rule-sec">
         <h3>⭐ 星级评价怎么算</h3>
-        <p>每关有 2 星 / 3 星两道<b>分数线</b>：<b>1 星</b>完成目标；<b>2 星</b>到 2 星线或剩 30% 以上步数；<b>3 星</b>到 3 星线或剩 60% 以上步数（限时关按剩余时间算）。</p>
+        <p>每关有 2 星 / 3 星两道<b>分数线</b>。</p>
+        <p><b>1 星</b>：完成目标。</p>
+        <p><b>2 星</b>：到 2 星线，或剩 30% 以上步数。</p>
+        <p><b>3 星</b>：到 3 星线，或剩 60% 以上步数（限时关按剩余时间算）。</p>
         <p>星星只记最好的，<b>重打不掉星</b>；过关后点「继续游戏」把剩余步数打完，结算照样取最大值。</p>
         <p>每关记录<b>最高分</b>和<b>最好星级</b>，主页和关卡记录里<b>红色分数</b>表示还没通关。</p>
       </section>
@@ -828,10 +841,18 @@
     <button class="btn-secondary" id="btn-close-ach">返回</button>
   </div>
 
-  <!-- 单个成就详情：奖杯 + 左右切换已解锁的阶 + 领奖 -->
+  <!-- 单个成就详情：奖杯 + 左右切换已解锁的阶 + 领奖（点卡片外空白返回） -->
   <div class="overlay" id="ach-detail" style="display:none;">
+    <!-- 彩杯的「彩色奖杯」：把彩虹图裁成奖杯的形状（SVG 图案填充） -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+      <defs>
+        <pattern id="ach-rainbow-pat" patternUnits="objectBoundingBox" width="1" height="1">
+          <image href="./assets/rainbow-cup.jpg" x="0" y="0" width="64" height="64" preserveAspectRatio="xMidYMid slice"/>
+        </pattern>
+      </defs>
+    </svg>
     <h2 class="title small" id="ach-d-name">成就</h2>
-    <div class="ach-detail-card">
+    <div class="ach-detail-card" id="ach-d-card">
       <div class="ach-trophy-row">
         <button class="ach-nav" id="ach-prev" aria-label="上一阶">◀</button>
         <div class="ach-trophy t0" id="ach-trophy">
@@ -843,7 +864,6 @@
             <rect x="21" y="42" width="22" height="5" rx="2.5" />
             <rect x="16" y="47" width="32" height="7" rx="3.5" />
           </svg>
-          <span class="ach-trophy-ico" id="ach-d-icon">🏆</span>
         </div>
         <button class="ach-nav" id="ach-next" aria-label="下一阶">▶</button>
       </div>
@@ -954,22 +974,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261108c"></script>
-<script src="./js/storage.js?v=20261108c"></script>
-<script src="./js/audio.js?v=20261108c"></script>
-<script src="./js/effects.js?v=20261108c"></script>
-<script src="./js/specials.js?v=20261108c"></script>
-<script src="./js/goals.js?v=20261108c"></script>
-<script src="./js/tasks.js?v=20261108c"></script>
-<script src="./js/mail.js?v=20261108c"></script>
-<script src="./js/input.js?v=20261108c"></script>
-<script src="./js/builtin-music.js?v=20261108c"></script>
-<script src="./js/music.js?v=20261108c"></script>
-<script src="./js/meta.js?v=20261108c"></script>
-<script src="./js/cloud-config.js?v=20261108c"></script>
-<script src="./js/cloud.js?v=20261108c"></script>
-<script src="./js/account.js?v=20261108c"></script>
-<script src="./js/board.js?v=20261108c"></script>
-<script src="./js/game.js?v=20261108c"></script>
+<script src="./js/rng.js?v=20261108d"></script>
+<script src="./js/storage.js?v=20261108d"></script>
+<script src="./js/audio.js?v=20261108d"></script>
+<script src="./js/effects.js?v=20261108d"></script>
+<script src="./js/specials.js?v=20261108d"></script>
+<script src="./js/goals.js?v=20261108d"></script>
+<script src="./js/tasks.js?v=20261108d"></script>
+<script src="./js/mail.js?v=20261108d"></script>
+<script src="./js/input.js?v=20261108d"></script>
+<script src="./js/builtin-music.js?v=20261108d"></script>
+<script src="./js/music.js?v=20261108d"></script>
+<script src="./js/meta.js?v=20261108d"></script>
+<script src="./js/cloud-config.js?v=20261108d"></script>
+<script src="./js/cloud.js?v=20261108d"></script>
+<script src="./js/account.js?v=20261108d"></script>
+<script src="./js/board.js?v=20261108d"></script>
+<script src="./js/game.js?v=20261108d"></script>
 </body>
 </html>

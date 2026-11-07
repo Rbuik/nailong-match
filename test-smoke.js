@@ -1995,7 +1995,7 @@ function check(name, ok) {
   check('榜上星星 / 分数用固定列宽，并整体再往右挪三个字（空档列）', (() => {
     const g4 = /\.lb-swipe\.col4\s*\{[^}]*\}/.exec(cssSrc);
     const num = /\.lb-stars b\s*\{[^}]*\}/.exec(cssSrc);
-    return !!g4 && /grid-template-columns:\s*26px minmax\(0, 1fr\) 28px 54px 6ch/.test(g4[0]) &&
+    return !!g4 && /grid-template-columns:\s*26px minmax\(0, 1fr\) 42px 40px 6ch/.test(g4[0]) &&
       /\.lb-swipe\.col4 \.lb-stars,\s*\n\.lb-swipe\.col5 \.lb-stars\s*\{\s*grid-column:\s*4/.test(cssSrc) &&
       !!num && /text-align:\s*left/.test(num[0]) && !/min-width/.test(num[0]) &&
       /lb-star-ico/.test(jsSrc) && cssSrc.includes('lb-star-ico');
@@ -2159,11 +2159,22 @@ function check(name, ok) {
       /'已通 ' \+ cleared \+ ' 关 · 三星 ' \+ perfect \+ ' 关'/.test(fn) &&
       !/还差/.test(fn) && !fn.includes('主线全部通关');
   })());
-  check('奖杯详情页没有返回键，点卡片外空白回成就页；彩杯用彩虹背景图',
+  check('奖杯详情页没有返回键，点卡片外空白回成就页；彩杯背景彩虹图（减淡+模糊）、奖杯本体彩虹填色',
     !htmlSrc.includes('btn-ach-detail-back') && !jsSrc.includes('btn-ach-detail-back') &&
     /detailPanel\.addEventListener\('click'/.test(jsSrc) &&
     /e\.target\.closest\('\.ach-detail-card'\)/.test(jsSrc) &&
-    /ach-trophy\.t4\s*\{[^}]*rainbow-cup\.jpg/.test(cssSrc));
+    /\.ach-trophy\.t4::before\s*\{[^}]*rainbow-cup\.jpg/.test(cssSrc) &&
+    /\.ach-trophy\.t4::before\s*\{[^}]*blur\(/.test(cssSrc) &&
+    /\.ach-trophy\.t4\s*\{[^}]*overflow:\s*hidden/.test(cssSrc) &&
+    /fill:\s*url\(#ach-rainbow-pat\)/.test(cssSrc) && htmlSrc.includes('ach-rainbow-pat'));
+  check('详情页整页随阶变色：卡片/遮罩挂 tN 类、领取键用主题色、奖杯右下角没 emoji、标题左边是图标剪影',
+    /card\.className = 'ach-detail-card t' \+ tier/.test(jsSrc) &&
+    /dPanel\.className = 'overlay t' \+ tier/.test(jsSrc) &&
+    /\.ach-detail-card\.t1\s*\{[^}]*--ach-c1/.test(cssSrc) &&
+    /#ach-detail\.t4\s*\{[^}]*background/.test(cssSrc) &&
+    /#btn-ach-claim\.btn-primary\s*\{[^}]*var\(--ach-c1/.test(cssSrc) &&
+    !htmlSrc.includes('ach-trophy-ico') && !cssSrc.includes('ach-trophy-ico') && !jsSrc.includes('ach-d-icon') &&
+    /ach-d-ico/.test(jsSrc) && /\.ach-d-ico\s*\{[^}]*brightness\(/.test(cssSrc));
   check('成就：加了「糖果爱好者」，删了「过半征程」「通关大师」', (() => {
     const ids = sandbox.Meta.ACHIEVEMENTS.map((a) => a.id);
     const candy = sandbox.Meta.ACHIEVEMENTS.filter((a) => a.id === 'candylover')[0];

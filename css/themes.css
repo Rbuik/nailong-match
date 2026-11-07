@@ -1471,15 +1471,17 @@ body.m-dragging .m-item { cursor: grabbing; }
    col5 = 名次 / 名字 / （空档）/ 星星 / 分数 / 省份（后台玩家名单）
    中间那格 28px 的空档 = 让星星和分数整体再往右挪三个字的宽度（28 + 8 列间距 = 36px）
    分数列宽 = 6ch（六位数的榜一正好填满）：榜一的分数右缘贴住内边距，
-   距离行背景右边缘 12px —— 和左边「名次距背景左边缘 12px」对称 */
+   距离行背景右边缘 12px —— 和左边「名次距背景左边缘 12px」对称
+   星星列再往右挪「目前星星与分数之间空档的一半」（榜一 ★108 与分数之间空着
+   29px，挪一半 ≈ 14px）：空档列 28→42、星星列 54→40，分数列不动 */
 .lb-swipe.col4 {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 28px 54px 6ch;
+  grid-template-columns: 26px minmax(0, 1fr) 42px 40px 6ch;
   column-gap: 8px;
 }
 .lb-swipe.col5 {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 24px 48px 6ch minmax(0, max-content);
+  grid-template-columns: 26px minmax(0, 1fr) 34px 38px 6ch minmax(0, max-content);
   column-gap: 6px;
 }
 .lb-swipe.col4 .lb-stars,
@@ -2309,32 +2311,31 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   stroke-width: 5;
   stroke-linecap: round;
 }
-/* 彩杯：奖杯自己慢慢换色，一眼看得出是满级 */
-/* 彩杯：背景用彩虹图（assets/rainbow-cup.jpg），奖杯描一层白边保证看得清 */
+/* 彩杯：背景 = 彩虹图减淡 + 模糊（::before 只糊背景不糊奖杯）；
+   奖杯本身用彩虹图填色（SVG 图案填充 #ach-rainbow-pat，见 index.html） */
 .ach-trophy.t4 {
+  position: relative;
+  overflow: hidden;
   color: #ffffff;
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.05)),
-    url('../assets/rainbow-cup.jpg') center / cover no-repeat;
+  background: #fff;
   border: 1px solid rgba(255, 255, 255, 0.65);
   box-shadow: 0 4px 12px rgba(160, 120, 255, 0.25);
 }
-.ach-trophy.t4 .ach-trophy-svg { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25)); }
-.ach-trophy-ico {
+.ach-trophy.t4::before {
+  content: '';
   position: absolute;
-  right: 7px;
-  bottom: 7px;
-  width: 30px;
-  height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  inset: -14px;
+  background: url('../assets/rainbow-cup.jpg') center / cover no-repeat;
+  filter: blur(10px);
+  opacity: 0.42;
 }
-.ach-trophy-ico img { width: 22px; height: 22px; object-fit: contain; }
+.ach-trophy.t4 .ach-trophy-svg {
+  position: relative;
+  z-index: 1;
+  fill: url(#ach-rainbow-pat);
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.22));
+}
+.ach-trophy.t4 .ach-trophy-svg .cup-handle { stroke: #ffffff; }
 .ach-dots {
   display: flex;
   align-items: center;
@@ -2371,3 +2372,45 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   color: #a29bb5;
   text-align: center;
 }
+
+/* ================= 成就详情页：整页随奖杯颜色变化 ================= */
+/* 每阶一套主题色：铜棕 / 银灰 / 金黄 / 彩虹（彩阶取图里最亮的两头粉→蓝紫） */
+.ach-detail-card { --ach-c1: #5c8fff; --ach-c2: #3a5ecf; }
+.ach-detail-card.t1 { --ach-c1: #d9924e; --ach-c2: #a5652a; }
+.ach-detail-card.t2 { --ach-c1: #9fb0c6; --ach-c2: #6f8098; }
+.ach-detail-card.t3 { --ach-c1: #ffd75e; --ach-c2: #d99e00; }
+.ach-detail-card.t4 { --ach-c1: #ff9fc4; --ach-c2: #8ec9ff; }
+/* 整页背景跟着换：底色 + 顶部一点主题色的光晕 */
+#ach-detail { transition: background 0.35s ease; }
+#ach-detail.t1 { background: linear-gradient(180deg, #fdf3e9 0%, rgba(245, 245, 247, 0.96) 55%); }
+#ach-detail.t2 { background: linear-gradient(180deg, #f2f6fb 0%, rgba(245, 245, 247, 0.96) 55%); }
+#ach-detail.t3 { background: linear-gradient(180deg, #fff8e0 0%, rgba(245, 245, 247, 0.96) 55%); }
+#ach-detail.t4 { background: linear-gradient(180deg, #fdeaf5 0%, #eaf4ff 40%, rgba(245, 245, 247, 0.96) 75%); }
+/* 领取键：用当前阶的主题色描边 + 渐变底 */
+#btn-ach-claim.btn-primary {
+  color: #fff;
+  border: 2px solid transparent;
+  background: linear-gradient(135deg, var(--ach-c1), var(--ach-c2));
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--ach-c2) 35%, transparent);
+}
+#btn-ach-claim.btn-primary:active { transform: scale(0.95); }
+/* 彩杯卡片边框也带一点彩虹 */
+.ach-detail-card.t4 { border-color: rgba(255, 159, 196, 0.55); }
+/* 标题：成就图标剪影放在文字左边（不用彩色 emoji） */
+.ach-d-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 7px;
+  vertical-align: -0.18em;
+  filter: grayscale(1) brightness(0.15);
+  opacity: 0.85;
+}
+.ach-d-ico .ach-d-emoji {
+  font-style: normal;
+  font-size: 1em;
+  line-height: 1;
+}
+.ach-d-ico img { width: 1em; height: 1em; object-fit: contain; }
