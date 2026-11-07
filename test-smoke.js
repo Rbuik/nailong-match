@@ -2634,6 +2634,15 @@ function check(name, ok) {
     /\.hazard-bar\s*\{[^}]*display:\s*none/.test(cssSrc) && /\.hazard-chip/.test(cssSrc) &&
     /function updateHazardBar/.test(jsSrc) && /updateHazardBar\(\);/.test(jsSrc));
 
+  check('机关提示条挪到棋盘下方「双倍」右边，目标栏下面不再放任何东西', (() => {
+    const slot = htmlSrc0.slice(htmlSrc0.indexOf('class="frenzy-slot"'), htmlSrc0.indexOf('</div>\n\n  <!-- 节奏关') >= 0 ? htmlSrc0.indexOf('节拍条') : htmlSrc0.indexOf('id="beat-bar"'));
+    const between = htmlSrc0.slice(htmlSrc0.indexOf('id="target-bar"'), htmlSrc0.indexOf('class="tools"'));
+    return slot.includes('id="frenzy-chip"') && slot.indexOf('id="frenzy-chip"') < slot.indexOf('id="hazard-bar"') &&
+      !between.includes('id="hazard-bar"') &&
+      /\.hazard-bar\s*\{[^}]*max-width:\s*62%/.test(cssSrc) &&
+      !/\.hazard-bar\s*\{[^}]*margin-top/.test(cssSrc);
+  })());
+
   check('新特殊块在棋盘上有专属画法（emoji + 光晕）', (() => {
     const seg = jsSrc.slice(jsSrc.indexOf('function drawSpecialOverlay'), jsSrc.indexOf('function tileBaseColor'));
     return seg.includes("'🧲'") && seg.includes("'🎨'") && seg.includes("'❄️'") && seg.includes("'🛩️'");

@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261109a">
-<link rel="stylesheet" href="./css/themes.css?v=20261109a">
+<link rel="stylesheet" href="./css/style.css?v=20261109b">
+<link rel="stylesheet" href="./css/themes.css?v=20261109b">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -26,8 +26,7 @@
 
   <div class="target-bar" id="target-bar">目标：得分 0 / 1000</div>
 
-  <!-- 机关状态条：只有带机关（藤蔓 / 箱子 / 流沙 / 炸弹 / 迷雾 / 传送门 / 轨道 / 霜块）的关卡才显示 -->
-  <div class="hazard-bar" id="hazard-bar" style="display:none;"></div>
+  <!-- 目标栏下面固定不放任何东西（机关提示都挪到棋盘下方「双倍」右边） -->
 
   <div class="tools">
     <div class="tools-row">
@@ -65,8 +64,11 @@
   </div>
 
   <!-- 狂热（双倍）倒计时：棋盘正下方的空位，固定占位，出现/消失都不挤动棋盘 -->
+  <!-- 棋盘正下方的空位：双倍倒计时 + 机关提示（定格 / 藤蔓等）都排在这一行，双倍在左、机关在右 -->
   <div class="frenzy-slot">
     <div class="hud-frenzy" id="frenzy-chip" style="display:none;">🔥 双倍 <b id="frenzy-left">6</b>s</div>
+    <!-- 机关状态条：只有带机关（藤蔓 / 箱子 / 流沙 / 炸弹 / 迷雾 / 传送门 / 轨道 / 霜块）的关卡才显示 -->
+    <div class="hazard-bar" id="hazard-bar" style="display:none;"></div>
   </div>
 
   <!-- 节奏关：节拍条（光点走到最右端 = 节拍点） -->
@@ -965,22 +967,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261109a"></script>
-<script src="./js/storage.js?v=20261109a"></script>
-<script src="./js/audio.js?v=20261109a"></script>
-<script src="./js/effects.js?v=20261109a"></script>
-<script src="./js/specials.js?v=20261109a"></script>
-<script src="./js/goals.js?v=20261109a"></script>
-<script src="./js/tasks.js?v=20261109a"></script>
-<script src="./js/mail.js?v=20261109a"></script>
-<script src="./js/input.js?v=20261109a"></script>
-<script src="./js/builtin-music.js?v=20261109a"></script>
-<script src="./js/music.js?v=20261109a"></script>
-<script src="./js/meta.js?v=20261109a"></script>
-<script src="./js/cloud-config.js?v=20261109a"></script>
-<script src="./js/cloud.js?v=20261109a"></script>
-<script src="./js/account.js?v=20261109a"></script>
-<script src="./js/board.js?v=20261109a"></script>
-<script src="./js/game.js?v=20261109a"></script>
+<script src="./js/rng.js?v=20261109b"></script>
+<script src="./js/storage.js?v=20261109b"></script>
+<script src="./js/audio.js?v=20261109b"></script>
+<script src="./js/effects.js?v=20261109b"></script>
+<script src="./js/specials.js?v=20261109b"></script>
+<script src="./js/goals.js?v=20261109b"></script>
+<script src="./js/tasks.js?v=20261109b"></script>
+<script src="./js/mail.js?v=20261109b"></script>
+<script src="./js/input.js?v=20261109b"></script>
+<script src="./js/builtin-music.js?v=20261109b"></script>
+<script src="./js/music.js?v=20261109b"></script>
+<script src="./js/meta.js?v=20261109b"></script>
+<script src="./js/cloud-config.js?v=20261109b"></script>
+<script src="./js/cloud.js?v=20261109b"></script>
+<script src="./js/account.js?v=20261109b"></script>
+<script src="./js/board.js?v=20261109b"></script>
+<script src="./js/game.js?v=20261109b"></script>
 </body>
 </html>

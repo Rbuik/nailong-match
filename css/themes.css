@@ -1753,6 +1753,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 8px;                /* 双倍小标和机关胶囊同行排开 */
 }
 .hud-frenzy {
   display: none;
