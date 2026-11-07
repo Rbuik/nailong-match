@@ -495,7 +495,10 @@
     startBGM() {
       if (!this.bgmAllowed) return;   // 登录页等场景不放音乐
       if (this._custom) return;
-      if (this._bgmTimer) clearInterval(this._bgmTimer);
+      // 已在播就绝不重启：unlock() 挂在 pointerdown / touchstart / touchend / click
+      // 等 7 种事件上，一次点击会触发好几次；重启会再排一串新音，
+      // 而已排进 WebAudio 时间轴的旧音取消不掉 → 几层旋律叠在一起「乱弹钢琴」。
+      if (this._bgmTimer) return;
       this._bgmNext = 0;
       this._bgmNote();
       this._bgmTimer = setInterval(() => this._bgmNote(), 150);

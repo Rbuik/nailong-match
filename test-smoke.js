@@ -2268,6 +2268,15 @@ function check(name, ok) {
     /box\.style\.display = 'flex';\s*\n\s*winSfx\(\);/.test(jsSrc) &&
     /box\.style\.display = 'flex';\s*\n\s*endSfx\(\);/.test(jsSrc) &&
     !/setTimeout\(\(\) => AudioManager\.playSFX\('star'/.test(jsSrc));
+  // 42. BGM 防重入：startBGM 已在播就不再重启，否则 unlock 挂在 7 种手势事件上，
+  //     一次点击会叠好几层错开的旋律，听起来像乱弹钢琴
+  check('合成 BGM 防重入：已在播时 startBGM 直接返回，不重启不叠音', (() => {
+    const aSrc = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
+    const m = aSrc.match(/startBGM\(\) \{([\s\S]*?)\n    \},/);
+    const body = m ? m[1] : '';
+    return body.includes('if (this._bgmTimer) return;') &&
+      !body.includes('clearInterval(this._bgmTimer)');
+  })());
 
   // 41q. 本轮：说明精简 / 功能介绍按按键层次 / 消消乐大师成绩单 / 糖果关卡可见 / 榜单固定列
   //      成就调整（分数收割机门槛、删两枚、加糖果爱好者）/ 云存档自动化
