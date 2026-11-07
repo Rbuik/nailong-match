@@ -36,17 +36,19 @@ TITLES.forEach((t) => {
   gc.className = 'gc';
   gc.style.background = t.bg;
   gc.innerHTML =
-    '<h2 class="title small">🎉 恭喜</h2>' +
-    '<div class="master-card">' +
-      '<div class="master-head"><span class="master-crown">' + t.crown + '</span>' +
-      '<div class="master-title-box"><b>' + t.name + '</b></div></div>' +
-      '<div class="master-bar"><span></span></div>' +
-      '<p class="master-progress">已通 ' + t.cleared + ' 关 · 三星 ' + t.perfect + ' 关</p>' +
-      '<div class="master-grid">' +
-        '<div class="master-item"><span>主线总分</span><b>' + t.score + '</b></div>' +
-        '<div class="master-item"><span>总星数</span><b>' + t.stars + '</b></div>' +
-        '<div class="master-item"><span>三星关卡</span><b>' + t.perfect + '</b></div>' +
-        '<div class="master-item"><span>成就</span><b>' + t.ach + '</b></div>' +
+    '<div class="master-stage">' +
+      '<h2 class="title small">🎉 恭喜</h2>' +
+      '<div class="master-card">' +
+        '<div class="master-head"><span class="master-crown">' + t.crown + '</span>' +
+        '<div class="master-title-box"><b>' + t.name + '</b></div></div>' +
+        '<div class="master-bar"><span></span></div>' +
+        '<p class="master-progress">已通 ' + t.cleared + ' 关 · 三星 ' + t.perfect + ' 关</p>' +
+        '<div class="master-grid">' +
+          '<div class="master-item"><span>主线总分</span><b>' + t.score + '</b></div>' +
+          '<div class="master-item"><span>总星数</span><b>' + t.stars + '</b></div>' +
+          '<div class="master-item"><span>三星关卡</span><b>' + t.perfect + '</b></div>' +
+          '<div class="master-item"><span>成就</span><b>' + t.ach + '</b></div>' +
+        '</div>' +
       '</div>' +
     '</div>';
   wrap.appendChild(cap);

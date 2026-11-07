@@ -2129,12 +2129,14 @@ function check(name, ok) {
       /'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'\]\.indexOf\(ov\.id\) >= 0/
         .test(fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8'));
   })());
-  check('成绩单：恢复原始形状（无 master-stage 包裹、无底部文案），进度线保留且一直满格', (() => {
+  check('成绩单：卡片严格居中（stage width:100% 包裹、标题悬浮上方、不改卡片尺寸）、无底部文案、进度线恒满格', (() => {
     const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));
-    return !gc.includes('master-stage') && !gc.includes('master-foot') &&
+    return gc.includes('master-stage') && !gc.includes('master-foot') &&
       !gc.includes('继续闯关') && !gc.includes('满分毕业') &&
       gc.includes('master-bar') &&
-      !/#game-complete \.master-stage \{/.test(cssSrc) && !/\.master-foot \{/.test(cssSrc) &&
+      /#game-complete \.master-stage \{[^}]*width:\s*100%/.test(cssSrc) &&
+      /#game-complete \.master-stage > \.title\.small \{[^}]*position:\s*absolute/.test(cssSrc) &&
+      !/\.master-foot \{/.test(cssSrc) &&
       /\.master-bar span\s*\{[^}]*width:\s*100%/.test(cssSrc) &&
       !/master-bar-fill/.test(jsSrc);
   })());
