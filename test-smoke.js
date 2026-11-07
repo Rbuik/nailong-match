@@ -2132,13 +2132,14 @@ function check(name, ok) {
       /'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'\]\.indexOf\(ov\.id\) >= 0/
         .test(fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8'));
   })());
-  check('成绩单：恢复原始形状（无 master-stage 包裹、无底部文案、无进度线）', (() => {
+  check('成绩单：恢复原始形状（无 master-stage 包裹、无底部文案），进度线保留且一直满格', (() => {
     const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));
     return !gc.includes('master-stage') && !gc.includes('master-foot') &&
-      !gc.includes('master-bar') &&
       !gc.includes('继续闯关') && !gc.includes('满分毕业') &&
+      gc.includes('master-bar') &&
       !/#game-complete \.master-stage \{/.test(cssSrc) && !/\.master-foot \{/.test(cssSrc) &&
-      !/\.master-bar \{/.test(cssSrc) && !/master-bar-fill/.test(jsSrc);
+      /\.master-bar span\s*\{[^}]*width:\s*100%/.test(cssSrc) &&
+      !/master-bar-fill/.test(jsSrc);
   })());
   check('每日任务尽量不重样：上一批出过的排到候选队尾，通常整批换新', (() => {
     const saved = lsMap.get('nl2:tasks');
@@ -2241,7 +2242,8 @@ function check(name, ok) {
   check('成绩单标题改成「🎉 恭喜」，没有副标题、四格数字都滚动', (() => {
     const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
     return !htmlSrc.includes('恭喜全通关') && htmlSrc.includes('🎉 恭喜') &&
-      htmlSrc.includes('id="master-title"') && !htmlSrc.includes('id="master-bar-fill"') &&
+      htmlSrc.includes('id="master-title"') &&
+      htmlSrc.includes('id="master-bar-fill"') &&
       htmlSrc.includes('id="complete-total-score"') && htmlSrc.includes('id="complete-total-stars"') &&
       htmlSrc.includes('id="master-perfect"') && htmlSrc.includes('id="master-ach"') &&
       !htmlSrc.includes('id="master-sub"') && !fn.includes('master-sub') &&

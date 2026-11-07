@@ -2151,8 +2151,23 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   font-size: 11px;
   color: #9a93ad;
 }
+.master-bar {
+  height: 10px;
+  margin: 14px 0 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+/* 这条线一直是满的（不是进度指示） */
+.master-bar span {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffd24a, #ff9a3c);
+}
 .master-progress {
-  margin: 14px 0 12px;
+  margin: 0 0 12px;
   font-size: 11px;
   font-weight: 700;
   color: #8a82a6;
