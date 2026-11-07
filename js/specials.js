@@ -104,8 +104,9 @@
 
   // ============ 生成判定 ============
   // 返回 { r, c, type } 或 null
-  // 优先级（越长越高级）：7 连 → 颜料 🎨 ｜ 6 连 → 磁铁 🧲 ｜ 5 连 → 彩虹 🌈
-  //                        大 L/T（≥7 格）→ 螺旋桨 🛩️ ｜ L/T → 炸弹 💣 ｜ 4 连 → 线消
+  // 每种特殊块一条独立路径，互不重复：
+  //   十字交叉（横竖都 4+）→ 螺旋桨 🛩️ ｜ 一步消同色 ≥7（不限形状）→ 颜料 🎨
+  //   一步消同色 6 → 磁铁 🧲 ｜ 5 连直线 → 彩虹 🌈 ｜ L/T → 炸弹 💣 ｜ 4 连 → 线消
   function planCreation(board, matchedSet, swapped, runs, lShapes) {
     const inMatched = (p) => matchedSet.has(key(p.r, p.c));
     const atSwap = () => {
@@ -128,24 +129,38 @@
     };
 
     const list = (runs || []).slice().sort((a, b) => b.len - a.len);
-    const longest = list[0] || null;
 
-    // 1) 超长直线：7 连 -> 颜料，6 连 -> 磁铁
-    if (longest && longest.len >= 7) {
-      const at = pick(longest.cells);
-      if (at) return { r: at.r, c: at.c, type: TYPE.PAINT };
-    }
-    if (longest && longest.len === 6) {
-      const at = pick(longest.cells);
-      if (at) return { r: at.r, c: at.c, type: TYPE.MAGNET };
+    // 1) 十字型：横竖两条 4+ 交叉 -> 螺旋桨
+    const h4 = list.filter((x) => x.dir === 'h' && x.len >= 4);
+    const v4 = list.filter((x) => x.dir === 'v' && x.len >= 4);
+    for (const h of h4) {
+      for (const v of v4) {
+        const cross = h.cells.find((p) => v.cells.some((q) => q.r === p.r && q.c === p.c));
+        if (cross) {
+          const cells = [...h.cells, ...v.cells.filter((q) => !(q.r === cross.r && q.c === cross.c))];
+          const at = pick(cells, 0);
+          if (at) return { r: at.r, c: at.c, type: TYPE.PROPELLER };
+        }
+      }
     }
 
-    // 2) 大的 L / T 型（7 格以上）-> 螺旋桨（斜扫）
-    if (lShapes && lShapes.length) {
-      const big = lShapes.slice().sort((a, b) => b.size - a.size)[0];
-      if (big && big.size >= 7) {
-        const at = pick(big.cells);
-        if (at) return { r: at.r, c: at.c, type: TYPE.PROPELLER };
+    // 2) 一步消掉的同色个数（不限形状，直线 / L / T 都算格数）：≥7 -> 颜料，6 -> 磁铁
+    if (matchedSet && matchedSet.size) {
+      const byColor = new Map();
+      matchedSet.forEach((k) => {
+        const p = parse(k);
+        const b = board[p.r] && board[p.r][p.c];
+        if (!b) return;
+        if (!byColor.has(b.type)) byColor.set(b.type, []);
+        byColor.get(b.type).push(p);
+      });
+      let best = null;
+      byColor.forEach((cells) => {
+        if (!best || cells.length > best.cells.length) best = { cells };
+      });
+      if (best && best.cells.length >= 6) {
+        const at = pick(best.cells);
+        if (at) return { r: at.r, c: at.c, type: best.cells.length >= 7 ? TYPE.PAINT : TYPE.MAGNET };
       }
     }
 

@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261108p">
-<link rel="stylesheet" href="./css/themes.css?v=20261108p">
+<link rel="stylesheet" href="./css/style.css?v=20261108q">
+<link rel="stylesheet" href="./css/themes.css?v=20261108q">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -345,25 +345,24 @@
       </section>
 
       <section class="rule-sec">
-        <h3>✨ 特殊块怎么来</h3>
-        <p><b>线消</b>：4 个连成一线 —— <b>横着连的清整行、竖着连的清整列</b>。</p>
-        <p><b>炸弹 💣</b>：L 型 / T 型消除生成，炸掉周围 3×3。</p>
-        <p><b>彩虹 🌈</b>：5 个连成一线生成；<b>自己被消掉</b>时清掉全盘同图案。</p>
-        <p><b>磁铁 🧲</b>：6 个连成一线生成；消掉时把<b>同行同列的同色方块</b>全吸过来一起消。</p>
-        <p><b>颜料 🎨</b>：7 个连成一线生成；消掉时把周围一大片<b>刷成同一种颜色</b>，方便接着连消。</p>
-        <p><b>螺旋桨 🛩️</b>：L / T 型消到 <b>7 格以上</b>生成；沿两条对角线斜扫全场。</p>
-        <p><b>霜块 ❄️</b>：不用连，<b>每 6 步自动长一个</b>（部分关卡开局就送）；消掉它，<b>3 步内所有机关暂停</b>。</p>
-        <p>生成位置会避开已有钥匙 / 奶龙 / 冰 / 锁链的格子，不会叠在一起。</p>
+        <h3>✨ 特殊块</h3>
+        <p><b>线消</b>：4 连生成；横连清整行、竖连清整列。</p>
+        <p><b>炸弹 💣</b>：L / T 型生成；炸掉周围 3×3。</p>
+        <p><b>彩虹 🌈</b>：5 连生成；被消掉时清掉全盘同图案。</p>
+        <p><b>磁铁 🧲</b>：一步消掉同色 6 个生成（不限形状）；消掉时把同行同列的同色方块全吸过来一起消。</p>
+        <p><b>颜料 🎨</b>：一步消掉同色 7 个生成（不限形状）；消掉时把周围一大片刷成同一种颜色。</p>
+        <p><b>螺旋桨 🛩️</b>：横竖两条 4 连交叉生成；沿两条对角线斜扫全场。</p>
+        <p><b>霜块 ❄️</b>：每 6 步自动长一个；消掉它，3 步内所有机关暂停。</p>
       </section>
 
       <section class="rule-sec">
         <h3>💥 组合技</h3>
         <p>两个特殊块交换触发：</p>
-        <p>· 线消 + 线消 → 三行 / 三列（交叉则十字）</p>
-        <p>· 线消 + 炸弹 → 十字炸弹</p>
-        <p>· 炸弹 + 炸弹 → 5×5</p>
-        <p>· 彩虹 + 线消 / 炸弹 → 同色全变线消 / 炸弹</p>
-        <p>· 彩虹 + 彩虹 → 全屏清场</p>
+        <p>· <b>线消 + 线消</b> → 三行 / 三列（交叉则十字）</p>
+        <p>· <b>线消 + 炸弹</b> → 十字炸弹</p>
+        <p>· <b>炸弹 + 炸弹</b> → 5×5</p>
+        <p>· <b>彩虹 + 线消 / 炸弹</b> → 同色全变线消 / 炸弹</p>
+        <p>· <b>彩虹 + 彩虹</b> → 全屏清场</p>
         <p>· <b>彩虹 + 磁铁</b> → 磁力虹吸（全场同色连同行列一起爆）</p>
         <p>· <b>炸弹 + 磁铁</b> → 磁力爆破（全场同色被吸过来炸）</p>
         <p>· <b>磁铁 + 磁铁</b> → 双磁十字（两行两列全扫）</p>
@@ -997,22 +996,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261108p"></script>
-<script src="./js/storage.js?v=20261108p"></script>
-<script src="./js/audio.js?v=20261108p"></script>
-<script src="./js/effects.js?v=20261108p"></script>
-<script src="./js/specials.js?v=20261108p"></script>
-<script src="./js/goals.js?v=20261108p"></script>
-<script src="./js/tasks.js?v=20261108p"></script>
-<script src="./js/mail.js?v=20261108p"></script>
-<script src="./js/input.js?v=20261108p"></script>
-<script src="./js/builtin-music.js?v=20261108p"></script>
-<script src="./js/music.js?v=20261108p"></script>
-<script src="./js/meta.js?v=20261108p"></script>
-<script src="./js/cloud-config.js?v=20261108p"></script>
-<script src="./js/cloud.js?v=20261108p"></script>
-<script src="./js/account.js?v=20261108p"></script>
-<script src="./js/board.js?v=20261108p"></script>
-<script src="./js/game.js?v=20261108p"></script>
+<script src="./js/rng.js?v=20261108q"></script>
+<script src="./js/storage.js?v=20261108q"></script>
+<script src="./js/audio.js?v=20261108q"></script>
+<script src="./js/effects.js?v=20261108q"></script>
+<script src="./js/specials.js?v=20261108q"></script>
+<script src="./js/goals.js?v=20261108q"></script>
+<script src="./js/tasks.js?v=20261108q"></script>
+<script src="./js/mail.js?v=20261108q"></script>
+<script src="./js/input.js?v=20261108q"></script>
+<script src="./js/builtin-music.js?v=20261108q"></script>
+<script src="./js/music.js?v=20261108q"></script>
+<script src="./js/meta.js?v=20261108q"></script>
+<script src="./js/cloud-config.js?v=20261108q"></script>
+<script src="./js/cloud.js?v=20261108q"></script>
+<script src="./js/account.js?v=20261108q"></script>
+<script src="./js/board.js?v=20261108q"></script>
+<script src="./js/game.js?v=20261108q"></script>
 </body>
 </html>

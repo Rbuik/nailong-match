@@ -580,7 +580,7 @@ function check(name, ok) {
   check('规则面板打开', $('rules-menu').style.display === 'flex');
   const htmlSrc = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
   check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
-  check('规则说明线消横清行竖清列', htmlSrc.includes('横着连的清整行、竖着连的清整列'));
+  check('规则说明线消横清行竖清列', htmlSrc.includes('横连清整行、竖连清整列'));
   check('规则含 8 种目标', ['普通得分', '收集方块', '清除果冻', '限时得分', '极限步数', '敲碎冰块', '运送钥匙', '护送奶龙'].every((s) => htmlSrc.includes(s)));
   check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('下面离它最近的那个方块'));
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
@@ -619,7 +619,7 @@ function check(name, ok) {
   check('点「玩法规则」进入玩法规则页', $('play-rules-menu').style.display === 'flex');
   const playHtml = htmlSrc.slice(htmlSrc.indexOf('id="play-rules-box"'), htmlSrc.indexOf('id="btn-play-rules-back"'));
   check('玩法规则里放的是单局玩法（基本玩法 / 特殊块 / 星级）',
-    playHtml.includes('基本玩法') && playHtml.includes('特殊块怎么来') &&
+    playHtml.includes('基本玩法') && playHtml.includes('✨ 特殊块') &&
     playHtml.includes('星级评价怎么算') && !playHtml.includes('福利中心'));
   $('btn-play-rules-back').dispatch('click');
   check('玩法规则「返回」回到规则首页', $('play-rules-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
@@ -2435,6 +2435,60 @@ function check(name, ok) {
     return c1 && c1.label === '磁力虹吸' && c2 && c2.label === '磁力爆破' &&
       c3 && c3.label === '双磁十字' && c4 && c4.freeze === 3 &&
       c5 && !!c5.label;
+  })());
+
+  check('新标准：弯的也算数（横4+竖3 同色 6 格 → 磁铁，横3+竖3 → 炸弹），十字交叉 → 螺旋桨', (() => {
+    const mk = () => [...Array(8)].map((_, r) => [...Array(8)].map((_, c) => ({ type: (r + c) % 2, special: 0 })));
+    // 横 4 + 竖 3（共用一格）= 同色 6 格 → 磁铁
+    const b1 = mk();
+    for (let c = 0; c < 4; c++) b1[3][c] = { type: 2, special: 0 };
+    for (let r = 1; r < 4; r++) b1[r][2] = { type: 2, special: 0 };
+    const runs1 = Sp.detectRuns(b1, 8, 8).filter((x) => x.cells[0].r === 3 || x.cells[0].c === 2);
+    const cells1 = new Set();
+    runs1.forEach((x) => x.cells.forEach((p) => cells1.add(p.r + ',' + p.c)));
+    const plan1 = Sp.planCreation(b1, cells1, null, runs1, Sp.detectLShapes(b1, 8, 8, runs1));
+    // 横 3 + 竖 3（共用一格）= 5 格 L 型 → 炸弹
+    const b2 = mk();
+    for (let c = 0; c < 3; c++) b2[3][c] = { type: 2, special: 0 };
+    for (let r = 1; r < 4; r++) b2[r][1] = { type: 2, special: 0 };
+    const runs2 = Sp.detectRuns(b2, 8, 8).filter((x) => x.cells[0].r === 3 || x.cells[0].c === 1);
+    const cells2 = new Set();
+    runs2.forEach((x) => x.cells.forEach((p) => cells2.add(p.r + ',' + p.c)));
+    const plan2 = Sp.planCreation(b2, cells2, null, runs2, Sp.detectLShapes(b2, 8, 8, runs2));
+    // 横 4 + 竖 4 交叉 → 螺旋桨
+    const b3 = mk();
+    for (let c = 0; c < 4; c++) b3[3][c] = { type: 2, special: 0 };
+    for (let r = 0; r < 4; r++) b3[r][1] = { type: 2, special: 0 };
+    const runs3 = Sp.detectRuns(b3, 8, 8).filter((x) => x.cells[0].r === 3 || x.cells[0].c === 1);
+    const plan3 = Sp.planCreation(b3, new Set(), null, runs3, Sp.detectLShapes(b3, 8, 8, runs3));
+    return plan1 && plan1.type === Sp.TYPE.MAGNET &&
+      plan2 && plan2.type === Sp.TYPE.BOMB &&
+      plan3 && plan3.type === Sp.TYPE.PROPELLER;
+  })());
+
+  check('说明页组合技每一条的「A + B」都加粗，格式统一', (() => {
+    const sec = htmlSrc.slice(htmlSrc.indexOf('💥 组合技'), htmlSrc.indexOf('🔥 连击与倍率'));
+    const lines = sec.split('\n').filter((l) => l.includes('<p>·'));
+    return lines.length >= 9 && lines.every((l) => {
+      const t = l.trim();
+      return t.includes('→') ? /<p>· <b>.+<\/b> →/.test(t) : /<p>· <b>.+<\/b>/.test(t);
+    });
+  })());
+
+  check('README 极简化：有目录板块且按仓库根列表顺序，不再写长篇玩法', (() => {
+    const md = fs.readFileSync('README.md', 'utf8');
+    const order = ['_backend', '_preview', '_sql', 'assets', 'css', 'js',
+      '.gen-preview.js', '.gitattributes', '.gitignore',
+      '04e09ed9f0027f5098706fd59f75b873.txt', '969204503f687f55d49123a656b135b9.txt',
+      'README.md', '_gen-chaptermap.js', '_gen-levels.js', 'index.html',
+      'project.config.json', 'project.private.config.json', 'test-longpress.js', 'test-smoke.js'];
+    let pos = -1;
+    return order.every((name) => {
+      const i = md.indexOf(name, pos + 1);
+      if (i < 0) return false;
+      pos = i;
+      return true;
+    }) && md.length < 1200;
   })());
 
   check('棋盘接入机关：状态数组 / 开局摆放 / 每步结算 / 失败原因 / 传送门与流沙 / 存档与快照', (() => {
