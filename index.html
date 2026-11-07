@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261108a">
-<link rel="stylesheet" href="./css/themes.css?v=20261108a">
+<link rel="stylesheet" href="./css/style.css?v=20261108b">
+<link rel="stylesheet" href="./css/themes.css?v=20261108b">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -153,7 +153,7 @@
       <button class="btn-mini" id="btn-welfare">🎁 签到入口</button>
       <button class="btn-mini" id="btn-goto-shop">🛒 购物商店</button>
       <button class="btn-mini" id="btn-collection">🎨 棋盘配色</button>
-      <button class="btn-mini" id="btn-achievements">🏅 成就</button>
+      <button class="btn-mini" id="btn-achievements">🏅 成就<i class="dot-badge" id="ach-dot" style="display:none;"></i></button>
       <button class="btn-mini" id="btn-leaderboard">📊 排行榜</button>
     </div>
 
@@ -271,50 +271,51 @@
     <h2 class="title small">🧩 功能介绍</h2>
     <div class="rules-box" id="features-box">
       <section class="rule-sec">
-        <h3>① 左上角：🏠 主页 · 📮 邮箱 · 📖 说明</h3>
+        <h3>左上角：🏠 主页 · 📮 邮箱 · 📖 说明</h3>
         <p><b>🏠 主页</b>：看当前昵称，点「✏️ 改名」改名字（账号名一起变）。</p>
         <p><b>📮 邮箱</b>：系统公告和奖励。有未读亮<b>红角标</b>，带奖励的点「领取」进钱包，每封只能领一次。</p>
         <p><b>📖 说明</b>：就是这一页。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>② 右上角：⚙️ 设置 · 🎵 音乐 · 🎒 背包</h3>
+        <h3>右上角：⚙️ 设置 · 🎵 音乐 · 🎒 背包</h3>
         <p><b>⚙️ 设置</b>：账号安全（改密码 / 切换账号 / 云存档 / 存档码 / 注销）和音乐设置。</p>
         <p><b>🎵 音乐</b>：只开关背景音乐，音效照常。</p>
         <p><b>🎒 背包</b>：买到的道具都在里面，<b>点「使用」才生效</b>。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>③ 主页中间：进度与开始</h3>
+        <h3>主页中间：进度与开始</h3>
         <p>显示<b>当前进度、本关最高分、总星星、金币</b>。用 <b>◀ ▶</b> 切到别的关，点 <b>🎮 开始游戏</b> 进关。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>④ 主页按钮区（10 个键）</h3>
+        <h3>主页按钮区（10 个键）</h3>
         <p><b>🗺️ 章节地图</b>：按章节推进，每关 1 星解锁下一关；章节奖励 <b>200 金币</b> 发到邮箱。</p>
         <p><b>🏆 关卡记录</b>：每关的分数和星星，点一关就切过去；右下角「结算」看<b>成绩单</b>。</p>
         <p><b>🎯 每日任务</b>：每天 3 个，完成后回来领金币。<b>📅 每日挑战</b>：所有人同一局，拿到 3 星当天封盘。</p>
         <p><b>🎮 更多玩法</b>：无尽模式、60 秒冲刺、节奏关卡，成绩单独记，<b>不提供续命</b>。</p>
         <p><b>🎁 签到</b>：7 天一轮，断签可 <b>300 金币</b> 补签；旁边每日<b>转盘</b>免费 1 次。</p>
         <p><b>🛒 购物商店</b>：+3 步、+7s、洗牌、撤回、开局线消 / 炸弹、彩虹，买前弹确认。</p>
-        <p><b>🎨 棋盘配色</b>：按总星星解锁，只换光晕和目标栏底色。<b>🏅 成就</b>：每枚 5 阶（灰 → 铜 → 银 → 金 → 彩）。</p>
+        <p><b>🎨 棋盘配色</b>：按总星星解锁，只换光晕和目标栏底色。</p>
+        <p><b>🏅 成就</b>：每枚 5 阶（灰 → 铜 → 银 → 金 → 彩），升一阶奖 <b>50 / 100 / 150 / 200</b> 金币；点进某一枚可以左右滑看奖杯、领奖，没领的会亮<b>小红点</b>。</p>
         <p><b>📊 排行榜</b>：<b>总榜 → 省榜 → 局榜</b>，分数左边带星星，最多显示 20 名。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>⑤ 局内按键</h3>
+        <h3>局内按键</h3>
         <p>顶栏：<b>关卡 / 步数 / 得分 / ⏸ 暂停</b>；右上：🎵 🎒 📖 ⚙️。</p>
         <p>下方：<b>💡 提示</b>（每局 3 次）、<b>🔄 洗牌</b>、<b>↩️ 撤回</b>。退出或切后台会自动暂停。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>⑥ 结算与成绩单</h3>
+        <h3>结算与成绩单</h3>
         <p>过关面板可以「继续游戏」用剩余步数刷分，或直接进下一关。</p>
-        <p><b>🏆 消消乐大师</b>：关卡记录右下角的「结算」随时打开，看称号、通关进度、总分、总星、三星关卡和成就。</p>
+        <p><b>🏆 奶龙消消乐</b>：关卡记录右下角的「结算」随时打开，看称号、通关进度、总分、总星、三星关卡和成就。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>⑦ 账号与云存档</h3>
+        <h3>账号与云存档</h3>
         <p>注册只要<b>名字 + 密码</b>（4~24 位），名字 <b>1~8 个字符</b>、唯一且区分大小写，特殊符号只能用 <b>- . _</b>。</p>
         <p>账号和进度<b>自动存到服务器</b>，换手机 / 清缓存用名字 + 密码登录就能找回；「💾 存档码」可以整份搬家。</p>
         <p>注销 = <b>彻底删除</b>本机和服务器上的全部数据，无法恢复。</p>
@@ -747,7 +748,7 @@
 
   <!-- 🏆 消消乐大师：主线成绩单（关卡记录右下角「结算」键随时可看） -->
   <div class="overlay" id="game-complete" style="display:none;">
-    <h2 class="title small">🏆 消消乐大师</h2>
+    <h2 class="title small">🏆 奶龙消消乐</h2>
     <div class="master-card">
       <div class="master-head">
         <span class="master-crown" id="master-crown">🌱</span>
@@ -757,7 +758,7 @@
         </div>
       </div>
       <div class="master-bar"><span id="master-bar-fill"></span></div>
-      <p class="master-progress" id="master-progress">已通关 0 / 0 关</p>
+      <p class="master-progress" id="master-progress">已通 0 关 · 三星 0 关</p>
       <div class="master-grid">
         <div class="master-item"><span>主线总分</span><b id="complete-total-score">0</b></div>
         <div class="master-item"><span>总星数</span><b id="complete-total-stars">0</b></div>
@@ -826,6 +827,36 @@
     <h2 class="title small">🏅 成就 <span class="sub-count" id="ach-total">0 / 20</span></h2>
     <div class="ach-list" id="ach-list"></div>
     <button class="btn-secondary" id="btn-close-ach">返回</button>
+  </div>
+
+  <!-- 单个成就详情：奖杯 + 左右切换已解锁的阶 + 领奖 -->
+  <div class="overlay" id="ach-detail" style="display:none;">
+    <h2 class="title small" id="ach-d-name">成就</h2>
+    <div class="ach-detail-card">
+      <div class="ach-trophy-row">
+        <button class="ach-nav" id="ach-prev" aria-label="上一阶">◀</button>
+        <div class="ach-trophy t0" id="ach-trophy">
+          <svg class="ach-trophy-svg" viewBox="0 0 64 64" aria-hidden="true">
+            <path d="M20 8h24v11c0 8.3-5.4 15-12 15s-12-6.7-12-15V8z" />
+            <path class="cup-handle" d="M20 12H10v4c0 6.6 4 11 10 11" />
+            <path class="cup-handle" d="M44 12h10v4c0 6.6-4 11-10 11" />
+            <rect x="29" y="33" width="6" height="9" rx="2" />
+            <rect x="21" y="42" width="22" height="5" rx="2.5" />
+            <rect x="16" y="47" width="32" height="7" rx="3.5" />
+          </svg>
+          <span class="ach-trophy-ico" id="ach-d-icon">🏆</span>
+        </div>
+        <button class="ach-nav" id="ach-next" aria-label="下一阶">▶</button>
+      </div>
+      <div class="ach-dots" id="ach-d-dots"></div>
+      <div class="ach-d-info">
+        <b id="ach-d-tier">铜杯</b>
+        <i id="ach-d-req">累计通关 1 次</i>
+      </div>
+      <button class="btn-primary" id="btn-ach-claim">领取 50 金币</button>
+      <p class="ach-d-hint" id="ach-d-hint">左右滑动可以看已经解锁的奖杯</p>
+    </div>
+    <button class="btn-secondary" id="btn-ach-detail-back">返回</button>
   </div>
 
   <!-- 奶龙图鉴 -->
@@ -925,22 +956,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261108a"></script>
-<script src="./js/storage.js?v=20261108a"></script>
-<script src="./js/audio.js?v=20261108a"></script>
-<script src="./js/effects.js?v=20261108a"></script>
-<script src="./js/specials.js?v=20261108a"></script>
-<script src="./js/goals.js?v=20261108a"></script>
-<script src="./js/tasks.js?v=20261108a"></script>
-<script src="./js/mail.js?v=20261108a"></script>
-<script src="./js/input.js?v=20261108a"></script>
-<script src="./js/builtin-music.js?v=20261108a"></script>
-<script src="./js/music.js?v=20261108a"></script>
-<script src="./js/meta.js?v=20261108a"></script>
-<script src="./js/cloud-config.js?v=20261108a"></script>
-<script src="./js/cloud.js?v=20261108a"></script>
-<script src="./js/account.js?v=20261108a"></script>
-<script src="./js/board.js?v=20261108a"></script>
-<script src="./js/game.js?v=20261108a"></script>
+<script src="./js/rng.js?v=20261108b"></script>
+<script src="./js/storage.js?v=20261108b"></script>
+<script src="./js/audio.js?v=20261108b"></script>
+<script src="./js/effects.js?v=20261108b"></script>
+<script src="./js/specials.js?v=20261108b"></script>
+<script src="./js/goals.js?v=20261108b"></script>
+<script src="./js/tasks.js?v=20261108b"></script>
+<script src="./js/mail.js?v=20261108b"></script>
+<script src="./js/input.js?v=20261108b"></script>
+<script src="./js/builtin-music.js?v=20261108b"></script>
+<script src="./js/music.js?v=20261108b"></script>
+<script src="./js/meta.js?v=20261108b"></script>
+<script src="./js/cloud-config.js?v=20261108b"></script>
+<script src="./js/cloud.js?v=20261108b"></script>
+<script src="./js/account.js?v=20261108b"></script>
+<script src="./js/board.js?v=20261108b"></script>
+<script src="./js/game.js?v=20261108b"></script>
 </body>
 </html>

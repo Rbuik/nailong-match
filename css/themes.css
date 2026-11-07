@@ -1467,18 +1467,24 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* 榜单 / 后台名单：用「固定列宽」的表格布局，不是 flex。
    这样每一行的「星星列」「分数列」起点都是同一条竖线，
    名字多长、星星几位数、分数几位数都不会把后面的列挤偏。
-   col4 = 名次 / 名字 / 星星 / 分数（总榜、省榜、局榜）
-   col5 = 名次 / 名字 / 星星 / 分数 / 省份（后台玩家名单） */
+   col4 = 名次 / 名字 / （空档）/ 星星 / 分数（总榜、省榜、局榜）
+   col5 = 名次 / 名字 / （空档）/ 星星 / 分数 / 省份（后台玩家名单）
+   中间那格 28px 的空档 = 让星星和分数整体再往右挪三个字的宽度（28 + 8 列间距 = 36px） */
 .lb-swipe.col4 {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 54px 80px;
+  grid-template-columns: 26px minmax(0, 1fr) 28px 54px 80px;
   column-gap: 8px;
 }
 .lb-swipe.col5 {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 50px 74px minmax(0, max-content);
-  column-gap: 8px;
+  grid-template-columns: 26px minmax(0, 1fr) 24px 48px 66px minmax(0, max-content);
+  column-gap: 6px;
 }
+.lb-swipe.col4 .lb-stars,
+.lb-swipe.col5 .lb-stars { grid-column: 4; }
+.lb-swipe.col4 .lb-score,
+.lb-swipe.col5 .lb-score { grid-column: 5; }
+.lb-swipe.col5 .ul-prov { grid-column: 6; }
 .lb-swipe.col4 .lb-name,
 .lb-swipe.col5 .lb-name {
   min-width: 0;
@@ -1505,11 +1511,12 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* 后台名单的省份：跟在分数后面两个文字左右，右边缘贴住行的内边距 */
 .lb-swipe.col5 .ul-prov {
   margin-left: 0;
-  padding-left: 18px;
+  padding-left: 10px;
   justify-self: start;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-size: 12px;
 }
 /* 分数是 6 位数时也不会挤到省份 */
 .lb-swipe.col5 .ul-score { white-space: nowrap; }
@@ -2201,5 +2208,158 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   font-size: 12px;
   font-weight: 700;
   color: #a08c5a;
+  text-align: center;
+}
+
+/* ================= 🏅 成就奖励（红点 / 奖杯详情） ================= */
+/* 主页「🏅 成就」键右上角的小红点：有奖没领就亮 */
+.btn-mini { position: relative; }
+.dot-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  border: 2px solid #fff;
+  box-sizing: content-box;
+  pointer-events: none;
+}
+/* 每一枚成就行右上角的小红点 */
+.ach-row { position: relative; cursor: pointer; }
+.ach-row:active { transform: scale(0.99); }
+.ach-dot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  box-shadow: 0 0 0 2px #fff;
+  display: none;
+}
+.ach-row.pending .ach-dot { display: block; }
+
+.ach-detail-card {
+  width: 86%;
+  max-width: 360px;
+  box-sizing: border-box;
+  padding: 18px 16px 14px;
+  border-radius: 22px;
+  background: #fff;
+  border: 1px solid rgba(255, 180, 0, 0.22);
+  box-shadow: 0 12px 30px rgba(120, 90, 200, 0.14);
+}
+.ach-trophy-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.ach-nav {
+  flex: 0 0 34px;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+  color: #7c5cff;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 0;
+}
+.ach-nav:disabled { opacity: 0.25; }
+.ach-nav:active { transform: scale(0.94); }
+.ach-trophy {
+  position: relative;
+  width: 122px;
+  height: 122px;
+  flex: 0 0 122px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 26px;
+  background: rgba(0, 0, 0, 0.03);
+  color: #c7c3d4;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.ach-trophy.t1 { color: #b9722f; background: linear-gradient(160deg, #fdf2e7, #f4e0cb); }
+.ach-trophy.t2 { color: #94a3b8; background: linear-gradient(160deg, #f5f8fd, #e2e8f2); }
+.ach-trophy.t3 { color: #e0a800; background: linear-gradient(160deg, #fff9e2, #ffeeb6); }
+.ach-trophy.t4 { color: #ffb300; background: linear-gradient(160deg, #ffe9f3, #e8f4ff 55%, #fff8e2); }
+.ach-trophy-svg {
+  width: 78px;
+  height: 78px;
+  fill: currentColor;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.14));
+}
+.ach-trophy-svg .cup-handle {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+/* 彩杯：奖杯自己慢慢换色，一眼看得出是满级 */
+.ach-trophy.t4 .ach-trophy-svg { animation: ach-hue 5s linear infinite; }
+@keyframes ach-hue {
+  from { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.14)) hue-rotate(0deg); }
+  to { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.14)) hue-rotate(360deg); }
+}
+.ach-trophy-ico {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+.ach-trophy-ico img { width: 22px; height: 22px; object-fit: contain; }
+.ach-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin: 10px 0 8px;
+}
+.ach-dot-i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.12);
+  transition: transform 0.2s ease;
+}
+.ach-dot-i.t1 { background: #cf9a6a; }
+.ach-dot-i.t2 { background: #a8b3c4; }
+.ach-dot-i.t3 { background: #e3b322; }
+.ach-dot-i.t4 { background: linear-gradient(135deg, #ff9fc4, #8ec9ff 50%, #ffd666); }
+.ach-dot-i.cur { transform: scale(1.6); }
+.ach-dot-i.got { opacity: 0.4; }
+.ach-d-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  margin: 0 0 12px;
+}
+.ach-d-info b { font-size: 18px; font-weight: 900; color: #3d3556; }
+.ach-d-info i { font-style: normal; font-size: 12px; color: #8a82a6; }
+#btn-ach-claim { width: 100%; margin-bottom: 0; font-size: 15px; padding: 12px 0; }
+.ach-d-hint {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: #a29bb5;
   text-align: center;
 }

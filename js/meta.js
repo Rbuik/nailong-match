@@ -9,6 +9,7 @@
     stats: 'nl2:mstats',        // 累计计数（成就用）
     ach: 'nl2:mach',            // 已解锁成就 id（满级「彩」）
     acht: 'nl2:macht',          // 成就阶数 { id: 1~4 }，0/缺省为灰
+    achc: 'nl2:machc',          // 已领奖的阶 { id: [1,2,3] }，缺省 = 一次都没领
     skin: 'nl2:mskin',          // 当前皮肤
     skins: 'nl2:mskins',        // 已解锁皮肤
     wheel: 'nl2:mwheel',        // { date, result }
@@ -58,6 +59,9 @@
   // 每枚成就都有 5 阶：灰（未解锁）→ 铜 → 银 → 金 → 彩（满级）
   // tiers 依次是「铜 / 银 / 金 / 彩」四道门槛，进度达到哪一档就升到哪个颜色
   const ACH_TIERS = ['灰', '铜', '银', '金', '彩'];
+
+  // 每升一阶的奖励金币：铜 50 / 银 100 / 金 150 / 彩 200（灰没有奖励）
+  const TIER_COINS = [0, 50, 100, 150, 200];
 
   const ACHIEVEMENTS = [
     { id: 'first',    icon: '🌱', name: '初次消除',   desc: '累计通关次数',     key: 'wins',      tiers: [1, 10, 50, 100] },
@@ -112,6 +116,62 @@
     if ((m[id] || 0) >= tier) return;
     m[id] = tier;
     write(K.acht, m);
+  }
+
+  // ==================== 成就奖励（铜 / 银 / 金 / 彩 各领一次） ====================
+  // 已领奖记录：{ 成就id: [1,2,3] }（数字是阶），没领过的阶就是「有红点」
+  function claimedMap() {
+    const m = read(K.achc, {});
+    return (m && typeof m === 'object' && !Array.isArray(m)) ? m : {};
+  }
+
+  function isTierClaimed(id, tier) {
+    const l = claimedMap()[id];
+    return Array.isArray(l) && l.indexOf(tier) >= 0;
+  }
+
+  function tierCoin(tier) {
+    return TIER_COINS[tier] || 0;
+  }
+
+  // 已经解锁的阶（1 = 铜 … 4 = 彩），灰不算
+  function unlockedTiers(id) {
+    const t = tierOf(id);
+    const list = [];
+    for (let i = 1; i <= t; i++) list.push(i);
+    return list;
+  }
+
+  // 已解锁但还没领奖的阶
+  function claimableTiers(id) {
+    return unlockedTiers(id).filter((t) => !isTierClaimed(id, t));
+  }
+
+  function hasPending(id) {
+    return claimableTiers(id).length > 0;
+  }
+
+  // 一共有多少枚成就「有奖没领」（红点数字 / 要不要显示红点都用它）
+  function pendingCount() {
+    return ACHIEVEMENTS.filter((a) => hasPending(a.id)).length;
+  }
+
+  // 领地某一阶的奖励：金币直接进钱包，返回 { ok, coins }
+  function claimTier(id, tier) {
+    const a = ACHIEVEMENTS.filter((x) => x.id === id)[0];
+    if (!a) return { ok: false, reason: '没有这枚成就' };
+    const t = Math.round(Number(tier) || 0);
+    if (t < 1 || t > 4) return { ok: false, reason: '没有这一阶' };
+    if (tierOf(id) < t) return { ok: false, reason: '还没解锁这一阶' };
+    if (isTierClaimed(id, t)) return { ok: false, reason: '已经领过了' };
+    const coins = tierCoin(t);
+    const m = claimedMap();
+    const arr = Array.isArray(m[id]) ? m[id].slice() : [];
+    arr.push(t);
+    m[id] = arr;
+    write(K.achc, m);
+    if (coins && global.Store && Store.addCoins) Store.addCoins(coins);
+    return { ok: true, coins: coins, tier: t, label: ACH_TIERS[t], ach: a };
   }
 
   // 成就判定的数据源（累计计数 + 存档里的星星 / 通关数 + 各模式最佳）
@@ -473,7 +533,7 @@
   }
 
   // ==================== 渲染：成就墙 ====================
-  function renderAchievements(box) {
+  function renderAchievements(box, onOpen) {
     if (!box) return;
     const ctx = achContext();
     box.innerHTML = '';
@@ -483,6 +543,8 @@
       const next = a.tiers[Math.min(tier, 3)];
       const row = document.createElement('div');
       row.className = 'ach-row t' + tier;
+      // 有奖没领 → 右上角一个小红点
+      if (hasPending(a.id)) row.className += ' pending';
       const prog = tier >= 4
         ? '已满级'
         : cur + ' / ' + next + '（下一个：' + ACH_TIERS[tier + 1] + '）';
@@ -492,7 +554,9 @@
       row.innerHTML =
         '<span class="ach-icon">' + iconHtml + '</span>' +
         '<span class="ach-main"><b>' + a.name + '</b><i>' + a.desc + ' · ' + prog + '</i></span>' +
-        '<span class="ach-mark t' + tier + '">' + ACH_TIERS[tier] + '</span>';
+        '<span class="ach-mark t' + tier + '">' + ACH_TIERS[tier] + '</span>' +
+        '<i class="ach-dot" aria-hidden="true"></i>';
+      row.addEventListener('click', () => { if (onOpen) onOpen(a, tier); });
       box.appendChild(row);
     });
   }
@@ -521,9 +585,10 @@
   }
 
   global.Meta = {
-    ACHIEVEMENTS, ACH_TIERS, SKINS, WHEEL,
+    ACHIEVEMENTS, ACH_TIERS, TIER_COINS, SKINS, WHEEL,
     stats, bump, setMax, check, unlockedIds, clearedCount,
     tierOf, tiersMap, achContext, tierByValue,
+    tierCoin, isTierClaimed, unlockedTiers, claimableTiers, hasPending, pendingCount, claimTier,
     currentSkin, applySkin, unlockSkin, renderSkins,
     getBest, recordBest,
     canSpin, spin, wheelState,

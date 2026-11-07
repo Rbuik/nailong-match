@@ -2514,7 +2514,8 @@
       if (starsNow >= 3) Meta.bump('perfect', 1);
       if (S.maxCombo >= 4) Meta.setMax('maxCombo', S.maxCombo);
       const newAch = Meta.check();
-      if (newAch.length) setTimeout(() => toast('🏅 ' + newAch[0].a.name + ' 升到「' + newAch[0].label + '」阶'), 1200);
+      if (newAch.length) setTimeout(() => toast('🏅 ' + newAch[0].a.name + ' 升到「' + newAch[0].label + '」阶，去成就里领奖'), 1200);
+      updateAchDot();
       try { recordMyScore(); } catch (e) {}
     }
 
@@ -2753,6 +2754,7 @@
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
       'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu',
+      'ach-detail',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
       const el = $(id);
       if (el) el.style.display = 'none';
@@ -2778,7 +2780,7 @@
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
-    'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu'];
+    'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu', 'ach-detail'];
 
   function setView(view) {
     document.body.dataset.view = view;
@@ -3058,7 +3060,7 @@
     let title = '消消乐学徒', crown = '🌱', sub = '先去闯几关吧';
     if (cleared >= total) {
       if (perfect >= total) { title = '消消乐宗师'; crown = '👑'; sub = '全关三星，无可挑剔'; }
-      else { title = '消消乐大师'; crown = '🏆'; sub = '主线全部通关'; }
+      else { title = '消消乐大师'; crown = '🏆'; sub = '继续冲三星'; }
     } else if (ratio >= 0.75) { title = '消消乐高手'; crown = '🥇'; sub = '离全部通关只差几关'; }
     else if (ratio >= 0.5) { title = '消消乐达人'; crown = '🥈'; sub = '已经过半，继续往前'; }
     else if (ratio >= 0.25) { title = '消消乐新星'; crown = '🥉'; sub = '渐入佳境'; }
@@ -3067,24 +3069,27 @@
     setText('master-crown', crown);
     setText('master-title', title);
     setText('master-sub', sub);
-    setText('master-progress', '已通关 ' + cleared + ' / ' + total + ' 关 · 三星 ' + perfect + ' 关');
+    // 不写「/ 总数」：只说已经拿到多少
+    setText('master-progress', '已通 ' + cleared + ' 关 · 三星 ' + perfect + ' 关');
     const fill = $('master-bar-fill');
     if (fill) fill.style.width = Math.round(ratio * 100) + '%';
 
     // 成就：已经点亮的枚数
-    let achGot = 0, achAll = 0;
+    let achGot = 0;
     try {
-      achAll = Meta.ACHIEVEMENTS.length;
       achGot = Meta.ACHIEVEMENTS.filter((a) => Meta.tierOf(a.id) >= 1).length;
     } catch (e) {}
-    setText('master-ach', achGot + ' / ' + achAll);
-    setText('master-perfect', perfect + ' / ' + total);
+    setText('master-ach', String(achGot));
+    setText('master-perfect', String(perfect));
 
+    // 底部一句话：通关以后不再报差多少关（也不写毕业口吻的话）
     let foot = '继续闯关，冲击满星';
-    if (cleared >= total && perfect >= total) foot = '全部三星，满分毕业 🎉';
-    else if (cleared >= total) foot = '还差 ' + (total - perfect) + ' 关拿到三星';
-    else foot = '还差 ' + (total - cleared) + ' 关全部通关';
-    setText('master-foot', foot);
+    if (cleared >= total) foot = (perfect >= total) ? '全部三星，满分毕业 🎉' : '';
+    const footEl = $('master-foot');
+    if (footEl) {
+      footEl.textContent = foot;
+      footEl.style.display = foot ? 'block' : 'none';
+    }
 
     const sc = $('complete-total-score'), st = $('complete-total-stars');
     if (st) { st.textContent = '0'; countUp(st, totalStars, 900); }   // 总星数和总分数同一时长滚动
@@ -3098,11 +3103,11 @@
     const d = def || getLevelDef(lv);
     return !!(d && d.goal && d.goal.type === 'drop' && d.id >= 31 && (d.cargo || 0) > 0);
   }
-  // 关卡记录 / 章节地图上写的玩法名：运送关从第四章起标成「运送糖果 🍬」
+  // 关卡记录 / 章节地图上写的玩法名：运送关从第四章起标成「运送糖果」（不带 emoji）
   function levelModeLabel(lv, def) {
     const d = def || getLevelDef(lv);
     if (!d || !d.goal) return '';
-    if (levelHasCandy(lv, d)) return '运送糖果 🍬';
+    if (levelHasCandy(lv, d)) return '运送糖果';
     return Goals.LABEL[d.goal.type] || '';
   }
 
@@ -4803,6 +4808,30 @@
 
     on('btn-achievements', () => { renderAchPanel(); showOverlay('achievements-menu'); });
     on('btn-close-ach', () => { $('achievements-menu').style.display = 'none'; showOverlay('main-menu'); });
+    on('btn-ach-detail-back', () => {
+      $('ach-detail').style.display = 'none';
+      renderAchPanel();                 // 领过奖的话列表红点要跟着消失
+      showOverlay('achievements-menu');
+    });
+    on('btn-ach-claim', claimAchReward);
+    on('ach-prev', () => stepAchDetail(-1));
+    on('ach-next', () => stepAchDetail(1));
+    // 奖杯区域左右滑动也能切阶（手指划过 30px 才算）
+    (function bindAchSwipe() {
+      const box = $('ach-trophy');
+      if (!box) return;
+      let sx = null, sy = null;
+      box.addEventListener('pointerdown', (e) => { sx = e.clientX || 0; sy = e.clientY || 0; });
+      box.addEventListener('pointercancel', () => { sx = sy = null; });
+      box.addEventListener('pointerup', (e) => {
+        if (sx == null) return;
+        const dx = (e.clientX || 0) - sx;
+        const dy = (e.clientY || 0) - sy;
+        sx = sy = null;
+        if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy)) return;
+        stepAchDetail(dx < 0 ? 1 : -1);
+      });
+    })();
     on('btn-collection', () => { renderSkinPanel(); showOverlay('collection-menu'); });
     on('btn-close-skins', () => { $('collection-menu').style.display = 'none'; showOverlay('main-menu'); });
     on('btn-welfare', () => { renderWelfare(); showOverlay('welfare-menu'); });
@@ -5376,6 +5405,7 @@
     const stars = $('menu-total-stars');
     if (stars) stars.textContent = Store.totalStars();
     refreshMailBadge();
+    updateAchDot();
 
     const coins = $('menu-coins');
     if (coins) coins.textContent = Store.getWallet().coins;
@@ -5633,12 +5663,10 @@
       for (let lv = ch.from; lv <= ch.to; lv++) {
         const rec = Store.getLevelRecord(lv);
         const open = lv <= maxU;
-        const candy = open && levelHasCandy(lv);
         const b = document.createElement('button');
         b.className = 'level-chip' + (open ? '' : ' locked') + ((rec.stars || 0) >= 1 ? ' done' : '') +
           (lv === (S.menuLevel || 0) ? ' current' : '');
-        b.innerHTML = '<b>' + lv + '</b><i>' + (open ? ('★★★'.slice(0, rec.stars || 0) || '·') : '🔒') + '</i>' +
-          (candy ? '<span class="chip-candy" title="运送糖果">🍬</span>' : '');
+        b.innerHTML = '<b>' + lv + '</b><i>' + (open ? ('★★★'.slice(0, rec.stars || 0) || '·') : '🔒') + '</i>';
         if (open) {
           b.addEventListener('click', () => {
             $('chapters-menu').style.display = 'none';
@@ -5856,12 +5884,122 @@
   }
 
   // ---------- 成就墙 ----------
+  // 每枚成就升一阶就有一份金币奖励（铜 50 / 银 100 / 金 150 / 彩 200），
+  // 没领的阶会在成就行右上角、以及主页「🏅 成就」键右上角亮小红点
+  const ACH_TIER_NAME = ['灰', '铜', '银', '金', '彩'];
+  let achDetail = { id: '', tier: 1 };
+
+  function updateAchDot() {
+    const dot = $('ach-dot');
+    if (!dot) return;
+    let n = 0;
+    try { n = Meta.pendingCount(); } catch (e) {}
+    dot.style.display = n > 0 ? 'block' : 'none';
+  }
+
   function renderAchPanel() {
     try { Meta.check(); } catch (e) {}      // 先把阶数刷新到最新
-    Meta.renderAchievements($('ach-list'));
+    Meta.renderAchievements($('ach-list'), (a) => openAchDetail(a.id));
     // 至少到「铜」才算解锁（灰色 = 还没开始）
     const n = Meta.ACHIEVEMENTS.filter((a) => Meta.tierOf(a.id) >= 1).length;
     if ($('ach-total')) $('ach-total').textContent = n + ' / ' + Meta.ACHIEVEMENTS.length;
+    updateAchDot();
+  }
+
+  // 点某一枚成就 → 详情：当前颜色的奖杯 + 左右切已解锁的阶 + 领奖
+  function openAchDetail(id) {
+    const t = Meta.tierOf(id);
+    if (t < 1) {
+      toast('这枚成就还没解锁，先拿到「铜」杯再来');
+      AudioManager.playSFX('invalid');
+      return;
+    }
+    const pend = Meta.claimableTiers(id);
+    // 默认停在「最高一阶」：有奖没领时正好停在能领的那一阶
+    achDetail = { id: id, tier: pend.length ? Math.max.apply(null, pend) : t };
+    renderAchDetail();
+    showOverlay('ach-detail');
+  }
+
+  function renderAchDetail() {
+    const a = Meta.ACHIEVEMENTS.filter((x) => x.id === achDetail.id)[0];
+    if (!a) return;
+    const maxTier = Math.max(1, Meta.tierOf(a.id));
+    const tier = Math.min(Math.max(1, achDetail.tier), maxTier);
+    achDetail.tier = tier;
+
+    if ($('ach-d-name')) $('ach-d-name').textContent = '🏅 ' + a.name;
+
+    const trophy = $('ach-trophy');
+    if (trophy) trophy.className = 'ach-trophy t' + tier;
+    const ico = $('ach-d-icon');
+    if (ico) {
+      ico.innerHTML = a.iconImg ? '<img src="' + a.iconImg + '" alt="">' : a.icon;
+    }
+
+    // 奖杯下面一排小点：一共几阶、当前停在哪一阶
+    const dots = $('ach-d-dots');
+    if (dots) {
+      dots.innerHTML = '';
+      for (let i = 1; i <= maxTier; i++) {
+        const d = document.createElement('i');
+        d.className = 'ach-dot-i t' + i + (i === tier ? ' cur' : '');
+        if (Meta.isTierClaimed(a.id, i)) d.className += ' got';
+        dots.appendChild(d);
+      }
+    }
+
+    if ($('ach-d-tier')) $('ach-d-tier').textContent = ACH_TIER_NAME[tier] + '杯';
+    if ($('ach-d-req')) {
+      $('ach-d-req').textContent = a.desc + '，达到 ' + a.tiers[tier - 1];
+    }
+
+    // 左右箭头：只有一阶时藏起来；到头了置灰
+    const prev = $('ach-prev'), next = $('ach-next');
+    if (prev) { prev.style.display = maxTier > 1 ? 'flex' : 'none'; prev.disabled = tier <= 1; }
+    if (next) { next.style.display = maxTier > 1 ? 'flex' : 'none'; next.disabled = tier >= maxTier; }
+    if ($('ach-d-hint')) {
+      $('ach-d-hint').style.display = maxTier > 1 ? 'block' : 'none';
+      $('ach-d-hint').textContent = '左右滑动看已经解锁的奖杯 · 共 ' + maxTier + ' 阶';
+    }
+
+    const btn = $('btn-ach-claim');
+    if (btn) {
+      const coins = Meta.tierCoin(tier);
+      if (Meta.isTierClaimed(a.id, tier)) {
+        btn.textContent = '已领取 ' + coins + ' 金币';
+        btn.disabled = true;
+        btn.className = 'btn-secondary';
+      } else {
+        btn.textContent = '领取 ' + coins + ' 金币';
+        btn.disabled = false;
+        btn.className = 'btn-primary';
+      }
+    }
+  }
+
+  function stepAchDetail(dir) {
+    if (!achDetail.id) return;
+    const maxTier = Math.max(1, Meta.tierOf(achDetail.id));
+    const to = Math.min(Math.max(1, achDetail.tier + dir), maxTier);
+    if (to === achDetail.tier) return;
+    achDetail.tier = to;
+    AudioManager.playSFX('select');
+    renderAchDetail();
+  }
+
+  function claimAchReward() {
+    const r = Meta.claimTier(achDetail.id, achDetail.tier);
+    if (!r.ok) {
+      toast(r.reason || '现在领不了');
+      AudioManager.playSFX('invalid');
+      return;
+    }
+    AudioManager.playSFX('coin');
+    toast('+' + r.coins + ' 金币');
+    if ($('menu-coins')) $('menu-coins').textContent = Store.getWallet().coins;
+    renderAchDetail();
+    renderAchPanel();     // 顺带刷新成就行的红点 / 主页成就键的红点
   }
 
   // ---------- 图鉴 / 皮肤 ----------

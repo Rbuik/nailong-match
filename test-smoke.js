@@ -605,10 +605,11 @@ function check(name, ok) {
   $('btn-goto-features').dispatch('click');
   check('点「功能介绍」进入功能介绍页', $('features-menu').style.display === 'flex' && $('rules-menu').style.display === 'none');
   const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="btn-features-back"'));
-  check('功能介绍按按键层次排：左上角 / 右上角 / 中间 / 按钮区 / 局内 / 结算 / 账号',
-    featsHtml.includes('① 左上角') && featsHtml.includes('② 右上角') && featsHtml.includes('③ 主页中间') &&
-    featsHtml.includes('④ 主页按钮区') && featsHtml.includes('⑤ 局内按键') &&
-    featsHtml.includes('⑥ 结算与成绩单') && featsHtml.includes('⑦ 账号与云存档') &&
+  check('功能介绍按按键层次排：左上角 / 右上角 / 中间 / 按钮区 / 局内 / 结算 / 账号（不写序号）',
+    featsHtml.includes('左上角：🏠 主页') && featsHtml.includes('右上角：⚙️ 设置') &&
+    featsHtml.includes('主页中间：进度与开始') && featsHtml.includes('主页按钮区') &&
+    featsHtml.includes('局内按键') && featsHtml.includes('结算与成绩单') &&
+    featsHtml.includes('账号与云存档') && !/[①②③④⑤⑥⑦]/.test(featsHtml) &&
     featsHtml.includes('📮 邮箱') && !featsHtml.includes('基本玩法'));
   $('btn-features-back').dispatch('click');
   check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
@@ -1991,10 +1992,11 @@ function check(name, ok) {
     htmlSrc0.includes('🎮 玩法说明') && !htmlSrc0.includes('🎮 玩法规则') &&
     htmlSrc0.includes('说明字号'));
   // 41f-8. 榜上星星占固定一格：★ 一列对齐，数字紧跟 ★（不右推、不留大空档）
-  check('榜上星星 / 分数用固定列宽（★ 与分数各对齐到一条竖线）', (() => {
+  check('榜上星星 / 分数用固定列宽，并整体再往右挪三个字（空档列）', (() => {
     const g4 = /\.lb-swipe\.col4\s*\{[^}]*\}/.exec(cssSrc);
     const num = /\.lb-stars b\s*\{[^}]*\}/.exec(cssSrc);
-    return !!g4 && /grid-template-columns:\s*26px minmax\(0, 1fr\) 54px 80px/.test(g4[0]) &&
+    return !!g4 && /grid-template-columns:\s*26px minmax\(0, 1fr\) 28px 54px 80px/.test(g4[0]) &&
+      /\.lb-swipe\.col4 \.lb-stars,\s*\n\.lb-swipe\.col5 \.lb-stars\s*\{\s*grid-column:\s*4/.test(cssSrc) &&
       !!num && /text-align:\s*left/.test(num[0]) && !/min-width/.test(num[0]) &&
       /lb-star-ico/.test(jsSrc) && cssSrc.includes('lb-star-ico');
   })());
@@ -2097,8 +2099,8 @@ function check(name, ok) {
   // 41o. 星星整列右移 / 后台玩家分数字左带星 / 名字 1~8 个字符 / 结算音效跟面板同拍
   const workerSrc = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
   check('排行榜星星整列左对齐、后台星星也左对齐（固定列）', (() => {
-    const host = /\.lb-stars\s*\{[^}]*\}/.exec(cssSrc);
-    const ul = /\.ul-stars\s*\{[^}]*\}/.exec(cssSrc);
+    const host = /\.lb-stars\s*\{[^}]*justify-content:\s*flex-start/.exec(cssSrc);
+    const ul = /\.ul-stars\s*\{[^}]*justify-content:\s*flex-start/.exec(cssSrc);
     const g5 = /\.lb-swipe\.col5\s*\{[^}]*\}/.exec(cssSrc);
     return !!host && /justify-content:\s*flex-start/.test(host[0]) &&
       !!ul && /justify-content:\s*flex-start/.test(ul[0]) && !!g5;
@@ -2140,15 +2142,20 @@ function check(name, ok) {
 
   // 41q. 本轮：说明精简 / 功能介绍按按键层次 / 消消乐大师成绩单 / 糖果关卡可见 / 榜单固定列
   //      成就调整（分数收割机门槛、删两枚、加糖果爱好者）/ 云存档自动化
-  check('消消乐大师：标题不再写「恭喜全通关」，改成成绩单（称号 / 进度条 / 四项数据）',
-    !htmlSrc.includes('恭喜全通关') && htmlSrc.includes('🏆 消消乐大师') &&
+  check('成绩单标题叫「奶龙消消乐」，不再写「恭喜全通关」',
+    !htmlSrc.includes('恭喜全通关') && htmlSrc.includes('🏆 奶龙消消乐') &&
     htmlSrc.includes('id="master-title"') && htmlSrc.includes('id="master-bar-fill"') &&
     htmlSrc.includes('id="complete-total-score"') && htmlSrc.includes('id="complete-total-stars"') &&
     htmlSrc.includes('id="master-perfect"') && htmlSrc.includes('id="master-ach"'));
-  check('消消乐大师按进度算称号，全三星才叫宗师', (() => {
-    return /title = '消消乐宗师'/.test(jsSrc) && /title = '消消乐大师'/.test(jsSrc) &&
-      /title = '消消乐高手'/.test(jsSrc) && /title = '消消乐达人'/.test(jsSrc) &&
-      /title = '消消乐新星'/.test(jsSrc) && /已通关 ' \+ cleared \+ ' \/ ' \+ total/.test(jsSrc);
+  check('成绩单按进度算称号，全三星才叫宗师；文案不写「/总数」「还差」', (() => {
+    const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
+    return /title = '消消乐宗师'/.test(fn) && /title = '消消乐大师'/.test(fn) &&
+      /title = '消消乐高手'/.test(fn) && /title = '消消乐达人'/.test(fn) &&
+      /title = '消消乐新星'/.test(fn) &&
+      /'已通 ' \+ cleared \+ ' 关 · 三星 ' \+ perfect \+ ' 关'/.test(fn) &&
+      !/还差/.test(fn) && !fn.includes('主线全部通关') &&
+      /setText\('master-ach', String\(achGot\)\)/.test(fn) &&
+      /setText\('master-perfect', String\(perfect\)\)/.test(fn);
   })());
   check('成就：加了「糖果爱好者」，删了「过半征程」「通关大师」', (() => {
     const ids = sandbox.Meta.ACHIEVEMENTS.map((a) => a.id);
@@ -2166,10 +2173,37 @@ function check(name, ok) {
     const metaSrc = fs.readFileSync(path.join(__dirname, 'js', 'meta.js'), 'utf8');
     return /Meta\.bump\('candy', candies\)/.test(jsSrc) && /'cargo', 'candy', 'rescue'/.test(metaSrc);
   })());
-  check('关卡记录标出「运送糖果 🍬」，章节地图给糖果关加 🍬 角标',
-    /function levelHasCandy/.test(jsSrc) && /运送糖果 🍬/.test(jsSrc) &&
-    /chip-candy/.test(jsSrc) && /candy-tag/.test(jsSrc) &&
+  check('关卡记录标「运送糖果」四个字（不带 🍬），章节地图也不挂 🍬 角标',
+    /function levelHasCandy/.test(jsSrc) && /return '运送糖果';/.test(jsSrc) &&
+    !/运送糖果 🍬/.test(jsSrc) && !/chip-candy/.test(jsSrc) &&
     /d\.id >= 31 && \(d\.cargo \|\| 0\) > 0/.test(jsSrc));
+  // 41r. 成就奖励：铜 / 银 / 金 / 彩 各 50 / 100 / 150 / 200 金币，可领时亮红点
+  check('成就四阶奖励金币：铜 50 / 银 100 / 金 150 / 彩 200', (() => {
+    return JSON.stringify(sandbox.Meta.TIER_COINS) === JSON.stringify([0, 50, 100, 150, 200]) &&
+      sandbox.Meta.tierCoin(1) === 50 && sandbox.Meta.tierCoin(4) === 200;
+  })());
+  check('成就领奖：领一次进钱包、不能重复领、没领的阶算「有红点」', (() => {
+    const id = 'first';
+    localStorageStub.setItem('nl2:macht', JSON.stringify({ first: 2 }));   // 已经到银杯
+    localStorageStub.setItem('nl2:machc', JSON.stringify({}));
+    const before = sandbox.Store.getWallet().coins;
+    const pend0 = sandbox.Meta.claimableTiers(id).length;
+    const r1 = sandbox.Meta.claimTier(id, 1);
+    const r2 = sandbox.Meta.claimTier(id, 1);
+    const after = sandbox.Store.getWallet().coins;
+    const pend1 = sandbox.Meta.claimableTiers(id).length;
+    return pend0 === 2 && r1.ok && r1.coins === 50 && !r2.ok &&
+      after === before + 50 && pend1 === 1 &&
+      sandbox.Meta.isTierClaimed(id, 1) && !sandbox.Meta.isTierClaimed(id, 2) &&
+      sandbox.Meta.hasPending(id) && sandbox.Meta.pendingCount() >= 1;
+  })());
+  check('成就墙 / 成就键的红点：没领奖才有 .pending 与小圆点元素', (() => {
+    return /hasPending\(a\.id\)/.test(fs.readFileSync(path.join(__dirname, 'js', 'meta.js'), 'utf8')) &&
+      /class="ach-dot"/.test(fs.readFileSync(path.join(__dirname, 'js', 'meta.js'), 'utf8')) &&
+      htmlSrc.includes('id="ach-dot"') && htmlSrc.includes('id="ach-detail"') &&
+      htmlSrc.includes('id="btn-ach-claim"') && htmlSrc.includes('ach-trophy-svg') &&
+      /function updateAchDot/.test(jsSrc) && /updateAchDot\(\)/.test(jsSrc);
+  })());
   check('榜单改用固定列：星星列、分数列各自对齐（col4 / col5）',
     /lb-swipe col4/.test(jsSrc) && /lb-swipe col5/.test(jsSrc) &&
     /\.lb-swipe\.col4\s*\{[^}]*display: grid/.test(cssSrc) &&
