@@ -8,7 +8,7 @@
   body { margin: 0; background: #efe6fb; display: flex; flex-direction: column; align-items: center; gap: 26px; padding: 22px 0; }
   .cap { font-size: 14px; color: #6b6285; font-weight: 700; margin: 0; }
   /* 模拟 #game-complete 面板（尺寸对齐手机竖屏） */
-  .gc { width: 420px; height: 720px; border-radius: 24px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .gc { width: 420px; height: 720px; border-radius: 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; overflow: hidden; }
   .gc.t0 { background: #f6f4fa; }
 </style>
 </head>
@@ -36,20 +36,16 @@ TITLES.forEach((t) => {
   gc.className = 'gc';
   gc.style.background = t.bg;
   gc.innerHTML =
-    '<div class="master-stage">' +
-      '<h2 class="title small">🎉 恭喜</h2>' +
-      '<div class="master-card">' +
-        '<div class="master-head"><span class="master-crown">' + t.crown + '</span>' +
-        '<div class="master-title-box"><b>' + t.name + '</b></div></div>' +
-        '<div class="master-bar"><span style="transition:none;width:' + Math.round(t.ratio * 100) + '%"></span></div>' +
-        '<p class="master-progress">已通 ' + t.cleared + ' 关 · 三星 ' + t.perfect + ' 关</p>' +
-        '<div class="master-grid">' +
-          '<div class="master-item"><span>主线总分</span><b>' + t.score + '</b></div>' +
-          '<div class="master-item"><span>总星数</span><b>' + t.stars + '</b></div>' +
-          '<div class="master-item"><span>三星关卡</span><b>' + t.perfect + '</b></div>' +
-          '<div class="master-item"><span>成就</span><b>' + t.ach + '</b></div>' +
-        '</div>' +
-        '<p class="master-foot">' + t.foot + '</p>' +
+    '<h2 class="title small">🎉 恭喜</h2>' +
+    '<div class="master-card">' +
+      '<div class="master-head"><span class="master-crown">' + t.crown + '</span>' +
+      '<div class="master-title-box"><b>' + t.name + '</b></div></div>' +
+      '<p class="master-progress">已通 ' + t.cleared + ' 关 · 三星 ' + t.perfect + ' 关</p>' +
+      '<div class="master-grid">' +
+        '<div class="master-item"><span>主线总分</span><b>' + t.score + '</b></div>' +
+        '<div class="master-item"><span>总星数</span><b>' + t.stars + '</b></div>' +
+        '<div class="master-item"><span>三星关卡</span><b>' + t.perfect + '</b></div>' +
+        '<div class="master-item"><span>成就</span><b>' + t.ach + '</b></div>' +
       '</div>' +
     '</div>';
   wrap.appendChild(cap);

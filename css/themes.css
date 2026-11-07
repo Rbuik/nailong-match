@@ -2151,38 +2151,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   font-size: 11px;
   color: #9a93ad;
 }
-.master-bar {
-  height: 10px;
-  margin: 14px 0 6px;
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-}
-.master-bar span {
-  display: block;
-  height: 100%;
-  width: 0;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #ffd24a, #ff9a3c);
-  /* 进度条动画时长恒定（1.4s 匀速），和进度大小无关——每次打开都慢慢爬到位置 */
-  transition: width 1.4s linear;
-}
-/* 成绩单居中：框框（master-card）严格落在屏幕正中，「🎉 恭喜」悬在框上方 */
-#game-complete .master-stage {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-#game-complete .master-stage > .title.small {
-  position: absolute;
-  bottom: calc(100% + 8px);
-  left: 0;
-  right: 0;
-  margin: 0;
-}
 .master-progress {
-  margin: 0 0 12px;
+  margin: 14px 0 12px;
   font-size: 11px;
   font-weight: 700;
   color: #8a82a6;
@@ -2212,13 +2182,6 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 .master-item:nth-child(2) b { color: #ffb400; }
 .master-item:nth-child(3) b { color: #7c5cff; }
 .master-item:nth-child(4) b { color: #2fa84f; }
-.master-foot {
-  margin: 12px 0 0;
-  font-size: 12px;
-  font-weight: 700;
-  color: #a08c5a;
-  text-align: center;
-}
 
 /* ================= 🏅 成就奖励（红点 / 奖杯详情） ================= */
 /* 主页「🏅 成就」键右上角的小红点：有奖没领就亮 */

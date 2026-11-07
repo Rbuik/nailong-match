@@ -3021,30 +3021,12 @@
     setText('master-title', title);
     // 不写「/ 总数」：只说已经拿到多少
     setText('master-progress', '已通 ' + cleared + ' 关 · 三星 ' + perfect + ' 关');
-    const fill = $('master-bar-fill');
-    if (fill) {
-      // 进度条动画与进度无关：每次打开先归零，再用恒定 1.4s 匀速爬到目标位置
-      fill.style.transition = 'none';
-      fill.style.width = '0%';
-      void fill.offsetWidth;            // 强制回流，保证从 0 起跳
-      fill.style.transition = '';       // 交还给 CSS 的 1.4s linear
-      fill.style.width = Math.round(ratio * 100) + '%';
-    }
 
     // 成就：已经点亮的枚数
     let achGot = 0;
     try {
       achGot = Meta.ACHIEVEMENTS.filter((a) => Meta.tierOf(a.id) >= 1).length;
     } catch (e) {}
-
-    // 底部一句话：通关以后不再报差多少关（也不写毕业口吻的话）
-    let foot = '继续闯关，冲击满星';
-    if (cleared >= total) foot = (perfect >= total) ? '全部三星，满分毕业 🎉' : '';
-    const footEl = $('master-foot');
-    if (footEl) {
-      footEl.textContent = foot;
-      footEl.style.display = foot ? 'block' : 'none';
-    }
 
     // 四格数字全部滚动，时长一致（900ms）
     const pf = $('master-perfect'), ac = $('master-ach');

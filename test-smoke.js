@@ -2076,17 +2076,16 @@ function check(name, ok) {
       w1 && w1.reward === 20 && w1.event === 'win' &&
       sandbox.Tasks.getToday().length === 5;
   })());
-  check('每日任务奖励只有 20/40/60 三档，按难度分档，每天每档至少一个', (() => {
+  check('每日任务奖励恢复原面值（20~150 不限档位），combo3 / win1 仍是 20', (() => {
     const pool = sandbox.Tasks.POOL;
-    const tiers = [20, 40, 60];
-    if (!pool.every((p) => tiers.indexOf(p.reward) >= 0)) return false;
-    if (!tiers.every((r) => pool.some((p) => p.reward === r))) return false;
-    const easy = pool.filter((p) => p.reward === 20).map((p) => p.id);
-    const hard = pool.filter((p) => p.reward === 60).map((p) => p.id);
-    if (easy.indexOf('win1') < 0 || easy.indexOf('combo3') < 0) return false;
-    if (['combo4', 'rainbow', 'jelly', 'score5000'].some((x) => hard.indexOf(x) < 0)) return false;
-    const today = sandbox.Tasks.getToday();
-    return today.length === 5 && tiers.every((r) => today.some((t) => t.reward === r));
+    const by = (id) => pool.find((p) => p.id === id);
+    return pool.length === 10 &&
+      by('win1').reward === 20 && by('combo3').reward === 20 &&
+      by('play3').reward === 60 && by('match4').reward === 80 &&
+      by('bomb').reward === 80 && by('line').reward === 90 &&
+      by('jelly').reward === 100 && by('combo4').reward === 120 &&
+      by('rainbow').reward === 120 && by('score5000').reward === 150 &&
+      sandbox.Tasks.getToday().length === 5;
   })());
   check('结算秒弹：特效一停立刻放行，不再垫固定延时', (() => {
     const fn = jsSrc.slice(jsSrc.indexOf('async function waitForEffects'), jsSrc.indexOf('async function handleOutOfResource'));
@@ -2133,13 +2132,13 @@ function check(name, ok) {
       /'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'\]\.indexOf\(ov\.id\) >= 0/
         .test(fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8'));
   })());
-  check('成绩单：框框严格居中（master-stage 包裹）、进度条 1.4s 恒定慢速动画', (() => {
+  check('成绩单：恢复原始形状（无 master-stage 包裹、无底部文案、无进度线）', (() => {
     const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));
-    return gc.includes('master-stage') &&
-      /#game-complete \.master-stage \{/.test(cssSrc) &&
-      /transition: width 1\.4s linear/.test(cssSrc) &&
-      /fill\.style\.transition = 'none'/.test(jsSrc) &&
-      /void fill\.offsetWidth/.test(jsSrc);
+    return !gc.includes('master-stage') && !gc.includes('master-foot') &&
+      !gc.includes('master-bar') &&
+      !gc.includes('继续闯关') && !gc.includes('满分毕业') &&
+      !/#game-complete \.master-stage \{/.test(cssSrc) && !/\.master-foot \{/.test(cssSrc) &&
+      !/\.master-bar \{/.test(cssSrc) && !/master-bar-fill/.test(jsSrc);
   })());
   check('每日任务尽量不重样：上一批出过的排到候选队尾，通常整批换新', (() => {
     const saved = lsMap.get('nl2:tasks');
@@ -2242,7 +2241,7 @@ function check(name, ok) {
   check('成绩单标题改成「🎉 恭喜」，没有副标题、四格数字都滚动', (() => {
     const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
     return !htmlSrc.includes('恭喜全通关') && htmlSrc.includes('🎉 恭喜') &&
-      htmlSrc.includes('id="master-title"') && htmlSrc.includes('id="master-bar-fill"') &&
+      htmlSrc.includes('id="master-title"') && !htmlSrc.includes('id="master-bar-fill"') &&
       htmlSrc.includes('id="complete-total-score"') && htmlSrc.includes('id="complete-total-stars"') &&
       htmlSrc.includes('id="master-perfect"') && htmlSrc.includes('id="master-ach"') &&
       !htmlSrc.includes('id="master-sub"') && !fn.includes('master-sub') &&
