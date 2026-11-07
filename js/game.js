@@ -5960,24 +5960,116 @@
       $('shop-menu').style.display = 'none';
     });
 
-    // 遮罩点击关闭（§25）
+    // ==================== 点面板外空白 = 回到上一层 ====================
+    // 面板上的「返回 / 关闭」键都已删除（结算页的「返回主页」是主动作，保留），
+    // 退出一律靠点面板外的空白处，回到打开它的那一层。
+    const PANEL_PARENT = {
+      'home-menu': 'main-menu',
+      'admin-menu': 'main-menu',
+      'features-menu': 'rules-menu',
+      'play-rules-menu': 'rules-menu',
+      'mail-view': 'mail-menu',
+      'music-settings-menu': 'settings-menu',
+      'account-menu': 'settings-menu',
+      'password-menu': 'account-menu',
+      'switch-menu': 'account-menu',
+      'volume-menu': 'music-settings-menu',
+      'custom-music-menu': 'music-settings-menu',
+      'music-history-menu': 'custom-music-menu',
+      'playlist-menu': 'music-settings-menu',
+      'auth-form': 'auth-menu',
+      'auth-menu': 'main-menu',
+      'tasks-menu': 'main-menu',
+      'chapters-menu': 'main-menu',
+      'story-menu': 'chapters-menu',
+      'modes-menu': 'main-menu',
+      'achievements-menu': 'main-menu',
+      'collection-menu': 'main-menu',
+      'welfare-menu': 'main-menu',
+      'backpack-menu': null,     // 局内回棋盘、主页回主页（底下那层本来就开着）
+      'rename-menu': null
+    };
+
+    function hidePanel(id) { const el = $(id); if (el) el.style.display = 'none'; }
+
+    // 返回上一层：先做这一层的收尾，再显示上一层（没有上一层就只关掉自己）
+    function panelBack(id) {
+      switch (id) {
+        case 'rules-menu':
+          hidePanel('rules-menu');
+          if (quietPaused) quietResumeGame(); else showOverlay('main-menu');
+          return true;
+        case 'settings-menu':
+          hidePanel('settings-menu');
+          if (quietPaused) quietResumeGame();
+          return true;
+        case 'shop-menu':
+          syncShopDot();          // 记住停在哪一张
+          hidePanel('shop-menu');
+          return true;
+        case 'mail-menu':
+          hidePanel('mail-menu'); showOverlay('main-menu'); refreshMenu();
+          return true;
+        case 'mail-view':
+          hidePanel('mail-view'); renderMailList(); showOverlay('mail-menu');
+          return true;
+        case 'history-menu':
+          hidePanel('history-menu'); showOverlay('main-menu'); refreshMenu();
+          return true;
+        case 'backup-menu':
+        case 'backup-import-menu':
+          backupBack();           // 从哪进来就回哪去（设置 / 登录页）
+          return true;
+        case 'music-library-menu':
+          hidePanel('music-library-menu');
+          { const b = $('btn-goto-playlist'); if (b) b.click(); else showOverlay('playlist-menu'); }
+          return true;
+        case 'leaderboard-menu':
+          hidePanel('leaderboard-menu');
+          hideLbPicker();
+          if (typeof Board !== 'undefined') Board.close();
+          showOverlay('main-menu');
+          return true;
+        case 'lb-view':
+          hidePanel('lb-view');
+          hideLbPicker();
+          showOverlay('leaderboard-menu');
+          return true;
+        case 'admin-menu':
+          // 后台二级页（点击数量 / 全服用户）先退回一级，一级再退回主页
+          if ($('admin-nav') && $('admin-nav').style.display === 'none') { showAdminPage(null); return true; }
+          hidePanel('admin-menu');
+          showOverlay('main-menu');
+          return true;
+        case 'admin-user-list':
+          hidePanel('admin-user-list');
+          hideAdminUlPicker();
+          showOverlay('admin-menu');
+          showAdminPage('users');
+          renderAdminUsers();
+          return true;
+        case 'prov-user-list':
+          hidePanel('prov-user-list');
+          showOverlay('admin-menu');
+          showAdminPage('users');
+          renderAdminUsers();
+          return true;
+        case 'ach-detail':
+          return false;           // 详情页自己有点空白回成就页的处理
+      }
+      if (!(id in PANEL_PARENT)) return false;   // 主页 / 结算 / 强制窗口：点背景不动
+      const parent = PANEL_PARENT[id];
+      hidePanel(id);
+      if (parent) showOverlay(parent);
+      return true;
+    }
+
+    // 点面板外的空白 = 回到上一层
     document.querySelectorAll('.overlay').forEach((ov) => {
       ov.addEventListener('click', (e) => {
-        // 主页 / 结算 / 登录 / 补资料 / 强制改名这些面板点遮罩不关闭（必须点按钮）
-        if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete',
-          'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'].indexOf(ov.id) < 0) {
-          if (ov.id === 'shop-menu') syncShopDot();   // 关之前记住停在哪一张
-          ov.style.display = 'none';
-        }
+        if (e.target !== ov) return;
+        panelBack(ov.id);
       });
-    });
-    // 登录 / 注册页双保险：捕获阶段就把点在空白处的点击吞掉，
-    // 这两个面板只能靠按钮离开，点背景怎么点都不能退出
-    ['auth-menu', 'auth-form'].forEach((id) => {
-      const el = $(id);
-      if (el) el.addEventListener('click', (e) => {
-        if (e.target === el && e.stopPropagation) e.stopPropagation();
-      }, true);
     });
 
     // 窗口变化重排（§25）

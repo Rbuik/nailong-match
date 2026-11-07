@@ -90,10 +90,16 @@ lsMap.set('nl2:mnick', JSON.stringify('测试奶龙'));
 // ---------- 元素注册表 ----------
 const els = {};
 function getEl(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; }
-// 预生成 querySelectorAll('.overlay') 用到的元素
-['main-menu', 'settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu',
+// 预生成 querySelectorAll('.overlay') 用到的元素（点背景回上一层是绑在所有面板上的）
+['main-menu', 'home-menu', 'admin-menu', 'admin-user-list', 'prov-user-list', 'rules-menu',
+  'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'settings-menu',
+  'music-settings-menu', 'account-menu', 'backup-menu', 'backup-import-menu', 'password-menu',
+  'switch-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu',
   'playlist-menu', 'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu',
-  'backpack-menu', 'logout-confirm', 'logout-confirm2', 'level-clear', 'game-over', 'game-complete'
+  'backpack-menu', 'pause-menu', 'logout-confirm', 'logout-confirm2', 'level-clear', 'game-over',
+  'daily-done', 'game-complete', 'chapters-menu', 'story-menu', 'modes-menu', 'mode-over',
+  'achievements-menu', 'ach-detail', 'collection-menu', 'welfare-menu', 'leaderboard-menu',
+  'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'fix-menu', 'cloud-menu'
 ].forEach((id) => getEl(id));
 
 const documentStub = {
@@ -257,7 +263,7 @@ function check(name, ok) {
   check('背包列出 2 种道具', packRows.length === 2);
   check('背包显示洗牌道具 x2', packRows.some && packRows.some((r) => r.innerHTML.includes('洗牌') && r.innerHTML.includes('x2')));
   check('背包显示撤回道具 x1', packRows.some && packRows.some((r) => r.innerHTML.includes('撤回') && r.innerHTML.includes('x1')));
-  $('btn-close-backpack').dispatch('click');
+  $('backpack-menu').dispatch('click');
   check('背包关闭', $('backpack-menu').style.display === 'none');
 
   // 4. 注销账号：入口搬到「设置 → 账号安全」（切换账号下面），主页换成邮箱键
@@ -269,9 +275,9 @@ function check(name, ok) {
     fs.readFileSync(path.join(__dirname, 'js', 'account.js'), 'utf8');
   check('主页不再有注销按钮，右下角是 📮 邮箱键',
     htmlSrc0.includes('id="btn-mail"') && htmlSrc0.indexOf('id="btn-mail"') < htmlSrc0.indexOf('id="home-menu"'));
-  check('注销账号在账号安全面板里、切换账号下面',
+  check('注销账号在账号安全面板里、切换账号下面（面板没有返回键）',
     htmlSrc0.indexOf('id="btn-logout"') > htmlSrc0.indexOf('id="btn-goto-switch"') &&
-    htmlSrc0.indexOf('id="btn-logout"') < htmlSrc0.indexOf('id="btn-close-account"'));
+    !htmlSrc0.includes('id="btn-close-account"'));
   check('注销确认文案说明会删除全部数据', htmlSrc0.includes('全部数据') && htmlSrc0.includes('不可恢复'));
   // 4b. 邮箱键放在 🏠 下面（左上角竖排，📮 图标）
   check('邮箱键在 🏠 下面、用 📮、带未读角标',
@@ -284,7 +290,7 @@ function check(name, ok) {
   // 4c. 后台分层：一级「点击数量 / 全服用户」
   check('后台一级有「点击数量」和「全服用户」',
     htmlSrc0.includes('id="btn-admin-hits"') && htmlSrc0.includes('id="btn-admin-users"') &&
-    htmlSrc0.indexOf('id="btn-admin-hits"') < htmlSrc0.indexOf('id="btn-admin-close"'));
+    htmlSrc0.indexOf('id="btn-admin-hits"') < htmlSrc0.indexOf('id="admin-page-hits"'));
   check('「点击数量」页还是原来的后台内容（全网 / 本机）',
     htmlSrc0.indexOf('id="admin-page-hits"') > 0 && htmlSrc0.includes('admin-global-sec') &&
     htmlSrc0.includes('id="admin-visits"'));
@@ -298,13 +304,13 @@ function check(name, ok) {
   $('admin-menu').style.display = 'flex';
   $('btn-admin-hits').dispatch('click');
   check('点「点击数量」进二级页', $('admin-page-hits').style.display === 'flex' && $('admin-nav').style.display === 'none');
-  $('btn-admin-hits-back').dispatch('click');
+  $('admin-menu').dispatch('click');
   check('「点击数量」返回一级', $('admin-page-hits').style.display === 'none' && $('admin-nav').style.display === 'flex');
   $('btn-admin-users').dispatch('click');
   check('点「全服用户」进二级页', $('admin-page-users').style.display === 'flex' && $('admin-nav').style.display === 'none');
   check('全服用户页把用户数 / 省份数填上了',
     !!$('admin-users').textContent && !!$('admin-provs').textContent);
-  $('btn-admin-users-back').dispatch('click');
+  $('admin-menu').dispatch('click');
   check('「全服用户」返回一级', $('admin-page-users').style.display === 'none' && $('admin-nav').style.display === 'flex');
   $('admin-menu').style.display = 'none';
 
@@ -401,7 +407,7 @@ function check(name, ok) {
   check('用户详情 / 省份详情改为点击数量进入（按键和提示已删）', (() => {
     const iU = htmlSrc0.indexOf('id="admin-users-row"');
     const iP = htmlSrc0.indexOf('id="admin-provs-row"');
-    const iBack = htmlSrc0.indexOf('id="btn-admin-users-back"');
+    const iBack = htmlSrc0.indexOf('id="prov-user-list"');
     return iU > 0 && iP > iU && iBack > iP &&
       !htmlSrc0.includes('id="btn-admin-ul-open"') &&
       !htmlSrc0.includes('id="btn-admin-prov-open"') &&
@@ -437,7 +443,7 @@ function check(name, ok) {
       $('admin-ul-list').children.length === 1;
     // 省份详情页必须同时收掉（不收会盖在名单页上面，看起来像「点了没反应」）
     const pvClosed = $('prov-user-list').style.display === 'none';
-    $('btn-admin-ul-back').dispatch('click');
+    $('admin-user-list').dispatch('click');
     return inList && pvClosed && $('admin-user-list').style.display === 'none';
   })());
   check('省份详情搜索框与列表同宽（90%）', cssSrc.includes('#prov-ul-search { width: 90%;'));
@@ -498,8 +504,19 @@ function check(name, ok) {
   })());
   check('登录其它账号（文案已改且是蓝键）',
     htmlSrc0.includes('class="btn-primary" id="btn-switch-login">登录其它账号</button>'));
+  check('所有面板不再有「返回 / 关闭」键：退出一律点面板外空白回上一层', (() => {
+    const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
+    // 只剩结算页 / 暂停页的「返回主页」这类主动作键（不是退出面板的返回键）
+    const backBtns = htmlSrc0.match(/<button[^>]*>[^<]*返回[^<]*<\/button>/g) || [];
+    const onlyHome = backBtns.every((b) => b.indexOf('返回主页') >= 0 || b.indexOf('btn-nick-cancel') >= 0 || b.indexOf('返 回') >= 0);
+    const closeBtns = htmlSrc0.match(/<button[^>]*>[^<]*关闭[^<]*<\/button>/g) || [];
+    return onlyHome && closeBtns.length === 0 &&
+      /function panelBack\(id\)/.test(gjs) &&
+      /e\.target !== ov\) return;\s*\n\s*panelBack\(ov\.id\)/.test(gjs) &&
+      /'mail-view': 'mail-menu'/.test(gjs) && /'chapters-menu': 'main-menu'/.test(gjs);
+  })());
   check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，悬浮在滚动区右下角', (() => {
-    const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="mail-list"'), htmlSrc0.indexOf('id="btn-mail-close"'));
+    const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="mail-list"'), htmlSrc0.indexOf('id="mail-view"'));
     return /class="mail-emoji-btn" id="btn-mail-read-all"[^>]*>✅</.test(sec) &&
       /class="mail-emoji-btn" id="btn-mail-del-all"[^>]*>🗑️</.test(sec) &&
       !sec.includes('一键已读') && !sec.includes('一键删除') &&
@@ -565,7 +582,7 @@ function check(name, ok) {
   packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置）
   check('使用「炸弹」放置成功', $('toast').textContent.includes('炸弹'));
   check('「炸弹」消耗 1 个', (sandbox.Store.getWallet().items.startBomb || 0) === 0);
-  $('btn-close-backpack').dispatch('click');
+  $('backpack-menu').dispatch('click');
 
   // 8. 未开局时道具不可用（先暂停 → 回主页，主页应显示「继续游戏」）
   $('btn-pause').dispatch('click');
@@ -582,7 +599,7 @@ function check(name, ok) {
   check('未开局有引导提示', $('toast').textContent.includes('局内使用'));
 
   // 9. 玩法规则面板
-  $('btn-close-backpack').dispatch('click');
+  $('backpack-menu').dispatch('click');
   $('btn-rules').dispatch('click');
   check('规则面板打开', $('rules-menu').style.display === 'flex');
   const htmlSrc = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
@@ -611,7 +628,7 @@ function check(name, ok) {
   // 📖 规则首页 → 功能介绍 / 玩法规则 分开
   $('btn-goto-features').dispatch('click');
   check('点「功能介绍」进入功能介绍页', $('features-menu').style.display === 'flex' && $('rules-menu').style.display === 'none');
-  const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="btn-features-back"'));
+  const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="play-rules-menu"'));
   check('功能介绍按按键层次排：左上角 / 右上角 / 中间 / 按钮区 / 局内 / 结算 / 账号（标题只写区域名，不写序号）',
     featsHtml.includes('<h3>左上角</h3>') && featsHtml.includes('<h3>右上角</h3>') &&
     featsHtml.includes('<h3>进度与开始</h3>') && featsHtml.includes('<h3>主页按钮区</h3>') &&
@@ -620,17 +637,17 @@ function check(name, ok) {
     featsHtml.includes('📮 邮箱') && !featsHtml.includes('基本玩法') &&
     !featsHtml.includes('所有人同一局') &&
     /🎯 每日任务[\s\S]*?<\/p>\s*<p><b>📅 每日挑战/.test(featsHtml));
-  $('btn-features-back').dispatch('click');
+  $('features-menu').dispatch('click');
   check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
   $('btn-goto-play-rules').dispatch('click');
   check('点「玩法规则」进入玩法规则页', $('play-rules-menu').style.display === 'flex');
-  const playHtml = htmlSrc.slice(htmlSrc.indexOf('id="play-rules-box"'), htmlSrc.indexOf('id="btn-play-rules-back"'));
+  const playHtml = htmlSrc.slice(htmlSrc.indexOf('id="play-rules-box"'), htmlSrc.indexOf('id="mail-menu"'));
   check('玩法规则里放的是单局玩法（基本玩法 / 特殊块 / 星级）',
     playHtml.includes('基本玩法') && playHtml.includes('✨ 特殊块') &&
     playHtml.includes('星级评价怎么算') && !playHtml.includes('福利中心'));
-  $('btn-play-rules-back').dispatch('click');
+  $('play-rules-menu').dispatch('click');
   check('玩法规则「返回」回到规则首页', $('play-rules-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
-  $('btn-close-rules').dispatch('click');
+  $('rules-menu').dispatch('click');
   check('规则关闭回到主页', $('rules-menu').style.display === 'none' && $('main-menu').style.display === 'flex');
 
   // 10. 主页主按钮文案：已通关 → 重新开始；未通关 → 开始游戏
@@ -687,7 +704,7 @@ function check(name, ok) {
   for (let i = 1; i <= 10; i++) sandbox.Store.recordLevel(i, 900, 1);
   $('btn-chapters').dispatch('click');
   check('打通第一章后第二章才出现', countCh() === 2);
-  $('btn-close-chapters').dispatch('click');
+  $('chapters-menu').dispatch('click');
 
   $('btn-achievements').dispatch('click');
   check('成就墙渲染出全部成就', $('ach-list').children.length === sandbox.Meta.ACHIEVEMENTS.length);
@@ -730,19 +747,19 @@ function check(name, ok) {
     const html = ($('ach-list').children || []).map((r) => String(r.innerHTML || '')).join('');
     return html.indexOf('<img src="./assets/nailong.png"') >= 0;
   })());
-  $('btn-close-ach').dispatch('click');
+  $('achievements-menu').dispatch('click');
 
   $('btn-collection').dispatch('click');
   check('图鉴渲染出全部皮肤', $('skin-list').children.length === sandbox.Meta.SKINS.length);
-  $('btn-close-skins').dispatch('click');
+  $('collection-menu').dispatch('click');
 
   $('btn-welfare').dispatch('click');
   check('签到入口渲染日期条（7 天 + 多显示 3 天）', $('welfare-sign').children.length === 10);
-  $('btn-close-welfare').dispatch('click');
+  $('welfare-menu').dispatch('click');
 
   $('btn-modes').dispatch('click');
   check('更多玩法面板打开', $('modes-menu').style.display === 'flex');
-  $('btn-close-modes').dispatch('click');
+  $('modes-menu').dispatch('click');
 
   // 14. 排行榜：先进「选榜单」，再进列表
   $('btn-leaderboard').dispatch('click');
@@ -777,8 +794,8 @@ function check(name, ok) {
     });
     return dels >= 1 && meRow;
   })());
-  $('btn-lb-view-back').dispatch('click');
-  $('btn-close-lb').dispatch('click');
+  $('lb-view').dispatch('click');
+  $('leaderboard-menu').dispatch('click');
 
   // 14c. 昵称规则 + 省榜 / 局榜选择器
   check('昵称不能用默认名', !M.validateNick('奶龙玩家', []).ok);
@@ -797,7 +814,7 @@ function check(name, ok) {
     const closed = $('lb-picker').style.display === 'none';
     const t2 = String($('lb-view-title').textContent);
     const provChanged = opened && closed && chips >= 20 && t1 !== t2 && t2.indexOf('省') >= 0;
-    $('btn-lb-view-back').dispatch('click');
+    $('lb-view').dispatch('click');
     $('btn-lb-hub-level').dispatch('click');
     const lvShown = $('lb-level-swap').style.display === 'inline-block' && $('lb-prov-swap').style.display === 'none';
     $('lb-level-swap').dispatch('click');
@@ -806,11 +823,11 @@ function check(name, ok) {
     const lt1 = String($('lb-view-title').textContent);
     ($('lb-picker').children || [])[lvChips - 1].dispatch('click');
     const lt2 = String($('lb-view-title').textContent);
-    $('btn-lb-view-back').dispatch('click');
+    $('lb-view').dispatch('click');
     $('btn-lb-hub-all').dispatch('click');
     const noneShown = $('lb-prov-swap').style.display === 'none' && $('lb-level-swap').style.display === 'none';
-    $('btn-lb-view-back').dispatch('click');
-    $('btn-close-lb').dispatch('click');
+    $('lb-view').dispatch('click');
+    $('leaderboard-menu').dispatch('click');
     // 局榜选关面板只列已解锁的关（此时打通到第 10 关，所以正好 10 个选项）
     const lbUnlocked = sandbox.Store.maxUnlockedLevel(40);
     return provShown && provChanged && lvShown && lvOpened && lt1 !== lt2 && noneShown &&
@@ -853,7 +870,7 @@ function check(name, ok) {
         if (h.indexOf('h-stars') >= 0 && h.indexOf('lb-medal') < h.indexOf('star-on')) medalLeftOfStars = true;
       }
     });
-    $('btn-history-back').dispatch('click');
+    $('history-menu').dispatch('click');
     return medal === '🥇' && rowsWithMedal >= 1 && medalLeftOfStars;
   })());
 
@@ -881,8 +898,8 @@ function check(name, ok) {
       Array.prototype.map.call(r.children || [], (c) => String(c.innerHTML || '')).join('')
     ).join('');
     const ok = txt.indexOf('未上榜') >= 0 && txt.indexOf('lb-score none') >= 0;
-    $('btn-lb-view-back').dispatch('click');
-    $('btn-close-lb').dispatch('click');
+    $('lb-view').dispatch('click');
+    $('leaderboard-menu').dispatch('click');
     lsMap.set('nl2:progress', saved);
     sandbox.__nl_test.refreshMenu();
     return ok;
@@ -900,7 +917,7 @@ function check(name, ok) {
     $('btn-leaderboard').dispatch('click');
     $('btn-lb-hub-all').dispatch('click');
     const allTxt = rowHtml();
-    $('btn-lb-view-back').dispatch('click');
+    $('lb-view').dispatch('click');
     $('btn-lb-hub-level').dispatch('click');
     // 挑一个「有星」的关卡（局榜默认可能停在没打过的关上）
     const wantLv = Object.keys(st).filter((k) => st[k] > 0)
@@ -910,8 +927,8 @@ function check(name, ok) {
       .filter((b) => String(b.textContent) === '第 ' + wantLv + ' 关')[0];
     if (pick) pick.dispatch('click');
     const lvTxt = rowHtml();
-    $('btn-lb-view-back').dispatch('click');
-    $('btn-close-lb').dispatch('click');
+    $('lb-view').dispatch('click');
+    $('leaderboard-menu').dispatch('click');
     const lvStars = (st[wantLv] || 0);
     // 总榜：图标 + 右对齐数字（★ 87）；局榜：这一局的 ★★★
     return totalStars > 0 && allTxt.indexOf('★</i><b>' + totalStars + '</b>') >= 0 &&
@@ -947,7 +964,7 @@ function check(name, ok) {
     const coins = sandbox.Store.getWallet().coins;
     const st = sandbox.Store.signStats();
     const dialogClosed = $('makeup-confirm').style.display === 'none';
-    $('btn-close-welfare').dispatch('click');
+    $('welfare-menu').dispatch('click');
     if (savedTasks !== undefined) lsMap.set('nl2:tasks', savedTasks);
     if (savedWallet !== undefined) lsMap.set('nl2:wallet', savedWallet);
     return streakTxt.indexOf('连续签到 1 天') >= 0 && missedOk && dialogShown && dialogClosed &&
@@ -1468,15 +1485,15 @@ function check(name, ok) {
   check('账号安全页和登录页都有存档码入口',
     htmlSrc0.includes('id="btn-goto-backup"') && htmlSrc0.includes('id="backup-menu"') &&
     htmlSrc0.includes('id="btn-auth-backup"'));
-  check('生成页只有生成框 + 生成/复制同排 + 返回单独一排',
+  check('生成页只有生成框 + 生成/复制同排（没有返回键，点背景回账号页）',
     htmlSrc0.includes('点击下面的「生成」') &&
     htmlSrc0.indexOf('id="btn-backup-copy"') > 0 &&
     htmlSrc0.indexOf('class="btn-row"') > 0 &&
-    htmlSrc0.includes('id="btn-backup-back"'));
-  check('导入页只有粘贴框 + 导入/返回各自一排',
+    !htmlSrc0.includes('id="btn-backup-back"'));
+  check('导入页只有粘贴框 + 导入键（没有返回键，点背景回上一层）',
     htmlSrc0.includes('id="backup-import-menu"') &&
     htmlSrc0.includes('点击下面的「导入」') &&
-    htmlSrc0.includes('id="btn-backup-import-back"') &&
+    !htmlSrc0.includes('id="btn-backup-import-back"') &&
     !htmlSrc0.includes('id="backup-input" placeholder="把存档码粘贴到这里'));
   check('存档码：导出 → 清空存储 → 导入，账号和进度都回来', (() => {
     const curIdBefore = sandbox.Account.currentId();
@@ -1605,8 +1622,8 @@ function check(name, ok) {
   check('账号安全页有常驻的「存到服务器」入口', /id="btn-goto-cloud"/.test(htmlSrc0));
   check('已绑定的号点「存到服务器」先真实推送验证（号被删过会自动解绑重弹窗口）',
     /pushCloud\(true\)\.then/.test(jsSrc) && !/已经存到服务器了/.test(jsSrc));
-  check('上云窗口点遮罩 / 其它流程都关不掉（只有密码存成功才关）',
-    /'fix-menu', 'nick-menu', 'cloud-menu'/.test(jsSrc) &&
+  check('上云窗口点背景不关（强制窗口不在「回上一层」名单里）',
+    !/'cloud-menu':/.test(jsSrc) && !/'fix-menu':/.test(jsSrc) &&
     /cloudForced = true/.test(jsSrc) && /cloudForced = false/.test(jsSrc));
   check('注册后自动把账号存到服务器', /bgRegister\(acc, p\.pass\)/.test(jsSrc));
   check('改名 / 改密码会同步到服务器',
@@ -1642,7 +1659,7 @@ function check(name, ok) {
   // 标题带「：」的邮件：详情页拆成主标题 + 副标题（副标题换行、字号小一号）
   const rulesMail = (sandbox.Mail.list() || []).filter((m) => String(m.title).indexOf('：') >= 0)[0];
   if (rulesMail) {
-    $('btn-mail-back').dispatch('click');
+    $('mail-view').dispatch('click');
     const ri = (sandbox.Mail.list() || []).findIndex((m) => m.id === rulesMail.id);
     $('mail-list').children[ri].children[1].dispatch('click');
     const ci = rulesMail.title.indexOf('：');
@@ -1652,7 +1669,7 @@ function check(name, ok) {
       String($('mail-view-sub').textContent) === rulesMail.title.slice(ci + 1) &&
       $('mail-view-sub').style.display === 'block');
     // 回到带奖励那封的详情页，继续后面的领取断言
-    $('btn-mail-back').dispatch('click');
+    $('mail-view').dispatch('click');
     $('mail-list').children[giftIdx].children[1].dispatch('click');
   }
   $('btn-mail-claim').dispatch('click');
@@ -1660,9 +1677,9 @@ function check(name, ok) {
   check('同一封邮件不能重复领',
     sandbox.Mail.claim(giftMail.id).ok === false &&
     sandbox.Store.getWallet().coins === coinsBeforeMail + giftMail.coins);
-  $('btn-mail-back').dispatch('click');
+  $('mail-view').dispatch('click');
   check('邮件详情「返回」回到列表', $('mail-menu').style.display === 'flex' && $('mail-view').style.display === 'none');
-  $('btn-mail-close').dispatch('click');
+  $('mail-menu').dispatch('click');
   check('邮箱「返回」回到主页', $('main-menu').style.display === 'flex' && $('mail-menu').style.display === 'none');
 
   // 邮箱状态跟着账号走，不串号
@@ -1688,7 +1705,7 @@ function check(name, ok) {
   row0.dispatch('click');
   check('点一下邮件行：删除键收起并直接打开邮件（不露删除键）',
     !wraps[0].classList.contains('open') && $('mail-view').style.display === 'flex');
-  $('btn-mail-back').dispatch('click');   // 回到列表
+  $('mail-view').dispatch('click');   // 回到列表
 
   const leftBefore = sandbox.Mail.list().length;
   $('btn-mail-read-all').dispatch('click');
@@ -1718,7 +1735,7 @@ function check(name, ok) {
   check('奖励领完就能一键删干净', sandbox.Mail.list().length === 0 &&
     $('mail-list').children.length === 1 &&
     String($('mail-list').children[0].textContent).indexOf('暂时还没有邮件') >= 0);
-  $('btn-mail-close').dispatch('click');
+  $('mail-menu').dispatch('click');
 
   // 36. 注销账号 = 彻底删除
   const purgeId = sandbox.Account.current().id;
@@ -1989,9 +2006,9 @@ function check(name, ok) {
   // 41f-6. 说明页：改名属于功能，写进「功能介绍」；玩法说明里不再重复；不举 Yone / yone 的例子
   check('改名位置写进「功能介绍」，玩法说明里不再重复，也不举大小写的例子', (() => {
       const f0 = htmlSrc0.indexOf('id="features-box"');
-      const f1 = htmlSrc0.indexOf('id="btn-features-back"');
+      const f1 = htmlSrc0.indexOf('id="play-rules-menu"');
       const p0 = htmlSrc0.indexOf('id="play-rules-box"');
-      const p1 = htmlSrc0.indexOf('id="btn-play-rules-back"');
+      const p1 = htmlSrc0.indexOf('id="mail-menu"');
       return /🏠 主页[\s\S]{0,60}改名/.test(htmlSrc0.slice(f0, f1)) &&
         !/改名/.test(htmlSrc0.slice(p0, p1));
     })() && !/Yone/.test(htmlSrc0));
@@ -2014,7 +2031,7 @@ function check(name, ok) {
     htmlSrc0.includes('id="btn-story-go"') && !htmlSrc0.includes('btn-story-skip') &&
     !htmlSrc0.includes('跳过剧情'));
   // 41g-2. 关卡记录页去掉多余的那句引导文案（标题下面直接是列表）
-  const histBlock = htmlSrc0.slice(htmlSrc0.indexOf('id="history-menu"'), htmlSrc0.indexOf('id="btn-history-back"'));
+  const histBlock = htmlSrc0.slice(htmlSrc0.indexOf('id="history-menu"'), htmlSrc0.indexOf('id="backpack-menu"'));
   check('关卡记录页不再有「点任意一关即可回到主页并切换到该关」',
     !htmlSrc0.includes('点任意一关即可回到主页') &&
     histBlock.length > 0 && !/history-hint/.test(histBlock) && /id="history-list"/.test(histBlock));
@@ -2124,18 +2141,16 @@ function check(name, ok) {
     if (saved !== undefined) lsMap.set('nl2:tasks', saved); else lsMap.delete('nl2:tasks');
     return ok && ok2 && S2.SIGN_MILESTONE.coins === 200 && S2.SIGN_MILESTONE.every === 7;
   })());
-  check('登录 / 注册页点背景不退出（排除列表 + 捕获吞点击）', (() => {
-    const am = $('auth-menu');
-    am.style.display = 'flex';
-    am.dispatch('click', { target: am, stopPropagation() {} });
-    const stillOpen = am.style.display === 'flex';
-    console.log('    [dbg] display=', JSON.stringify(am.style.display), 'r1=', /'auth-menu', 'auth-form'\]\.forEach/.test(jsSrc), 'r2=', /e\.stopPropagation\(\)/.test(jsSrc));
-    am.style.display = 'none';
-    return stillOpen &&
-      /'auth-menu', 'auth-form'\]\.forEach/.test(jsSrc) &&
-      /e\.stopPropagation\(\)/.test(jsSrc) &&
-      /'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'\]\.indexOf\(ov\.id\) >= 0/
-        .test(fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8'));
+  check('登录 / 注册页没有返回键，点背景逐层退回（注册 → 登录页 → 主页）', (() => {
+    $('auth-menu').style.display = 'none';
+    $('auth-form').style.display = 'flex';
+    $('auth-form').dispatch('click');
+    const formClosed = $('auth-form').style.display === 'none' && $('auth-menu').style.display === 'flex';
+    $('auth-menu').dispatch('click');
+    const backHome = $('auth-menu').style.display === 'none';
+    return formClosed && backHome &&
+      !htmlSrc.includes('id="btn-auth-back"') &&
+      /'auth-form': 'auth-menu'/.test(jsSrc) && /'auth-menu': 'main-menu'/.test(jsSrc);
   })());
   check('成绩单：卡片严格居中（stage width:100% 包裹、标题悬浮上方、不改卡片尺寸）、无底部文案、进度线恒满格', (() => {
     const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));
@@ -2548,7 +2563,7 @@ function check(name, ok) {
       /i === shopIdx \? ' on' : ''/.test(jsSrc) &&
       /applyShopDot\(shopIdx\)/.test(jsSrc) &&
       /restoreShopScroll\(\);\s*\n\s*if \(typeof requestAnimationFrame/.test(jsSrc) &&
-      /if \(ov\.id === 'shop-menu'\) syncShopDot\(\)/.test(jsSrc);
+      /case 'shop-menu':\s*\n\s*syncShopDot\(\);/.test(jsSrc);
   })());
 
   check('特殊道具都叫「xx道具」，说明里不留分号、不带「开局」、后半句换行显示', (() => {

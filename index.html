@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261108x">
-<link rel="stylesheet" href="./css/themes.css?v=20261108x">
+<link rel="stylesheet" href="./css/style.css?v=20261108y">
+<link rel="stylesheet" href="./css/themes.css?v=20261108y">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -175,7 +175,6 @@
       <p><span>当前昵称</span><b id="home-nick">奶龙玩家</b></p>
     </div>
     <button class="btn-primary" id="btn-goto-rename">✏️ 改名</button>
-    <button class="btn-secondary" id="btn-close-home-menu">返回</button>
   </div>
 
   <!-- 后台（隐藏入口：同时按住奶龙图案 + 注销键 3 秒） -->
@@ -186,7 +185,6 @@
     <div class="admin-nav" id="admin-nav">
       <button class="btn-primary" id="btn-admin-hits">📊 点击数量</button>
       <button class="btn-primary" id="btn-admin-users">👥 全服用户</button>
-      <button class="btn-secondary" id="btn-admin-close">关闭</button>
     </div>
 
     <!-- 二级：点击数量（原来的后台内容：全网 / 本机） -->
@@ -210,7 +208,6 @@
       </div>
 
       <p class="admin-start-note">统计自 2026-11-05 00:00:00 起</p>
-      <button class="btn-secondary" id="btn-admin-hits-back">返回</button>
     </div>
 
     <!-- 二级：全服用户（用户数量 / 省份数量） -->
@@ -222,7 +219,6 @@
           <p id="admin-provs-row"><span>省份数量</span><b id="admin-provs">—</b></p>
         </div>
       </div>
-      <button class="btn-secondary" id="btn-admin-users-back">返回</button>
     </div>
   </div>
 
@@ -235,7 +231,6 @@
     <input class="prov-search" id="admin-ul-search" type="search" placeholder="🔍 搜索玩家" autocomplete="off">
     <div class="lb-picker" id="admin-ul-picker" style="display:none;"></div>
     <div class="lb-list admin-ul-list" id="admin-ul-list"></div>
-    <button class="btn-secondary lb-back" id="btn-admin-ul-back">返回</button>
   </div>
 
   <!-- 省份详情：有哪些省份有用户，点省份看该省玩家 -->
@@ -245,7 +240,6 @@
     </div>
     <input class="prov-search" id="prov-ul-search" type="search" placeholder="🔍 搜索省份" autocomplete="off">
     <div class="lb-list admin-ul-list" id="prov-ul-list"></div>
-    <button class="btn-secondary lb-back" id="btn-prov-ul-back">返回</button>
   </div>
 
   <!-- 省份统计（后台长按「🌐 全网」3 秒打开；点省份可进市级统计） -->
@@ -265,7 +259,6 @@
     <div class="rules-nav">
       <button class="btn-primary" id="btn-goto-features">🧩 功能介绍</button>
       <button class="btn-primary" id="btn-goto-play-rules">🎮 玩法说明</button>
-      <button class="btn-secondary" id="btn-close-rules">关闭</button>
     </div>
   </div>
 
@@ -325,7 +318,6 @@
         <p>注销 = <b>彻底删除</b>本机和服务器上的全部数据，无法恢复。</p>
       </section>
     </div>
-    <button class="btn-secondary" id="btn-features-back">返回</button>
     <div class="rule-font-ctrl">
       <span class="rule-font-label">说明字号</span>
       <button class="rule-font-btn js-rule-minus" title="缩小说明字号" aria-label="缩小说明字号">A−</button>
@@ -428,7 +420,6 @@
         <p><b>续命</b>：步数 / 时间用完可花 <b>300 金币</b>再来一次 —— 限步关 +3 步、限时关 +7s，每局 1 次。</p>
       </section>
     </div>
-    <button class="btn-secondary" id="btn-play-rules-back">返回</button>
     <div class="rule-font-ctrl">
       <span class="rule-font-label">说明字号</span>
       <button class="rule-font-btn js-rule-minus" title="缩小说明字号" aria-label="缩小说明字号">A−</button>
@@ -446,7 +437,6 @@
         <button class="mail-emoji-btn" id="btn-mail-del-all" aria-label="删除邮件">🗑️</button>
       </div>
     </div>
-    <button class="btn-secondary" id="btn-mail-close">返回</button>
   </div>
 
   <!-- 邮件详情 -->
@@ -458,7 +448,6 @@
       <p class="mail-body" id="mail-view-body"></p>
     </div>
     <button class="btn-primary" id="btn-mail-claim">领取奖励</button>
-    <button class="btn-secondary" id="btn-mail-back">返回</button>
   </div>
 
   <!-- 设置：只有「音乐设置」和「账号安全」两个入口 -->
@@ -466,7 +455,6 @@
     <h2 class="title small">设置</h2>
     <button class="btn-primary" id="btn-goto-music-settings">🎵 音乐设置</button>
     <button class="btn-primary" id="btn-goto-account">🔐 账号安全</button>
-    <button class="btn-secondary" id="btn-close-settings">关闭</button>
   </div>
 
   <!-- 音乐设置：音量 / 播放列表 / 导入 / 恢复默认 -->
@@ -476,7 +464,6 @@
     <button class="btn-primary" id="btn-goto-playlist">📋 播放列表</button>
     <button class="btn-primary" id="btn-goto-import">📂 导入音频</button>
     <button class="btn-primary" id="btn-reset-bgm">恢复默认音乐</button>
-    <button class="btn-secondary" id="btn-back-music-settings">返回</button>
   </div>
 
   <!-- 账号安全：修改密码 / 切换账号 -->
@@ -490,7 +477,6 @@
     <button class="btn-primary" id="btn-goto-cloud">☁️ 云存档（自动）</button>
     <button class="btn-primary" id="btn-goto-backup">💾 存档码</button>
     <button class="btn-danger-outline" id="btn-logout">🔒 注销账号</button>
-    <button class="btn-secondary" id="btn-close-account">返回</button>
   </div>
 
   <!-- 存档码：网址变了 / 换设备 / 微信清缓存时，把账号和进度整份搬过去 -->
@@ -504,7 +490,6 @@
       <button class="btn-primary" id="btn-backup-gen">生成</button>
       <button class="btn-primary" id="btn-backup-copy">复制</button>
     </div>
-    <button class="btn-secondary" id="btn-backup-back">返回</button>
   </div>
 
   <!-- 导入存档码：粘贴（登录页 → 💾 导入存档码） -->
@@ -515,7 +500,6 @@
       <p class="auth-err" id="backup-err"></p>
     </div>
     <button class="btn-primary" id="btn-backup-import">导入</button>
-    <button class="btn-secondary" id="btn-backup-import-back">返回</button>
   </div>
 
   <!-- 修改密码 -->
@@ -531,7 +515,6 @@
       <p class="auth-err" id="pass-err"></p>
     </div>
     <button class="btn-primary" id="btn-pass-save">保存</button>
-    <button class="btn-secondary" id="btn-pass-cancel">返回</button>
   </div>
 
   <!-- 切换账号 -->
@@ -540,7 +523,6 @@
     <p class="history-hint">点一个账号直接进去，数据各自独立保存</p>
     <div class="acct-list" id="acct-list"></div>
     <button class="btn-primary" id="btn-switch-login">登录其它账号</button>
-    <button class="btn-secondary" id="btn-switch-cancel">返回</button>
   </div>
 
   <!-- 第一次进入链接 / 注销后：先选登录还是注册 -->
@@ -564,7 +546,6 @@
       <p class="auth-tip" id="auth-tip"></p>
     </div>
     <button class="btn-primary" id="btn-auth-submit">登录</button>
-    <button class="btn-secondary" id="btn-auth-back">返回</button>
   </div>
 
   <!-- 账号资料不全 / 名字含敏感词：必须补好才能玩 -->
@@ -599,7 +580,6 @@
       <input type="range" id="sfx-volume" min="0" max="1" step="0.01" value="0.5" style="width:100%;">
     </div>
     <button class="btn-primary" id="btn-save-volume">保存音量</button>
-    <button class="btn-secondary" id="btn-back-settings">返回</button>
   </div>
 
   <!-- 导入音频 -->
@@ -617,7 +597,6 @@
     </div>
     <button class="btn-primary" id="btn-save-bgm">保存并播放</button>
     <button class="btn-primary" id="btn-goto-history-music">历史导入</button>
-    <button class="btn-secondary" id="btn-back-import">返回</button>
   </div>
 
   <!-- 历史导入 -->
@@ -631,7 +610,6 @@
     <div class="music-box">
       <div class="music-list" id="music-history-list"></div>
     </div>
-    <button class="btn-secondary" id="btn-back-history-music">返回</button>
   </div>
 
   <!-- 播放列表 -->
@@ -650,7 +628,6 @@
       <div class="music-list" id="playlist-list"></div>
     </div>
     <button class="btn-primary" id="btn-goto-library">🎵 音乐库</button>
-    <button class="btn-secondary" id="btn-back-playlist">返回</button>
   </div>
 
   <!-- 音乐库（系统自带歌曲只在这里；删除与历史导入互不同步） -->
@@ -664,7 +641,6 @@
     <div class="music-box">
       <div class="music-list" id="music-library-list"></div>
     </div>
-    <button class="btn-secondary" id="btn-back-library">返回播放列表</button>
   </div>
 
   <!-- 重命名 -->
@@ -681,7 +657,6 @@
   <div class="overlay" id="tasks-menu" style="display:none;">
     <h2 class="title small">每日任务</h2>
     <div class="task-list" id="tasks-list"></div>
-    <button class="btn-secondary" id="btn-close-tasks">关闭</button>
   </div>
 
   <!-- 商店 -->
@@ -691,14 +666,12 @@
       <div class="shop-track" id="shop-list"></div>
     </div>
     <div class="shop-dots" id="shop-dots"></div>
-    <button class="btn-secondary" id="btn-close-shop">关闭</button>
   </div>
 
   <!-- 关卡记录 -->
   <div class="overlay" id="history-menu" style="display:none;">
     <h2 class="title small">关卡记录</h2>
     <div class="history-list" id="history-list"></div>
-    <button class="btn-secondary" id="btn-history-back">返回</button>
     <button class="btn-primary" id="btn-replay-ending">结算</button>
   </div>
 
@@ -707,7 +680,6 @@
     <h2 class="title small">🎒 背包</h2>
     <p class="history-hint" id="backpack-hint">道具在游戏中使用，点「使用」立即生效</p>
     <div class="shop-list" id="backpack-list"></div>
-    <button class="btn-secondary" id="btn-close-backpack">关闭</button>
   </div>
 
   <!-- 暂停 -->
@@ -812,7 +784,6 @@
   <div class="overlay" id="chapters-menu" style="display:none;">
     <h2 class="title small">🗺️ 章节地图</h2>
     <div class="chapters-list" id="chapters-list"></div>
-    <button class="btn-secondary" id="btn-close-chapters">返回</button>
   </div>
 
   <!-- 剧情过场 -->
@@ -845,7 +816,6 @@
         <button class="btn-primary" id="btn-mode-rhythm">开始节奏关</button>
       </div>
     </div>
-    <button class="btn-secondary" id="btn-close-modes">返回</button>
   </div>
 
   <!-- 模式结算 -->
@@ -866,7 +836,6 @@
   <div class="overlay" id="achievements-menu" style="display:none;">
     <h2 class="title small">🏅 成就 <span class="sub-count" id="ach-total">0 / 20</span></h2>
     <div class="ach-list" id="ach-list"></div>
-    <button class="btn-secondary" id="btn-close-ach">返回</button>
   </div>
 
   <!-- 单个成就详情：奖杯 + 左右切换已解锁的阶 + 领奖（点卡片外空白返回） -->
@@ -908,7 +877,6 @@
   <div class="overlay" id="collection-menu" style="display:none;">
     <h2 class="title small">🎨 棋盘配色 <span class="sub-count">⭐ <b id="skin-stars">0</b></span></h2>
     <div class="skin-list" id="skin-list"></div>
-    <button class="btn-secondary" id="btn-close-skins">返回</button>
   </div>
 
   <!-- 签到入口 -->
@@ -922,7 +890,6 @@
       <div class="wheel-result" id="wheel-result">每天可以转一次</div>
     </div>
     <button class="btn-primary" id="btn-wheel">转盘抽奖</button>
-    <button class="btn-secondary" id="btn-close-welfare">返回</button>
   </div>
 
   <!-- 补签确认 -->
@@ -949,7 +916,6 @@
         <b>🎯 局榜</b><i>选一局，比这一局的最高分</i>
       </button>
     </div>
-    <button class="btn-secondary" id="btn-close-lb">返回</button>
   </div>
 
   <!-- 排行榜列表（总榜 / 省榜 / 局榜；进来只看排名，不再有页签切换） -->
@@ -961,7 +927,6 @@
     </div>
     <div class="lb-picker" id="lb-picker" style="display:none;"></div>
     <div class="lb-list" id="lb-list"></div>
-    <button class="btn-secondary lb-back" id="btn-lb-view-back">返回</button>
   </div>
 
   <!-- 改名：昵称还是「奶龙玩家」时必须改，窗口不能关闭（没有返回键，点外面也不关） -->
@@ -1001,22 +966,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261108x"></script>
-<script src="./js/storage.js?v=20261108x"></script>
-<script src="./js/audio.js?v=20261108x"></script>
-<script src="./js/effects.js?v=20261108x"></script>
-<script src="./js/specials.js?v=20261108x"></script>
-<script src="./js/goals.js?v=20261108x"></script>
-<script src="./js/tasks.js?v=20261108x"></script>
-<script src="./js/mail.js?v=20261108x"></script>
-<script src="./js/input.js?v=20261108x"></script>
-<script src="./js/builtin-music.js?v=20261108x"></script>
-<script src="./js/music.js?v=20261108x"></script>
-<script src="./js/meta.js?v=20261108x"></script>
-<script src="./js/cloud-config.js?v=20261108x"></script>
-<script src="./js/cloud.js?v=20261108x"></script>
-<script src="./js/account.js?v=20261108x"></script>
-<script src="./js/board.js?v=20261108x"></script>
-<script src="./js/game.js?v=20261108x"></script>
+<script src="./js/rng.js?v=20261108y"></script>
+<script src="./js/storage.js?v=20261108y"></script>
+<script src="./js/audio.js?v=20261108y"></script>
+<script src="./js/effects.js?v=20261108y"></script>
+<script src="./js/specials.js?v=20261108y"></script>
+<script src="./js/goals.js?v=20261108y"></script>
+<script src="./js/tasks.js?v=20261108y"></script>
+<script src="./js/mail.js?v=20261108y"></script>
+<script src="./js/input.js?v=20261108y"></script>
+<script src="./js/builtin-music.js?v=20261108y"></script>
+<script src="./js/music.js?v=20261108y"></script>
+<script src="./js/meta.js?v=20261108y"></script>
+<script src="./js/cloud-config.js?v=20261108y"></script>
+<script src="./js/cloud.js?v=20261108y"></script>
+<script src="./js/account.js?v=20261108y"></script>
+<script src="./js/board.js?v=20261108y"></script>
+<script src="./js/game.js?v=20261108y"></script>
 </body>
 </html>
