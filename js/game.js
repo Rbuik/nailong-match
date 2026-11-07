@@ -753,82 +753,29 @@
     return cv;
   }
 
-  // 钥匙徽标：银蓝色「古堡钥匙」—— 圆角菱形手柄 + 圆孔 + 直杆 + 底部双齿。
-  // 为什么不用 🔑：彩色 emoji 字形在绝大多数浏览器里不吃 strokeText，描边等于没画；
-  // 想要黑边只能自己构图 —— 「先用加粗黑线整体描一遍，再填银色」，两层叠起来只剩外轮廓一圈黑。
-  function drawKeyMark(g, cell, pulse) {
-    const k = cell * 0.74;                 // 钥匙总高
-    const bowY = -k * 0.21;                // 菱形手柄中心
-    const bw = k * 0.255;                  // 菱形半宽
-    const hole = k * 0.078;                // 手柄圆孔
-    const shaftW = k * 0.105;              // 杆宽
-    const shaftX = -shaftW / 2;
-    const shaftTop = bowY + bw * 0.30;     // 杆插进柄里，接缝被柄的填充盖住
-    const shaftBot = k * 0.47;
-    const teeth = [
-      { y: k * 0.15, w: k * 0.16, h: k * 0.072 },
-      { y: k * 0.30, w: k * 0.115, h: k * 0.066 }
-    ];
-
-    // 背后一层银蓝柔光（跟着呼吸起伏）
-    g.save();
-    g.shadowBlur = 0;                      // 钥匙自己控制光晕，不用外面的阴影
-    const glow = g.createRadialGradient(0, bowY * 0.4, k * 0.04, 0, bowY * 0.4, k * 0.62);
-    glow.addColorStop(0, 'rgba(150,208,255,' + (0.30 + 0.18 * pulse).toFixed(3) + ')');
-    glow.addColorStop(1, 'rgba(150,208,255,0)');
-    g.fillStyle = glow;
-    g.beginPath();
-    g.arc(0, bowY * 0.4, k * 0.62, 0, Math.PI * 2);
-    g.fill();
-
-    const paint = (fill) => {
-      // 菱形手柄（圆孔反向绕圈 → evenodd 挖空）
-      g.beginPath();
-      g.moveTo(0, bowY - bw);
-      g.lineTo(bw, bowY);
-      g.lineTo(0, bowY + bw);
-      g.lineTo(-bw, bowY);
-      g.closePath();
-      g.moveTo(hole, bowY);
-      g.arc(0, bowY, hole, Math.PI * 2, 0, true);
-      if (fill) g.fill('evenodd'); else g.stroke();
-      // 杆
-      g.beginPath();
-      g.rect(shaftX, shaftTop, shaftW, shaftBot - shaftTop);
-      if (fill) g.fill(); else g.stroke();
-      // 齿（右侧两级台阶）
-      for (let i = 0; i < teeth.length; i++) {
-        const t = teeth[i];
-        g.beginPath();
-        g.rect(shaftX + shaftW - k * 0.012, t.y, t.w, t.h);
-        if (fill) g.fill(); else g.stroke();
-      }
-    };
-
-    g.save();
-    g.lineJoin = 'round';
-    g.lineCap = 'round';
-    // 1) 黑色加粗描一遍：可见黑边 = 线宽的一半
-    g.strokeStyle = '#000';
-    g.lineWidth = Math.max(2.4, cell * 0.09);
-    paint(false);
-    // 2) 银蓝金属色填进去，盖掉内部的黑线，只留外轮廓
-    const steel = g.createLinearGradient(-bw, bowY - bw, shaftX + shaftW, shaftBot);
-    steel.addColorStop(0, '#ffffff');
-    steel.addColorStop(0.4, '#d9edff');
-    steel.addColorStop(0.75, '#a8cdf0');
-    steel.addColorStop(1, '#7ba7d4');
-    g.fillStyle = steel;
-    paint(true);
-    // 3) 菱形左上棱一道高光，看着像抛光金属
-    g.strokeStyle = 'rgba(255,255,255,0.9)';
-    g.lineWidth = Math.max(1, cell * 0.035);
-    g.beginPath();
-    g.moveTo(-bw * 0.55, bowY - bw * 0.42);
-    g.lineTo(-bw * 0.14, bowY - bw * 0.82);
-    g.stroke();
-    g.restore();
+  // 🔑 emoji 的纯黑剪影（描边用），按尺寸缓存一次
+  let KEY_EMOJI_SIL = null;
+  function keyEmojiSilhouette(px, dpr) {
+    const key = px + '@' + dpr;
+    if (KEY_EMOJI_SIL && KEY_EMOJI_SIL.key === key) return KEY_EMOJI_SIL.cv;
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(px));
+    cv.height = Math.max(1, Math.round(px));
+    const g = cv.getContext('2d');
+    g.font = Math.round(cv.height * 0.9) + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText('🔑', cv.width / 2, cv.height * 0.54);
+    g.globalCompositeOperation = 'source-in';   // 只留形状，全部涂黑
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, cv.width, cv.height);
+    KEY_EMOJI_SIL = { key: key, cv: cv };
+    return cv;
   }
+
+  // 钥匙徽标：直接画 🔑 emoji（用户指定样式）。
+  // 彩色 emoji 字形在绝大多数浏览器里不吃 strokeText，
+  // 黑描边用「剪影沿 8 个方向铺一圈」实现，和奶龙抠图同一套做法。
 
   // 糖果：圆糖体 + 两端拧出来的糖纸，和钥匙一样纯路径画（emoji 吃不了黑描边）
   function drawCandyMark(g, cell, pulse) {
@@ -974,10 +921,18 @@
       // 糖果：圆糖体 + 两端糖纸，纯路径画黑描边
       drawCandyMark(g, CELL, pulse);
     } else {
-      // 钥匙自己画：emoji 的 strokeText 在多数浏览器里不生效（彩色字形不吃描边），
-      // 想让钥匙也有黑边，只能拿路径画：先用加粗黑线整体描一遍，再填金色，
-      // 叠起来就只剩轮廓那一圈黑边。
-      drawKeyMark(g, CELL, pulse);
+      // 钥匙：🔑 emoji 本体 + 剪影沿 8 向铺黑边（彩色字形吃不了 strokeText），
+      // 外面再保留原本那层蓝光呼吸
+      const s = CELL * 0.66;
+      const sil = keyEmojiSilhouette(Math.round(s * dpr), dpr);
+      g.shadowBlur = 0;
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4;
+        g.drawImage(sil, -s / 2 + Math.cos(a) * outline, -s / 2 + Math.sin(a) * outline, s, s);
+      }
+      g.font = Math.round(s * 0.9) + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", serif';
+      g.shadowBlur = CELL * (0.26 + 0.22 * pulse);
+      g.fillText('🔑', 0, s * 0.04);
     }
     c.m[bucket] = sp;
     return sp;

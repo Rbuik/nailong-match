@@ -1973,9 +1973,8 @@ function check(name, ok) {
     /#level-clear #btn-clear-continue\s*\{[^}]*#1a8f4a/.test(cssSrc) &&
     /class="btn-secondary" id="btn-clear-continue"/.test(htmlSrc));
   // 41f-5. 钥匙换样式：银蓝「菱形柄」古堡钥匙
-  check('钥匙换新样式（菱形手柄 + 银蓝金属渐变 + 黑描边）',
-    /菱形手柄/.test(jsSrc) && /菱形左上棱一道高光/.test(jsSrc) &&
-    /steel\.addColorStop\(1, '#7ba7d4'\)/.test(jsSrc) &&
+  check('钥匙用 🔑 emoji 样式（剪影黑描边，蓝光保留）',
+    /🔑/.test(jsSrc) && /keyEmojiSilhouette/.test(jsSrc) &&
     /g\.strokeStyle = '#000'/.test(jsSrc));
   // 41f-6. 说明页：改名属于功能，写进「功能介绍」；玩法说明里不再重复；不举 Yone / yone 的例子
   check('改名位置写进「功能介绍」，玩法说明里不再重复，也不举大小写的例子', (() => {
@@ -2027,11 +2026,12 @@ function check(name, ok) {
   check('钥匙 / 奶龙徽标用黑色描边（奶龙走剪影 8 方向铺边）',
     /g\.strokeStyle = '#000'/.test(jsSrc) && /nailongSilhouette/.test(jsSrc) &&
     /for \(let i = 0; i < 8; i\+\+\)/.test(jsSrc));
-  // 41j. 钥匙也走矢量：emoji 的 strokeText 不生效，改用「先黑描后金填」的联合轮廓
-  check('钥匙改成矢量绘制，先描黑边再填金色（不吃 emoji）',
-    /function drawKeyMark/.test(jsSrc) &&
-    /paint\(false\)/.test(jsSrc) && /paint\(true\)/.test(jsSrc) &&
-    /fill\('evenodd'\)/.test(jsSrc) &&
+  // 41j. 钥匙改用 🔑 emoji 本体，黑描边走「剪影沿 8 向铺边」（和奶龙同一套）
+  check('钥匙改用 🔑 emoji + 剪影 8 向黑描边',
+    /function keyEmojiSilhouette/.test(jsSrc) &&
+    /keyEmojiSilhouette\(Math\.round\(s \* dpr\), dpr\)/.test(jsSrc) &&
+    /g\.fillText\('🔑'/.test(jsSrc) &&
+    !/function drawKeyMark/.test(jsSrc) &&
     !/g\.strokeText\(t, 0, 1\)/.test(jsSrc) &&
     !/const t = isN \? '奶龙' : '🔑'/.test(jsSrc));
 

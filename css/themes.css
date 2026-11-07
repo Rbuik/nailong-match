@@ -2398,7 +2398,13 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 #ach-detail.t1 { background: linear-gradient(180deg, #fdf3e9 0%, rgba(245, 245, 247, 0.96) 55%); }
 #ach-detail.t2 { background: linear-gradient(180deg, #f2f6fb 0%, rgba(245, 245, 247, 0.96) 55%); }
 #ach-detail.t3 { background: linear-gradient(180deg, #fff8e0 0%, rgba(245, 245, 247, 0.96) 55%); }
-#ach-detail.t4 { background: linear-gradient(180deg, #fdeaf5 0%, #eaf4ff 40%, rgba(245, 245, 247, 0.96) 75%); }
+#ach-detail.t4 {
+  /* 彩杯整页背景也用彩虹图：一层淡白纱保证标题可读 */
+  background-image: linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)), url('../assets/rainbow-cup.jpg'), linear-gradient(135deg, #ffd9ec, #d9ecff 50%, #e6dcff);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
 /* 领取键：用当前阶的主题色渐变底（彩阶用整条彩虹） */
 #btn-ach-claim.btn-primary {
   color: #fff;
@@ -2414,8 +2420,12 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 }
 /* 彩杯卡片边框也带一点彩虹 */
 .ach-detail-card.t4 { border-color: rgba(255, 159, 196, 0.55); }
-/* 标题：图标剪影 + 文字颜色随当前奖杯变化（整块 h2 不再用全局渐变字） */
+/* 标题：图标剪影 + 文字颜色随当前奖杯变化（flex 垂直居中，图标文字同一水平线） */
 #ach-d-name {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   background: none;
   -webkit-background-clip: border-box;
   background-clip: border-box;
@@ -2431,22 +2441,21 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   background-clip: text;
   color: transparent;
 }
-/* 图标剪影：统一置灰提色，颜色贴近当前阶的文字色 */
+/* 图标剪影：统一置灰提色，颜色贴近当前阶的文字色（彩杯不滤，emoji 保持彩色） */
 .ach-d-ico {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.15em;
   height: 1.15em;
-  margin-right: 8px;
-  vertical-align: -0.18em;
+  vertical-align: baseline;
   filter: grayscale(1) brightness(0.6);
   opacity: 0.9;
 }
 .t1 .ach-d-ico { filter: grayscale(1) brightness(0.6) sepia(1) saturate(2.4) hue-rotate(-10deg); }
 .t2 .ach-d-ico { filter: grayscale(1) brightness(0.62); }
 .t3 .ach-d-ico { filter: grayscale(1) brightness(0.72) sepia(1) saturate(3) hue-rotate(5deg); }
-.t4 .ach-d-ico { filter: grayscale(1) brightness(0.6) sepia(1) saturate(2.6) hue-rotate(245deg); }
+.t4 .ach-d-ico { filter: none; }
 .ach-d-ico .ach-d-emoji {
   font-style: normal;
   font-size: 1em;
