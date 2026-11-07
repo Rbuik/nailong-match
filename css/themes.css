@@ -2188,11 +2188,17 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 30px;
+  overflow: hidden;
   border-radius: 16px;
   background: linear-gradient(160deg, #fff3cf, #ffe08a);
   box-shadow: inset 0 0 0 2px rgba(255, 190, 40, 0.5);
   animation: float-badge 3s ease-in-out infinite;
+}
+/* 方块里统一放原色奶龙贴图：保持本来颜色，不染色 */
+.master-crown img {
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
 }
 .master-title-box {
   display: flex;

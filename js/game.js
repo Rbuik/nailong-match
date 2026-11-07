@@ -3689,16 +3689,18 @@
     const ratio = Math.min(1, cleared / total);
 
     // 称号：按通关进度（全部通关后再看三星数）
-    let title = '消消乐学徒', crown = '🌱';
+    let title = '消消乐学徒';
     if (cleared >= total) {
-      if (perfect >= total) { title = '消消乐宗师'; crown = '👑'; }
-      else { title = '消消乐大师'; crown = '🏆'; }
-    } else if (ratio >= 0.75) { title = '消消乐高手'; crown = '🥇'; }
-    else if (ratio >= 0.5) { title = '消消乐达人'; crown = '🥈'; }
-    else if (ratio >= 0.25) { title = '消消乐新星'; crown = '🥉'; }
+      if (perfect >= total) title = '消消乐宗师';
+      else title = '消消乐大师';
+    } else if (ratio >= 0.75) title = '消消乐高手';
+    else if (ratio >= 0.5) title = '消消乐达人';
+    else if (ratio >= 0.25) title = '消消乐新星';
 
     const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
-    setText('master-crown', crown);
+    // 称号左边的方块：所有称号统一放原色奶龙贴图（什么颜色就是什么颜色，不染色不换图）
+    const crownBox = $('master-crown');
+    if (crownBox) crownBox.innerHTML = '<img src="./assets/nailong.png" alt="奶龙">';
     setText('master-title', title);
     // 「🎉 恭喜」彩色：文字由 CSS 渐变裁切，🎉 用彩虹填充的图片（彩色字形无法直接染色）
     const greetIco = $('master-greet-ico');

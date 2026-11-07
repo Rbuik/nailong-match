@@ -2266,6 +2266,13 @@ function check(name, ok) {
       /'已通 ' \+ cleared \+ ' 关 · 三星 ' \+ perfect \+ ' 关'/.test(fn) &&
       !/还差/.test(fn) && !fn.includes('主线全部通关');
   })());
+  check('所有称号左边的方块统一放原色奶龙贴图（不再用奖牌 / 皇冠 emoji）', (() => {
+    const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
+    return /crownBox\.innerHTML = '<img src="\.\/assets\/nailong\.png" alt="奶龙">'/.test(fn) &&
+      !fn.includes("crown = '") && !fn.includes("setText('master-crown'") &&
+      /\.master-crown img\s*\{[^}]*object-fit:\s*contain/.test(cssSrc) &&
+      htmlSrc.includes('id="master-crown"') && /master-crown" id="master-crown"><img src="\.\/assets\/nailong\.png"/.test(htmlSrc);
+  })());
   check('奖杯详情页没有返回键，点卡片外空白回成就页；彩杯背景是渐变、奖杯本体彩虹填色',
     !htmlSrc.includes('btn-ach-detail-back') && !jsSrc.includes('btn-ach-detail-back') &&
     /detailPanel\.addEventListener\('click'/.test(jsSrc) &&
