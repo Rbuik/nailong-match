@@ -1434,6 +1434,7 @@
     if (S.combo >= 3) AudioManager.setDrum(true);
     else AudioManager.setDrum(false);
     if (S.combo >= 4) Tasks.report('combo4', 1);
+    if (S.combo >= 3) Tasks.report('combo3', 1);   // 每日任务：单局连击达到 x3
   }
 
   // 倍数/连击显示：棋盘中央横幅（#center-banner），每次连击升级重放弹出动画
@@ -2459,6 +2460,7 @@
     Store.addCoins(coins);
     if (!again) {
       Tasks.report('play', 1);
+      Tasks.report('win', 1);          // 每日任务：通过 1 关
       Tasks.report('score', S.score);
 
       // 成就统计
@@ -2782,17 +2784,6 @@
       });
       list.appendChild(row);
     });
-
-    const signBox = $('signin-info');
-    if (signBox) {
-      const st = Store.getTaskState();
-      const can = Store.canSignIn();
-      signBox.innerHTML = can
-        ? '连续签到第 <b>' + (st.signDay + 1) + '</b> 天可领奖励'
-        : '今日已签到（第 <b>' + st.signDay + '</b> 天）';
-      const btn = $('btn-signin');
-      if (btn) btn.disabled = !can;
-    }
   }
 
   // 购买确认（点「🪙 价格」先弹确认，再真正扣钱）
@@ -5270,18 +5261,6 @@
     });
     const closeTasks = $('btn-close-tasks');
     if (closeTasks) closeTasks.addEventListener('click', () => $('tasks-menu').style.display = 'none');
-    const signBtn = $('btn-signin');
-    if (signBtn) signBtn.addEventListener('click', () => {
-      const r = Store.signIn();
-      if (!r.ok) {
-        toast('今天已经签过啦');
-        return;
-      }
-      toast('签到成功：第 ' + r.day + ' 天 +' + r.reward.coins + ' 金币' + (r.reward.item ? ' +彩虹' : ''));
-      AudioManager.playSFX('coin');
-      renderTasks();
-      updateHUD();
-    });
     const shopBtn = $('btn-goto-shop');
     if (shopBtn) shopBtn.addEventListener('click', () => {
       renderShop();

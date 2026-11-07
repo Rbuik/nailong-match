@@ -2065,6 +2065,36 @@ function check(name, ok) {
     return i3 >= 0 && i10 === i3 + 1 && shop[i10].price === 300 &&
       shop[i10].name === '+7s' && sandbox.Store.getWallet().items.extraTime === 0;
   })());
+  check('每日任务：每天 5 个、池子 10 个，新增连击 x3 / 通过 1 关（各 20 金币）', (() => {
+    const pool = sandbox.Tasks.POOL;
+    const c3 = pool.find((x) => x.id === 'combo3');
+    const w1 = pool.find((x) => x.id === 'win1');
+    return pool.length === 10 &&
+      c3 && c3.reward === 20 && c3.event === 'combo3' &&
+      w1 && w1.reward === 20 && w1.event === 'win' &&
+      sandbox.Tasks.getToday().length === 5;
+  })());
+  check('每日任务尽量不重样：上一批出过的排到候选队尾，通常整批换新', (() => {
+    const saved = lsMap.get('nl2:tasks');
+    lsMap.set('nl2:tasks', JSON.stringify({ date: '2020-01-01', list: [
+      { id: 'match4' }, { id: 'bomb' }, { id: 'combo4' }, { id: 'jelly' }, { id: 'play3' }
+    ] }));
+    const today = sandbox.Tasks.getToday();
+    const todayIds = today.map((t) => t.id);
+    lsMap.set('nl2:tasks', saved);
+    // 旧 5 个里最多只允许出现 0 个（池子剩 5 个没出过的正好顶上）
+    const overlap = ['match4', 'bomb', 'combo4', 'jelly', 'play3'].filter((x) => todayIds.indexOf(x) >= 0);
+    return todayIds.length === 5 && overlap.length === 0;
+  })());
+  check('每日任务面板没有签到区（签到去「🎁 签到入口」）', (() => {
+    const panel = htmlSrc.slice(htmlSrc.indexOf('id="tasks-menu"'), htmlSrc.indexOf('id="shop-menu"'));
+    return !panel.includes('signin-box') && !panel.includes('btn-signin') && !panel.includes('签到领金币') &&
+      !jsSrc.includes('signin-info') && !jsSrc.includes("if (signBtn)") && !cssSrc.includes('.signin-box');
+  })());
+  check('combo3 / win 事件真的会上报（每日任务能推进）',
+    /if \(S\.combo >= 3\) Tasks\.report\('combo3', 1\);/.test(jsSrc) &&
+    /Tasks\.report\('win', 1\);/.test(jsSrc) &&
+    /Tasks\.report\('play', 1\);/.test(jsSrc));
   check('「+7s」限时关真的加 7 秒，步数关不白扣', (() => {
     sandbox.__nl_test.start(1, { def: { id: 88, theme: 'ocean', moves: 20, goal: { type: 'timed', target: 100, time: 60 }, stars: [1, 2, 3] } });
     sandbox.__nl_test.state().timeLeft = 42;

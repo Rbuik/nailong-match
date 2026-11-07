@@ -134,18 +134,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   background: rgba(92, 200, 143, 0.14);
 }
 
-/* ================= 任务 / 签到（§6 §8） ================= */
-.signin-box {
-  width: 86%;
-  padding: 12px 14px;
-  margin-bottom: 10px;
-  border-radius: 12px;
-  background: rgba(124, 92, 255, 0.08);
-  border: 1px solid rgba(124, 92, 255, 0.25);
-  font-size: 14px;
-  color: #4b3f8f;
-  text-align: center;
-}
+/* ================= 每日任务（§6） ================= */
 
 .task-list {
   width: 86%;

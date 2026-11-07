@@ -9,6 +9,8 @@
     { id: 'match4', desc: '完成 3 次 4 连消除', target: 3, reward: 80, event: 'match4' },
     { id: 'bomb', desc: '触发 2 次炸弹', target: 2, reward: 80, event: 'bomb' },
     { id: 'combo4', desc: '单局连击达到 x4', target: 1, reward: 120, event: 'combo4' },
+    { id: 'combo3', desc: '单局连击达到 x3', target: 1, reward: 20, event: 'combo3' },
+    { id: 'win1', desc: '通过 1 关', target: 1, reward: 20, event: 'win' },
     { id: 'jelly', desc: '清除 15 格果冻', target: 15, reward: 100, event: 'jelly' },
     { id: 'play3', desc: '完成 3 局游戏', target: 3, reward: 60, event: 'play' },
     { id: 'score5000', desc: '累计获得 5000 分', target: 5000, reward: 150, event: 'score' },
@@ -31,14 +33,24 @@
     return Store.todayKey();
   }
 
+  // 每天出几个任务
+  const DAILY_COUNT = 5;
+
   // 保证今天的任务已生成（同一日期固定，不随刷新变化）
   function ensureToday() {
     const s = Store.getTaskState();
     const today = todayStr();
-    if (s.date === today && Array.isArray(s.list) && s.list.length === 3) return s;
+    if (s.date === today && Array.isArray(s.list) && s.list.length === DAILY_COUNT) return s;
 
+    // 「每天的任务尽量不要一样」：把上一批出过的任务压到候选队尾，
+    // 池子有 10 个、每天抽 5 个，剩下的没出过的通常正好够 5 个 → 整批换新
+    const prevIds = (Array.isArray(s.list) && s.date && s.date !== today)
+      ? s.list.map((t) => t.id) : [];
     const rng = RNG.source(RNG.seedFromDate(new Date()));
-    const picked = rng.shuffle(POOL.slice()).slice(0, 3);
+    const shuffled = rng.shuffle(POOL.slice());
+    shuffled.sort((a, b) =>
+      (prevIds.indexOf(a.id) >= 0 ? 1 : 0) - (prevIds.indexOf(b.id) >= 0 ? 1 : 0));
+    const picked = shuffled.slice(0, DAILY_COUNT);
     s.date = today;
     s.list = picked.map((p) => ({
       id: p.id,
