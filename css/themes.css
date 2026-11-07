@@ -201,6 +201,63 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 
 /* ================= 商店（§7） ================= */
+/* 横向卡片：一次一张，左右滑动看其余（节奏同成就详情） */
+.shop-stage {
+  width: 92%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 4px 0 6px;
+}
+.shop-stage::-webkit-scrollbar { display: none; }
+
+.shop-track {
+  display: flex;
+  gap: 10px;
+  padding: 0 12%;
+  box-sizing: border-box;
+}
+
+.shop-card {
+  flex: 0 0 76%;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 18px 16px 16px;
+  background: #fff;
+  border-radius: 18px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.shop-card-ico { font-size: 42px; line-height: 1; }
+.shop-card-name { font-size: 16px; color: #333; }
+.shop-card-desc { font-size: 12px; color: #999; line-height: 1.45; min-height: 34px; }
+.shop-card-own { font-size: 11px; color: #8b84a0; }
+
+.shop-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 2px 0 12px;
+  min-height: 8px;
+}
+.shop-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.16);
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.shop-dot.on { background: #3a78ff; transform: scale(1.35); }
+
+/* 背包还是竖排列表 */
 .shop-list {
   width: 86%;
   display: flex;
@@ -239,6 +296,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 
 .shop-buy:disabled { background: #e4e4ec; color: #aaa; cursor: not-allowed; }
+.shop-card .shop-buy { width: 100%; padding: 9px 0; font-size: 13px; }
 
 /* ================= 吉祥物（§18） ================= */
 .mascot {

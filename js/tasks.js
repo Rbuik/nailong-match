@@ -21,7 +21,9 @@
     { id: 'score5000', desc: '累计获得 5000 分', target: 5000, reward: 60, event: 'score' }
   ];
 
-  // 商店（§7）
+  // 商店：价格按「生成难度 × 能力大小」排成阶梯
+  // 150 洗牌 / 撤回 ｜ 200 线消 / 炸弹 ｜ 300 霜块、+3 步 / +7s
+  // 350 磁铁 ｜ 400 螺旋桨 ｜ 450 颜料 ｜ 500 彩虹
   const SHOP = [
     { key: 'extraMoves', name: '+3 步', price: 300, desc: '本局步数 +3', icon: '👣' },
     { key: 'extraTime', name: '+7s', price: 300, desc: '本局时间 +7s（限时关）', icon: '⏱️' },
@@ -29,6 +31,10 @@
     { key: 'undo', name: '撤回 +1', price: 150, desc: '回退上一步', icon: '↩️' },
     { key: 'startLine', name: '开局线消', price: 200, desc: '开局在随机位置放一条线消', icon: '➖' },
     { key: 'startBomb', name: '开局炸弹', price: 200, desc: '开局在随机位置放一颗炸弹', icon: '💣' },
+    { key: 'startFrost', name: '开局霜块', price: 300, desc: '开局放一块霜块；消掉后 3 步机关暂停', icon: '❄️' },
+    { key: 'startMagnet', name: '开局磁铁', price: 350, desc: '开局放一块磁铁；吸同行同列同色一起消', icon: '🧲' },
+    { key: 'startPropeller', name: '开局螺旋桨', price: 400, desc: '开局放一块螺旋桨；斜扫两条对角线', icon: '🛩️' },
+    { key: 'startPaint', name: '开局颜料', price: 450, desc: '开局放一块颜料；把一大片刷成同色', icon: '🎨' },
     { key: 'rainbow', name: '彩虹道具', price: 500, desc: '随机把一块变成彩虹', icon: '🌈' }
   ];
 

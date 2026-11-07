@@ -3425,25 +3425,59 @@
     updateHUD();
   }
 
+  // 商店：横向卡片，一次看一张，左右滑动看其余（和成就详情一样的节奏）
+  function syncShopDot() {
+    const stage = $('shop-stage');
+    const dots = $('shop-dots');
+    if (!stage || !dots) return;
+    const cards = stage.querySelectorAll ? stage.querySelectorAll('.shop-card') : [];
+    if (!cards || !cards.length) return;
+    const step = (cards[0].offsetWidth || 1) + 10;
+    const idx = Math.max(0, Math.min(cards.length - 1, Math.round(stage.scrollLeft / step)));
+    Array.prototype.slice.call(dots.children || []).forEach((d, i) => {
+      if (i === idx) d.classList.add('on'); else d.classList.remove('on');
+    });
+  }
+
   function renderShop() {
     const list = $('shop-list');
     if (!list) return;
     const wallet = Store.getWallet();
     $('shop-coins').textContent = wallet.coins;
+    const stage = $('shop-stage');
+    const keep = stage ? stage.scrollLeft : 0;
     list.innerHTML = '';
     Tasks.SHOP.forEach((item) => {
-      const row = document.createElement('div');
-      row.className = 'shop-row';
-      row.innerHTML =
-        '<span class="shop-icon">' + item.icon + '</span>' +
-        '<div class="shop-info"><b>' + item.name + '</b><small>' + item.desc + '</small></div>' +
-        '<span class="shop-own">持有 ' + (wallet.items[item.key] || 0) + '</span>' +
+      const card = document.createElement('div');
+      card.className = 'shop-card';
+      card.innerHTML =
+        '<span class="shop-card-ico">' + item.icon + '</span>' +
+        '<b class="shop-card-name">' + item.name + '</b>' +
+        '<small class="shop-card-desc">' + item.desc + '</small>' +
+        '<span class="shop-card-own">持有 ' + (wallet.items[item.key] || 0) + '</span>' +
         '<button class="shop-buy" ' + (wallet.coins < item.price ? 'disabled' : '') + '>🪙 ' + item.price + '</button>';
-      row.querySelector('.shop-buy').addEventListener('click', () => {
+      card.querySelector('.shop-buy').addEventListener('click', () => {
         openBuyConfirm(item);
       });
-      list.appendChild(row);
+      list.appendChild(card);
     });
+
+    const dots = $('shop-dots');
+    if (dots) {
+      dots.innerHTML = '';
+      Tasks.SHOP.forEach((item, i) => {
+        const d = document.createElement('i');
+        d.className = 'shop-dot' + (i === 0 ? ' on' : '');
+        dots.appendChild(d);
+      });
+    }
+    if (stage) {
+      stage.scrollLeft = keep;
+      if (!stage._shopBound && stage.addEventListener) {
+        stage.addEventListener('scroll', syncShopDot, { passive: true });
+        stage._shopBound = true;
+      }
+    }
   }
 
   // 背包：展示买到的道具，并可在局内直接使用
@@ -3454,7 +3488,22 @@
     undo: '使用',
     startBomb: '放置',
     startLine: '放置',
+    startMagnet: '放置',
+    startPropeller: '放置',
+    startPaint: '放置',
+    startFrost: '放置',
     rainbow: '使用'
+  };
+
+  // 放置类道具的提示语
+  const ITEM_TOAST = {
+    startBomb: '已在随机位置放了一颗炸弹',
+    startLine: '已在随机位置放了一条线消',
+    startMagnet: '已在随机位置放了一块磁铁',
+    startPropeller: '已在随机位置放了一块螺旋桨',
+    startPaint: '已在随机位置放了一块颜料',
+    startFrost: '已在随机位置放了一块霜块',
+    rainbow: '已把一块变成彩虹'
   };
 
   // 道具只在局内可用（结算后 / 未开局都不行）
@@ -3505,8 +3554,9 @@
       S.undoLeft += 1;
       updateHUD();
       toast('撤回 +1 次');
-    } else if (key === 'startBomb' || key === 'startLine' || key === 'rainbow') {
-      // 随机挑一个「还空着」的普通格变成炸弹 / 线消 / 彩虹（货物、冰、锁链上的格子不动）
+    } else if (key === 'startBomb' || key === 'startLine' || key === 'rainbow' ||
+      key === 'startMagnet' || key === 'startPropeller' || key === 'startPaint' || key === 'startFrost') {
+      // 随机挑一个「还空着」的普通格变成对应特殊块（货物、冰、锁链上的格子不动）
       const spots = [];
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
@@ -3522,12 +3572,14 @@
       markSpecial(spot[0], spot[1],
         key === 'startBomb' ? T.BOMB
           : key === 'startLine' ? (Math.random() < 0.5 ? T.LINE_H : T.LINE_V)
+          : key === 'startMagnet' ? T.MAGNET
+          : key === 'startPropeller' ? T.PROPELLER
+          : key === 'startPaint' ? T.PAINT
+          : key === 'startFrost' ? T.FROST
           : T.RAINBOW);
       drawStatic();
       AudioManager.playSFX('bomb');
-      toast(key === 'startBomb' ? '已在随机位置放了一颗炸弹'
-        : key === 'startLine' ? '已在随机位置放了一条线消'
-        : '已把一块变成彩虹');
+      toast(ITEM_TOAST[key] || '已在随机位置放好');
     }
 
     renderBackpack();

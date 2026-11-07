@@ -2488,7 +2488,36 @@ function check(name, ok) {
       if (i < 0) return false;
       pos = i;
       return true;
-    }) && md.length < 1200;
+    }) && md.length < 2800 && /^\s{2}- /m.test(md);
+  })());
+
+  check('商店按「难易 × 能力」排价：新道具齐全且价格阶梯递增', (() => {
+    const shop = sandbox.Tasks.SHOP;
+    const by = (k) => shop.find((x) => x.key === k);
+    const need = ['startFrost', 'startMagnet', 'startPropeller', 'startPaint'];
+    if (!need.every((k) => by(k))) return false;
+    return by('startLine').price === 200 && by('startBomb').price === 200 &&
+      by('startFrost').price === 300 && by('startMagnet').price === 350 &&
+      by('startPropeller').price === 400 && by('startPaint').price === 450 &&
+      by('rainbow').price === 500 &&
+      by('startFrost').icon === '❄️' && by('startMagnet').icon === '🧲' &&
+      by('startPropeller').icon === '🛩️' && by('startPaint').icon === '🎨';
+  })());
+
+  check('商店做成横滑卡片（一次一张 + 圆点指示），背包仍是竖排列表',
+    htmlSrc.includes('class="shop-stage"') && htmlSrc.includes('id="shop-dots"') &&
+    /\.shop-stage\s*\{[^}]*scroll-snap-type:\s*x mandatory/.test(cssSrc) &&
+    /\.shop-card\s*\{[^}]*scroll-snap-align:\s*center/.test(cssSrc) &&
+    /function syncShopDot/.test(jsSrc) &&
+    jsSrc.includes("card.className = 'shop-card'") &&
+    /id="backpack-list"/.test(htmlSrc) && /\.shop-list\s*\{[^}]*flex-direction:\s*column/.test(cssSrc));
+
+  check('放置类道具支持磁铁 / 颜料 / 螺旋桨 / 霜块，背包按钮与提示齐全', (() => {
+    return /startMagnet:\s*'放置'/.test(jsSrc) && /startPaint:\s*'放置'/.test(jsSrc) &&
+      /startPropeller:\s*'放置'/.test(jsSrc) && /startFrost:\s*'放置'/.test(jsSrc) &&
+      /'startMagnet'\s*\?\s*T\.MAGNET/.test(jsSrc) && /'startPaint'\s*\?\s*T\.PAINT/.test(jsSrc) &&
+      /'startPropeller'\s*\?\s*T\.PROPELLER/.test(jsSrc) && /'startFrost'\s*\?\s*T\.FROST/.test(jsSrc) &&
+      /已在随机位置放了一块磁铁/.test(jsSrc);
   })());
 
   check('棋盘接入机关：状态数组 / 开局摆放 / 每步结算 / 失败原因 / 传送门与流沙 / 存档与快照', (() => {

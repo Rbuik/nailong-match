@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>螺旋桨 示例</title>
+<style>
+  body {
+    margin: 0;
+    padding: 18px 0 22px;
+    background: #f6f2e8;
+    font-family: system-ui, "Microsoft YaHei", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  h1 { font-size: 19px; margin: 0 0 4px; color: #3d3556; }
+  .sub { font-size: 12px; color: #8b84a0; margin-bottom: 14px; }
+  .board {
+    display: grid;
+    grid-template-columns: repeat(8, 40px);
+    grid-template-rows: repeat(8, 40px);
+    gap: 3px;
+    padding: 8px;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  }
+  .cell { border-radius: 8px; overflow: hidden; position: relative; }
+  .cell img { width: 100%; height: 100%; display: block; }
+  .cell.dim { opacity: 0.22; filter: grayscale(0.4); }
+  .cell.h { outline: 3px solid #5c8fff; outline-offset: -3px; }
+  .cell.v { outline: 3px solid #ffb020; outline-offset: -3px; }
+  .cell.cross { outline: 4px solid #ff5c8a; outline-offset: -4px; z-index: 2; }
+  .cell .badge {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px;
+    text-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  }
+  .legend { display: flex; gap: 14px; margin-top: 14px; font-size: 12px; color: #5b5470; }
+  .legend i { font-style: normal; display: flex; align-items: center; gap: 5px; }
+  .legend span { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
+  .note {
+    width: min(92vw, 360px);
+    box-sizing: border-box;
+    margin-top: 14px; padding: 10px 12px;
+    background: #fff; border-radius: 12px; font-size: 12.5px; line-height: 1.75;
+    color: #5b5470; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  }
+  .note b { color: #ff5c8a; }
+  .note em { font-style: normal; color: #3a78ff; font-weight: 700; }
+  .note u { text-decoration: none; color: #d98b00; font-weight: 700; }
+</style>
+</head>
+<body>
+  <h1>🛩️ 螺旋桨怎么出</h1>
+  <p class="sub">横 4 连 + 竖 4 连，刚好共用一格</p>
+  <div class="board" id="board"></div>
+  <div class="legend">
+    <i><span style="background:#5c8fff"></span>横着 4 连</i>
+    <i><span style="background:#ffb020"></span>竖着 4 连</i>
+    <i><span style="background:#ff5c8a"></span>交叉格 → 螺旋桨</i>
+  </div>
+  <div class="note">
+    同一串<b>同图案</b>既横着排满 4 个、又竖着排满 4 个，两串在中间共用一格：<br>
+    · 竖着那 4 个落在第 3 列（图里 <u>黄框</u>）<br>
+    · 横着那 4 个落在第 4 行（图里 <em>蓝框</em>）<br>
+    消掉它俩，<b>交叉那一格</b>就变成螺旋桨。
+  </div>
+  <script>
+    (function () {
+      const board = document.getElementById('board');
+      // 第 4 行（下标 3）第 2~5 列横 4；第 3 列（下标 2）第 1~4 行竖 4；交叉点 = (3,2)
+      const H = [[3, 1], [3, 2], [3, 3], [3, 4]];
+      const V = [[0, 2], [1, 2], [2, 2], [3, 2]];
+      const isH = (r, c) => H.some((p) => p[0] === r && p[1] === c);
+      const isV = (r, c) => V.some((p) => p[0] === r && p[1] === c);
+      const cross = (r, c) => r === 3 && c === 2;
+      const pickOther = (r, c) => ((r * 3 + c * 5) % 4) + 1;
+
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          const d = document.createElement('div');
+          const hitH = isH(r, c), hitV = isV(r, c);
+          d.className = 'cell' + (hitH || hitV ? '' : ' dim');
+          if (cross(r, c)) d.classList.add('cross');
+          else if (hitH && hitV) d.classList.add('h', 'v');
+          else if (hitH) d.classList.add('h');
+          else if (hitV) d.classList.add('v');
+          const img = document.createElement('img');
+          img.src = '../assets/' + (hitH || hitV ? 2 : pickOther(r, c)) + '.jpg';
+          d.appendChild(img);
+          if (cross(r, c)) {
+            const b = document.createElement('span');
+            b.className = 'badge';
+            b.textContent = '🛩️';
+            d.appendChild(b);
+          }
+          board.appendChild(d);
+        }
+      }
+    })();
+  </script>
+</body>
+</html>
