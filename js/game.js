@@ -5982,7 +5982,7 @@
       if (Meta.isTierClaimed(a.id, tier)) {
         btn.textContent = '已领取 ' + coins + ' 金币';
         btn.disabled = true;
-        btn.className = 'btn-secondary';
+        btn.className = 'btn-primary';   // 保持本阶颜色，只是置灰（CSS :disabled 变灰）
       } else {
         btn.textContent = '领取 ' + coins + ' 金币';
         btn.disabled = false;

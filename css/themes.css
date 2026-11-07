@@ -2365,7 +2365,24 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 }
 .ach-d-info b { font-size: 18px; font-weight: 900; color: #3d3556; }
 .ach-d-info i { font-style: normal; font-size: 12px; color: #8a82a6; }
-#btn-ach-claim { width: 100%; margin-bottom: 0; font-size: 15px; padding: 12px 0; }
+/* 领取键：宽度收窄、居中，不再顶满卡片 */
+#btn-ach-claim {
+  width: fit-content;
+  min-width: 168px;
+  max-width: 100%;
+  margin: 0 auto 0;
+  font-size: 15px;
+  padding: 12px 32px;
+  display: block;
+}
+/* 已领取 / 不可领取：还是本阶的颜色，只是整体变灰一点（不要黑键） */
+#btn-ach-claim.btn-primary:disabled {
+  filter: grayscale(0.55);
+  opacity: 0.8;
+  box-shadow: none;
+  cursor: default;
+  transform: none;
+}
 .ach-d-hint {
   margin: 8px 0 0;
   font-size: 11px;
