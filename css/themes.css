@@ -2000,9 +2000,16 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   text-align: center;
 }
 
-.mail-list {
+.mail-list-wrap {
+  position: relative;
   width: 88%;
   max-width: 380px;
+  margin-bottom: 10px;
+}
+
+.mail-list {
+  width: 100%;
+  max-width: none;
   max-height: 68vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -2072,25 +2079,24 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 
 .mail-del:active { background: #e64545; }
 
-/* 邮箱底部：只留 ✅ / 🗑️ 两个圆按钮（勾勾在左、垃圾桶在右） */
+/* 邮箱底部：只留 ✅ / 🗑️ 两个小圆钮，悬浮在滚动区右下角 */
 .mail-tools {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
   display: flex;
-  justify-content: center;
-  gap: 48px;
-  width: 88%;
-  max-width: 380px;
-  margin-bottom: 10px;
+  gap: 8px;
 }
 
 .mail-emoji-btn {
   flex: 0 0 auto;
-  width: 56px;
-  height: 56px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: 2px solid #eceaf6;
   background: #fff;
-  box-shadow: 0 2px 8px rgba(80, 60, 140, 0.08);
-  font-size: 26px;
+  box-shadow: 0 2px 8px rgba(80, 60, 140, 0.14);
+  font-size: 18px;
   line-height: 1;
   cursor: pointer;
   padding: 0;

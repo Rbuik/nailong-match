@@ -498,13 +498,15 @@ function check(name, ok) {
   })());
   check('登录其它账号（文案已改且是蓝键）',
     htmlSrc0.includes('class="btn-primary" id="btn-switch-login">登录其它账号</button>'));
-  check('邮箱底部只留 ✅ / 🗑️ 两个圆按钮（不带文字），滑动区加高', (() => {
+  check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，悬浮在滚动区右下角', (() => {
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="mail-list"'), htmlSrc0.indexOf('id="btn-mail-close"'));
     return /class="mail-emoji-btn" id="btn-mail-read-all"[^>]*>✅</.test(sec) &&
       /class="mail-emoji-btn" id="btn-mail-del-all"[^>]*>🗑️</.test(sec) &&
       !sec.includes('一键已读') && !sec.includes('一键删除') &&
+      htmlSrc0.includes('<div class="mail-list-wrap">') &&
       /\.mail-list\s*\{[^}]*max-height:\s*68vh/.test(cssSrc) &&
-      /\.mail-emoji-btn\s*\{[^}]*border-radius:\s*50%/.test(cssSrc);
+      /\.mail-tools\s*\{[^}]*position:\s*absolute[^}]*right:\s*10px[^}]*bottom:\s*10px/.test(cssSrc) &&
+      /\.mail-emoji-btn\s*\{[^}]*width:\s*38px[^}]*height:\s*38px/.test(cssSrc);
   })());
   check('切换账号 / 存档码是蓝键',
     htmlSrc0.includes('class="btn-primary" id="btn-goto-switch"') &&
