@@ -1,6 +1,6 @@
 {
-  "version": 3,
-  "maxMainLevel": 40,
+  "version": 4,
+  "maxMainLevel": 80,
   "themes": {
     "grass": {
       "name": "草地",
@@ -21,6 +21,26 @@
       "name": "糖果",
       "bg": "#ffffff",
       "grid": "#f0f0f0"
+    },
+    "forest": {
+      "name": "森林",
+      "bg": "#ffffff",
+      "grid": "#eef6ec"
+    },
+    "sky": {
+      "name": "云端",
+      "bg": "#ffffff",
+      "grid": "#ecf3fb"
+    },
+    "desert": {
+      "name": "沙漠",
+      "bg": "#ffffff",
+      "grid": "#faf1e3"
+    },
+    "lava": {
+      "name": "熔岩",
+      "bg": "#ffffff",
+      "grid": "#fbeceb"
     }
   },
   "chapters": [
@@ -59,6 +79,42 @@
       "to": 40,
       "emoji": "🍬",
       "story": "最后一站。糖果城堡的大门只为「把糖完整带回家」的奶龙打开。"
+    },
+    {
+      "id": 5,
+      "name": "第五章 · 奶龙的藤蔓花园",
+      "theme": "forest",
+      "from": 41,
+      "to": 50,
+      "emoji": "🌿",
+      "story": "花园里的藤蔓一夜之间爬满了小路。奶龙提着灯笼往里走，边走边把缠住脚的枝条剪开——它得在藤蔓把整座花园吞掉之前找到出口。"
+    },
+    {
+      "id": 6,
+      "name": "第六章 · 奶龙的云端轨道",
+      "theme": "sky",
+      "from": 51,
+      "to": 60,
+      "emoji": "☁️",
+      "story": "出口通向云上。云做的轨道每隔几步就自己挪一格，两扇紫色的门把货物送到对面。奶龙抱紧糖果，踩着滑动的云往前走。"
+    },
+    {
+      "id": 7,
+      "name": "第七章 · 奶龙的流沙遗迹",
+      "theme": "desert",
+      "from": 61,
+      "to": 70,
+      "emoji": "🏜️",
+      "story": "云散了，底下是一片会吃人的沙子。雾气里什么都看不清，奶龙只能靠摸——摸着摸着，脚底已经陷下去半寸。"
+    },
+    {
+      "id": 8,
+      "name": "第八章 · 奶龙的熔岩宝库",
+      "theme": "lava",
+      "from": 71,
+      "to": 80,
+      "emoji": "🔥",
+      "story": "宝库在火山口。上锁的箱子、滴答倒数的炸弹，最后一道门后就是回家的钥匙。奶龙深吸一口气，冲了进去。"
     }
   ],
   "levels": [
@@ -720,6 +776,725 @@
       "boss": true,
       "cargo": 4,
       "rescue": 3,
+      "final": true
+    },
+    {
+      "id": 41,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 26,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "0": 15,
+          "3": 15
+        }
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "ivy": 2
+    },
+    {
+      "id": 42,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 24,
+      "goal": {
+        "type": "clear",
+        "target": 20
+      },
+      "stars": [
+        1970,
+        2600,
+        3270
+      ],
+      "ivy": 3
+    },
+    {
+      "id": 43,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 4200
+      },
+      "stars": [
+        4200,
+        5540,
+        6970
+      ],
+      "ivy": 2,
+      "ice": 4
+    },
+    {
+      "id": 44,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 26,
+      "goal": {
+        "type": "ice",
+        "target": 10
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "ice": 6,
+      "frost": 2
+    },
+    {
+      "id": 45,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 26,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "1": 18,
+          "4": 18
+        }
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "ivy": 3,
+      "frost": 2
+    },
+    {
+      "id": 46,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 28,
+      "goal": {
+        "type": "drop",
+        "target": 10
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "cargo": 10,
+      "ivy": 2
+    },
+    {
+      "id": 47,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 26,
+      "goal": {
+        "type": "clear",
+        "target": 24
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "ivy": 4,
+      "chain": 3
+    },
+    {
+      "id": 48,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 22,
+      "goal": {
+        "type": "score",
+        "target": 5200
+      },
+      "stars": [
+        5200,
+        6860,
+        8630
+      ],
+      "ivy": 3,
+      "iceHard": 3
+    },
+    {
+      "id": 49,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 28,
+      "goal": {
+        "type": "rescue",
+        "target": 6
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "rescue": 6,
+      "ivy": 3
+    },
+    {
+      "id": 50,
+      "chapter": 5,
+      "theme": "forest",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 6000
+      },
+      "stars": [
+        6000,
+        7920,
+        9960
+      ],
+      "ivy": 4,
+      "frost": 3,
+      "ice": 6,
+      "boss": true
+    },
+    {
+      "id": 51,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 26,
+      "goal": {
+        "type": "drop",
+        "target": 10
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "cargo": 10,
+      "portal": 1
+    },
+    {
+      "id": 52,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 26,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "2": 18,
+          "5": 18
+        }
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "portal": 1,
+      "track": 1
+    },
+    {
+      "id": 53,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 5600
+      },
+      "stars": [
+        5600,
+        7390,
+        9300
+      ],
+      "portal": 2,
+      "track": 1
+    },
+    {
+      "id": 54,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 26,
+      "goal": {
+        "type": "clear",
+        "target": 22
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "track": 2
+    },
+    {
+      "id": 55,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 26,
+      "goal": {
+        "type": "ice",
+        "target": 12
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "ice": 6,
+      "track": 2
+    },
+    {
+      "id": 56,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 28,
+      "goal": {
+        "type": "drop",
+        "target": 12
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "cargo": 12,
+      "portal": 1,
+      "track": 2
+    },
+    {
+      "id": 57,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 6200
+      },
+      "stars": [
+        6200,
+        8180,
+        10290
+      ],
+      "portal": 2,
+      "track": 2
+    },
+    {
+      "id": 58,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 28,
+      "goal": {
+        "type": "rescue",
+        "target": 6
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "rescue": 6,
+      "portal": 1,
+      "track": 1
+    },
+    {
+      "id": 59,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 28,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "0": 20,
+          "2": 20,
+          "4": 20
+        }
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "portal": 2,
+      "track": 2
+    },
+    {
+      "id": 60,
+      "chapter": 6,
+      "theme": "sky",
+      "moves": 26,
+      "goal": {
+        "type": "score",
+        "target": 7000
+      },
+      "stars": [
+        7000,
+        9240,
+        11620
+      ],
+      "portal": 2,
+      "track": 3,
+      "ice": 4,
+      "boss": true
+    },
+    {
+      "id": 61,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 28,
+      "goal": {
+        "type": "drop",
+        "target": 12
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "cargo": 12,
+      "sand": 4
+    },
+    {
+      "id": 62,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 6600
+      },
+      "stars": [
+        6600,
+        8710,
+        10960
+      ],
+      "sand": 6,
+      "fog": 8
+    },
+    {
+      "id": 63,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 26,
+      "goal": {
+        "type": "clear",
+        "target": 24
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "sand": 5,
+      "fog": 10
+    },
+    {
+      "id": 64,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 26,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "1": 20,
+          "3": 20
+        }
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "fog": 14
+    },
+    {
+      "id": 65,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 26,
+      "goal": {
+        "type": "ice",
+        "target": 12
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "ice": 6,
+      "fog": 12
+    },
+    {
+      "id": 66,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 28,
+      "goal": {
+        "type": "drop",
+        "target": 12
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "cargo": 12,
+      "sand": 6,
+      "fog": 10
+    },
+    {
+      "id": 67,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 7200
+      },
+      "stars": [
+        7200,
+        9500,
+        11950
+      ],
+      "sand": 8,
+      "fog": 12,
+      "track": 1
+    },
+    {
+      "id": 68,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 30,
+      "goal": {
+        "type": "rescue",
+        "target": 6
+      },
+      "stars": [
+        2460,
+        3250,
+        4080
+      ],
+      "rescue": 6,
+      "sand": 5,
+      "fog": 12
+    },
+    {
+      "id": 69,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 28,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "0": 22,
+          "2": 22
+        }
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "sand": 8,
+      "fog": 16,
+      "ice": 4
+    },
+    {
+      "id": 70,
+      "chapter": 7,
+      "theme": "desert",
+      "moves": 26,
+      "goal": {
+        "type": "score",
+        "target": 8000
+      },
+      "stars": [
+        8000,
+        10560,
+        13280
+      ],
+      "sand": 10,
+      "fog": 14,
+      "portal": 1,
+      "boss": true
+    },
+    {
+      "id": 71,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 26,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "4": 20,
+          "5": 20
+        }
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "box": 3
+    },
+    {
+      "id": 72,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 7600
+      },
+      "stars": [
+        7600,
+        10030,
+        12620
+      ],
+      "box": 4,
+      "ice": 4
+    },
+    {
+      "id": 73,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 26,
+      "goal": {
+        "type": "clear",
+        "target": 26
+      },
+      "stars": [
+        2130,
+        2810,
+        3540
+      ],
+      "box": 3,
+      "chain": 4
+    },
+    {
+      "id": 74,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 28,
+      "goal": {
+        "type": "drop",
+        "target": 12
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "cargo": 12,
+      "tbomb": 1
+    },
+    {
+      "id": 75,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 28,
+      "goal": {
+        "type": "ice",
+        "target": 14
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "ice": 8,
+      "tbomb": 2
+    },
+    {
+      "id": 76,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 24,
+      "goal": {
+        "type": "score",
+        "target": 8200
+      },
+      "stars": [
+        8200,
+        10820,
+        13610
+      ],
+      "tbomb": 2,
+      "box": 3
+    },
+    {
+      "id": 77,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 30,
+      "goal": {
+        "type": "rescue",
+        "target": 8
+      },
+      "stars": [
+        2460,
+        3250,
+        4080
+      ],
+      "rescue": 8,
+      "tbomb": 2,
+      "sand": 4
+    },
+    {
+      "id": 78,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 28,
+      "goal": {
+        "type": "collect",
+        "target": {
+          "2": 24,
+          "4": 24
+        }
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "tbomb": 2,
+      "fog": 10,
+      "ivy": 2
+    },
+    {
+      "id": 79,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 28,
+      "goal": {
+        "type": "clear",
+        "target": 28
+      },
+      "stars": [
+        2300,
+        3040,
+        3820
+      ],
+      "box": 4,
+      "tbomb": 2,
+      "track": 2
+    },
+    {
+      "id": 80,
+      "chapter": 8,
+      "theme": "lava",
+      "moves": 26,
+      "goal": {
+        "type": "score",
+        "target": 10000
+      },
+      "stars": [
+        10000,
+        13200,
+        16600
+      ],
+      "tbomb": 3,
+      "box": 3,
+      "ivy": 2,
+      "fog": 8,
+      "boss": true,
       "final": true
     }
   ]

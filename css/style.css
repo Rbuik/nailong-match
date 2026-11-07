@@ -47,6 +47,28 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 
 .target-bar { width: 100%; text-align: center; font-size: 15px; color: #1a8f4a; background: rgba(92, 200, 143, 0.15); padding: 8px; border-radius: 8px; font-weight: bold; }
 
+/* 机关状态条：横排小胶囊，自动换行；没有机关的关卡整条隐藏 */
+.hazard-bar {
+  width: 100%;
+  display: none;
+  flex-wrap: wrap;
+  gap: 5px;
+  justify-content: center;
+  margin-top: 5px;
+}
+.hazard-chip {
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b4b1f;
+  background: rgba(255, 214, 140, 0.45);
+  border: 1px solid rgba(214, 160, 60, 0.45);
+  border-radius: 999px;
+  padding: 2px 8px;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.hazard-chip b { color: #c0392b; }
+
 .tools { display: flex; flex-direction: column; gap: 6px; width: 100%; padding: 0 10px; align-items: stretch; box-sizing: border-box; }
 .tools-row { display: flex; gap: 8px; align-items: center; justify-content: flex-end; }
 .tools-row-2 { gap: 6px; }

@@ -5,14 +5,24 @@
 (function (global) {
   'use strict';
 
-  const TYPE = { NORMAL: 0, LINE_H: 1, LINE_V: 2, BOMB: 3, RAINBOW: 4 };
+  const TYPE = {
+    NORMAL: 0, LINE_H: 1, LINE_V: 2, BOMB: 3, RAINBOW: 4,
+    MAGNET: 5,      // 🧲 磁铁：吸走同行同列的同色方块
+    PAINT: 6,       // 🎨 颜料：消除后把一片方块统一成同一种颜色
+    FROST: 7,       // ❄️ 霜块（正向）：消除后让所有机关暂停几回合，方便提前布局
+    PROPELLER: 8    // 🛩️ 螺旋桨：斜向扫两条对角线，补行列 / 炸弹的盲区
+  };
 
   const META = {
     0: { name: '普通块', icon: '', color: null },
     1: { name: '横线消', icon: '↔', color: '#5c8fff' },
     2: { name: '竖线消', icon: '↕', color: '#5c8fff' },
     3: { name: '炸弹', icon: '💣', color: '#ff5c5c' },
-    4: { name: '彩虹', icon: '🌈', color: '#c85cff' }
+    4: { name: '彩虹', icon: '🌈', color: '#c85cff' },
+    5: { name: '磁铁', icon: '🧲', color: '#ff5c8a' },
+    6: { name: '颜料', icon: '🎨', color: '#ff9a3c' },
+    7: { name: '霜块', icon: '❄️', color: '#5cc8ff' },
+    8: { name: '螺旋桨', icon: '🛩️', color: '#2fc7b8' }
   };
 
   function key(r, c) { return r + ',' + c; }
@@ -94,7 +104,8 @@
 
   // ============ 生成判定 ============
   // 返回 { r, c, type } 或 null
-  // 优先级：彩虹（5 连）> 炸弹（L / T 型）> 线消（4 连）
+  // 优先级（越长越高级）：7 连 → 颜料 🎨 ｜ 6 连 → 磁铁 🧲 ｜ 5 连 → 彩虹 🌈
+  //                        大 L/T（≥7 格）→ 螺旋桨 🛩️ ｜ L/T → 炸弹 💣 ｜ 4 连 → 线消
   function planCreation(board, matchedSet, swapped, runs, lShapes) {
     const inMatched = (p) => matchedSet.has(key(p.r, p.c));
     const atSwap = () => {
@@ -104,59 +115,68 @@
       }
       return null;
     };
+    const empty = (p) => board[p.r] && board[p.r][p.c] && board[p.r][p.c].special === TYPE.NORMAL;
+    // 定点优先放在玩家刚交换的那一格（最符合直觉），否则放到这一串的中间
+    const pick = (cells, fallbackIdx) => {
+      const s = atSwap();
+      if (s && cells.some((p) => p.r === s.r && p.c === s.c)) return { r: s.r, c: s.c };
+      const p = cells[fallbackIdx == null ? Math.floor(cells.length / 2) : fallbackIdx];
+      if (p && empty(p)) return { r: p.r, c: p.c };
+      // 中间那格已经压着东西（货物 / 冰 / 锁链）→ 往后找一格空的
+      for (let i = 0; i < cells.length; i++) if (empty(cells[i])) return { r: cells[i].r, c: cells[i].c };
+      return null;
+    };
 
-    // 1) L / T 型 -> 炸弹
+    const list = (runs || []).slice().sort((a, b) => b.len - a.len);
+    const longest = list[0] || null;
+
+    // 1) 超长直线：7 连 -> 颜料，6 连 -> 磁铁
+    if (longest && longest.len >= 7) {
+      const at = pick(longest.cells);
+      if (at) return { r: at.r, c: at.c, type: TYPE.PAINT };
+    }
+    if (longest && longest.len === 6) {
+      const at = pick(longest.cells);
+      if (at) return { r: at.r, c: at.c, type: TYPE.MAGNET };
+    }
+
+    // 2) 大的 L / T 型（7 格以上）-> 螺旋桨（斜扫）
     if (lShapes && lShapes.length) {
-      const shape = lShapes[0];
-      const s = atSwap();
-      if (s && shape.cells.some((p) => p.r === s.r && p.c === s.c)) {
-        return { r: s.r, c: s.c, type: TYPE.BOMB };
-      }
-      if (board[shape.center.r][shape.center.c] &&
-          board[shape.center.r][shape.center.c].special === TYPE.NORMAL) {
-        return { r: shape.center.r, c: shape.center.c, type: TYPE.BOMB };
+      const big = lShapes.slice().sort((a, b) => b.size - a.size)[0];
+      if (big && big.size >= 7) {
+        const at = pick(big.cells);
+        if (at) return { r: at.r, c: at.c, type: TYPE.PROPELLER };
       }
     }
 
-    if (!runs || !runs.length) return null;
-
-    // 2) 5 连 -> 彩虹
-    const five = runs.filter((x) => x.len >= 5).sort((a, b) => b.len - a.len)[0];
+    // 3) 5 连 -> 彩虹
+    const five = list.filter((x) => x.len >= 5)[0];
     if (five) {
-      const s = atSwap();
-      if (s && five.cells.some((p) => p.r === s.r && p.c === s.c)) {
-        return { r: s.r, c: s.c, type: TYPE.RAINBOW };
-      }
-      const p = five.cells[Math.floor(five.cells.length / 2)];
-      if (board[p.r][p.c] && board[p.r][p.c].special === TYPE.NORMAL) {
-        return { r: p.r, c: p.c, type: TYPE.RAINBOW };
-      }
+      const at = pick(five.cells);
+      if (at) return { r: at.r, c: at.c, type: TYPE.RAINBOW };
     }
 
-    // 3) 4 连 -> 线消（按方向），同一批出现两个方向的 4 连 -> 炸弹
-    const fours = runs.filter((x) => x.len === 4);
+    // 4) L / T 型 -> 炸弹
+    if (lShapes && lShapes.length) {
+      const shape = lShapes.slice().sort((a, b) => b.size - a.size)[0];
+      const at = pick(shape.cells);
+      if (at) return { r: at.r, c: at.c, type: TYPE.BOMB };
+    }
+
+    // 5) 4 连 -> 线消（按方向），同一批出现两个方向的 4 连 -> 炸弹
+    const fours = list.filter((x) => x.len === 4);
     if (fours.length >= 2) {
       const dirs = new Set(fours.map((f) => f.dir));
       if (dirs.size >= 2) {
-        const s = atSwap();
-        if (s) return { r: s.r, c: s.c, type: TYPE.BOMB };
-        const p = fours[0].cells[1];
-        if (board[p.r][p.c] && board[p.r][p.c].special === TYPE.NORMAL) {
-          return { r: p.r, c: p.c, type: TYPE.BOMB };
-        }
+        const at = pick(fours[0].cells, 1);
+        if (at) return { r: at.r, c: at.c, type: TYPE.BOMB };
       }
     }
     if (fours.length >= 1) {
       const f = fours[0];
       const wantType = f.dir === 'h' ? TYPE.LINE_H : TYPE.LINE_V;
-      const s = atSwap();
-      if (s && f.cells.some((p) => p.r === s.r && p.c === s.c)) {
-        return { r: s.r, c: s.c, type: wantType };
-      }
-      const p = f.cells[1];
-      if (board[p.r][p.c] && board[p.r][p.c].special === TYPE.NORMAL) {
-        return { r: p.r, c: p.c, type: wantType };
-      }
+      const at = pick(f.cells, 1);
+      if (at) return { r: at.r, c: at.c, type: wantType };
     }
 
     return null;
@@ -184,6 +204,29 @@
       } else {
         for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) add(r + dr, c + dc);
       }
+    } else if (type === TYPE.MAGNET) {
+      // 🧲 磁铁：把「同行 + 同列」里的同色方块吸过来一起消（外加身边 3x3）
+      for (let cc = 0; cc < C; cc++) {
+        const b = board[r][cc];
+        if (b && (color == null || b.type === color)) add(r, cc);
+      }
+      for (let rr = 0; rr < R; rr++) {
+        const b = board[rr][c];
+        if (b && (color == null || b.type === color)) add(rr, c);
+      }
+      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) add(r + dr, c + dc);
+    } else if (type === TYPE.PAINT) {
+      // 🎨 颜料：自身 5x5 一片（变色效果由 game.js 在消除后统一改色）
+      for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) add(r + dr, c + dc);
+    } else if (type === TYPE.PROPELLER) {
+      // 🛩️ 螺旋桨：两条对角线一路扫到底（补行列 / 炸弹的斜向盲区）
+      for (let d = -Math.max(R, C); d <= Math.max(R, C); d++) {
+        add(r + d, c + d);
+        add(r + d, c - d);
+      }
+    } else if (type === TYPE.FROST) {
+      // ❄️ 霜块只消自己，真正的效果是「冻结机关」（game.js 里处理）
+      add(r, c);
     }
     return out;
   }
@@ -216,6 +259,9 @@
         if (block.type != null && block.type >= 0) color = block.type;
         else color = opts.rainbowColor != null ? opts.rainbowColor : dominantColor(board, R, C);
         if (color != null) jellyColor = color;
+      } else if (block.special === TYPE.MAGNET) {
+        // 磁铁吸的是「自己这一种颜色」
+        color = (block.type != null && block.type >= 0) ? block.type : dominantColor(board, R, C);
       }
 
       const area = areaOf(block.special, p.r, p.c, R, C, color, board);
@@ -283,6 +329,75 @@
       return { label: '全屏清场', cells, clearAll: true, sfx: 'bomb' };
     }
 
+    // ============ 超级融合：磁铁参与的组合 ============
+    // 彩虹 + 磁铁：全场某色被「吸」到一起再爆掉（比彩虹+线消更彻底）
+    if ((t1 === TYPE.RAINBOW && t2 === TYPE.MAGNET) || (t1 === TYPE.MAGNET && t2 === TYPE.RAINBOW)) {
+      const color = dominantColor(board, R, C);
+      addColor(color);
+      addRow(midR); addCol(midC);
+      addBox(midR, midC, 1);
+      return { label: '磁力虹吸', cells, sfx: 'bomb', power: 5 };
+    }
+
+    // 炸弹 + 磁铁：同色全被吸过来炸（磁力爆破）
+    if ((t1 === TYPE.BOMB && t2 === TYPE.MAGNET) || (t1 === TYPE.MAGNET && t2 === TYPE.BOMB)) {
+      const magnet = t1 === TYPE.MAGNET ? ba : bb;
+      const color = (magnet && magnet.type != null && magnet.type >= 0) ? magnet.type : dominantColor(board, R, C);
+      addColor(color);
+      addBox(midR, midC, 1);
+      return { label: '磁力爆破', cells, sfx: 'bomb', power: 4 };
+    }
+
+    // 磁铁 + 磁铁：两行两列全扫（双磁十字）
+    if (t1 === TYPE.MAGNET && t2 === TYPE.MAGNET) {
+      addRow(a.r); addCol(a.c); addRow(b.r); addCol(b.c);
+      return { label: '双磁十字', cells, sfx: 'line', power: 4 };
+    }
+
+    // 磁铁 + 线消：行列 + 同色（磁力线扫）
+    if ((t1 === TYPE.MAGNET && isLine(t2)) || (t2 === TYPE.MAGNET && isLine(t1))) {
+      const magnet = t1 === TYPE.MAGNET ? ba : bb;
+      const color = (magnet && magnet.type != null && magnet.type >= 0) ? magnet.type : dominantColor(board, R, C);
+      addColor(color);
+      addRow(midR); addCol(midC);
+      return { label: '磁力线扫', cells, sfx: 'line' };
+    }
+
+    // 霜块 + 任意：一大片 + 冻结机关 3 回合
+    if (t1 === TYPE.FROST || t2 === TYPE.FROST) {
+      addBox(midR, midC, 2);
+      addRow(midR); addCol(midC);
+      return { label: '霜冻定格', cells, sfx: 'star', freeze: 3 };
+    }
+
+    // 颜料 + 任意：一片改成同色再全消（调色清场）
+    if (t1 === TYPE.PAINT || t2 === TYPE.PAINT) {
+      const color = dominantColor(board, R, C);
+      addColor(color);
+      addBox(midR, midC, 2);
+      return { label: '调色清场', cells, sfx: 'line', paint: 2 };
+    }
+
+    // 螺旋桨 + 螺旋桨：全盘 X 形来回扫两遍
+    if (t1 === TYPE.PROPELLER && t2 === TYPE.PROPELLER) {
+      for (let d = -Math.max(R, C); d <= Math.max(R, C); d++) {
+        const add2 = (rr, cc) => { if (rr >= 0 && rr < R && cc >= 0 && cc < C) cells.add(key(rr, cc)); };
+        add2(a.r + d, a.c + d); add2(a.r + d, a.c - d);
+        add2(b.r + d, b.c + d); add2(b.r + d, b.c - d);
+      }
+      return { label: '风车全扫', cells, sfx: 'line', power: 5 };
+    }
+
+    // 螺旋桨 + 炸弹：斜向四臂 + 3x3
+    if ((t1 === TYPE.PROPELLER && t2 === TYPE.BOMB) || (t1 === TYPE.BOMB && t2 === TYPE.PROPELLER)) {
+      for (let d = -Math.max(R, C); d <= Math.max(R, C); d++) {
+        const add2 = (rr, cc) => { if (rr >= 0 && rr < R && cc >= 0 && cc < C) cells.add(key(rr, cc)); };
+        add2(midR + d, midC + d); add2(midR + d, midC - d);
+      }
+      addBox(midR, midC, 1);
+      return { label: '旋爆', cells, sfx: 'bomb', power: 4 };
+    }
+
     // 彩虹 + 炸弹：全场某色变炸弹并引爆
     if ((t1 === TYPE.RAINBOW && t2 === TYPE.BOMB) || (t1 === TYPE.BOMB && t2 === TYPE.RAINBOW)) {
       const color = dominantColor(board, R, C);
@@ -325,6 +440,12 @@
       addRow(midR); addCol(midC);
       return { label: '十字爆破', cells, sfx: 'line' };
     }
+
+    // 兜底：其它没单列的融合，把两个块各自的作用范围合在一起
+    // （保证任何两个特殊块相碰都有反馈，不会白交换一次）
+    areaOf(t1, a.r, a.c, R, C, ba.type, board).forEach((k) => cells.add(k));
+    areaOf(t2, b.r, b.c, R, C, bb.type, board).forEach((k) => cells.add(k));
+    if (cells.size) return { label: '双特殊融合', cells, sfx: 'bomb' };
 
     return null;
   }

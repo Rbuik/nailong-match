@@ -25,6 +25,14 @@
   ];
   const T = Specials.TYPE;
 
+  // ==================== 机关节拍 ====================
+  const IVY_EVERY = 3;      // 常春藤：每 3 步长一格
+  const IVY_FAIL = 26;      // 常春藤长到 26 格 = 铺满一半，直接判负
+  const SAND_EVERY = 3;     // 流沙：每 3 步吞掉沙上的一件货
+  const TRACK_EVERY = 4;    // 移动轨道：每 4 步整行滑一格
+  const FROST_TURNS = 3;    // ❄️ 霜块：解除后定格 3 步
+  const TBOX_HP = 2;        // 保险箱：相邻消除敲 2 下
+
   const COMBO_WINDOW = 1600;   // 跨步连击窗口（ms）：改短了，停手一拍连击就断
   const COMBO_DECAY = 620;     // 连击条显示窗口（ms）：中央弹窗停留短一点，不挡棋盘
   const MULT = [1, 1, 1.5, 2, 3]; // combo -> 倍率
@@ -99,6 +107,18 @@
     // —— 新玩法 ——
     ice: [],            // 冰块层数（0/1/2）：冻住的格子不能动、不能消，相邻消除砸掉一层
     chain: [],          // 锁链（0/1）：锁住的格子不能动，第一次被消除只解锁
+    // —— 机关（第二轮新增，全部是逐格数组，整份跟着存档 / 撤回快照走）——
+    ivy: [],            // 常春藤（0/1）：每 3 步往外长一格，铺满 26 格直接失败
+    box: [],            // 保险箱（0~2）：相邻消除敲一次，敲开掉一件货
+    sand: [],           // 流沙（0/1）：底行有沙的列送不了货，每 3 步埋掉沙上的货
+    tbomb: [],          // 步数炸弹（剩余步数）：归零直接失败，消除该格可拆
+    fog: [],            // 迷雾（0/1）：看不见下面的方块，消掉旁边才显形
+    portalAt: [],       // 传送门（"r,c" -> {r,c}）：货物落到一端直接跳到另一端
+    portals: [],        // 成对的传送门坐标
+    trackRows: [],      // 会整行滑动的行号（移动轨道）
+    turnCount: 0,       // 本局走了几步（机关按这个节拍走）
+    frostTurns: 0,      // ❄️ 霜块定格的剩余回合：期间所有机关暂停
+    failReason: '',     // 机关导致失败时的标题（炸弹爆炸 / 藤蔓铺满）
     cargoLeft: 0,       // 场上还没送达的货物数
     rescueLeft: 0,      // 还没护送到位的奶龙数
     frenzyUntil: 0,     // 狂热模式结束时间
@@ -193,11 +213,28 @@
     S.jelly = [];
     S.ice = [];
     S.chain = [];
+    S.ivy = [];
+    S.box = [];
+    S.sand = [];
+    S.tbomb = [];
+    S.fog = [];
+    S.portalAt = [];
+    S.portals = [];
+    S.trackRows = [];
+    S.turnCount = 0;
+    S.frostTurns = 0;
+    S.failReason = '';
     for (let r = 0; r < ROWS; r++) {
       S.board[r] = [];
       S.jelly[r] = [];
       S.ice[r] = [];
       S.chain[r] = [];
+      S.ivy[r] = [];
+      S.box[r] = [];
+      S.sand[r] = [];
+      S.tbomb[r] = [];
+      S.fog[r] = [];
+      S.portalAt[r] = [];
       for (let c = 0; c < COLS; c++) {
         let t;
         let guard = 0;
@@ -212,6 +249,12 @@
         S.jelly[r][c] = 0;
         S.ice[r][c] = 0;
         S.chain[r][c] = 0;
+        S.ivy[r][c] = 0;
+        S.box[r][c] = 0;
+        S.sand[r][c] = 0;
+        S.tbomb[r][c] = 0;
+        S.fog[r][c] = 0;
+        S.portalAt[r][c] = null;
       }
     }
     placeJelly();
@@ -229,8 +272,11 @@
   function isChained(r, c) {
     return !!(S.chain[r] && S.chain[r][c] > 0);
   }
+  function isBoxed(r, c) {
+    return !!(S.box[r] && S.box[r][c] > 0);
+  }
   function isLocked(r, c) {
-    return isIced(r, c) || isChained(r, c);
+    return isIced(r, c) || isChained(r, c) || isBoxed(r, c);
   }
 
   // ---------- 货物（钥匙 / 奶龙）允许重叠 ----------
@@ -254,7 +300,8 @@
     if (!b) return false;
     if (b.special !== T.NORMAL) return false;
     if (b.cargo) return false;
-    if (isIced(r, c) || isChained(r, c)) return false;
+    if (isIced(r, c) || isChained(r, c) || isBoxed(r, c)) return false;
+    if (S.portalAt && S.portalAt[r] && S.portalAt[r][c]) return false;
     return true;
   }
 
@@ -308,6 +355,76 @@
     for (let k = 0; k < (d.iceHard || 0); k++) { const p = take(); if (!p) break; S.ice[p.r][p.c] = ICE_HARD; }
     for (let k = 0; k < (d.chain || 0); k++) { const p = take(); if (!p) break; S.chain[p.r][p.c] = 1; }
 
+    // ---------- 机关：常春藤 / 保险箱 / 流沙 / 步数炸弹 / 迷雾 / 传送门 / 轨道 ----------
+    // 都和货物、冰、锁链错开；每种数量都写死上限，绝不把棋盘摆满（要留得出可走的步）
+    const pickFree = () => {
+      for (let i = 0; i < rest.length; i++) {
+        const p = rest[ri % rest.length];
+        ri++;
+        if (!S.board[p.r][p.c].cargo && !isIced(p.r, p.c) && !isChained(p.r, p.c) && !S.box[p.r][p.c]) return p;
+      }
+      return null;
+    };
+    // 🌿 常春藤：一开始只长几格，靠「每 3 步往外长」慢慢变成压力
+    for (let k = 0; k < Math.min(6, d.ivy || 0); k++) {
+      const p = pickFree(); if (!p) break;
+      S.ivy[p.r][p.c] = 1;
+    }
+    // 📦 保险箱：放在中区，敲开掉货
+    for (let k = 0; k < Math.min(6, d.box || 0); k++) {
+      const p = pickFree(); if (!p) break;
+      S.box[p.r][p.c] = TBOX_HP;
+    }
+    // 🟫 流沙：优先压在底行 / 次底行（挡住送货路线才有意义）
+    if (d.sand) {
+      const sandPool = shuffleArr(rest.filter((p) =>
+        p.r >= ROWS - 2 && !S.board[p.r][p.c].cargo && !S.ivy[p.r][p.c] && !S.box[p.r][p.c]));
+      for (let k = 0; k < Math.min(10, d.sand || 0) && k < sandPool.length; k++) {
+        S.sand[sandPool[k].r][sandPool[k].c] = 1;
+      }
+    }
+    // ⚠️ 步数炸弹：开局给 8 步，分散到不同格
+    for (let k = 0; k < Math.min(4, d.tbomb || 0); k++) {
+      const p = pickFree(); if (!p) break;
+      S.tbomb[p.r][p.c] = 8;
+    }
+    // ❄️ 霜块：关卡可以开局就送几个（正面向特殊块，消掉它机关就定格）
+    for (let k = 0; k < Math.min(4, d.frost || 0); k++) {
+      const p = pickFree(); if (!p) break;
+      markSpecial(p.r, p.c, T.FROST);
+    }
+    // 🌫️ 迷雾：大半场先蒙上，消掉旁边才显形
+    if (d.fog) {
+      const fogPool = shuffleArr(rest.filter((p) =>
+        !S.board[p.r][p.c].cargo && !S.ivy[p.r][p.c] && !S.box[p.r][p.c] && !S.tbomb[p.r][p.c] && !S.sand[p.r][p.c]));
+      for (let k = 0; k < Math.min(26, d.fog || 0) && k < fogPool.length; k++) {
+        S.fog[fogPool[k].r][fogPool[k].c] = 1;
+      }
+    }
+    // 🌀 传送门：成对出现（上下各一个），货物落到一端直接跳到另一端
+    if (d.portal) {
+      const pairs = Math.min(2, d.portal);
+      for (let k = 0; k < pairs; k++) {
+        const a = { r: 1 + k, c: 1 + k * 3 };
+        const b = { r: ROWS - 2, c: COLS - 2 - k * 3 };
+        if (!inB(a.r, a.c) || !inB(b.r, b.c)) continue;
+        S.portalAt[a.r][a.c] = { r: b.r, c: b.c };
+        S.portalAt[b.r][b.c] = { r: a.r, c: a.c };
+        S.portals.push({ r: a.r, c: a.c, to: { r: b.r, c: b.c } });
+        S.portals.push({ r: b.r, c: b.c, to: { r: a.r, c: a.c } });
+        // 传送门格子不压障碍（否则看不清）
+        S.ice[a.r][a.c] = 0; S.chain[a.r][a.c] = 0; S.ivy[a.r][a.c] = 0;
+        S.box[a.r][a.c] = 0; S.sand[a.r][a.c] = 0; S.tbomb[a.r][a.c] = 0; S.fog[a.r][a.c] = 0;
+        S.ice[b.r][b.c] = 0; S.chain[b.r][b.c] = 0; S.ivy[b.r][b.c] = 0;
+        S.box[b.r][b.c] = 0; S.sand[b.r][b.c] = 0; S.tbomb[b.r][b.c] = 0; S.fog[b.r][b.c] = 0;
+      }
+    }
+    // 🚄 移动轨道：每隔几步整行滑一格（挑中间几行，不碰首尾行）
+    if (d.track) {
+      const n = Math.min(3, d.track);
+      for (let k = 0; k < n; k++) S.trackRows.push(2 + k * 2);
+    }
+
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
         cargoList(S.board[r][c]).forEach((cg) => {
@@ -316,6 +433,232 @@
         });
       }
     }
+    updateHazardBar();
+  }
+
+  // ==================== 机关：常春藤 / 保险箱 / 流沙 / 炸弹 / 迷雾 / 传送门 / 轨道 ====================
+  // 全部按「本局走了几步」结算（S.turnCount），霜块 ❄️ 触发时所有机关一起暂停。
+
+  function ivyCount() {
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (S.ivy[r] && S.ivy[r][c]) n++;
+    }
+    return n;
+  }
+  function boxCount() {
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (S.box[r] && S.box[r][c] > 0) n++;
+    }
+    return n;
+  }
+  function sandCount() {
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (S.sand[r] && S.sand[r][c]) n++;
+    }
+    return n;
+  }
+  function fogCount() {
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (S.fog[r] && S.fog[r][c]) n++;
+    }
+    return n;
+  }
+  // 最近的一颗步数炸弹还剩几步（没有就返回 0）
+  function tbombMin() {
+    let min = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const v = S.tbomb[r] && S.tbomb[r][c];
+        if (v > 0 && (!min || v < min)) min = v;
+      }
+    }
+    return min;
+  }
+
+  // 🌿 每 3 步往外长：随机挑藤蔓，往空邻居爬一格
+  function growIvy() {
+    const seeds = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (S.ivy[r] && S.ivy[r][c]) seeds.push({ r: r, c: c });
+    }
+    if (!seeds.length) return 0;
+    let grew = 0;
+    for (let k = 0; k < 2; k++) {
+      const s = seeds[randInt(seeds.length)];
+      const dirs = shuffleArr([[0, 1], [0, -1], [1, 0], [-1, 0]]);
+      for (let i = 0; i < dirs.length; i++) {
+        const rr = s.r + dirs[i][0], cc = s.c + dirs[i][1];
+        if (!inB(rr, cc) || S.ivy[rr][cc]) continue;
+        if (S.portalAt[rr] && S.portalAt[rr][cc]) continue;
+        if (S.board[rr][cc] && S.board[rr][cc].cargo) continue;   // 压着货的格子不长藤
+        S.ivy[rr][cc] = 1;
+        FX.burst(cc * CELL + CELL / 2, rr * CELL + CELL / 2, '#4fd06a', 3);
+        grew++;
+        break;
+      }
+    }
+    if (grew) {
+      AudioManager.playSFX('invalid');
+      toast('🌿 常春藤又长了一格，快点消掉压住它');
+    }
+    return grew;
+  }
+
+  // 🟫 每 3 步吞掉沙上的货（吞掉的不算送达，目标数会跟着场上实际数量重算）
+  function burySand() {
+    let n = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        if (!S.sand[r] || !S.sand[r][c]) continue;
+        const b = S.board[r][c];
+        if (!b || !b.cargo) continue;
+        const list = cargoList(b);
+        n += list.length;
+        b.cargo = null;
+        FX.text(c * CELL + CELL / 2, r * CELL + CELL / 2, '被流沙埋住 🟫', '#a9793f', 14);
+      }
+    }
+    if (n) {
+      S.cargoLeft = Math.max(0, S.cargoLeft - n);
+      syncGoalFromBoard();
+      updateTargetBar();
+      toast('🟫 流沙埋掉了 ' + n + ' 件货，先把沙挖掉');
+    }
+    return n;
+  }
+
+  // 🚄 每 4 步整行滑一格（只挪方块，果冻 / 机关留在原地）
+  function shiftTrack() {
+    if (!S.trackRows.length) return 0;
+    S.trackRows.forEach((r) => {
+      const row = S.board[r];
+      if (!row) return;
+      const last = row[COLS - 1];
+      for (let c = COLS - 1; c > 0; c--) row[c] = row[c - 1];
+      row[0] = last;
+      for (let c = 0; c < COLS; c++) {
+        if (row[c]) FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#7cc2ff', 2);
+      }
+    });
+    AudioManager.playSFX('swap');
+    toast('🚄 轨道滑动，整行挪了一格');
+    return 1;
+  }
+
+  // ❄️ 霜块主动生成：每 6 步在空位长一个（正面向：消掉它就能定格机关 3 步）
+  function spawnFrost() {
+    const free = [];
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (canPlaceNew(r, c) && !S.ivy[r][c] && !S.fog[r][c]) free.push({ r, c });
+    }
+    if (!free.length) return false;
+    const p = free[randInt(free.length)];
+    markSpecial(p.r, p.c, T.FROST);
+    FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '霜块 ❄️', '#5cc8ff', 15);
+    return true;
+  }
+
+  // 🎨 颜料：把一片方块统一成场上最多的颜色（更容易凑出新的连消）
+  function paintArea(r, c, rad) {
+    const color = Specials.dominantColor(S.board, ROWS, COLS);
+    if (color == null) return 0;
+    let n = 0;
+    for (let dr = -rad; dr <= rad; dr++) {
+      for (let dc = -rad; dc <= rad; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (!inB(rr, cc)) continue;
+        const b = S.board[rr][cc];
+        if (!b || b.special !== T.NORMAL) continue;
+        if (isIced(rr, cc) || isChained(rr, cc) || isBoxed(rr, cc)) continue;
+        b.type = color;
+        n++;
+      }
+    }
+    if (n) {
+      FX.flash('#ffd75c', 0.16, 0.18);
+      FX.text(c * CELL + CELL / 2, r * CELL + CELL / 2, '刷成同色 🎨', '#ff9a3c', 16);
+      toast('🎨 颜料把 ' + n + ' 格刷成了同一种颜色');
+    }
+    return n;
+  }
+
+  // 📦 保险箱：相邻消除敲一下，两下打开，里面掉一件糖果（送到最底行就算数）
+  function chipBox(r, c) {
+    if (!isBoxed(r, c)) return false;
+    S.box[r][c]--;
+    AudioManager.playSFX('ice', { final: S.box[r][c] <= 0 });
+    FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#d9a44c', 5);
+    if (S.box[r][c] > 0) {
+      FX.text(c * CELL + CELL / 2, r * CELL + CELL / 2, '箱子裂开 📦', '#c08a35', 13);
+      return true;
+    }
+    S.box[r][c] = 0;
+    const cell = S.board[r][c];
+    if (cell) { addCargo(cell, { kind: 'candy' }); S.cargoLeft++; }
+    S.score += 100;
+    FX.text(c * CELL + CELL / 2, r * CELL + CELL / 2, '箱子开了 🍬 +100', '#2fa84f', 15);
+    AudioManager.playSFX('coin');
+    toast('📦 保险箱打开了，里面的糖果掉出来');
+    syncGoalFromBoard();
+    updateTargetBar();
+    return true;
+  }
+
+  // 💥 机关直接判负（炸弹爆炸 / 藤蔓铺满）
+  function failByHazard(reason) {
+    S.failReason = reason;
+    AudioManager.playSFX('gameover');
+    toast('💥 ' + reason);
+    if (S.playing) endGame();
+  }
+
+  // 顶栏下面那排机关提示（没有机关的关卡整条隐藏，不占高度）
+  function updateHazardBar() {
+    const bar = $('hazard-bar');
+    if (!bar) return;
+    const chips = [];
+    if (S.frostTurns > 0) chips.push('❄️ 定格 <b>' + S.frostTurns + '</b> 步');
+    const ivy = ivyCount();
+    if (ivy) chips.push('🌿 常春藤 <b>' + ivy + '/' + IVY_FAIL + '</b>');
+    if (boxCount()) chips.push('📦 保险箱 <b>' + boxCount() + '</b>');
+    if (sandCount()) chips.push('🟫 流沙 <b>' + sandCount() + '</b>');
+    const tb = tbombMin();
+    if (tb) chips.push('⚠️ 炸弹 <b>' + tb + '</b> 步');
+    if (fogCount()) chips.push('🌫️ 迷雾 <b>' + fogCount() + '</b>');
+    if (S.portals && S.portals.length) chips.push('🌀 传送门');
+    if (S.trackRows && S.trackRows.length) chips.push('🚄 移动轨道');
+    bar.innerHTML = chips.map((c) => '<span class="hazard-chip">' + c + '</span>').join('');
+    bar.style.display = chips.length ? 'flex' : 'none';
+  }
+
+  // 每步结束后的机关结算（在 afterTurn 里调；霜块定格期间一律跳过）
+  function tickHazards() {
+    S.turnCount++;
+    const frozen = S.frostTurns > 0;
+    if (frozen) S.frostTurns--;
+    let boom = false;
+    if (!frozen) {
+      // ⚠️ 步数炸弹倒计时
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          if (!S.tbomb[r] || !S.tbomb[r][c]) continue;
+          S.tbomb[r][c]--;
+          if (S.tbomb[r][c] <= 0) { S.tbomb[r][c] = 0; boom = true; }
+        }
+      }
+      if (S.turnCount % IVY_EVERY === 0) growIvy();
+      if (S.turnCount % SAND_EVERY === 0) burySand();
+      if (S.turnCount % TRACK_EVERY === 0) shiftTrack();
+      if (S.turnCount % 6 === 0) spawnFrost();
+    }
+    updateHazardBar();
+    drawStatic();
+    if (boom) { failByHazard('步数炸弹爆炸'); return; }
+    if (ivyCount() >= IVY_FAIL) { failByHazard('常春藤铺满了棋盘'); return; }
   }
 
   // 冰块层数总量（仅用于提示 / 统计）
@@ -584,6 +927,20 @@
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('🌈', cx, cy + s * 0.02);
+      ctx.restore();
+    } else {
+      // 🧲 磁铁 / 🎨 颜料 / ❄️ 霜块 / 🛩️ 螺旋桨：统一走「emoji + 该类型颜色的光晕」
+      const emo = { 5: '🧲', 6: '🎨', 7: '❄️', 8: '🛩️' }[type];
+      const glow = { 5: 'rgba(255,92,138,0.95)', 6: 'rgba(255,154,60,0.95)', 7: 'rgba(92,200,255,0.95)', 8: 'rgba(47,199,184,0.95)' }[type];
+      if (!emo) return;
+      ctx.save();
+      ctx.globalAlpha = 0.86 + 0.14 * pulse;
+      ctx.shadowColor = glow;
+      ctx.shadowBlur = s * 0.24 * pulse;
+      ctx.font = (s * 0.66) + 'px "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(emo, cx, cy + s * 0.02);
       ctx.restore();
     }
   }
@@ -984,6 +1341,130 @@
             const cy = (cargoAt && cargoAt[k] != null) ? cargoAt[k] : y;
             drawCargoStack(x + CELL / 2, cy + CELL / 2, list);
           }
+        }
+
+        // 🟫 流沙：方块陷在沙里，底行的沙会把送货路堵住
+        if (S.sand[r] && S.sand[r][c]) {
+          ctx.save();
+          const sg = ctx.createLinearGradient(x, y, x, y + CELL);
+          sg.addColorStop(0, 'rgba(219,183,124,0.62)');
+          sg.addColorStop(1, 'rgba(163,116,58,0.80)');
+          ctx.fillStyle = sg;
+          roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
+          ctx.fill();
+          ctx.fillStyle = 'rgba(255,241,205,0.6)';
+          for (let i = 0; i < 7; i++) {
+            ctx.fillRect(x + 6 + ((i * 37) % Math.max(1, CELL - 14)),
+              y + 8 + ((i * 53) % Math.max(1, CELL - 18)), 2, 2);
+          }
+          ctx.strokeStyle = 'rgba(139,96,44,0.9)';
+          ctx.lineWidth = 2;
+          roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // 🌀 传送门：紫色漩涡，成对出现
+        if (S.portalAt[r] && S.portalAt[r][c]) {
+          ctx.save();
+          ctx.translate(x + CELL / 2, y + CELL / 2);
+          const tt = now / 700;
+          for (let i = 0; i < 3; i++) {
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(138,92,255,' + (0.75 - i * 0.18) + ')';
+            ctx.lineWidth = 2.4;
+            ctx.arc(0, 0, CELL * (0.14 + i * 0.1), tt + i * 1.1, tt + i * 1.1 + 2.1);
+            ctx.stroke();
+          }
+          ctx.font = Math.round(CELL * 0.34) + 'px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('🌀', 0, 0);
+          ctx.restore();
+        }
+
+        // 🌿 常春藤
+        if (S.ivy[r] && S.ivy[r][c]) {
+          ctx.save();
+          roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 9);
+          ctx.fillStyle = 'rgba(70,178,92,0.30)';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(47,158,72,0.95)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x + 5, y + CELL - 5);
+          ctx.quadraticCurveTo(x + CELL * 0.3, y + CELL * 0.45, x + CELL - 5, y + 6);
+          ctx.stroke();
+          ctx.fillStyle = '#4fd06a';
+          [[0.26, 0.70], [0.44, 0.50], [0.66, 0.32]].forEach((q) => {
+            ctx.beginPath();
+            ctx.ellipse(x + CELL * q[0], y + CELL * q[1], CELL * 0.13, CELL * 0.085, -0.7, 0, Math.PI * 2);
+            ctx.fill();
+          });
+          ctx.restore();
+        }
+
+        // 📦 保险箱：木箱 + 剩余敲击次数
+        if (S.box[r] && S.box[r][c] > 0) {
+          ctx.save();
+          roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 8);
+          ctx.fillStyle = 'rgba(198,146,74,0.92)';
+          ctx.fill();
+          ctx.strokeStyle = '#8a5c25';
+          ctx.lineWidth = 2.4;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.moveTo(x + 2, y + 2); ctx.lineTo(x + CELL - 2, y + CELL - 2);
+          ctx.moveTo(x + CELL - 2, y + 2); ctx.lineTo(x + 2, y + CELL - 2);
+          ctx.lineWidth = 2;
+          ctx.strokeStyle = 'rgba(120,80,28,0.75)';
+          ctx.stroke();
+          ctx.font = Math.round(CELL * 0.42) + 'px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('📦', x + CELL / 2, y + CELL / 2);
+          for (let i = 0; i < S.box[r][c]; i++) {
+            ctx.beginPath();
+            ctx.fillStyle = '#fff6de';
+            ctx.arc(x + CELL - 8 - i * 6, y + 8, 2.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // ⚠️ 步数炸弹：红色倒计时（归零直接判负，消掉这一格可以拆）
+        if (S.tbomb[r] && S.tbomb[r][c] > 0) {
+          ctx.save();
+          roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 8);
+          ctx.fillStyle = 'rgba(190,50,50,0.78)';
+          ctx.fill();
+          ctx.strokeStyle = '#7d1d1d';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          ctx.font = Math.round(CELL * 0.34) + 'px "Apple Color Emoji","Segoe UI Emoji",sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText('⚠️', x + CELL / 2, y + CELL * 0.36);
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold ' + Math.round(CELL * 0.34) + 'px system-ui, sans-serif';
+          ctx.fillText(String(S.tbomb[r][c]), x + CELL / 2, y + CELL * 0.72);
+          ctx.restore();
+        }
+
+        // 🌫️ 迷雾：盖住这一格（方块 / 货物都看不见），消掉旁边才显形
+        if (S.fog[r] && S.fog[r][c]) {
+          ctx.save();
+          roundRect(x + 1, y + 1, CELL - 2, CELL - 2, 9);
+          ctx.fillStyle = 'rgba(196,199,212,0.94)';
+          ctx.fill();
+          ctx.globalAlpha = 0.55;
+          ctx.fillStyle = '#eceef6';
+          ctx.beginPath();
+          ctx.arc(x + CELL * 0.34, y + CELL * 0.36, CELL * 0.24, 0, Math.PI * 2);
+          ctx.arc(x + CELL * 0.64, y + CELL * 0.44, CELL * 0.28, 0, Math.PI * 2);
+          ctx.arc(x + CELL * 0.46, y + CELL * 0.66, CELL * 0.24, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
         }
 
         // 冰块
@@ -1500,6 +1981,15 @@
         } else if (plan.type === T.BOMB) {
           FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成炸弹 💣', '#ff5c5c', 16);
           AudioManager.playSFX('coin');
+        } else if (plan.type === T.MAGNET) {
+          FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成磁铁 🧲', '#ff5c8a', 16);
+          AudioManager.playSFX('coin');
+        } else if (plan.type === T.PAINT) {
+          FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成颜料 🎨', '#ff9a3c', 16);
+          AudioManager.playSFX('coin');
+        } else if (plan.type === T.PROPELLER) {
+          FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成螺旋桨 🛩️', '#2fc7b8', 16);
+          AudioManager.playSFX('coin');
         } else {
           FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成线消', '#5c8fff', 16);
           AudioManager.playSFX('coin');
@@ -1543,6 +2033,11 @@
     cells.forEach((k) => {
       const p = Specials.parse(k);
       if (isIced(p.r, p.c)) { addIce(p.r, p.c); return; }
+      // 📦 保险箱：先敲箱子，箱子开着之前里面的东西拿不到
+      if (isBoxed(p.r, p.c)) {
+        chipBox(p.r, p.c);
+        return;
+      }
       if (isChained(p.r, p.c)) {
         S.chain[p.r][p.c] = 0;
         chainBroken++;
@@ -1559,6 +2054,31 @@
     });
     iceHitList.forEach((p) => crackIceAt(p.r, p.c));
     if (chainBroken) AudioManager.playSFX('line');
+
+    // 机关被波及：割藤蔓 / 拆炸弹 / 挖流沙 / 拨开迷雾（都在方块真正消掉之前记一笔）
+    clearSet.forEach((k) => {
+      const p = Specials.parse(k);
+      if (S.ivy[p.r] && S.ivy[p.r][p.c]) {
+        S.ivy[p.r][p.c] = 0;
+        FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '割掉藤蔓 🌿', '#4fd06a', 13);
+      }
+      if (S.tbomb[p.r] && S.tbomb[p.r][p.c]) {
+        S.tbomb[p.r][p.c] = 0;
+        S.score += 120;
+        FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '拆掉炸弹 ⚠️ +120', '#ff9a3c', 14);
+        AudioManager.playSFX('coin');
+      }
+      if (S.sand[p.r] && S.sand[p.r][p.c]) {
+        S.sand[p.r][p.c] = 0;
+        FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '挖走流沙 🟫', '#b98b4e', 13);
+      }
+      if (S.fog[p.r] && S.fog[p.r][p.c]) S.fog[p.r][p.c] = 0;
+      // 迷雾：消掉旁边也显形（本格 + 上下左右）
+      [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]].forEach((d) => {
+        const rr = p.r + d[0], cc = p.c + d[1];
+        if (inB(rr, cc) && S.fog[rr] && S.fog[rr][cc]) S.fog[rr][cc] = 0;
+      });
+    });
 
     if (!clearSet.size) {
       // 全是障碍（比如整片冰 + 锁链）：没有可消的方块，直接返回
@@ -1633,6 +2153,29 @@
         FX.text(bx, by - CELL * 0.3, '同图案消除 🌈', '#c85cff', 18);
         AudioManager.playSFX('line');
         AudioManager.vibrate([30, 40, 30]);   // 彩虹全场扫：给它一串更长的手感
+      } else if (bp.type === T.MAGNET) {
+        // 🧲 磁铁：粉色冲击波 + 朝磁铁飞的颗粒（「被吸过来」的手感）
+        FX.explosion(bx, by, CELL * 1.2);
+        FX.flash('#ff8ab0', 0.18, 0.22);
+        FX.shake(3, 0.18);
+        FX.text(bx, by - CELL * 0.3, '磁吸同色 🧲', '#ff5c8a', 17);
+        AudioManager.vibrate(20);
+      } else if (bp.type === T.PAINT) {
+        // 🎨 颜料：一片颜色被刷成同色
+        FX.flash('#ffd75c', 0.20, 0.22);
+        FX.text(bx, by - CELL * 0.3, '刷成同色 🎨', '#ff9a3c', 17);
+        paintArea(bp.r, bp.c, 2);
+      } else if (bp.type === T.FROST) {
+        // ❄️ 霜块：机关全部定格
+        FX.flash('#bfe9ff', 0.22, 0.26);
+        S.frostTurns = FROST_TURNS;
+        FX.text(bx, by - CELL * 0.3, '机关定格 ' + FROST_TURNS + ' 步 ❄️', '#2fa9e0', 17);
+        toast('❄️ 霜块生效：' + FROST_TURNS + ' 步内所有机关暂停');
+      } else if (bp.type === T.PROPELLER) {
+        // 🛩️ 螺旋桨：两条对角线一路扫
+        FX.flash('#b8fff4', 0.18, 0.22);
+        FX.explosion(bx, by, CELL * 1.1);
+        FX.text(bx, by - CELL * 0.3, '斜向扫场 🛩️', '#2fc7b8', 17);
       } else {
         FX.explosion(bx, by, CELL);
       }
@@ -1691,6 +2234,7 @@
         }
       }
     }
+    teleportCargo();   // 🌀 落进传送门的货先跳到对面，再判断有没有到底
     collectCargo();
     // 每次结算后校准目标数：万一有货物没归位，目标跟着场上实际数量走，绝不让关卡变成死局
     syncGoalFromBoard();
@@ -1737,6 +2281,8 @@
   function collectCargo() {
     let n = 0;
     for (let c = 0; c < COLS; c++) {
+      // 🟫 底行有流沙 = 这一列送不出去，货先卡在上面等玩家把沙挖掉
+      if (S.sand[ROWS - 1] && S.sand[ROWS - 1][c]) continue;
       const b = S.board[ROWS - 1][c];
       const list = cargoList(b);
       if (!list.length) continue;
@@ -1744,6 +2290,27 @@
       n += deliverCargo(list, c);
     }
     return n;
+  }
+
+  // 🌀 传送门：落在传送门上的货直接跳到对面那扇门（用来跨列送货 / 绕开流沙）
+  function teleportCargo() {
+    if (!S.portals || !S.portals.length) return 0;
+    let moved = 0;
+    S.portals.forEach((p) => {
+      const from = S.board[p.r] && S.board[p.r][p.c];
+      const list = cargoList(from);
+      if (!list.length) return;
+      const to = S.board[p.to.r] && S.board[p.to.r][p.to.c];
+      if (!to) return;
+      from.cargo = null;
+      list.forEach((cg) => addCargo(to, cg));
+      moved += list.length;
+      FX.flash('#b58cff', 0.16, 0.2);
+      FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '传送 🌀', '#8a5cff', 15);
+      AudioManager.playSFX('swap');
+    });
+    if (moved) drawStatic();
+    return moved;
   }
 
   // 立即引爆某一格上的特殊块（供道具自动消耗使用）
@@ -1986,6 +2553,11 @@
       return;
     }
 
+    // 机关按「本局走了几步」推进：炸弹倒计时 / 藤蔓蔓延 / 流沙下沉 / 轨道滑动 / 霜块生成
+    // （霜块 ❄️ 定格期间这些全部暂停；判定失败会直接进结算，所以放在判胜之后）
+    tickHazards();
+    if (!S.playing) return;
+
     if (!hasPossibleMove()) {
       toast('无可用步，已重排');
       await sleep(240);
@@ -2012,6 +2584,14 @@
       jelly: JSON.parse(JSON.stringify(S.jelly)),
       ice: JSON.parse(JSON.stringify(S.ice || [])),
       chain: JSON.parse(JSON.stringify(S.chain || [])),
+      // 机关也要进快照：撤回后藤蔓 / 炸弹 / 流沙 / 迷雾必须回到走之前的样子
+      ivy: JSON.parse(JSON.stringify(S.ivy || [])),
+      box: JSON.parse(JSON.stringify(S.box || [])),
+      sand: JSON.parse(JSON.stringify(S.sand || [])),
+      tbomb: JSON.parse(JSON.stringify(S.tbomb || [])),
+      fog: JSON.parse(JSON.stringify(S.fog || [])),
+      frostTurns: S.frostTurns || 0,
+      turnCount: S.turnCount || 0,
       score: S.score,
       moves: S.moves,
       jellyLeft: S.jellyLeft,
@@ -2058,6 +2638,13 @@
     S.jelly = f.jelly;
     if (f.ice) S.ice = f.ice;
     if (f.chain) S.chain = f.chain;
+    if (f.ivy) S.ivy = f.ivy;
+    if (f.box) S.box = f.box;
+    if (f.sand) S.sand = f.sand;
+    if (f.tbomb) S.tbomb = f.tbomb;
+    if (f.fog) S.fog = f.fog;
+    if (f.frostTurns != null) S.frostTurns = f.frostTurns;
+    if (f.turnCount != null) S.turnCount = f.turnCount;
     S.score = f.score;
     S.moves = f.moves;
     S.jellyLeft = f.jellyLeft;
@@ -2077,6 +2664,7 @@
     clearHint();
     updateHUD();
     updateTargetBar();
+    updateHazardBar();
     drawStatic();
     AudioManager.playSFX('select');
   }
@@ -2609,8 +3197,9 @@
         : Store.getLevelRecord(S.level).score;
       $('final-level').textContent = S.daily ? '每日挑战' : S.level;
       $('final-coins').textContent = '+' + coins;
-      // 限时关写「时间到了」，步数关写「步数耗尽」，别混用
-      $('game-over-title').textContent = passed ? '目标达成' : (S.timerOn ? '时间到了' : '步数耗尽');
+      // 限时关写「时间到了」，步数关写「步数耗尽」，机关炸了写具体原因
+      $('game-over-title').textContent = passed ? '目标达成'
+        : (S.failReason || (S.timerOn ? '时间到了' : '步数耗尽'));
       $('final-new-record').style.display = 'none';
       // 步数 / 时间刚走完时可能还有特效在播：等播完再弹结算
       await waitForEffects();
@@ -2637,6 +3226,14 @@
       jelly: S.jelly,
       ice: S.ice,
       chain: S.chain,
+      // 机关原样存档：中途退出再进来，藤蔓位置 / 炸弹倒计时 / 迷雾都还是走之前那样
+      ivy: S.ivy,
+      box: S.box,
+      sand: S.sand,
+      tbomb: S.tbomb,
+      fog: S.fog,
+      frostTurns: S.frostTurns,
+      turnCount: S.turnCount,
       cargoLeft: S.cargoLeft,
       rescueLeft: S.rescueLeft,
       score: S.score,
@@ -2666,6 +3263,13 @@
     S.jelly = s.jelly || S.jelly;
     if (s.ice) S.ice = s.ice;
     if (s.chain) S.chain = s.chain;
+    if (s.ivy) S.ivy = s.ivy;
+    if (s.box) S.box = s.box;
+    if (s.sand) S.sand = s.sand;
+    if (s.tbomb) S.tbomb = s.tbomb;
+    if (s.fog) S.fog = s.fog;
+    if (s.frostTurns != null) S.frostTurns = s.frostTurns;
+    if (s.turnCount != null) S.turnCount = s.turnCount;
     if (s.cargoLeft != null) S.cargoLeft = s.cargoLeft;
     if (s.rescueLeft != null) S.rescueLeft = s.rescueLeft;
     S.score = s.score || 0;

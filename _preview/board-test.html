@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>机关测试台</title>
+<style>html,body{margin:0;background:#fff}iframe{width:390px;height:844px;border:0;display:block}</style>
+</head>
+<body>
+<iframe id="f" src="../index.html"></iframe>
+<script>
+  // 本地测试台：把真实页面塞进 iframe，等它启动好之后直接跳到指定关卡，
+  // 用来截图核对新机关 / 新特殊块的画法（localhost 不会往公共榜单发成绩）
+  var lv = Number((location.search.match(/lv=(\d+)/) || [])[1] || 41);
+  var f = document.getElementById('f');
+  f.addEventListener('load', function () {
+    var w = f.contentWindow;
+    var tries = 0;
+    var t = setInterval(function () {
+      tries++;
+      if (w.__nl_test && w.__nl_test.start) {
+        clearInterval(t);
+        try { w.__nl_test.start(lv, {}); } catch (e) { document.title = 'ERR ' + e.message; }
+        setTimeout(function () {
+          try { w.__nl_test.state().playing = true; } catch (e) {}
+        }, 200);
+      } else if (tries > 60) { clearInterval(t); }
+    }, 100);
+  });
+</script>
+</body>
+</html>

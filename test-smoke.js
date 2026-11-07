@@ -2357,6 +2357,109 @@ function check(name, ok) {
     /Account\.autoCloudSave\(\)/.test(jsSrc) && htmlSrc.includes('☁️ 云存档（自动）') &&
     htmlSrc.includes('自动存到服务器'));
 
+  // ==================== 80 关扩展：新特殊块 + 新机关 ====================
+  const lvlJson = JSON.parse(fs.readFileSync(path.join('js', 'levels.json'), 'utf8'));
+  check('主线扩到 80 关 / 8 章，新增 4 个主题（森林 / 云端 / 沙漠 / 熔岩）',
+    lvlJson.levels.length === 80 && lvlJson.maxMainLevel === 80 && lvlJson.chapters.length === 8 &&
+    ['forest', 'sky', 'desert', 'lava'].every((t) => lvlJson.themes[t]) &&
+    ['forest', 'sky', 'desert', 'lava'].every((t) => /data-theme/.test(cssSrc)));
+  check('41~50 关带常春藤 / 霜块，51~60 带传送门 / 轨道，61~70 带流沙 / 迷雾，71~80 带保险箱 / 步数炸弹', (() => {
+    const seg = (from, to) => lvlJson.levels.slice(from - 1, to);
+    return seg(41, 50).some((l) => l.ivy) && seg(41, 50).some((l) => l.frost) &&
+      seg(51, 60).some((l) => l.portal) && seg(51, 60).some((l) => l.track) &&
+      seg(61, 70).some((l) => l.sand) && seg(61, 70).some((l) => l.fog) &&
+      seg(71, 80).some((l) => l.box) && seg(71, 80).some((l) => l.tbomb) &&
+      lvlJson.levels[79].final === true;
+  })());
+
+  check('新增四种特殊块：磁铁 🧲 / 颜料 🎨 / 霜块 ❄️ / 螺旋桨 🛩️',
+    Sp.TYPE.MAGNET === 5 && Sp.TYPE.PAINT === 6 && Sp.TYPE.FROST === 7 && Sp.TYPE.PROPELLER === 8 &&
+    Sp.META[5].icon === '🧲' && Sp.META[6].icon === '🎨' &&
+    Sp.META[7].icon === '❄️' && Sp.META[8].icon === '🛩️');
+
+  check('生成规则：7 连 → 颜料，6 连 → 磁铁，5 连 → 彩虹，4 连 → 线消，L/T → 炸弹', (() => {
+    // 底色用棋盘格（(r+c)%2），保证背景自己不会连成长串
+    const line = (len) => {
+      const b = [...Array(8)].map((_, r) => [...Array(8)].map((_, c) => ({ type: (r + c) % 2, special: 0 })));
+      for (let c = 0; c < len; c++) b[3][c] = { type: 2, special: 0 };
+      const runs = Sp.detectRuns(b, 8, 8).filter((x) => x.cells[0].r === 3);
+      return Sp.planCreation(b, new Set(runs[0].cells.map((p) => p.r + ',' + p.c)), null, runs, []);
+    };
+    const p7 = line(7), p6 = line(6), p5 = line(5), p4 = line(4);
+    return p7 && p7.type === Sp.TYPE.PAINT && p6 && p6.type === Sp.TYPE.MAGNET &&
+      p5 && p5.type === Sp.TYPE.RAINBOW && p4 && (p4.type === Sp.TYPE.LINE_H || p4.type === Sp.TYPE.LINE_V);
+  })());
+
+  check('大 L/T（7 格以上）→ 螺旋桨', (() => {
+    const b = [...Array(8)].map((_, r) => [...Array(8)].map((_, c) => ({ type: (r + c) % 2, special: 0 })));
+    for (let c = 0; c < 4; c++) b[3][c] = { type: 2, special: 0 };   // 横 4
+    for (let r = 0; r < 4; r++) b[r][1] = { type: 2, special: 0 };   // 竖 4（与横共用一格 → L 型 7 格）
+    const runs = Sp.detectRuns(b, 8, 8).filter((x) => x.cells[0].r === 3 || x.cells[0].c === 1);
+    const shapes = Sp.detectLShapes(b, 8, 8, runs);
+    const plan = Sp.planCreation(b, new Set(), null, runs, shapes);
+    return shapes.length && shapes[0].size >= 7 && plan && plan.type === Sp.TYPE.PROPELLER;
+  })());
+
+  check('磁铁吸同行同列同色 + 身边 3x3；螺旋桨斜扫两条对角线', (() => {
+    const b = [...Array(8)].map((_, r) => [...Array(8)].map((_, c) => ({ type: (r + c) % 2, special: 0 })));
+    b[3][4] = { type: 2, special: Sp.TYPE.MAGNET };
+    b[3][0] = { type: 2, special: 0 };   // 同行同色 → 吸
+    b[0][4] = { type: 2, special: 0 };   // 同列同色 → 吸
+    b[3][7] = { type: 1, special: 0 };   // 同行不同色（且不在 3x3）→ 不吸
+    b[4][5] = { type: 2, special: 0 };   // 斜下角 → 3x3 吸
+    b[6][6] = { type: 2, special: 0 };   // 远处（不在同行同列也不在 3x3）→ 不吸
+    const m = Sp.expandClears(b, 8, 8, new Set(['3,4']), {});
+    const prop = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 1, special: 0 })));
+    prop[2][2] = { type: 1, special: Sp.TYPE.PROPELLER };
+    const pr = Sp.expandClears(prop, 8, 8, new Set(['2,2']), {});
+    return m.cells.has('3,0') && m.cells.has('0,4') && m.cells.has('4,5') &&
+      !m.cells.has('3,7') && !m.cells.has('6,6') &&
+      pr.cells.has('0,0') && pr.cells.has('1,1') && pr.cells.has('3,3') &&
+      pr.cells.has('0,4') && pr.cells.has('5,5') && !pr.cells.has('0,1');
+  })());
+
+  check('超级融合：彩虹+磁铁 = 磁力虹吸，炸弹+磁铁 = 磁力爆破，双磁铁 = 双磁十字，霜块组合带定格', (() => {
+    const b = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 1, special: 0 })));
+    b[3][3] = { type: 1, special: Sp.TYPE.RAINBOW };
+    b[3][4] = { type: 1, special: Sp.TYPE.MAGNET };
+    const c1 = Sp.comboAt(b, 8, 8, { r: 3, c: 3 }, { r: 3, c: 4 });
+    b[3][3] = { type: 1, special: Sp.TYPE.BOMB };
+    const c2 = Sp.comboAt(b, 8, 8, { r: 3, c: 3 }, { r: 3, c: 4 });
+    b[3][3] = { type: 1, special: Sp.TYPE.MAGNET };
+    const c3 = Sp.comboAt(b, 8, 8, { r: 3, c: 3 }, { r: 3, c: 4 });
+    b[3][3] = { type: 1, special: Sp.TYPE.FROST };
+    const c4 = Sp.comboAt(b, 8, 8, { r: 3, c: 3 }, { r: 3, c: 4 });
+    b[3][3] = { type: 1, special: Sp.TYPE.PROPELLER };
+    b[3][4] = { type: 1, special: Sp.TYPE.LINE_H };
+    const c5 = Sp.comboAt(b, 8, 8, { r: 3, c: 3 }, { r: 3, c: 4 });
+    return c1 && c1.label === '磁力虹吸' && c2 && c2.label === '磁力爆破' &&
+      c3 && c3.label === '双磁十字' && c4 && c4.freeze === 3 &&
+      c5 && !!c5.label;
+  })());
+
+  check('棋盘接入机关：状态数组 / 开局摆放 / 每步结算 / 失败原因 / 传送门与流沙 / 存档与快照', (() => {
+    return /S\.ivy = \[\]/.test(jsSrc) && /S\.tbomb = \[\]/.test(jsSrc) && /S\.portalAt = \[\]/.test(jsSrc) &&
+      /function growIvy/.test(jsSrc) && /function burySand/.test(jsSrc) &&
+      /function shiftTrack/.test(jsSrc) && /function spawnFrost/.test(jsSrc) &&
+      /function tickHazards/.test(jsSrc) && /tickHazards\(\);/.test(jsSrc) &&
+      /function failByHazard/.test(jsSrc) && /S\.failReason/.test(jsSrc) &&
+      /function teleportCargo/.test(jsSrc) && /teleportCargo\(\)/.test(jsSrc) &&
+      /function chipBox/.test(jsSrc) && /function paintArea/.test(jsSrc) &&
+      /IVY_FAIL/.test(jsSrc) && /S\.sand\[ROWS - 1\] && S\.sand\[ROWS - 1\]\[c\]/.test(jsSrc) &&
+      /ivy: S\.ivy,/.test(jsSrc) && /fog: S\.fog,/.test(jsSrc) &&
+      /frostTurns: S\.frostTurns \|\| 0/.test(jsSrc);
+  })());
+
+  check('机关提示条：页面有 hazard-bar，样式有 hazard-chip，开局 / 每步都会刷新',
+    htmlSrc.includes('id="hazard-bar"') &&
+    /\.hazard-bar\s*\{[^}]*display:\s*none/.test(cssSrc) && /\.hazard-chip/.test(cssSrc) &&
+    /function updateHazardBar/.test(jsSrc) && /updateHazardBar\(\);/.test(jsSrc));
+
+  check('新特殊块在棋盘上有专属画法（emoji + 光晕）', (() => {
+    const seg = jsSrc.slice(jsSrc.indexOf('function drawSpecialOverlay'), jsSrc.indexOf('function tileBaseColor'));
+    return seg.includes("'🧲'") && seg.includes("'🎨'") && seg.includes("'❄️'") && seg.includes("'🛩️'");
+  })());
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });

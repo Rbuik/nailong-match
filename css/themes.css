@@ -6,6 +6,11 @@ body[data-theme="grass"] { --board-bg: #ffffff; --board-grid: #f0f0f0; --accent:
 body[data-theme="ocean"] { --board-bg: #ffffff; --board-grid: #f0f0f0; --accent: #2b7fd4; }
 body[data-theme="star"]  { --board-bg: #ffffff; --board-grid: #f0f0f0; --accent: #7c5cff; }
 body[data-theme="candy"] { --board-bg: #ffffff; --board-grid: #f0f0f0; --accent: #e0568a; }
+/* 第五～八章（80 关扩展）的新主题：只改强调色，棋盘底色仍保持白 */
+body[data-theme="forest"] { --board-bg: #ffffff; --board-grid: #eef6ec; --accent: #2f9e48; }
+body[data-theme="sky"]    { --board-bg: #ffffff; --board-grid: #ecf3fb; --accent: #3d8fe0; }
+body[data-theme="desert"] { --board-bg: #ffffff; --board-grid: #faf1e3; --accent: #c08a35; }
+body[data-theme="lava"]   { --board-bg: #ffffff; --board-grid: #fbeceb; --accent: #d9482f; }
 
 :root {
   --ui-accent: #7c5cff;

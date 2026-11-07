@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261108o">
-<link rel="stylesheet" href="./css/themes.css?v=20261108o">
+<link rel="stylesheet" href="./css/style.css?v=20261108p">
+<link rel="stylesheet" href="./css/themes.css?v=20261108p">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -25,6 +25,9 @@
   </div>
 
   <div class="target-bar" id="target-bar">目标：得分 0 / 1000</div>
+
+  <!-- 机关状态条：只有带机关（藤蔓 / 箱子 / 流沙 / 炸弹 / 迷雾 / 传送门 / 轨道 / 霜块）的关卡才显示 -->
+  <div class="hazard-bar" id="hazard-bar" style="display:none;"></div>
 
   <div class="tools">
     <div class="tools-row">
@@ -346,6 +349,10 @@
         <p><b>线消</b>：4 个连成一线 —— <b>横着连的清整行、竖着连的清整列</b>。</p>
         <p><b>炸弹 💣</b>：L 型 / T 型消除生成，炸掉周围 3×3。</p>
         <p><b>彩虹 🌈</b>：5 个连成一线生成；<b>自己被消掉</b>时清掉全盘同图案。</p>
+        <p><b>磁铁 🧲</b>：6 个连成一线生成；消掉时把<b>同行同列的同色方块</b>全吸过来一起消。</p>
+        <p><b>颜料 🎨</b>：7 个连成一线生成；消掉时把周围一大片<b>刷成同一种颜色</b>，方便接着连消。</p>
+        <p><b>螺旋桨 🛩️</b>：L / T 型消到 <b>7 格以上</b>生成；沿两条对角线斜扫全场。</p>
+        <p><b>霜块 ❄️</b>：不用连，<b>每 6 步自动长一个</b>（部分关卡开局就送）；消掉它，<b>3 步内所有机关暂停</b>。</p>
         <p>生成位置会避开已有钥匙 / 奶龙 / 冰 / 锁链的格子，不会叠在一起。</p>
       </section>
 
@@ -357,6 +364,10 @@
         <p>· 炸弹 + 炸弹 → 5×5</p>
         <p>· 彩虹 + 线消 / 炸弹 → 同色全变线消 / 炸弹</p>
         <p>· 彩虹 + 彩虹 → 全屏清场</p>
+        <p>· <b>彩虹 + 磁铁</b> → 磁力虹吸（全场同色连同行列一起爆）</p>
+        <p>· <b>炸弹 + 磁铁</b> → 磁力爆破（全场同色被吸过来炸）</p>
+        <p>· <b>磁铁 + 磁铁</b> → 双磁十字（两行两列全扫）</p>
+        <p>· <b>霜块 / 颜料 / 螺旋桨</b> 和别的特殊块交换也各有融合效果</p>
       </section>
 
       <section class="rule-sec">
@@ -387,6 +398,19 @@
         <p><b>锁链</b>：第一次被消只解链，之后才能正常交换。</p>
         <p><b>货物</b>：钥匙 / 奶龙 / 糖果贴在方块上，<b>目标是送到最底行</b>。</p>
         <p><b>货物只往下走</b>：所在方块被消时，落到本列<b>下面离它最近的那个方块</b>上；<b>下面一个方块都没有了</b>才算运送成功。</p>
+      </section>
+
+      <section class="rule-sec">
+        <h3>🕳️ 机关（第五章起出现）</h3>
+        <p>带机关的关卡，目标栏下面会有一排<b>黄色小胶囊</b>实时报数。</p>
+        <p><b>常春藤 🌿</b>：每 3 步往外长一格，消掉藤蔓上的方块就能割掉它；长满 <b>26 格</b>直接失败。</p>
+        <p><b>保险箱 📦</b>：在旁边消 2 下敲开，里面的糖果掉出来，送到最底行拿分。</p>
+        <p><b>流沙 🟫</b>：底行有沙的列送不了货；每 3 步埋掉沙上的货，消掉沙上的方块把沙挖走。</p>
+        <p><b>移动轨道 🚄</b>：每 4 步整行方块滑一格，别用固定思路。</p>
+        <p><b>步数炸弹 ⚠️</b>：红色倒计时，归零<b>直接失败</b>；消掉那一格就拆掉（+120 分）。</p>
+        <p><b>迷雾 🌫️</b>：盖住的方块看不见，消掉旁边的格子雾就散开。</p>
+        <p><b>传送门 🌀</b>：成对出现，货落到一扇门上直接跳到另一扇，用来跨列送货。</p>
+        <p>以上机关在 ❄️ 霜块定格期间<b>全部暂停</b>。</p>
       </section>
 
       <section class="rule-sec">
@@ -973,22 +997,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261108o"></script>
-<script src="./js/storage.js?v=20261108o"></script>
-<script src="./js/audio.js?v=20261108o"></script>
-<script src="./js/effects.js?v=20261108o"></script>
-<script src="./js/specials.js?v=20261108o"></script>
-<script src="./js/goals.js?v=20261108o"></script>
-<script src="./js/tasks.js?v=20261108o"></script>
-<script src="./js/mail.js?v=20261108o"></script>
-<script src="./js/input.js?v=20261108o"></script>
-<script src="./js/builtin-music.js?v=20261108o"></script>
-<script src="./js/music.js?v=20261108o"></script>
-<script src="./js/meta.js?v=20261108o"></script>
-<script src="./js/cloud-config.js?v=20261108o"></script>
-<script src="./js/cloud.js?v=20261108o"></script>
-<script src="./js/account.js?v=20261108o"></script>
-<script src="./js/board.js?v=20261108o"></script>
-<script src="./js/game.js?v=20261108o"></script>
+<script src="./js/rng.js?v=20261108p"></script>
+<script src="./js/storage.js?v=20261108p"></script>
+<script src="./js/audio.js?v=20261108p"></script>
+<script src="./js/effects.js?v=20261108p"></script>
+<script src="./js/specials.js?v=20261108p"></script>
+<script src="./js/goals.js?v=20261108p"></script>
+<script src="./js/tasks.js?v=20261108p"></script>
+<script src="./js/mail.js?v=20261108p"></script>
+<script src="./js/input.js?v=20261108p"></script>
+<script src="./js/builtin-music.js?v=20261108p"></script>
+<script src="./js/music.js?v=20261108p"></script>
+<script src="./js/meta.js?v=20261108p"></script>
+<script src="./js/cloud-config.js?v=20261108p"></script>
+<script src="./js/cloud.js?v=20261108p"></script>
+<script src="./js/account.js?v=20261108p"></script>
+<script src="./js/board.js?v=20261108p"></script>
+<script src="./js/game.js?v=20261108p"></script>
 </body>
 </html>
