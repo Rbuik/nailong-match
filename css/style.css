@@ -135,7 +135,7 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .btn-secondary:hover { background: rgba(0, 0, 0, 0.1); }
 .btn-primary:active, .btn-secondary:active { transform: scale(0.95); }
 
-.history-list { width: 85%; max-height: 55vh; overflow-y: auto; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+.history-list { width: 90%; max-height: 64vh; overflow-y: auto; -webkit-overflow-scrolling: touch; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
 /* 三列：关卡+模式名 | 星星 | 分数；后两列右对齐并贴右，整列看下去仍是齐的 */
 .history-item { display: grid; grid-template-columns: minmax(0, 1fr) 54px 52px; column-gap: 6px; align-items: center; padding: 12px 6px 12px 12px; background: rgba(255,255,255,0.9); border-radius: 8px; cursor: pointer; transition: background 0.2s; border: 1px solid rgba(0,0,0,0.06); }
 .history-item:hover { background: #fff; }
@@ -241,6 +241,8 @@ input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
   font-weight: 900;
   pointer-events: none;
   z-index: 99; /* 确保在 canvas 之上 */
+  width: max-content;      /* 框随字数伸缩，不固定宽 */
+  max-width: 90%;
   opacity: 0;
   transition: opacity 0.16s ease, transform 0.16s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   white-space: nowrap;

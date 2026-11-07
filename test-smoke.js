@@ -515,15 +515,17 @@ function check(name, ok) {
       /e\.target !== ov\) return;\s*\n\s*panelBack\(ov\.id\)/.test(gjs) &&
       /'mail-view': 'mail-menu'/.test(gjs) && /'chapters-menu': 'main-menu'/.test(gjs);
   })());
-  check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，悬浮在滚动区右下角', (() => {
+  check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，放在滚动区外面（下方右对齐）', (() => {
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="mail-list"'), htmlSrc0.indexOf('id="mail-view"'));
     return /class="mail-emoji-btn" id="btn-mail-read-all"[^>]*>✅</.test(sec) &&
       /class="mail-emoji-btn" id="btn-mail-del-all"[^>]*>🗑️</.test(sec) &&
       !sec.includes('一键已读') && !sec.includes('一键删除') &&
-      htmlSrc0.includes('<div class="mail-list-wrap">') &&
-      /\.mail-list\s*\{[^}]*max-height:\s*68vh/.test(cssSrc) &&
-      /\.mail-tools\s*\{[^}]*position:\s*absolute[^}]*right:\s*10px[^}]*bottom:\s*10px/.test(cssSrc) &&
-      /\.mail-emoji-btn\s*\{[^}]*width:\s*38px[^}]*height:\s*38px/.test(cssSrc);
+      !htmlSrc0.includes('<div class="mail-list-wrap">') &&
+      /<div class="mail-list" id="mail-list"><\/div>\s*<div class="mail-tools">/.test(htmlSrc0) &&
+      /\.mail-list\s*\{[^}]*max-height:\s*62vh/.test(cssSrc) &&
+      /\.mail-tools\s*\{[^}]*justify-content:\s*flex-end/.test(cssSrc) &&
+      !/\.mail-tools\s*\{[^}]*position:\s*absolute/.test(cssSrc) &&
+      /\.mail-emoji-btn\s*\{[^}]*width:\s*34px[^}]*height:\s*34px/.test(cssSrc);
   })());
   check('切换账号 / 存档码是蓝键',
     htmlSrc0.includes('class="btn-primary" id="btn-goto-switch"') &&
@@ -2035,6 +2037,14 @@ function check(name, ok) {
   check('关卡记录页不再有「点任意一关即可回到主页并切换到该关」',
     !htmlSrc0.includes('点任意一关即可回到主页') &&
     histBlock.length > 0 && !/history-hint/.test(histBlock) && /id="history-list"/.test(histBlock));
+  // 关卡记录滚动区：比原来高，宽度与成就页滚动区一致
+  check('关卡记录滚动区加高，宽度和成就页一致', (() => {
+    const pick = (s) => (cssSrc.match(new RegExp('\\.' + s + '\\s*\\{([^}]*)\\}')) || [null, ''])[1];
+    const h = pick('history-list');
+    const a = pick('ach-list');
+    const w = (s) => (s.match(/width:\s*([\d.]+)%/) || [null, ''])[1];
+    return w(h) === w(a) && /max-height:\s*64vh/.test(h) && /max-height:\s*66vh/.test(a);
+  })());
   // 41h. 一格只放一样东西：货物 / 冰 / 锁链 / 特殊块上不再叠新东西
   sandbox.__nl_test.start(1, { def: { id: 96, theme: 'candy', moves: 20, goal: { type: 'score', target: 5000 }, stars: [1, 2, 3] } });
   const stOne = sandbox.__nl_test.state();
@@ -2141,16 +2151,16 @@ function check(name, ok) {
     if (saved !== undefined) lsMap.set('nl2:tasks', saved); else lsMap.delete('nl2:tasks');
     return ok && ok2 && S2.SIGN_MILESTONE.coins === 200 && S2.SIGN_MILESTONE.every === 7;
   })());
-  check('登录 / 注册页没有返回键，点背景逐层退回（注册 → 登录页 → 主页）', (() => {
+  check('登录 / 注册页没有返回键，点背景进不了游戏（不登录不注册只能停在登录 / 注册界面）', (() => {
     $('auth-menu').style.display = 'none';
     $('auth-form').style.display = 'flex';
     $('auth-form').dispatch('click');
-    const formClosed = $('auth-form').style.display === 'none' && $('auth-menu').style.display === 'flex';
+    const formBack = $('auth-form').style.display === 'none' && $('auth-menu').style.display === 'flex';
     $('auth-menu').dispatch('click');
-    const backHome = $('auth-menu').style.display === 'none';
-    return formClosed && backHome &&
+    const stuck = $('auth-menu').style.display === 'flex';
+    return formBack && stuck &&
       !htmlSrc.includes('id="btn-auth-back"') &&
-      /'auth-form': 'auth-menu'/.test(jsSrc) && /'auth-menu': 'main-menu'/.test(jsSrc);
+      /'auth-form': 'auth-menu'/.test(jsSrc) && !/'auth-menu':\s*'main-menu'/.test(jsSrc);
   })());
   check('成绩单：卡片严格居中（stage width:100% 包裹、标题悬浮上方、不改卡片尺寸）、无底部文案、进度线恒满格', (() => {
     const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));

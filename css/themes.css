@@ -336,7 +336,8 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
   z-index: 200;
-  max-width: 86%;
+  width: max-content;      /* 框随字数伸缩，不固定宽 */
+  max-width: 92%;
   text-align: center;
 }
 
@@ -345,8 +346,8 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   transform: translate(-50%, 0);
 }
 
-/* 提示条不换行：未解锁提示等短句始终一行显示 */
-#toast { white-space: pre-line; max-width: 94%; text-align: center; }
+/* 提示条：字多才换行，字少时框刚好包住内容 */
+#toast { white-space: pre-line; text-align: center; }
 
 /* ================= 玩法规则 ================= */
 .rules-btn {
@@ -2000,23 +2001,16 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   text-align: center;
 }
 
-.mail-list-wrap {
-  position: relative;
+.mail-list {
   width: 88%;
   max-width: 380px;
-  margin-bottom: 10px;
-}
-
-.mail-list {
-  width: 100%;
-  max-width: none;
-  max-height: 68vh;
+  max-height: 62vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   /* 内部滚动的板块：底色比周围深一点（和「关卡记录」同款） */
   background: rgba(0, 0, 0, 0.04);
   border-radius: 12px;
@@ -2079,24 +2073,25 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 
 .mail-del:active { background: #e64545; }
 
-/* 邮箱底部：只留 ✅ / 🗑️ 两个小圆钮，悬浮在滚动区右下角 */
+/* 邮箱底部：✅ / 🗑️ 两个小圆钮，放在滚动区的下方（不进滚动内容里） */
 .mail-tools {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
   display: flex;
+  justify-content: flex-end;
   gap: 8px;
+  width: 88%;
+  max-width: 380px;
+  box-sizing: border-box;
 }
 
 .mail-emoji-btn {
   flex: 0 0 auto;
-  width: 38px;
-  height: 38px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   border: 2px solid #eceaf6;
   background: #fff;
   box-shadow: 0 2px 8px rgba(80, 60, 140, 0.14);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   cursor: pointer;
   padding: 0;

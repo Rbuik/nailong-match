@@ -5977,8 +5977,8 @@
       'custom-music-menu': 'music-settings-menu',
       'music-history-menu': 'custom-music-menu',
       'playlist-menu': 'music-settings-menu',
-      'auth-form': 'auth-menu',
-      'auth-menu': 'main-menu',
+      'auth-form': 'auth-menu',  // 只在登录 / 注册内部来回，永远进不了游戏
+      // auth-menu（选登录还是注册的入口页）故意不在表里：点空白不动，不登录 / 不注册就只能停在这
       'tasks-menu': 'main-menu',
       'chapters-menu': 'main-menu',
       'story-menu': 'chapters-menu',
