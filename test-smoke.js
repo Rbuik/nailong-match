@@ -2076,16 +2076,13 @@ function check(name, ok) {
       w1 && w1.reward === 20 && w1.event === 'win' &&
       sandbox.Tasks.getToday().length === 5;
   })());
-  check('每日任务奖励恢复原面值（20~150 不限档位），combo3 / win1 仍是 20', (() => {
+  check('每日任务奖励只有 20/40/60 三档，每天每档至少一个', (() => {
     const pool = sandbox.Tasks.POOL;
-    const by = (id) => pool.find((p) => p.id === id);
-    return pool.length === 10 &&
-      by('win1').reward === 20 && by('combo3').reward === 20 &&
-      by('play3').reward === 60 && by('match4').reward === 80 &&
-      by('bomb').reward === 80 && by('line').reward === 90 &&
-      by('jelly').reward === 100 && by('combo4').reward === 120 &&
-      by('rainbow').reward === 120 && by('score5000').reward === 150 &&
-      sandbox.Tasks.getToday().length === 5;
+    const tiers = [20, 40, 60];
+    if (!pool.every((p) => tiers.indexOf(p.reward) >= 0)) return false;
+    if (!tiers.every((r) => pool.some((p) => p.reward === r))) return false;
+    const today = sandbox.Tasks.getToday();
+    return today.length === 5 && tiers.every((r) => today.some((t) => t.reward === r));
   })());
   check('结算秒弹：特效一停立刻放行，不再垫固定延时', (() => {
     const fn = jsSrc.slice(jsSrc.indexOf('async function waitForEffects'), jsSrc.indexOf('async function handleOutOfResource'));
