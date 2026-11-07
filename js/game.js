@@ -2114,7 +2114,9 @@
     const mult = comboMult(S.combo);
     const fz = frenzyMult();
     const beat = beatMult();
-    const gained = Math.round(clearSet.size * 10 * mult * fz * beat);
+    // 每次彩虹被消，在基础得分上再悄悄多给 50 分（不对外说明）
+    const rainbowBonus = boomPoints.reduce((n, bp) => n + (bp.type === T.RAINBOW ? 50 : 0), 0);
+    const gained = Math.round(clearSet.size * 10 * mult * fz * beat) + rainbowBonus;
     S.score += gained;
     S.levelStartScore = S.levelStartScore || 0;
 
@@ -3426,17 +3428,41 @@
   }
 
   // 商店：横向卡片，一次看一张，左右滑动看其余（和成就详情一样的节奏）
+  // 记住停在第几张：退出商店再进来，卡片位置和下面的小圆点都还原
+  let shopIdx = 0;
+
+  function shopStepOf(cards) {
+    const w = (cards && cards[0] && cards[0].offsetWidth) || 0;
+    return (w + 10) || 1;
+  }
+
+  function applyShopDot(idx) {
+    const dots = $('shop-dots');
+    if (!dots) return;
+    Array.prototype.slice.call(dots.children || []).forEach((d, i) => {
+      if (i === idx) d.classList.add('on'); else d.classList.remove('on');
+    });
+  }
+
   function syncShopDot() {
     const stage = $('shop-stage');
     const dots = $('shop-dots');
     if (!stage || !dots) return;
     const cards = stage.querySelectorAll ? stage.querySelectorAll('.shop-card') : [];
     if (!cards || !cards.length) return;
-    const step = (cards[0].offsetWidth || 1) + 10;
-    const idx = Math.max(0, Math.min(cards.length - 1, Math.round(stage.scrollLeft / step)));
-    Array.prototype.slice.call(dots.children || []).forEach((d, i) => {
-      if (i === idx) d.classList.add('on'); else d.classList.remove('on');
-    });
+    const idx = Math.max(0, Math.min(cards.length - 1, Math.round(stage.scrollLeft / shopStepOf(cards))));
+    shopIdx = idx;
+    applyShopDot(idx);
+  }
+
+  // 面板收起时浏览器会把 scrollLeft 清零，所以要等它重新显示后再按记录的序号滚回去
+  function restoreShopScroll() {
+    const stage = $('shop-stage');
+    if (!stage) return;
+    const cards = stage.querySelectorAll ? stage.querySelectorAll('.shop-card') : [];
+    if (!cards || !cards.length) return;
+    stage.scrollLeft = shopIdx * shopStepOf(cards);
+    applyShopDot(shopIdx);
   }
 
   function renderShop() {
@@ -3445,7 +3471,6 @@
     const wallet = Store.getWallet();
     $('shop-coins').textContent = wallet.coins;
     const stage = $('shop-stage');
-    const keep = stage ? stage.scrollLeft : 0;
     list.innerHTML = '';
     Tasks.SHOP.forEach((item) => {
       const card = document.createElement('div');
@@ -3467,12 +3492,12 @@
       dots.innerHTML = '';
       Tasks.SHOP.forEach((item, i) => {
         const d = document.createElement('i');
-        d.className = 'shop-dot' + (i === 0 ? ' on' : '');
+        d.className = 'shop-dot' + (i === shopIdx ? ' on' : '');
         dots.appendChild(d);
       });
     }
     if (stage) {
-      stage.scrollLeft = keep;
+      stage.scrollLeft = shopIdx * shopStepOf(stage.querySelectorAll ? stage.querySelectorAll('.shop-card') : []);
       if (!stage._shopBound && stage.addEventListener) {
         stage.addEventListener('scroll', syncShopDot, { passive: true });
         stage._shopBound = true;
@@ -5921,9 +5946,17 @@
     if (shopBtn) shopBtn.addEventListener('click', () => {
       renderShop();
       showOverlay('shop-menu');
+      // 面板刚从隐藏变显示，滚动位置要等布局落地后再还原一次
+      restoreShopScroll();
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(restoreShopScroll);
+      else setTimeout(restoreShopScroll, 16);
+      setTimeout(restoreShopScroll, 80);
     });
     const closeShop = $('btn-close-shop');
-    if (closeShop) closeShop.addEventListener('click', () => $('shop-menu').style.display = 'none');
+    if (closeShop) closeShop.addEventListener('click', () => {
+      syncShopDot();          // 关之前先记住停在哪一张
+      $('shop-menu').style.display = 'none';
+    });
 
     // 遮罩点击关闭（§25）
     document.querySelectorAll('.overlay').forEach((ov) => {
@@ -5931,6 +5964,7 @@
         // 主页 / 结算 / 登录 / 补资料 / 强制改名这些面板点遮罩不关闭（必须点按钮）
         if (e.target === ov && ['main-menu', 'level-clear', 'game-over', 'game-complete',
           'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'].indexOf(ov.id) < 0) {
+          if (ov.id === 'shop-menu') syncShopDot();   // 关之前记住停在哪一张
           ov.style.display = 'none';
         }
       });

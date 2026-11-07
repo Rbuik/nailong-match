@@ -694,9 +694,9 @@ function check(name, ok) {
   check('更多玩法右上角黑色 + 最佳分带「分」',
     cssSrc.includes('.mode-head span { font-size: 11px; color: #222;') &&
     jsSrc.includes("'最佳 ' + best[k] + ' 分'"));
-  check('商店有「线消道具」300 金币（比 180 的炸弹贵，按消除得分定价）', (() => {
+  check('商店有「线消道具」230 金币（比 180 的炸弹贵，按消除得分定价）', (() => {
     const t = fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8');
-    return t.includes("{ key: 'startLine', name: '线消道具', price: 300") &&
+    return t.includes("{ key: 'startLine', name: '线消道具', price: 230") &&
       t.indexOf("key: 'startLine'") > t.indexOf("key: 'startBomb'");
   })());
   check('所有滑动区域不显示滚动条灰线',
@@ -2491,20 +2491,50 @@ function check(name, ok) {
       return true;
     });
     return inOrder && /├── /.test(md) && /└── /.test(md) && /│   └── /.test(md) &&
-      /├── js\/\s+# 游戏逻辑/.test(md) && md.length < 3200;
+      /├── js\/\s+# 游戏逻辑/.test(md) && md.length < 3200 &&
+      // 简介不再写关数
+      !md.includes('主线 80 关') &&
+      // 所有行内说明的 # 必须纵向对齐
+      (() => {
+        const cols = md.split('\n')
+          .filter((l) => /[│├└]/.test(l) && l.includes('#'))
+          .map((l) => l.indexOf('#'));
+        return cols.length > 10 && cols.every((c) => c === cols[0]);
+      })();
   })());
 
-  check('商店按「消除得分」定价：颜料 500 > 线消 300 > 螺旋桨 250 > 彩虹 230 > 磁铁 210 > 炸弹 180 > 霜块 20', (() => {
+  check('商店按「消除得分」定价：颜料 500 > 彩虹 300 > 螺旋桨 250 > 线消 230 > 磁铁 210 > 炸弹 180 > 霜块 20', (() => {
     const shop = sandbox.Tasks.SHOP;
     const by = (k) => shop.find((x) => x.key === k);
     const need = ['startFrost', 'startBomb', 'startMagnet', 'rainbow', 'startPropeller', 'startLine', 'startPaint'];
     if (!need.every((k) => by(k))) return false;
-    return by('startPaint').price === 500 && by('startLine').price === 300 &&
-      by('startPropeller').price === 250 && by('rainbow').price === 230 &&
+    return by('startPaint').price === 500 && by('rainbow').price === 300 &&
+      by('startPropeller').price === 250 && by('startLine').price === 230 &&
       by('startMagnet').price === 210 && by('startBomb').price === 180 &&
       by('startFrost').price === 20 &&
+      // 彩虹和线消价格互换：彩虹比线消贵
+      by('rainbow').price > by('startLine').price &&
       // 商店里特殊道具按价格从低到高排，霜块最便宜、颜料最贵
       shop.findIndex((x) => x.price === 20) < shop.findIndex((x) => x.price === 500);
+  })());
+
+  check('彩虹被消时静默额外 +50 分（不写进说明页）', (() => {
+    const fn = jsSrc.slice(jsSrc.indexOf('const gained = Math.round'), jsSrc.indexOf('const gained = Math.round') + 400);
+    return /rainbowBonus/.test(jsSrc) &&
+      /bp\.type === T\.RAINBOW \? 50 : 0/.test(jsSrc) &&
+      /\+ rainbowBonus/.test(jsSrc) &&
+      !htmlSrc.includes('+50') && !htmlSrc.includes('额外 50');
+  })());
+
+  check('商店关闭再打开：记住停在第几张，卡片位置和小圆点一起还原', (() => {
+    return /let shopIdx = 0/.test(jsSrc) &&
+      /shopIdx = idx/.test(jsSrc) &&
+      /function restoreShopScroll/.test(jsSrc) &&
+      /stage\.scrollLeft = shopIdx \* shopStepOf/.test(jsSrc) &&
+      /i === shopIdx \? ' on' : ''/.test(jsSrc) &&
+      /applyShopDot\(shopIdx\)/.test(jsSrc) &&
+      /restoreShopScroll\(\);\s*\n\s*if \(typeof requestAnimationFrame/.test(jsSrc) &&
+      /if \(ov\.id === 'shop-menu'\) syncShopDot\(\)/.test(jsSrc);
   })());
 
   check('特殊道具都叫「xx道具」，说明里不留分号、后半句换行显示', (() => {
