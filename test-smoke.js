@@ -694,10 +694,11 @@ function check(name, ok) {
   check('更多玩法右上角黑色 + 最佳分带「分」',
     cssSrc.includes('.mode-head span { font-size: 11px; color: #222;') &&
     jsSrc.includes("'最佳 ' + best[k] + ' 分'"));
-  check('商店有「开局线消」200 金币，排在开局炸弹上面',
-    fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8').includes("{ key: 'startLine', name: '开局线消', price: 200") &&
-    fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8').indexOf("key: 'startLine'") <
-      fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8').indexOf("key: 'startBomb'"));
+  check('商店有「线消道具」300 金币（比 180 的炸弹贵，按消除得分定价）', (() => {
+    const t = fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8');
+    return t.includes("{ key: 'startLine', name: '线消道具', price: 300") &&
+      t.indexOf("key: 'startLine'") > t.indexOf("key: 'startBomb'");
+  })());
   check('所有滑动区域不显示滚动条灰线',
     cssSrc.includes('*::-webkit-scrollbar { width: 0; height: 0; display: none; }') &&
     !cssSrc.includes('scrollbar-thumb'));
@@ -2475,7 +2476,7 @@ function check(name, ok) {
     });
   })());
 
-  check('README 极简化：有目录板块且按仓库根列表顺序，不再写长篇玩法', (() => {
+  check('README 目录是树形结构（├──/└── + 行内说明），仓库根列表顺序不变', (() => {
     const md = fs.readFileSync('README.md', 'utf8');
     const order = ['_backend', '_preview', '_sql', 'assets', 'css', 'js',
       '.gen-preview.js', '.gitattributes', '.gitignore',
@@ -2483,25 +2484,40 @@ function check(name, ok) {
       'README.md', '_gen-chaptermap.js', '_gen-levels.js', 'index.html',
       'project.config.json', 'project.private.config.json', 'test-longpress.js', 'test-smoke.js'];
     let pos = -1;
-    return order.every((name) => {
+    const inOrder = order.every((name) => {
       const i = md.indexOf(name, pos + 1);
       if (i < 0) return false;
       pos = i;
       return true;
-    }) && md.length < 2800 && /^\s{2}- /m.test(md);
+    });
+    return inOrder && /├── /.test(md) && /└── /.test(md) && /│   └── /.test(md) &&
+      /├── js\/\s+# 游戏逻辑/.test(md) && md.length < 3200;
   })());
 
-  check('商店按「难易 × 能力」排价：新道具齐全且价格阶梯递增', (() => {
+  check('商店按「消除得分」定价：颜料 500 > 线消 300 > 螺旋桨 250 > 彩虹 230 > 磁铁 210 > 炸弹 180 > 霜块 20', (() => {
     const shop = sandbox.Tasks.SHOP;
     const by = (k) => shop.find((x) => x.key === k);
-    const need = ['startFrost', 'startMagnet', 'startPropeller', 'startPaint'];
+    const need = ['startFrost', 'startBomb', 'startMagnet', 'rainbow', 'startPropeller', 'startLine', 'startPaint'];
     if (!need.every((k) => by(k))) return false;
-    return by('startLine').price === 200 && by('startBomb').price === 200 &&
-      by('startFrost').price === 300 && by('startMagnet').price === 350 &&
-      by('startPropeller').price === 400 && by('startPaint').price === 450 &&
-      by('rainbow').price === 500 &&
-      by('startFrost').icon === '❄️' && by('startMagnet').icon === '🧲' &&
-      by('startPropeller').icon === '🛩️' && by('startPaint').icon === '🎨';
+    return by('startPaint').price === 500 && by('startLine').price === 300 &&
+      by('startPropeller').price === 250 && by('rainbow').price === 230 &&
+      by('startMagnet').price === 210 && by('startBomb').price === 180 &&
+      by('startFrost').price === 20 &&
+      // 商店里特殊道具按价格从低到高排，霜块最便宜、颜料最贵
+      shop.findIndex((x) => x.price === 20) < shop.findIndex((x) => x.price === 500);
+  })());
+
+  check('特殊道具都叫「xx道具」，说明里不留分号、后半句换行显示', (() => {
+    const shop = sandbox.Tasks.SHOP;
+    const specials = ['startFrost', 'startBomb', 'startMagnet', 'startPropeller', 'startLine', 'startPaint', 'rainbow'];
+    const namesOk = specials.every((k) => {
+      const it = shop.find((x) => x.key === k);
+      return it && /道具$/.test(it.name) && !/^开局/.test(it.name);
+    });
+    const noSemi = specials.every((k) => shop.find((x) => x.key === k).desc.indexOf('；') < 0);
+    const multi = ['startFrost', 'startMagnet', 'startPropeller', 'startPaint']
+      .every((k) => shop.find((x) => x.key === k).desc.indexOf('\n') > 0);
+    return namesOk && noSemi && multi && /desc\.replace\(\/\\n\/g, '<br>'\)/.test(jsSrc);
   })());
 
   check('商店做成横滑卡片（一次一张 + 圆点指示），背包仍是竖排列表',

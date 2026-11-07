@@ -21,21 +21,22 @@
     { id: 'score5000', desc: '累计获得 5000 分', target: 5000, reward: 60, event: 'score' }
   ];
 
-  // 商店：价格按「生成难度 × 能力大小」排成阶梯
-  // 150 洗牌 / 撤回 ｜ 200 线消 / 炸弹 ｜ 300 霜块、+3 步 / +7s
-  // 350 磁铁 ｜ 400 螺旋桨 ｜ 450 颜料 ｜ 500 彩虹
+  // 商店：价格按「被消除时能拿多少分」定——分数 = 消掉的格数 × 10，
+  // 8×8 棋盘、6 色实测平均：颜料 25 格 250 分 ｜ 线消 15 格 150 分 ｜ 螺旋桨 12.5 格 125 分
+  // 彩虹 11.7 格 117 分 ｜ 磁铁 10.7 格 107 分 ｜ 炸弹 9 格 90 分 ｜ 霜块 1 格 10 分
+  // 价格 = 分数 × 2（取整到 10）：颜料 500 > 线消 300 > 螺旋桨 250 > 彩虹 230 > 磁铁 210 > 炸弹 180 > 霜块 20
   const SHOP = [
     { key: 'extraMoves', name: '+3 步', price: 300, desc: '本局步数 +3', icon: '👣' },
     { key: 'extraTime', name: '+7s', price: 300, desc: '本局时间 +7s（限时关）', icon: '⏱️' },
     { key: 'shuffle', name: '洗牌 +1', price: 150, desc: '重排棋盘一次', icon: '🔄' },
     { key: 'undo', name: '撤回 +1', price: 150, desc: '回退上一步', icon: '↩️' },
-    { key: 'startLine', name: '开局线消', price: 200, desc: '开局在随机位置放一条线消', icon: '➖' },
-    { key: 'startBomb', name: '开局炸弹', price: 200, desc: '开局在随机位置放一颗炸弹', icon: '💣' },
-    { key: 'startFrost', name: '开局霜块', price: 300, desc: '开局放一块霜块；消掉后 3 步机关暂停', icon: '❄️' },
-    { key: 'startMagnet', name: '开局磁铁', price: 350, desc: '开局放一块磁铁；吸同行同列同色一起消', icon: '🧲' },
-    { key: 'startPropeller', name: '开局螺旋桨', price: 400, desc: '开局放一块螺旋桨；斜扫两条对角线', icon: '🛩️' },
-    { key: 'startPaint', name: '开局颜料', price: 450, desc: '开局放一块颜料；把一大片刷成同色', icon: '🎨' },
-    { key: 'rainbow', name: '彩虹道具', price: 500, desc: '随机把一块变成彩虹', icon: '🌈' }
+    { key: 'startFrost', name: '霜块道具', price: 20, desc: '开局放一块霜块\n消掉后 3 步内机关暂停', icon: '❄️' },
+    { key: 'startBomb', name: '炸弹道具', price: 180, desc: '开局在随机位置放一颗炸弹', icon: '💣' },
+    { key: 'startMagnet', name: '磁铁道具', price: 210, desc: '开局放一块磁铁\n吸同行同列同色一起消', icon: '🧲' },
+    { key: 'rainbow', name: '彩虹道具', price: 230, desc: '随机把一块变成彩虹', icon: '🌈' },
+    { key: 'startPropeller', name: '螺旋桨道具', price: 250, desc: '开局放一块螺旋桨\n斜扫两条对角线', icon: '🛩️' },
+    { key: 'startLine', name: '线消道具', price: 300, desc: '开局在随机位置放一条线消', icon: '➖' },
+    { key: 'startPaint', name: '颜料道具', price: 500, desc: '开局放一块颜料\n把一大片刷成同一种颜色', icon: '🎨' }
   ];
 
   function todayStr() {

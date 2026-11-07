@@ -3453,7 +3453,7 @@
       card.innerHTML =
         '<span class="shop-card-ico">' + item.icon + '</span>' +
         '<b class="shop-card-name">' + item.name + '</b>' +
-        '<small class="shop-card-desc">' + item.desc + '</small>' +
+        '<small class="shop-card-desc">' + item.desc.replace(/\n/g, '<br>') + '</small>' +
         '<span class="shop-card-own">持有 ' + (wallet.items[item.key] || 0) + '</span>' +
         '<button class="shop-buy" ' + (wallet.coins < item.price ? 'disabled' : '') + '>🪙 ' + item.price + '</button>';
       card.querySelector('.shop-buy').addEventListener('click', () => {
@@ -3610,7 +3610,7 @@
       row.className = 'shop-row';
       row.innerHTML =
         '<span class="shop-icon">' + item.icon + '</span>' +
-        '<div class="shop-info"><b>' + item.name + '</b><small>' + item.desc + '</small></div>' +
+        '<div class="shop-info"><b>' + item.name + '</b><small>' + item.desc.replace(/\n/g, '<br>') + '</small></div>' +
         '<span class="shop-own">x' + wallet.items[item.key] + '</span>';
       const useBtn = document.createElement('button');
       useBtn.className = 'shop-buy';
