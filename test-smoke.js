@@ -1015,7 +1015,7 @@ function check(name, ok) {
   check('货运关放置 4 件货物', cargoN === 4);
   check('货运关目标值 = 货物数', st.goal.target === cargoN);
 
-  // 16b. 第四章开始：运送关的货物里混入糖果，目标栏文案换成「运送货物」
+  // 16b. 第四章开始：运送关的货物里混入糖果，目标栏文案换成「运送糖果 🍬」
   sandbox.__nl_test.start(1, { def: { id: 33, chapter: 4, theme: 'candy', moves: 30, goal: { type: 'drop', target: 10 }, cargo: 10, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
   let candyCnt = 0, keyCnt = 0;
@@ -1026,8 +1026,9 @@ function check(name, ok) {
       list.forEach((cg) => { if (cg.kind === 'candy') candyCnt++; else if (cg.kind === 'key') keyCnt++; });
     }
   }
-  check('第四章运送关钥匙 + 糖果混装（数量和目标一致）',
-    candyCnt === 5 && keyCnt === 5 && st.goal.hasCandy === true && st.goal.target === 10);
+  check('第四章运送关钥匙 + 糖果混装（数量和目标一致，目标栏写「运送糖果 🍬」）',
+    candyCnt === 5 && keyCnt === 5 && st.goal.hasCandy === true && st.goal.target === 10 &&
+    sandbox.Goals.barText(st.goal).indexOf('运送糖果 🍬') >= 0);
   // 第三章（id < 31）仍是纯钥匙
   sandbox.__nl_test.start(1, { def: { id: 21, chapter: 3, theme: 'ocean', moves: 30, goal: { type: 'drop', target: 7 }, cargo: 7, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
@@ -1060,6 +1061,8 @@ function check(name, ok) {
   // 17c. 货物被消掉时会往下掉一格；下面那格已经有货也照掉，两件重合在一起
   sandbox.__nl_test.start(1, { def: { id: 94, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 1 }, rescue: 1, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
+  // 确定性棋盘：避免随机特殊块把消除集合扩出去、干扰断言
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) st.board[r][c] = { type: (r + c * 2) % 6, special: 0 };
   for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) if (st.board[r][c]) st.board[r][c].cargo = null;
   st.board[2][0].cargo = { kind: 'nailong' };      // 要被消掉的那只
   st.board[3][0].cargo = { kind: 'key' };          // 正下方已经有一件货（照掉，重合）
@@ -1081,9 +1084,13 @@ function check(name, ok) {
   const delivBefore = st.goal.cargoGot || 0;
   await sandbox.__nl_test.resolveClear(new Set(['2,0']), []);
   check('货物被顶下时不会丢（下面有货也照掉，总数守恒）', cargoTotal() === cargoCntBefore);
-  check('货物被消后一路掉到本列最底行并直接送达（不再停在半路）',
-    (st.goal.cargoGot || 0) === delivBefore + 1 &&
-    st.board[3][0].cargo && !Array.isArray(st.board[3][0].cargo) &&
+  // 新规则：被消的货物落到「下面最近的方块」上（r3 的方块），不再直接送达；
+  // r2 的奶龙和 r3 原有的钥匙叠在一格，等方块被送到最底行才算送达
+  check('货物被消后落到下方最近的方块上（奶龙叠在 r3 钥匙上面，不直接送达）',
+    (st.goal.cargoGot || 0) === delivBefore &&
+    Array.isArray(st.board[3][0].cargo) &&
+    st.board[3][0].cargo.length === 2 &&
+    st.board[3][0].cargo[1].kind === 'nailong' &&
     !(st.board[7][0] && st.board[7][0].cargo));
 
   // 17c-2. 洗牌：钥匙 / 奶龙钉在原位，只有底下的方块参与洗牌
@@ -1169,8 +1176,15 @@ function check(name, ok) {
   // 22. 冰块：相邻消除砸掉一层冰并推进目标
   sandbox.__nl_test.start(1, { def: { id: 96, theme: 'candy', moves: 20, goal: { type: 'ice', target: 3 }, ice: 3, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
-  let iceCell = null;
-  for (let r = 0; r < 8 && !iceCell; r++) for (let c = 0; c < 8 && !iceCell; c++) if (st.ice[r][c]) iceCell = { r: r, c: c };
+  // 确定性布置：全盘无特殊块，只放一块 2 层厚冰 —— 随机棋盘可能把两块冰都铺在
+  // nb 旁边，一次消除砸透两块，进度 +2 会让下面的断言偶发翻车
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+    st.board[r][c] = { type: (r + c * 2) % 6, special: 0 };
+    st.ice[r][c] = 0;
+    st.chain[r][c] = 0;
+  }
+  st.ice[4][3] = 2;
+  const iceCell = { r: 4, c: 3 };
   // 邻格必须本身没有冰/锁链，否则这次「消除」会撞障碍而不算
   let nb = null;
   [{ r: iceCell.r, c: iceCell.c + 1 }, { r: iceCell.r, c: iceCell.c - 1 }, { r: iceCell.r - 1, c: iceCell.c }, { r: iceCell.r + 1, c: iceCell.c }]
@@ -1270,16 +1284,31 @@ function check(name, ok) {
   const r0 = await sandbox.__nl_test.resolveClear(allIce, []);
   check('全是冰时安全返回 0', r0 === 0);
 
-  // 26. 货物被消掉 → 一路掉到本列最底行直接送达（不从顶端重生、也不停在半路）
+  // 26. 货物被消掉 → 落到下方最近的方块上（r6），不直接送达；整列没方块才直送
   sandbox.__nl_test.start(1, { def: { id: 92, theme: 'candy', moves: 20, goal: { type: 'drop', target: 2 }, cargo: 2, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
+  // 确定性棋盘：避免随机特殊块把消除集合扩到别处、干扰断言
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) st.board[r][c] = { type: (r + c * 2) % 6, special: 0 };
   const cargoObj = { kind: 'key' };
   st.board[5][3] = { type: 1, special: 0, cargo: cargoObj };
   const delivBefore26 = st.goal.cargoGot || 0;
   await sandbox.__nl_test.resolveClear(new Set(['5,3']), []);
-  check('货物被消后直达最底行并送达',
-    (st.goal.cargoGot || 0) === delivBefore26 + 1 &&
-    !(st.board[6][3] && st.board[6][3].cargo) && !(st.board[5][3] && st.board[5][3].cargo === cargoObj));
+  check('货物被消后落到下方最近的方块（r6），暂不送达',
+    (st.goal.cargoGot || 0) === delivBefore26 &&
+    st.board[6][3] && st.board[6][3].cargo && st.board[6][3].cargo.kind === 'key' &&
+    !(st.board[5][3] && st.board[5][3].cargo === cargoObj));
+
+  // 26b. 被消货物下面整列没有方块 → 直接算运送成功
+  sandbox.__nl_test.start(1, { def: { id: 92, theme: 'candy', moves: 20, goal: { type: 'drop', target: 2 }, cargo: 2, stars: [1, 2, 3] } });
+  st = sandbox.__nl_test.state();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) st.board[r][c] = { type: (r + c * 2) % 6, special: 0 };
+  const cargoObj2 = { kind: 'key' };
+  st.board[2][5] = { type: 1, special: 0, cargo: cargoObj2 };
+  for (let r = 3; r < 8; r++) st.board[r][5] = null;   // 下面整列掏空
+  const delivBefore26b = st.goal.cargoGot || 0;
+  await sandbox.__nl_test.resolveClear(new Set(['2,5']), []);
+  check('被消货物下面没有方块时直接送达',
+    (st.goal.cargoGot || 0) === delivBefore26b + 1);
 
   // 27. 彩虹 + 普通块交换、彩虹本身没被消（没凑成三连）：不触发，换回原位
   sandbox.__nl_test.start(1, { def: { id: 91, theme: 'candy', moves: 20, goal: { type: 'score', target: 999999 }, stars: [1, 2, 3] } });
@@ -1936,9 +1965,10 @@ function check(name, ok) {
     /Math\.abs\(Math\.cos\(p\.rot\)\)/.test(fxSrc) && /kind = 'confetti'/.test(fxSrc));
   // 41f-3. 连击窗口改短：停手一拍连击就断
   check('连击窗口缩到 1600ms', /const COMBO_WINDOW = 1600;/.test(jsSrc));
-  // 41f-4. 结算「继续游戏」按钮：和页面其他按键同一套风格（不再单独做绿色渐变）
-  check('继续游戏按钮用页面统一按键风格',
-    !/#btn-clear-continue\s*\{[^}]*linear-gradient/.test(cssSrc) &&
+  // 41f-4. 结算「继续游戏」按钮：绿色、宽度刚好包住文字
+  check('继续游戏按钮绿色且宽度自适应文字',
+    /#level-clear #btn-clear-continue\s*\{[^}]*fit-content/.test(cssSrc) &&
+    /#level-clear #btn-clear-continue\s*\{[^}]*#1a8f4a/.test(cssSrc) &&
     /class="btn-secondary" id="btn-clear-continue"/.test(htmlSrc));
   // 41f-5. 钥匙换样式：银蓝「菱形柄」古堡钥匙
   check('钥匙换新样式（菱形手柄 + 银蓝金属渐变 + 黑描边）',
@@ -2078,14 +2108,16 @@ function check(name, ok) {
       /class="lb-stars ul-stars"/.test(jsSrc) && /\.ul-stars\s*\{/.test(cssSrc) &&
       !/admin-ul-list \.lb-swipe \{ padding-right: 4px; \}/.test(cssSrc);
   })());
-  // 41p. 本轮：结算键右下角统一风格 / 结算画面点任意处退出 / 榜单加高 / 列对齐 / 星数滚动
-  check('「结算」键钉在关卡记录右下角且用统一按键样式',
+  // 41p. 本轮：结算键右下角（小号黄色）/ 结算画面点任意处退回关卡记录 / 榜单加高 / 列对齐 / 星数滚动
+  check('「结算」键钉在关卡记录右下角：小号黄色刚好包住文字',
     /#history-menu #btn-replay-ending\s*\{[^}]*right: 16px/.test(cssSrc) &&
     /#history-menu #btn-replay-ending\s*\{[^}]*bottom: 16px/.test(cssSrc) &&
+    /#history-menu #btn-replay-ending\s*\{[^}]*width: auto/.test(cssSrc) &&
     /class="btn-primary" id="btn-replay-ending">结算</.test(htmlSrc));
-  check('结算画面没有「回到主页」键，点任意处退出',
+  check('结算画面没有「回到主页」键，点任意处退出回关卡记录',
     !htmlSrc.includes('btn-complete-home') && !jsSrc.includes('btn-complete-home') &&
-    /\$\('game-complete'\)/.test(jsSrc) && /completePanel\.addEventListener\('click'/.test(jsSrc));
+    /\$\('game-complete'\)/.test(jsSrc) && /completePanel\.addEventListener\('click'/.test(jsSrc) &&
+    /showOverlay\('history-menu'\)/.test(jsSrc));
   check('排行榜列表加高到 52vh', /max-height: 52vh/.test(cssSrc));
   check('分数列固定宽度左对齐（榜一定边界，后台省份间隔 21px）',
     /\.lb-score\s*\{[^}]*text-align: left/.test(cssSrc) &&

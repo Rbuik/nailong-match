@@ -158,7 +158,7 @@
       return `目标：敲碎冰块 ${Math.min(state.iceCleared, state.target)} / ${state.target} 块`;
     }
     if (state.type === 'drop') {
-      return `目标：${state.hasCandy ? '运送货物' : '运送钥匙'} ${Math.min(state.cargoGot, state.target)} / ${state.target}`;
+      return `目标：${state.hasCandy ? '运送糖果 🍬' : '运送钥匙'} ${Math.min(state.cargoGot, state.target)} / ${state.target}`;
     }
     if (state.type === 'rescue') {
       return `目标：护送奶龙 ${Math.min(state.rescueGot, state.target)} / ${state.target}`;

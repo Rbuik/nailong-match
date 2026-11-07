@@ -535,12 +535,13 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 /* 长按「🌐 全网」板块 3 秒 → 省份统计。
    手机上必须封掉滚动/选中/长按菜单，否则手指一抖就被取消 */
 #admin-global-sec {
-  touch-action: none;
+  /* 点「🌐 全网」直接进入省份统计：给个可点的样子 */
+  cursor: pointer;
   -webkit-user-select: none;
   user-select: none;
-  -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
+#admin-global-sec:active { opacity: 0.7; }
 
 /* 省份统计页（整页覆盖，安卓返回键 / 返回按钮都能回游戏） */
 .prov-page {
@@ -1020,7 +1021,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* ================= 章节地图 ================= */
 .chapters-list {
   width: 90%;
-  max-height: 58vh;
+  max-height: 68vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   /* 和「关卡记录」同款：内列表自己滚，底色比周围深一点 */
@@ -1544,12 +1545,33 @@ body.m-dragging .m-item { cursor: grabbing; }
   font-size: 10px;
 }
 /* 后台「玩家」名单：省份贴右的间距 = 序号贴左的间距（都是行的 12px 内边距） */
-/* 关卡记录右下角的「结算」键：和其他按键同一套样式（.btn-primary），只是钉在右下角 */
+/* 关卡记录右下角的「结算」键：小号（刚好包住文字）、黄色、钉在右下角 */
 #history-menu #btn-replay-ending {
   position: absolute;
   right: 16px;
   bottom: 16px;
   margin: 0;
+  width: auto;
+  padding: 7px 20px;
+  font-size: 14px;
+  border-radius: 999px;
+  background: rgba(255, 200, 0, 0.16);
+  color: #a96e00;
+  border: 2px solid rgba(255, 180, 0, 0.7);
+  box-shadow: none;
+}
+/* 结算画面（关卡完成）里的「还有剩余步数/秒数点击继续游戏」：
+   绿色、宽度刚好包住文字，不再固定 180px */
+#level-clear #btn-clear-continue {
+  width: -moz-fit-content;
+  width: fit-content;
+  max-width: 92%;
+  padding: 11px 24px;
+  font-size: 15px;
+  background: rgba(67, 197, 109, 0.12);
+  color: #1a8f4a;
+  border: 2px solid rgba(67, 197, 109, 0.6);
+  box-shadow: none;
 }
 /* 后台「玩家」名单：省份贴在分数右边，榜一的分数与省份之间 ≈ 两个文字大小；
    省份同样左对齐（同一列起点一致） */

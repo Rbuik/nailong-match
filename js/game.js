@@ -1705,18 +1705,26 @@
       S.board[p.r][p.c] = null;
     });
 
-    // 掉落 + 补充
-    const fallFrom = dropAndFill();
-    // 被消掉的货物往下掉一格：**不管下面那一格已经有货还是特殊块，照掉不误**，
-    // 两件货压在同一格就重合着显示（送到底行时一起送达）。
-    // 这样钥匙 / 奶龙永远只会往下走，不会出现「往上跑 / 瞬移到别列」的怪相。
-    // 被消掉的货物一路掉到本列「最下面那个没被消掉的方块」上：
-    // 重力会把幸存方块压到底，所以最下面那个就在最底行 —— 掉上去就等于送达。
-    // 下面已经没有没被消掉的方块（整列被清光）也一样：直接掉到底行，照样算运送成功。
+    // 掉落 + 补充（货物压在方块上，跟着方块一起被重力往下带）
+    // 被消掉的货物 **不是直接送达**：它落到本列「下面最近的没被消掉的方块」上，
+    // 之后跟着那个方块被重力一点点往下带，等哪天真的到了最底行才算送达。
+    // 只有被消的那一刻，下面已经一个方块都没有（整列空了），才算直接运送成功。
+    // 注意必须在 dropAndFill() 之前落位：重力会把幸存方块压到底行，
+    // 放在重力后面找「下面的方块」就永远只能找到底行 = 又变回直接送达。
+    const deliveredNow = {};   // c -> [cargo...]：下面没有方块、直接送达的
     kickedCargo.sort((x, y) => y.r - x.r).forEach((d) => {
-      const cell = S.board[ROWS - 1] && S.board[ROWS - 1][d.c];
-      if (cell) addCargo(cell, d.cargo);
+      let host = null;
+      for (let r = d.r + 1; r < ROWS; r++) {
+        if (S.board[r][d.c]) { host = S.board[r][d.c]; break; }
+      }
+      if (host) addCargo(host, d.cargo);
+      else {
+        if (!deliveredNow[d.c]) deliveredNow[d.c] = [];
+        deliveredNow[d.c].push(d.cargo);
+      }
     });
+    Object.keys(deliveredNow).forEach((c) => deliverCargo(deliveredNow[c], Number(c)));
+    const fallFrom = dropAndFill();
     await animateDrop(fallFrom);
     S.landAnims = [];
     for (let c = 0; c < COLS; c++) {
@@ -1735,25 +1743,21 @@
     return gained;
   }
 
-  // 落到最底行的货物就算送达（一格可能压着好几件，一起送达）
-  function collectCargo() {
+  // 一批货物送达：特效 + 计数 + 目标推进（被消后下面没方块直送、到底行收集，共用这一份）
+  function deliverCargo(items, c) {
     let n = 0, res = 0;
-    for (let c = 0; c < COLS; c++) {
-      const b = S.board[ROWS - 1][c];
-      const list = cargoList(b);
-      if (!list.length) continue;
-      b.cargo = null;
-      list.forEach((cg) => {
-        n++;
-        if (cg.kind === 'nailong') res++;
-      });
-      const last = list[list.length - 1];
-      FX.text(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2,
-        last.kind === 'nailong' ? '奶龙送达！' : (last.kind === 'candy' ? '送达 🍬' : '送达 🔑'), '#2fa84f', 16);
-      FX.burst(c * CELL + CELL / 2, (ROWS - 1) * CELL + CELL / 2, '#7cf29a', 5);
-      AudioManager.playSFX('coin');
-    }
+    (items || []).forEach((cg) => {
+      n++;
+      if (cg.kind === 'nailong') res++;
+    });
     if (!n) return 0;
+    const last = items[items.length - 1];
+    const cx = (c != null) ? c * CELL + CELL / 2 : VIEW_W / 2;
+    const cy = (ROWS - 1) * CELL + CELL / 2;
+    FX.text(cx, cy,
+      last.kind === 'nailong' ? '奶龙送达！' : (last.kind === 'candy' ? '送达 🍬' : '送达 🔑'), '#2fa84f', 16);
+    FX.burst(cx, cy, '#7cf29a', 5);
+    AudioManager.playSFX('coin');
     S.cargoLeft = Math.max(0, S.cargoLeft - n);
     S.rescueLeft = Math.max(0, S.rescueLeft - res);
     Meta.bump('cargo', n);
@@ -1763,6 +1767,19 @@
       updateTargetBar();
     }
     updateHUD();
+    return n;
+  }
+
+  // 落到最底行的货物就算送达（一格可能压着好几件，一起送达）
+  function collectCargo() {
+    let n = 0;
+    for (let c = 0; c < COLS; c++) {
+      const b = S.board[ROWS - 1][c];
+      const list = cargoList(b);
+      if (!list.length) continue;
+      b.cargo = null;
+      n += deliverCargo(list, c);
+    }
     return n;
   }
 
@@ -2661,7 +2678,13 @@
       moves: S.moves,
       timeLeft: S.timeLeft,
       jellyLeft: S.jellyLeft,
-      goalCurrent: S.goal ? { current: S.goal.current, byColor: S.goal.byColor, jellyCleared: S.goal.jellyCleared } : null,
+      // 暂停 / 中途退出再进来：目标进度（冰块 / 货物 / 奶龙已送达数）也要原样回来，
+      // 不能用「棋盘上还剩几个」把已送达的数抹掉
+      goalCurrent: S.goal ? {
+        current: S.goal.current, byColor: S.goal.byColor, jellyCleared: S.goal.jellyCleared,
+        iceCleared: S.goal.iceCleared || 0,
+        cargoGot: S.goal.cargoGot || 0, rescueGot: S.goal.rescueGot || 0
+      } : null,
       // 收集关：把本局随机出的目标方块存下来，续玩时不重新随机
       collectTarget: (S.goal && S.goal.type === 'collect') ? S.goal.target : null,
       shuffleLeft: S.shuffleLeft,
@@ -2689,13 +2712,18 @@
     if (s.goalCurrent && S.goal) {
       S.goal.current = s.goalCurrent.current || 0;
       S.goal.jellyCleared = s.goalCurrent.jellyCleared || 0;
+      // 新存档：冰块 / 货物 / 奶龙的已送数都存了 → 原样恢复；
+      // 老存档没存这些字段 → 保持原来的清零重算（syncGoalFromBoard 兜底）
+      if (s.goalCurrent.iceCleared != null) S.goal.iceCleared = s.goalCurrent.iceCleared;
+      if (s.goalCurrent.cargoGot != null) S.goal.cargoGot = s.goalCurrent.cargoGot;
+      if (s.goalCurrent.rescueGot != null) S.goal.rescueGot = s.goalCurrent.rescueGot;
     }
-    // 读档后按「恢复出来的棋盘」重算目标：冰块 / 果冻 / 货物数量都以场上剩下的为准，
-    // 否则会出现「目标比场上还多」的死局（老存档里冰的进度是按层记的，这里也一并纠正）
+    // 读档后按「恢复出来的进度 + 场上剩下的」重算目标总数：
+    // 已送达的数不再清零，目标栏显示的仍是原来那个进度（如 运送钥匙 1/7）
     if (S.goal) {
-      S.goal.iceCleared = 0;
-      S.goal.cargoGot = 0;
-      S.goal.rescueGot = 0;
+      if (!s.goalCurrent || s.goalCurrent.iceCleared == null) S.goal.iceCleared = 0;
+      if (!s.goalCurrent || s.goalCurrent.cargoGot == null) S.goal.cargoGot = 0;
+      if (!s.goalCurrent || s.goalCurrent.rescueGot == null) S.goal.rescueGot = 0;
       syncGoalFromBoard();
     }
     // 收集关：恢复存档时随机好的目标方块和各自进度（不重新随机）
@@ -3983,64 +4011,6 @@
   }
 
   // ==================== 后台分层 ====================
-  // 两边同时按住 3 秒才触发（手机上手指微动 / 滚动会让 pointer 被 cancel，
-  // 所以按「两边都按住才计时」来做，任一边松开或移动超过 12px 就取消）
-  function bindHoldTogether(elA, elB, fire) {
-    if (!elA || !elB) return;
-    const holds = { a: false, b: false };
-    const from = { a: null, b: null };
-    let timer = null;
-    let fired = false;
-    const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
-    const sync = () => {
-      if (holds.a && holds.b) {
-        if (!timer && !fired) {
-          timer = setTimeout(() => {
-            timer = null;
-            fired = true;
-            try { AudioManager.playSFX('coin'); } catch (e) {}
-            fire();
-          }, 3000);
-        }
-      } else {
-        cancel();
-      }
-    };
-    const down = (w) => (e) => {
-      if (e && e.pointerType === 'mouse' && e.button !== 0) return;
-      holds[w] = true;
-      from[w] = { x: (e && e.clientX) || 0, y: (e && e.clientY) || 0 };
-      fired = false;
-      sync();
-    };
-    const up = (w) => () => {
-      holds[w] = false;
-      from[w] = null;
-      sync();
-    };
-    const move = (w) => (e) => {
-      if (!holds[w] || !from[w]) return;
-      if (Math.abs(((e && e.clientX) || 0) - from[w].x) > 12 ||
-          Math.abs(((e && e.clientY) || 0) - from[w].y) > 12) {
-        up(w)();
-      }
-    };
-    [[elA, 'a'], [elB, 'b']].forEach((pair) => {
-      const el = pair[0];
-      const w = pair[1];
-      el.addEventListener('pointerdown', down(w));
-      el.addEventListener('pointermove', move(w));
-      ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => el.addEventListener(ev, up(w)));
-      el.addEventListener('contextmenu', (e) => e.preventDefault());   // 长按不弹系统菜单
-    });
-    // 触发跳转后松手不要再触发一次点击
-    [elA, elB].forEach((el) => {
-      el.addEventListener('click', (e) => {
-        if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; }
-      }, true);
-    });
-  }
-
   // 一级：点击数量 / 全服用户；二级页各自返回一级
   function showAdminPage(which) {
     const nav = $('admin-nav');
@@ -4639,8 +4609,9 @@
       renderAdminUserList();
     });
 
-    // 省份统计入口（隐藏）：在「📊 点击数量」页里，同时按住「🔧 后台」标题和「🌐 全网」板块 3 秒
-    bindHoldTogether($('admin-title'), $('admin-global-sec') || $('admin-global-title'), openProvStats);
+    // 省份统计入口：在「📊 点击数量」页里，点一下「🌐 全网」板块直接进入
+    const globalSec = $('admin-global-sec') || $('admin-global-title');
+    if (globalSec) globalSec.addEventListener('click', openProvStats);
     // 全服用户名单入口：改到「👥 全服」页的「用户详情」按键（原来是隐藏手势）
 
     // 省份统计页：搜索框 + 返回（市级视图先回省份列表，列表再关闭页面）
@@ -4920,13 +4891,16 @@
       showOverlay('main-menu');
       refreshMenu();
     });
-    // 结算画面：点面板上任何地方都能退出（按钮已删，不写提示文字）
+    // 结算画面：点面板上任何地方都能退出（按钮已删，不写提示文字），
+    // 退出回「关卡记录」（从哪进的回哪去），不回主页
     const completePanel = $('game-complete');
     if (completePanel) completePanel.addEventListener('click', () => {
       completePanel.style.display = 'none';
       S.playing = false;
       S.menuLevel = maxMainLevel();
-      showOverlay('main-menu');
+      renderHistory();
+      scrollHistoryToCurrent();
+      showOverlay('history-menu');
       refreshMenu();
     });
 
