@@ -2240,13 +2240,22 @@ function check(name, ok) {
   //      成就调整（分数收割机门槛、删两枚、加糖果爱好者）/ 云存档自动化
   check('成绩单标题改成「🎉 恭喜」，没有副标题、四格数字都滚动', (() => {
     const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
-    return !htmlSrc.includes('恭喜全通关') && htmlSrc.includes('🎉 恭喜') &&
+    return !htmlSrc.includes('恭喜全通关') && /master-greet[\s\S]{0,160}master-greet-txt/.test(htmlSrc) &&
+      /master-greet-txt">恭喜</.test(htmlSrc) &&
       htmlSrc.includes('id="master-title"') &&
       htmlSrc.includes('id="master-bar-fill"') &&
       htmlSrc.includes('id="complete-total-score"') && htmlSrc.includes('id="complete-total-stars"') &&
       htmlSrc.includes('id="master-perfect"') && htmlSrc.includes('id="master-ach"') &&
       !htmlSrc.includes('id="master-sub"') && !fn.includes('master-sub') &&
       /countUp\(pf, perfect, 900\)/.test(fn) && /countUp\(ac, achGot, 900\)/.test(fn);
+  })());
+  check('成绩单「🎉 恭喜」是彩虹色：文字渐变裁切 + 🎉 用彩虹填充图片', (() => {
+    const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
+    return /\.master-greet-txt\s*\{[^}]*background:\s*linear-gradient/.test(cssSrc) &&
+      /\.master-greet-txt\s*\{[^}]*background-clip:\s*text/.test(cssSrc) &&
+      /\.master-greet-ico img\s*\{[^}]*object-fit:\s*contain/.test(cssSrc) &&
+      /rainbowEmojiData\('🎉'\)/.test(fn) &&
+      /master-greet-ico/.test(fn);
   })());
   check('成绩单按进度算称号，全三星才叫宗师；文案不写「/总数」「还差」', (() => {
     const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));

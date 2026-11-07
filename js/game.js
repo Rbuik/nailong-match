@@ -3019,6 +3019,12 @@
     const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     setText('master-crown', crown);
     setText('master-title', title);
+    // 「🎉 恭喜」彩色：文字由 CSS 渐变裁切，🎉 用彩虹填充的图片（彩色字形无法直接染色）
+    const greetIco = $('master-greet-ico');
+    if (greetIco) {
+      const rbGreet = rainbowEmojiData('🎉');
+      greetIco.innerHTML = rbGreet ? '<img src="' + rbGreet + '" alt="">' : '🎉';
+    }
     // 不写「/ 总数」：只说已经拿到多少
     setText('master-progress', '已通 ' + cleared + ' 关 · 三星 ' + perfect + ' 关');
 

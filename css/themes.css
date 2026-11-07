@@ -2184,6 +2184,35 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   margin: 0;
   text-align: center;
 }
+/* 「🎉 恭喜」用彩虹色：文字走 background-clip，🎉 是彩色字形没法染色，
+   由 game.js 换成 rainbowEmojiData() 生成的彩虹填充 <img> */
+.master-greet {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.master-greet-txt {
+  background: linear-gradient(90deg, #ff7a59, #ffd75e, #5fd48a, #5c9dff, #c85cff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+.master-greet-ico {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  font-size: 1em;
+  line-height: 1;
+}
+.master-greet-ico img {
+  width: 1em;
+  height: 1em;
+  object-fit: contain;
+}
 .master-progress {
   margin: 0 0 12px;
   font-size: 11px;

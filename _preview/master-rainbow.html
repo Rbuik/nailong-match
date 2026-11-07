@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/themes.css">
+<style>
+  html,body{margin:0;height:100%;background:#fbf6ea;}
+  /* 预览用：把 overlay 固定成手机尺寸，方便核对居中与彩虹标题 */
+  #game-complete{position:fixed;inset:0;display:flex;}
+</style>
+</head>
+<body>
+  <div class="overlay" id="game-complete">
+    <div class="master-stage">
+      <h2 class="title small master-greet"><span class="master-greet-ico" id="master-greet-ico">🎉</span><span class="master-greet-txt">恭喜</span></h2>
+      <div class="master-card">
+        <div class="master-head">
+          <span class="master-crown" id="master-crown">🥈</span>
+          <div class="master-title-box">
+            <b id="master-title">消消乐达人</b>
+          </div>
+        </div>
+        <div class="master-bar"><span id="master-bar-fill"></span></div>
+        <p class="master-progress" id="master-progress">已通 22 关 · 三星 9 关</p>
+        <div class="master-grid">
+          <div class="master-item"><span>主线总分</span><b id="complete-total-score">238460</b></div>
+          <div class="master-item"><span>总星数</span><b id="complete-total-stars">56</b></div>
+          <div class="master-item"><span>三星关卡</span><b id="master-perfect">9</b></div>
+          <div class="master-item"><span>成就</span><b id="master-ach">11</b></div>
+        </div>
+      </div>
+    </div>
+  </div>
+<script>
+  // 与 game.js 里 rainbowEmojiData 完全一致的算法，仅用于预览截图
+  (function () {
+    var ch = '🎉', S = 72;
+    var cv = document.createElement('canvas');
+    cv.width = S; cv.height = S;
+    var g2 = cv.getContext('2d');
+    g2.font = Math.round(S * 0.86) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+    g2.textAlign = 'center';
+    g2.textBaseline = 'middle';
+    g2.fillStyle = '#000';
+    g2.fillText(ch, S / 2, S / 2 + S * 0.03);
+    g2.globalCompositeOperation = 'source-in';
+    var lg = g2.createLinearGradient(0, 0, S, S);
+    lg.addColorStop(0, '#ff7a59');
+    lg.addColorStop(0.26, '#ffcf4d');
+    lg.addColorStop(0.52, '#5fd48a');
+    lg.addColorStop(0.76, '#5c9dff');
+    lg.addColorStop(1, '#c85cff');
+    g2.fillStyle = lg;
+    g2.fillRect(0, 0, S, S);
+    document.getElementById('master-greet-ico').innerHTML = '<img src="' + cv.toDataURL('image/png') + '" alt="">';
+  })();
+</script>
+</body>
+</html>
