@@ -1995,7 +1995,7 @@ function check(name, ok) {
   check('榜上星星 / 分数用固定列宽，并整体再往右挪三个字（空档列）', (() => {
     const g4 = /\.lb-swipe\.col4\s*\{[^}]*\}/.exec(cssSrc);
     const num = /\.lb-stars b\s*\{[^}]*\}/.exec(cssSrc);
-    return !!g4 && /grid-template-columns:\s*26px minmax\(0, 1fr\) 28px 54px 80px/.test(g4[0]) &&
+    return !!g4 && /grid-template-columns:\s*26px minmax\(0, 1fr\) 28px 54px 6ch/.test(g4[0]) &&
       /\.lb-swipe\.col4 \.lb-stars,\s*\n\.lb-swipe\.col5 \.lb-stars\s*\{\s*grid-column:\s*4/.test(cssSrc) &&
       !!num && /text-align:\s*left/.test(num[0]) && !/min-width/.test(num[0]) &&
       /lb-star-ico/.test(jsSrc) && cssSrc.includes('lb-star-ico');
@@ -2142,21 +2142,28 @@ function check(name, ok) {
 
   // 41q. 本轮：说明精简 / 功能介绍按按键层次 / 消消乐大师成绩单 / 糖果关卡可见 / 榜单固定列
   //      成就调整（分数收割机门槛、删两枚、加糖果爱好者）/ 云存档自动化
-  check('成绩单标题叫「奶龙消消乐」，不再写「恭喜全通关」',
-    !htmlSrc.includes('恭喜全通关') && htmlSrc.includes('🏆 奶龙消消乐') &&
-    htmlSrc.includes('id="master-title"') && htmlSrc.includes('id="master-bar-fill"') &&
-    htmlSrc.includes('id="complete-total-score"') && htmlSrc.includes('id="complete-total-stars"') &&
-    htmlSrc.includes('id="master-perfect"') && htmlSrc.includes('id="master-ach"'));
+  check('成绩单标题改成「🎉 恭喜」，没有副标题、四格数字都滚动', (() => {
+    const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
+    return !htmlSrc.includes('恭喜全通关') && htmlSrc.includes('🎉 恭喜') &&
+      htmlSrc.includes('id="master-title"') && htmlSrc.includes('id="master-bar-fill"') &&
+      htmlSrc.includes('id="complete-total-score"') && htmlSrc.includes('id="complete-total-stars"') &&
+      htmlSrc.includes('id="master-perfect"') && htmlSrc.includes('id="master-ach"') &&
+      !htmlSrc.includes('id="master-sub"') && !fn.includes('master-sub') &&
+      /countUp\(pf, perfect, 900\)/.test(fn) && /countUp\(ac, achGot, 900\)/.test(fn);
+  })());
   check('成绩单按进度算称号，全三星才叫宗师；文案不写「/总数」「还差」', (() => {
     const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
     return /title = '消消乐宗师'/.test(fn) && /title = '消消乐大师'/.test(fn) &&
       /title = '消消乐高手'/.test(fn) && /title = '消消乐达人'/.test(fn) &&
       /title = '消消乐新星'/.test(fn) &&
       /'已通 ' \+ cleared \+ ' 关 · 三星 ' \+ perfect \+ ' 关'/.test(fn) &&
-      !/还差/.test(fn) && !fn.includes('主线全部通关') &&
-      /setText\('master-ach', String\(achGot\)\)/.test(fn) &&
-      /setText\('master-perfect', String\(perfect\)\)/.test(fn);
+      !/还差/.test(fn) && !fn.includes('主线全部通关');
   })());
+  check('奖杯详情页没有返回键，点卡片外空白回成就页；彩杯用彩虹背景图',
+    !htmlSrc.includes('btn-ach-detail-back') && !jsSrc.includes('btn-ach-detail-back') &&
+    /detailPanel\.addEventListener\('click'/.test(jsSrc) &&
+    /e\.target\.closest\('\.ach-detail-card'\)/.test(jsSrc) &&
+    /ach-trophy\.t4\s*\{[^}]*rainbow-cup\.jpg/.test(cssSrc));
   check('成就：加了「糖果爱好者」，删了「过半征程」「通关大师」', (() => {
     const ids = sandbox.Meta.ACHIEVEMENTS.map((a) => a.id);
     const candy = sandbox.Meta.ACHIEVEMENTS.filter((a) => a.id === 'candylover')[0];

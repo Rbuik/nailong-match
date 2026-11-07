@@ -1469,15 +1469,17 @@ body.m-dragging .m-item { cursor: grabbing; }
    名字多长、星星几位数、分数几位数都不会把后面的列挤偏。
    col4 = 名次 / 名字 / （空档）/ 星星 / 分数（总榜、省榜、局榜）
    col5 = 名次 / 名字 / （空档）/ 星星 / 分数 / 省份（后台玩家名单）
-   中间那格 28px 的空档 = 让星星和分数整体再往右挪三个字的宽度（28 + 8 列间距 = 36px） */
+   中间那格 28px 的空档 = 让星星和分数整体再往右挪三个字的宽度（28 + 8 列间距 = 36px）
+   分数列宽 = 6ch（六位数的榜一正好填满）：榜一的分数右缘贴住内边距，
+   距离行背景右边缘 12px —— 和左边「名次距背景左边缘 12px」对称 */
 .lb-swipe.col4 {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 28px 54px 80px;
+  grid-template-columns: 26px minmax(0, 1fr) 28px 54px 6ch;
   column-gap: 8px;
 }
 .lb-swipe.col5 {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 24px 48px 66px minmax(0, max-content);
+  grid-template-columns: 26px minmax(0, 1fr) 24px 48px 6ch minmax(0, max-content);
   column-gap: 6px;
 }
 .lb-swipe.col4 .lb-stars,
@@ -1508,10 +1510,11 @@ body.m-dragging .m-item { cursor: grabbing; }
   justify-self: start;
   text-align: left;
 }
-/* 后台名单的省份：跟在分数后面两个文字左右，右边缘贴住行的内边距 */
+/* 后台名单的省份：跟在分数后面两个文字左右（6px 列距 + 20px 内边距 ≈ 26px），
+   右边缘贴住行的内边距 */
 .lb-swipe.col5 .ul-prov {
   margin-left: 0;
-  padding-left: 10px;
+  padding-left: 20px;
   justify-self: start;
   min-width: 0;
   overflow: hidden;
@@ -2307,11 +2310,16 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   stroke-linecap: round;
 }
 /* 彩杯：奖杯自己慢慢换色，一眼看得出是满级 */
-.ach-trophy.t4 .ach-trophy-svg { animation: ach-hue 5s linear infinite; }
-@keyframes ach-hue {
-  from { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.14)) hue-rotate(0deg); }
-  to { filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.14)) hue-rotate(360deg); }
+/* 彩杯：背景用彩虹图（assets/rainbow-cup.jpg），奖杯描一层白边保证看得清 */
+.ach-trophy.t4 {
+  color: #ffffff;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.05)),
+    url('../assets/rainbow-cup.jpg') center / cover no-repeat;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow: 0 4px 12px rgba(160, 120, 255, 0.25);
 }
+.ach-trophy.t4 .ach-trophy-svg { filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25)); }
 .ach-trophy-ico {
   position: absolute;
   right: 7px;

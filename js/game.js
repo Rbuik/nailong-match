@@ -3057,18 +3057,17 @@
     const ratio = Math.min(1, cleared / total);
 
     // 称号：按通关进度（全部通关后再看三星数）
-    let title = '消消乐学徒', crown = '🌱', sub = '先去闯几关吧';
+    let title = '消消乐学徒', crown = '🌱';
     if (cleared >= total) {
-      if (perfect >= total) { title = '消消乐宗师'; crown = '👑'; sub = '全关三星，无可挑剔'; }
-      else { title = '消消乐大师'; crown = '🏆'; sub = '继续冲三星'; }
-    } else if (ratio >= 0.75) { title = '消消乐高手'; crown = '🥇'; sub = '离全部通关只差几关'; }
-    else if (ratio >= 0.5) { title = '消消乐达人'; crown = '🥈'; sub = '已经过半，继续往前'; }
-    else if (ratio >= 0.25) { title = '消消乐新星'; crown = '🥉'; sub = '渐入佳境'; }
+      if (perfect >= total) { title = '消消乐宗师'; crown = '👑'; }
+      else { title = '消消乐大师'; crown = '🏆'; }
+    } else if (ratio >= 0.75) { title = '消消乐高手'; crown = '🥇'; }
+    else if (ratio >= 0.5) { title = '消消乐达人'; crown = '🥈'; }
+    else if (ratio >= 0.25) { title = '消消乐新星'; crown = '🥉'; }
 
     const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     setText('master-crown', crown);
     setText('master-title', title);
-    setText('master-sub', sub);
     // 不写「/ 总数」：只说已经拿到多少
     setText('master-progress', '已通 ' + cleared + ' 关 · 三星 ' + perfect + ' 关');
     const fill = $('master-bar-fill');
@@ -3079,8 +3078,6 @@
     try {
       achGot = Meta.ACHIEVEMENTS.filter((a) => Meta.tierOf(a.id) >= 1).length;
     } catch (e) {}
-    setText('master-ach', String(achGot));
-    setText('master-perfect', String(perfect));
 
     // 底部一句话：通关以后不再报差多少关（也不写毕业口吻的话）
     let foot = '继续闯关，冲击满星';
@@ -3090,6 +3087,11 @@
       footEl.textContent = foot;
       footEl.style.display = foot ? 'block' : 'none';
     }
+
+    // 四格数字全部滚动，时长一致（900ms）
+    const pf = $('master-perfect'), ac = $('master-ach');
+    if (pf) { pf.textContent = '0'; countUp(pf, perfect, 900); }
+    if (ac) { ac.textContent = '0'; countUp(ac, achGot, 900); }
 
     const sc = $('complete-total-score'), st = $('complete-total-stars');
     if (st) { st.textContent = '0'; countUp(st, totalStars, 900); }   // 总星数和总分数同一时长滚动
@@ -4808,8 +4810,11 @@
 
     on('btn-achievements', () => { renderAchPanel(); showOverlay('achievements-menu'); });
     on('btn-close-ach', () => { $('achievements-menu').style.display = 'none'; showOverlay('main-menu'); });
-    on('btn-ach-detail-back', () => {
-      $('ach-detail').style.display = 'none';
+    // 详情页没有返回键：点卡片以外的空白处（含标题）就回成就页
+    const detailPanel = $('ach-detail');
+    if (detailPanel) detailPanel.addEventListener('click', (e) => {
+      if (e.target && e.target.closest && e.target.closest('.ach-detail-card')) return;
+      detailPanel.style.display = 'none';
       renderAchPanel();                 // 领过奖的话列表红点要跟着消失
       showOverlay('achievements-menu');
     });
