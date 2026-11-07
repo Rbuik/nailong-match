@@ -1,0 +1,39 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/themes.css">
+<style>
+  body { background: #f6f2e8; margin: 0; padding: 14px 0 18px; display: flex; flex-direction: column; align-items: center; }
+  .overlay { position: static; display: flex; width: 430px; max-width: 96vw; height: auto; min-height: 0; }
+</style></head><body>
+<div class="overlay" id="mail-menu">
+  <h2 class="title small">📮 邮箱</h2>
+  <div class="mail-list" id="mail-list"></div>
+  <div class="mail-tools">
+    <button class="mail-emoji-btn" id="btn-mail-read-all" aria-label="全部已读">✅</button>
+    <button class="mail-emoji-btn" id="btn-mail-del-all" aria-label="删除邮件">🗑️</button>
+  </div>
+  <button class="btn-secondary" id="btn-mail-close">返回</button>
+</div>
+<script>
+  var rows = [
+    ['🏆', '恭喜通过第4章', '系统 · 2026-11-07 01:04', '已领取'],
+    ['🏆', '恭喜通过第3章', '系统 · 2026-11-07 01:04', '已领取'],
+    ['🎁', '给你的小礼物', '系统 · 2026-11-05 23:42', '已领取'],
+    ['📖', '说明页更新：功能介绍和玩法说明分开了', '系统 · 2026-11-05 19:00', ''],
+    ['📣', '账号系统上线：注册 / 登录 / 切换账号', '系统 · 2026-11-05 18:00', ''],
+    ['🎉', '欢迎来到奶龙消消乐', '系统 · 2026-11-05 12:00', '已领取']
+  ];
+  var list = document.getElementById('mail-list');
+  rows.forEach(function (r) {
+    var d = document.createElement('div');
+    d.className = 'mail-swipe';
+    d.innerHTML = '<div class="mail-row' + (r[3] ? '' : ' unread') + '">' +
+      '<span class="m-ico">' + r[0] + '</span>' +
+      '<div class="m-main"><b>' + r[1] + '</b><small>' + r[2] + '</small></div>' +
+      (r[3] ? '<span class="m-flag">' + r[3] + '</span>' : '') +
+      '</div>';
+    list.appendChild(d);
+  });
+</script>
+</body></html>

@@ -2003,7 +2003,7 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 .mail-list {
   width: 88%;
   max-width: 380px;
-  max-height: 56vh;
+  max-height: 68vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   display: flex;
@@ -2072,23 +2072,31 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 
 .mail-del:active { background: #e64545; }
 
-/* 邮箱底部：一键已读 / 一键删除（返回上面一排） */
+/* 邮箱底部：只留 ✅ / 🗑️ 两个圆按钮（勾勾在左、垃圾桶在右） */
 .mail-tools {
   display: flex;
-  gap: 10px;
+  justify-content: center;
+  gap: 48px;
   width: 88%;
   max-width: 380px;
   margin-bottom: 10px;
 }
 
-.mail-tools .btn-secondary {
-  flex: 1 1 0;
-  min-width: 0;
-  width: auto;
-  margin-bottom: 0;
-  padding: 12px 0;
-  font-size: 15px;
+.mail-emoji-btn {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 2px solid #eceaf6;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(80, 60, 140, 0.08);
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.12s ease;
 }
+.mail-emoji-btn:active { transform: scale(0.92); }
 
 .mail-row .m-ico {
   flex: 0 0 30px;
