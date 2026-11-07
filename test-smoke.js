@@ -2537,17 +2537,19 @@ function check(name, ok) {
       /if \(ov\.id === 'shop-menu'\) syncShopDot\(\)/.test(jsSrc);
   })());
 
-  check('特殊道具都叫「xx道具」，说明里不留分号、后半句换行显示', (() => {
+  check('特殊道具都叫「xx道具」，说明里不留分号、不带「开局」、后半句换行显示', (() => {
     const shop = sandbox.Tasks.SHOP;
     const specials = ['startFrost', 'startBomb', 'startMagnet', 'startPropeller', 'startLine', 'startPaint', 'rainbow'];
     const namesOk = specials.every((k) => {
       const it = shop.find((x) => x.key === k);
       return it && /道具$/.test(it.name) && !/^开局/.test(it.name);
     });
+    // 商店里任何道具的名字 / 说明都不许出现「开局」
+    const noKaiJu = shop.every((it) => it.name.indexOf('开局') < 0 && it.desc.indexOf('开局') < 0);
     const noSemi = specials.every((k) => shop.find((x) => x.key === k).desc.indexOf('；') < 0);
     const multi = ['startFrost', 'startMagnet', 'startPropeller', 'startPaint']
       .every((k) => shop.find((x) => x.key === k).desc.indexOf('\n') > 0);
-    return namesOk && noSemi && multi && /desc\.replace\(\/\\n\/g, '<br>'\)/.test(jsSrc);
+    return namesOk && noKaiJu && noSemi && multi && /desc\.replace\(\/\\n\/g, '<br>'\)/.test(jsSrc);
   })());
 
   check('商店做成横滑卡片（一次一张 + 圆点指示），背包仍是竖排列表',
