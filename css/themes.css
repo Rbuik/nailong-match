@@ -2311,23 +2311,15 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   stroke-width: 5;
   stroke-linecap: round;
 }
-/* 彩杯：背景 = 彩虹图减淡 + 模糊（::before 只糊背景不糊奖杯）；
-   奖杯本身用彩虹图填色（SVG 图案填充 #ach-rainbow-pat，见 index.html） */
+/* 彩杯：底座背景也是「渐变」（和前三个一样的写法），只是把彩虹的几段色都揉进去；
+   奖杯本体和杯柄用彩虹图填色（SVG 图案填充 #ach-rainbow-pat，见 index.html） */
 .ach-trophy.t4 {
   position: relative;
   overflow: hidden;
   color: #ffffff;
-  background: #fff;
+  background: linear-gradient(150deg, #ffd7ea 0%, #ffeccd 28%, #d9f8e1 52%, #d7e8ff 76%, #e8dcff 100%);
   border: 1px solid rgba(255, 255, 255, 0.65);
   box-shadow: 0 4px 12px rgba(160, 120, 255, 0.25);
-}
-.ach-trophy.t4::before {
-  content: '';
-  position: absolute;
-  inset: -14px;
-  background: url('../assets/rainbow-cup.jpg') center / cover no-repeat;
-  filter: blur(6px);
-  opacity: 0.85;
 }
 .ach-trophy.t4 .ach-trophy-svg {
   position: relative;
@@ -2399,11 +2391,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 #ach-detail.t2 { background: linear-gradient(180deg, #f2f6fb 0%, rgba(245, 245, 247, 0.96) 55%); }
 #ach-detail.t3 { background: linear-gradient(180deg, #fff8e0 0%, rgba(245, 245, 247, 0.96) 55%); }
 #ach-detail.t4 {
-  /* 彩杯整页背景也用彩虹图：一层淡白纱保证标题可读 */
-  background-image: linear-gradient(rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.2)), url('../assets/rainbow-cup.jpg'), linear-gradient(135deg, #ffd9ec, #d9ecff 50%, #e6dcff);
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  /* 彩杯整页：和铜/银/金一样是「柔和渐变」，只是多铺几段彩虹色（不贴整张图） */
+  background: linear-gradient(165deg, #ffe7f3 0%, #fff2dd 24%, #e9fbea 48%, #e3f0ff 72%, #f1e7ff 100%);
 }
 /* 领取键：用当前阶的主题色渐变底（彩阶用整条彩虹） */
 #btn-ach-claim.btn-primary {

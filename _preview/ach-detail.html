@@ -56,7 +56,7 @@
 
   <div class="stage t4">
     <p class="cap">成就详情：彩杯（满级，彩虹填色）</p>
-    <h2 class="title small" id="ach-d-name"><span class="ach-d-ico"><i class="ach-d-emoji">🌱</i></span><span class="ach-d-txt">初次消除</span></h2>
+    <h2 class="title small" id="ach-d-name"><span class="ach-d-ico"><i class="ach-d-emoji" data-rainbow-emoji="🌱">🌱</i></span><span class="ach-d-txt">初次消除</span></h2>
     <div class="ach-detail-card t4">
       <div class="ach-trophy-row">
         <button class="ach-nav">◀</button>
@@ -105,5 +105,34 @@
     </div>
   </div>
 </div>
+<script>
+// 彩阶图标 = emoji 形状 + 彩虹渐变填充（与 js/game.js 里 rainbowEmojiData 同一套做法）
+function rainbowEmojiData(ch) {
+  const S = 72;
+  const cv = document.createElement('canvas');
+  cv.width = S; cv.height = S;
+  const g = cv.getContext('2d');
+  g.clearRect(0, 0, S, S);
+  g.font = Math.round(S * 0.86) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillStyle = '#000';
+  g.fillText(ch, S / 2, S / 2 + S * 0.03);
+  g.globalCompositeOperation = 'source-in';
+  const lg = g.createLinearGradient(0, 0, S, S);
+  lg.addColorStop(0, '#ff7a59');
+  lg.addColorStop(0.26, '#ffcf4d');
+  lg.addColorStop(0.52, '#5fd48a');
+  lg.addColorStop(0.76, '#5c9dff');
+  lg.addColorStop(1, '#c85cff');
+  g.fillStyle = lg;
+  g.fillRect(0, 0, S, S);
+  return cv.toDataURL('image/png');
+}
+document.querySelectorAll('[data-rainbow-emoji]').forEach(function (el) {
+  const url = rainbowEmojiData(el.getAttribute('data-rainbow-emoji'));
+  if (url) el.innerHTML = '<img class="ach-d-rainbow" src="' + url + '" alt="">';
+});
+</script>
 </body>
 </html>

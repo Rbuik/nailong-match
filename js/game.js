@@ -5870,6 +5870,46 @@
   const ACH_TIER_NAME = ['灰', '铜', '银', '金', '彩'];
   let achDetail = { id: '', tier: 1 };
 
+  // 彩阶标题图标：把 emoji 的「形状」用彩虹渐变填满。
+  // 为什么不在 CSS 里做：彩色 emoji 是位图字形，background-clip:text / color:transparent
+  // 在多数 WebView 上要么被裁成空白、要么干脆保留原色；只能自己画一遍：
+  // 离屏 canvas 画 emoji → source-in 用彩虹渐变铺满 → 得到「彩虹填充的剪影」dataURL。
+  const rainbowIcoCache = {};
+  function rainbowEmojiData(ch) {
+    if (!ch) return '';
+    if (rainbowIcoCache[ch] !== undefined) return rainbowIcoCache[ch];
+    let url = '';
+    try {
+      const S = 72;
+      const cv = document.createElement('canvas');
+      if (cv && cv.getContext) {
+        cv.width = S;
+        cv.height = S;
+        const g2 = cv.getContext('2d');
+        if (g2) {
+          g2.clearRect(0, 0, S, S);
+          g2.font = Math.round(S * 0.86) + 'px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif';
+          g2.textAlign = 'center';
+          g2.textBaseline = 'middle';
+          g2.fillStyle = '#000';
+          g2.fillText(ch, S / 2, S / 2 + S * 0.03);
+          g2.globalCompositeOperation = 'source-in';   // 只保留 emoji 形状，颜色全部换掉
+          const lg = g2.createLinearGradient(0, 0, S, S);
+          lg.addColorStop(0, '#ff7a59');
+          lg.addColorStop(0.26, '#ffcf4d');
+          lg.addColorStop(0.52, '#5fd48a');
+          lg.addColorStop(0.76, '#5c9dff');
+          lg.addColorStop(1, '#c85cff');
+          g2.fillStyle = lg;
+          g2.fillRect(0, 0, S, S);
+          url = cv.toDataURL ? (cv.toDataURL('image/png') || '') : '';
+        }
+      }
+    } catch (e) { url = ''; }
+    rainbowIcoCache[ch] = url;
+    return url;
+  }
+
   function updateAchDot() {
     const dot = $('ach-dot');
     if (!dot) return;
@@ -5895,9 +5935,8 @@
       AudioManager.playSFX('invalid');
       return;
     }
-    const pend = Meta.claimableTiers(id);
-    // 默认停在「最高一阶」：有奖没领时正好停在能领的那一阶
-    achDetail = { id: id, tier: pend.length ? Math.max.apply(null, pend) : t };
+    // 一律停在「已经解锁的最高一阶」——不记住上次看的低阶，也不因为奖已领就回落
+    achDetail = { id: id, tier: t };
     renderAchDetail();
     showOverlay('ach-detail');
   }
@@ -5909,11 +5948,20 @@
     const tier = Math.min(Math.max(1, achDetail.tier), maxTier);
     achDetail.tier = tier;
 
-    // 标题：成就图标剪影放左边 + 名字（文字颜色随当前奖杯变化）
+    // 标题：成就图标放左边 + 名字（文字颜色随当前奖杯变化）
+    // 彩阶不是「保留 emoji 原色」，而是把 emoji 的形状用彩虹渐变填满（和标题彩虹字呼应）
     if ($('ach-d-name')) {
-      const icoHtml = a.iconImg
-        ? '<img src="' + a.iconImg + '" alt="">'
-        : '<i class="ach-d-emoji">' + a.icon + '</i>';
+      let icoHtml;
+      if (a.iconImg) {
+        icoHtml = '<img src="' + a.iconImg + '" alt="">';
+      } else if (tier === 4) {
+        const rb = rainbowEmojiData(a.icon);
+        icoHtml = rb
+          ? '<img class="ach-d-rainbow" src="' + rb + '" alt="">'
+          : '<i class="ach-d-emoji">' + a.icon + '</i>';
+      } else {
+        icoHtml = '<i class="ach-d-emoji">' + a.icon + '</i>';
+      }
       $('ach-d-name').innerHTML = '<span class="ach-d-ico">' + icoHtml + '</span><span class="ach-d-txt">' + a.name + '</span>';
     }
 
@@ -5985,8 +6033,8 @@
     const i = list.findIndex((x) => x.id === achDetail.id);
     if (i < 0 || list.length < 2) return;
     const nx = list[(i + dir + list.length) % list.length];
-    const pend = Meta.claimableTiers(nx.id);
-    achDetail = { id: nx.id, tier: pend.length ? Math.max.apply(null, pend) : Meta.tierOf(nx.id) };
+    // 滑过去也停在这枚成就已解锁的最高一阶
+    achDetail = { id: nx.id, tier: Math.max(1, Meta.tierOf(nx.id)) };
     AudioManager.playSFX('select');
     renderAchDetail();
   }

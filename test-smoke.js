@@ -2159,14 +2159,32 @@ function check(name, ok) {
       /'已通 ' \+ cleared \+ ' 关 · 三星 ' \+ perfect \+ ' 关'/.test(fn) &&
       !/还差/.test(fn) && !fn.includes('主线全部通关');
   })());
-  check('奖杯详情页没有返回键，点卡片外空白回成就页；彩杯背景彩虹图（减淡+模糊）、奖杯本体彩虹填色',
+  check('奖杯详情页没有返回键，点卡片外空白回成就页；彩杯背景是渐变、奖杯本体彩虹填色',
     !htmlSrc.includes('btn-ach-detail-back') && !jsSrc.includes('btn-ach-detail-back') &&
     /detailPanel\.addEventListener\('click'/.test(jsSrc) &&
     /e\.target\.closest\('\.ach-detail-card'\)/.test(jsSrc) &&
-    /\.ach-trophy\.t4::before\s*\{[^}]*rainbow-cup\.jpg/.test(cssSrc) &&
-    /\.ach-trophy\.t4::before\s*\{[^}]*blur\(/.test(cssSrc) &&
+    /\.ach-trophy\.t4\s*\{[^}]*linear-gradient/.test(cssSrc) &&
+    !/\.ach-trophy\.t4::before/.test(cssSrc) &&
     /\.ach-trophy\.t4\s*\{[^}]*overflow:\s*hidden/.test(cssSrc) &&
+    /#ach-detail\.t4\s*\{[^}]*linear-gradient/.test(cssSrc) &&
+    !/#ach-detail\.t4\s*\{[^}]*url\(/.test(cssSrc) &&
     /fill:\s*url\(#ach-rainbow-pat\)/.test(cssSrc) && htmlSrc.includes('ach-rainbow-pat'));
+  check('彩阶标题图标是彩虹填充（emoji 形状 + 渐变填色），不是 emoji 原色也不是单色剪影', (() => {
+    const fn = jsSrc.slice(jsSrc.indexOf('function rainbowEmojiData'), jsSrc.indexOf('function updateAchDot'));
+    const detail = jsSrc.slice(jsSrc.indexOf('function renderAchDetail'), jsSrc.indexOf('function stepAchDetail'));
+    return /globalCompositeOperation = 'source-in'/.test(fn) &&
+      /createLinearGradient/.test(fn) &&
+      /toDataURL/.test(fn) &&
+      /rainbowEmojiData\(a\.icon\)/.test(detail) &&
+      /ach-d-rainbow/.test(detail) &&
+      /\.t4 \.ach-d-ico \{ filter: none; \}/.test(cssSrc);
+  })());
+  check('点进成就详情一律停在已解锁的最高一阶', (() => {
+    const open = jsSrc.slice(jsSrc.indexOf('function openAchDetail'), jsSrc.indexOf('function renderAchDetail'));
+    const go = jsSrc.slice(jsSrc.indexOf('function gotoAch'), jsSrc.indexOf('function claimAchReward'));
+    return /achDetail = \{ id: id, tier: t \}/.test(open) &&
+      /achDetail = \{ id: nx\.id, tier: Math\.max\(1, Meta\.tierOf\(nx\.id\)\) \}/.test(go);
+  })());
   check('详情页整页随阶变色：卡片/遮罩挂 tN 类、领取键用主题色、奖杯右下角没 emoji、标题左边是图标剪影',
     /card\.className = 'ach-detail-card t' \+ tier/.test(jsSrc) &&
     /dPanel\.className = 'overlay t' \+ tier/.test(jsSrc) &&
