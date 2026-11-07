@@ -4814,10 +4814,31 @@
     const detailPanel = $('ach-detail');
     if (detailPanel) detailPanel.addEventListener('click', (e) => {
       if (e.target && e.target.closest && e.target.closest('.ach-detail-card')) return;
+      if (Date.now() - achBgSwipeAt < 400) return;   // 刚在背景上滑过，别当成点击关掉
       detailPanel.style.display = 'none';
       renderAchPanel();                 // 领过奖的话列表红点要跟着消失
       showOverlay('achievements-menu');
     });
+    // 详情页背景左右滑 = 切换上一枚 / 下一枚成就（卡片上的滑动仍是切奖杯阶）
+    (function bindAchBgSwipe() {
+      const panel = $('ach-detail');
+      if (!panel) return;
+      let sx = null, sy = null;
+      panel.addEventListener('pointerdown', (e) => {
+        if (e.target && e.target.closest && e.target.closest('.ach-detail-card')) { sx = null; return; }
+        sx = e.clientX || 0; sy = e.clientY || 0;
+      });
+      panel.addEventListener('pointercancel', () => { sx = sy = null; });
+      panel.addEventListener('pointerup', (e) => {
+        if (sx == null) return;
+        const dx = (e.clientX || 0) - sx;
+        const dy = (e.clientY || 0) - sy;
+        sx = sy = null;
+        if (Math.abs(dx) < 30 || Math.abs(dx) < Math.abs(dy)) return;
+        achBgSwipeAt = Date.now();
+        gotoAch(dx < 0 ? 1 : -1);
+      });
+    })();
     on('btn-ach-claim', claimAchReward);
     on('ach-prev', () => stepAchDetail(-1));
     on('ach-next', () => stepAchDetail(1));
@@ -5933,12 +5954,12 @@
     const tier = Math.min(Math.max(1, achDetail.tier), maxTier);
     achDetail.tier = tier;
 
-    // 标题：成就图标放在名字左边（用剪影，不用原来的彩色 emoji）
+    // 标题：成就图标剪影放左边 + 名字（文字颜色随当前奖杯变化）
     if ($('ach-d-name')) {
       const icoHtml = a.iconImg
         ? '<img src="' + a.iconImg + '" alt="">'
         : '<i class="ach-d-emoji">' + a.icon + '</i>';
-      $('ach-d-name').innerHTML = '<span class="ach-d-ico">' + icoHtml + '</span>' + a.name;
+      $('ach-d-name').innerHTML = '<span class="ach-d-ico">' + icoHtml + '</span><span class="ach-d-txt">' + a.name + '</span>';
     }
 
     // 卡片 / 整页随奖杯颜色一起换（铜棕 / 银灰 / 金黄 / 彩虹）
@@ -5971,10 +5992,6 @@
     const prev = $('ach-prev'), next = $('ach-next');
     if (prev) { prev.style.display = maxTier > 1 ? 'flex' : 'none'; prev.disabled = tier <= 1; }
     if (next) { next.style.display = maxTier > 1 ? 'flex' : 'none'; next.disabled = tier >= maxTier; }
-    if ($('ach-d-hint')) {
-      $('ach-d-hint').style.display = maxTier > 1 ? 'block' : 'none';
-      $('ach-d-hint').textContent = '左右滑动看已经解锁的奖杯 · 共 ' + maxTier + ' 阶';
-    }
 
     const btn = $('btn-ach-claim');
     if (btn) {
@@ -5997,6 +6014,24 @@
     const to = Math.min(Math.max(1, achDetail.tier + dir), maxTier);
     if (to === achDetail.tier) return;
     achDetail.tier = to;
+    AudioManager.playSFX('select');
+    renderAchDetail();
+  }
+
+  // 背景左右滑 = 切换上一枚 / 下一枚成就（没解锁的成就直接跳过，可循环）
+  let achBgSwipeAt = 0;
+  function gotoAch(dir) {
+    const list = Meta.ACHIEVEMENTS.filter((x) => {
+      let t = 0;
+      try { t = Meta.tierOf(x.id); } catch (e) {}
+      return t >= 1;
+    });
+    if (!list.length) return;
+    const i = list.findIndex((x) => x.id === achDetail.id);
+    if (i < 0 || list.length < 2) return;
+    const nx = list[(i + dir + list.length) % list.length];
+    const pend = Meta.claimableTiers(nx.id);
+    achDetail = { id: nx.id, tier: pend.length ? Math.max.apply(null, pend) : Meta.tierOf(nx.id) };
     AudioManager.playSFX('select');
     renderAchDetail();
   }

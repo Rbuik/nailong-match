@@ -2326,8 +2326,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   position: absolute;
   inset: -14px;
   background: url('../assets/rainbow-cup.jpg') center / cover no-repeat;
-  filter: blur(10px);
-  opacity: 0.42;
+  filter: blur(6px);
+  opacity: 0.85;
 }
 .ach-trophy.t4 .ach-trophy-svg {
   position: relative;
@@ -2335,7 +2335,7 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   fill: url(#ach-rainbow-pat);
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.22));
 }
-.ach-trophy.t4 .ach-trophy-svg .cup-handle { stroke: #ffffff; }
+.ach-trophy.t4 .ach-trophy-svg .cup-handle { stroke: url(#ach-rainbow-pat); }
 .ach-dots {
   display: flex;
   align-items: center;
@@ -2365,15 +2365,17 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 }
 .ach-d-info b { font-size: 18px; font-weight: 900; color: #3d3556; }
 .ach-d-info i { font-style: normal; font-size: 12px; color: #8a82a6; }
-/* 领取键：宽度收窄、居中，不再顶满卡片 */
+/* 领取键：宽度收窄、居中，不再顶满卡片（auto + 内边距，各内核都稳） */
 #btn-ach-claim {
-  width: fit-content;
-  min-width: 168px;
+  width: auto;
+  min-width: 150px;
   max-width: 100%;
   margin: 0 auto 0;
   font-size: 15px;
-  padding: 12px 32px;
+  padding: 12px 34px;
   display: block;
+  border: none;
+  border-radius: 999px;
 }
 /* 已领取 / 不可领取：还是本阶的颜色，只是整体变灰一点（不要黑键） */
 #btn-ach-claim.btn-primary:disabled {
@@ -2382,12 +2384,6 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   box-shadow: none;
   cursor: default;
   transform: none;
-}
-.ach-d-hint {
-  margin: 8px 0 0;
-  font-size: 11px;
-  color: #a29bb5;
-  text-align: center;
 }
 
 /* ================= 成就详情页：整页随奖杯颜色变化 ================= */
@@ -2403,28 +2399,54 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 #ach-detail.t2 { background: linear-gradient(180deg, #f2f6fb 0%, rgba(245, 245, 247, 0.96) 55%); }
 #ach-detail.t3 { background: linear-gradient(180deg, #fff8e0 0%, rgba(245, 245, 247, 0.96) 55%); }
 #ach-detail.t4 { background: linear-gradient(180deg, #fdeaf5 0%, #eaf4ff 40%, rgba(245, 245, 247, 0.96) 75%); }
-/* 领取键：用当前阶的主题色描边 + 渐变底 */
+/* 领取键：用当前阶的主题色渐变底（彩阶用整条彩虹） */
 #btn-ach-claim.btn-primary {
   color: #fff;
-  border: 2px solid transparent;
+  border: none;
   background: linear-gradient(135deg, var(--ach-c1), var(--ach-c2));
-  box-shadow: 0 4px 10px color-mix(in srgb, var(--ach-c2) 35%, transparent);
+  box-shadow: 0 4px 12px rgba(110, 90, 200, 0.26);
 }
 #btn-ach-claim.btn-primary:active { transform: scale(0.95); }
+/* 彩杯：按键 / 卡片描边都走整条彩虹 */
+#ach-detail.t4 #btn-ach-claim.btn-primary,
+.ach-detail-card.t4 #btn-ach-claim.btn-primary {
+  background: linear-gradient(120deg, #ff7a59, #ffb84d 22%, #5fd48a 50%, #5c9dff 76%, #b06bff);
+}
 /* 彩杯卡片边框也带一点彩虹 */
 .ach-detail-card.t4 { border-color: rgba(255, 159, 196, 0.55); }
-/* 标题：成就图标剪影放在文字左边（不用彩色 emoji） */
+/* 标题：图标剪影 + 文字颜色随当前奖杯变化（整块 h2 不再用全局渐变字） */
+#ach-d-name {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: #3d3556;
+}
+.ach-d-txt { color: #3d3556; }
+.t1 .ach-d-txt { color: #b06f2e; }
+.t2 .ach-d-txt { color: #7c8aa0; }
+.t3 .ach-d-txt { color: #d99e00; }
+.t4 .ach-d-txt {
+  background: linear-gradient(90deg, #ff7a59, #ffd75e, #5fd48a, #5c9dff, #c85cff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+/* 图标剪影：统一置灰提色，颜色贴近当前阶的文字色 */
 .ach-d-ico {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 1.15em;
   height: 1.15em;
-  margin-right: 7px;
+  margin-right: 8px;
   vertical-align: -0.18em;
-  filter: grayscale(1) brightness(0.15);
-  opacity: 0.85;
+  filter: grayscale(1) brightness(0.6);
+  opacity: 0.9;
 }
+.t1 .ach-d-ico { filter: grayscale(1) brightness(0.6) sepia(1) saturate(2.4) hue-rotate(-10deg); }
+.t2 .ach-d-ico { filter: grayscale(1) brightness(0.62); }
+.t3 .ach-d-ico { filter: grayscale(1) brightness(0.72) sepia(1) saturate(3) hue-rotate(5deg); }
+.t4 .ach-d-ico { filter: grayscale(1) brightness(0.6) sepia(1) saturate(2.6) hue-rotate(245deg); }
 .ach-d-ico .ach-d-emoji {
   font-style: normal;
   font-size: 1em;
