@@ -471,7 +471,7 @@ function check(name, ok) {
     cssSrc.includes('border: 2px solid rgba(0, 0, 0, 0.65);'));
   check('海外列表显示「未识别出国家」', jsSrc.includes('未识别出国家') && !jsSrc.includes('未细分国家'));
   check('棋盘选中框保持黑色、彩色配色用彩虹渐变光晕',
-    jsSrc.includes("ctx.strokeStyle = '#333';") && htmlSrc0.includes('彩 150') &&
+    jsSrc.includes("ctx.strokeStyle = '#333';") && htmlSrc0.includes('棋盘配色') &&
     !jsSrc.includes('彩虹光晕') && !jsSrc.includes('彩色方块拼边') &&
     cssSrc.includes('linear-gradient(135deg, #f5a06b') && cssSrc.includes('mask-composite: exclude') &&
     !cssSrc.includes('repeating-conic-gradient'));
@@ -582,12 +582,12 @@ function check(name, ok) {
   check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
   check('规则说明线消横清行竖清列', htmlSrc.includes('横着连的清整行、竖着连的清整列'));
   check('规则含 8 种目标', ['普通得分', '收集方块', '清除果冻', '限时得分', '极限步数', '敲碎冰块', '运送钥匙', '护送奶龙'].every((s) => htmlSrc.includes(s)));
-  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('最下面那个没被消掉的方块'));
+  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('下面离它最近的那个方块'));
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('300 金币') && htmlSrc.includes('+7s'));
-  check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('每日转盘'));  check('规则含成就配色排行榜说明', htmlSrc.includes('成就与配色') && htmlSrc.includes('排行榜与奖牌') && htmlSrc.includes('总榜 → 省榜 → 局榜'));
-  check('规则里昵称只说「名字具有唯一性」，不提旧默认名 / 榜上重名',
-    htmlSrc.includes('名字具有唯一性') && !htmlSrc.includes('不能和榜上的人重名') &&
+  check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('转盘'));  check('规则含成就配色排行榜说明', htmlSrc.includes('棋盘配色') && htmlSrc.includes('🏅 成就') && htmlSrc.includes('总榜 → 省榜 → 局榜'));
+  check('规则里昵称只说「唯一且区分大小写」，不提旧默认名 / 榜上重名',
+    htmlSrc.includes('唯一且区分大小写') && !htmlSrc.includes('不能和榜上的人重名') &&
     !htmlSrc.includes('默认的「奶龙玩家」'));
   check('规则页不剧透总章节数 / 总关数', !htmlSrc.includes('主线共 <b>40 关</b>') && !htmlSrc.includes('40 关') && !htmlSrc.includes('4 个章节'));
   check('规则含补签说明', htmlSrc.includes('补签') && htmlSrc.includes('300 金币'));
@@ -605,10 +605,11 @@ function check(name, ok) {
   $('btn-goto-features').dispatch('click');
   check('点「功能介绍」进入功能介绍页', $('features-menu').style.display === 'flex' && $('rules-menu').style.display === 'none');
   const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="btn-features-back"'));
-  check('功能介绍里放的是系统功能（章节 / 签到 / 账号）',
-    featsHtml.includes('主线与章节') && featsHtml.includes('签到与转盘') && featsHtml.includes('账号与昵称') &&
-    featsHtml.includes('📮 邮箱') && featsHtml.includes('注销账号') &&
-    !featsHtml.includes('基本玩法'));
+  check('功能介绍按按键层次排：左上角 / 右上角 / 中间 / 按钮区 / 局内 / 结算 / 账号',
+    featsHtml.includes('① 左上角') && featsHtml.includes('② 右上角') && featsHtml.includes('③ 主页中间') &&
+    featsHtml.includes('④ 主页按钮区') && featsHtml.includes('⑤ 局内按键') &&
+    featsHtml.includes('⑥ 结算与成绩单') && featsHtml.includes('⑦ 账号与云存档') &&
+    featsHtml.includes('📮 邮箱') && !featsHtml.includes('基本玩法'));
   $('btn-features-back').dispatch('click');
   check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
   $('btn-goto-play-rules').dispatch('click');
@@ -1976,13 +1977,12 @@ function check(name, ok) {
     /steel\.addColorStop\(1, '#7ba7d4'\)/.test(jsSrc) &&
     /g\.strokeStyle = '#000'/.test(jsSrc));
   // 41f-6. 说明页：改名属于功能，写进「功能介绍」；玩法说明里不再重复；不举 Yone / yone 的例子
-  check('改名位置写进「功能介绍」，玩法说明里不再重复，也不举大小写的例子',
-    /改名[\s\S]{0,80}主页键/.test(htmlSrc0) && (() => {
+  check('改名位置写进「功能介绍」，玩法说明里不再重复，也不举大小写的例子', (() => {
       const f0 = htmlSrc0.indexOf('id="features-box"');
       const f1 = htmlSrc0.indexOf('id="btn-features-back"');
       const p0 = htmlSrc0.indexOf('id="play-rules-box"');
       const p1 = htmlSrc0.indexOf('id="btn-play-rules-back"');
-      return /改名[\s\S]{0,80}主页键/.test(htmlSrc0.slice(f0, f1)) &&
+      return /🏠 主页[\s\S]{0,60}改名/.test(htmlSrc0.slice(f0, f1)) &&
         !/改名/.test(htmlSrc0.slice(p0, p1));
     })() && !/Yone/.test(htmlSrc0));
   // 41f-7. 入口叫「说明」：📖 说明 / 🎮 玩法说明 / 说明字号
@@ -1991,10 +1991,10 @@ function check(name, ok) {
     htmlSrc0.includes('🎮 玩法说明') && !htmlSrc0.includes('🎮 玩法规则') &&
     htmlSrc0.includes('说明字号'));
   // 41f-8. 榜上星星占固定一格：★ 一列对齐，数字紧跟 ★（不右推、不留大空档）
-  check('榜上星星占固定一格（★ 一列对齐，数字紧跟 ★）', (() => {
-    const host = /\.lb-stars\s*\{[^}]*\}/.exec(cssSrc);
+  check('榜上星星 / 分数用固定列宽（★ 与分数各对齐到一条竖线）', (() => {
+    const g4 = /\.lb-swipe\.col4\s*\{[^}]*\}/.exec(cssSrc);
     const num = /\.lb-stars b\s*\{[^}]*\}/.exec(cssSrc);
-    return !!host && /min-width:\s*42px/.test(host[0]) &&
+    return !!g4 && /grid-template-columns:\s*26px minmax\(0, 1fr\) 54px 80px/.test(g4[0]) &&
       !!num && /text-align:\s*left/.test(num[0]) && !/min-width/.test(num[0]) &&
       /lb-star-ico/.test(jsSrc) && cssSrc.includes('lb-star-ico');
   })());
@@ -2096,11 +2096,12 @@ function check(name, ok) {
 
   // 41o. 星星整列右移 / 后台玩家分数字左带星 / 名字 1~8 个字符 / 结算音效跟面板同拍
   const workerSrc = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
-  check('排行榜星星整列往右挪（margin-left 12px，且后台星星也左对齐）', (() => {
+  check('排行榜星星整列左对齐、后台星星也左对齐（固定列）', (() => {
     const host = /\.lb-stars\s*\{[^}]*\}/.exec(cssSrc);
     const ul = /\.ul-stars\s*\{[^}]*\}/.exec(cssSrc);
-    return !!host && /margin-left:\s*12px/.test(host[0]) &&
-      !!ul && /justify-content:\s*flex-start/.test(ul[0]);
+    const g5 = /\.lb-swipe\.col5\s*\{[^}]*\}/.exec(cssSrc);
+    return !!host && /justify-content:\s*flex-start/.test(host[0]) &&
+      !!ul && /justify-content:\s*flex-start/.test(ul[0]) && !!g5;
   })());
   check('后台玩家名单每行带总星数（分数左边 ★ N）', (() => {
     const rows = sandbox.__nl_test.userList();
@@ -2136,6 +2137,49 @@ function check(name, ok) {
     /box\.style\.display = 'flex';\s*\n\s*winSfx\(\);/.test(jsSrc) &&
     /box\.style\.display = 'flex';\s*\n\s*endSfx\(\);/.test(jsSrc) &&
     !/setTimeout\(\(\) => AudioManager\.playSFX\('star'/.test(jsSrc));
+
+  // 41q. 本轮：说明精简 / 功能介绍按按键层次 / 消消乐大师成绩单 / 糖果关卡可见 / 榜单固定列
+  //      成就调整（分数收割机门槛、删两枚、加糖果爱好者）/ 云存档自动化
+  check('消消乐大师：标题不再写「恭喜全通关」，改成成绩单（称号 / 进度条 / 四项数据）',
+    !htmlSrc.includes('恭喜全通关') && htmlSrc.includes('🏆 消消乐大师') &&
+    htmlSrc.includes('id="master-title"') && htmlSrc.includes('id="master-bar-fill"') &&
+    htmlSrc.includes('id="complete-total-score"') && htmlSrc.includes('id="complete-total-stars"') &&
+    htmlSrc.includes('id="master-perfect"') && htmlSrc.includes('id="master-ach"'));
+  check('消消乐大师按进度算称号，全三星才叫宗师', (() => {
+    return /title = '消消乐宗师'/.test(jsSrc) && /title = '消消乐大师'/.test(jsSrc) &&
+      /title = '消消乐高手'/.test(jsSrc) && /title = '消消乐达人'/.test(jsSrc) &&
+      /title = '消消乐新星'/.test(jsSrc) && /已通关 ' \+ cleared \+ ' \/ ' \+ total/.test(jsSrc);
+  })());
+  check('成就：加了「糖果爱好者」，删了「过半征程」「通关大师」', (() => {
+    const ids = sandbox.Meta.ACHIEVEMENTS.map((a) => a.id);
+    const candy = sandbox.Meta.ACHIEVEMENTS.filter((a) => a.id === 'candylover')[0];
+    return ids.indexOf('candylover') >= 0 && candy.name === '糖果爱好者' && candy.key === 'candy' &&
+      ids.indexOf('lv20') < 0 && ids.indexOf('lv40') < 0 &&
+      !jsSrc.includes('过半征程') && !jsSrc.includes('通关大师') &&
+      sandbox.Meta.ACHIEVEMENTS.length === 25;
+  })());
+  check('分数收割机门槛改成 10000 / 50000 / 250000 / 500000', (() => {
+    const a = sandbox.Meta.ACHIEVEMENTS.filter((x) => x.id === 'score100k')[0];
+    return JSON.stringify(a.tiers) === JSON.stringify([10000, 50000, 250000, 500000]);
+  })());
+  check('糖果计数接进累计统计（成就用）', (() => {
+    const metaSrc = fs.readFileSync(path.join(__dirname, 'js', 'meta.js'), 'utf8');
+    return /Meta\.bump\('candy', candies\)/.test(jsSrc) && /'cargo', 'candy', 'rescue'/.test(metaSrc);
+  })());
+  check('关卡记录标出「运送糖果 🍬」，章节地图给糖果关加 🍬 角标',
+    /function levelHasCandy/.test(jsSrc) && /运送糖果 🍬/.test(jsSrc) &&
+    /chip-candy/.test(jsSrc) && /candy-tag/.test(jsSrc) &&
+    /d\.id >= 31 && \(d\.cargo \|\| 0\) > 0/.test(jsSrc));
+  check('榜单改用固定列：星星列、分数列各自对齐（col4 / col5）',
+    /lb-swipe col4/.test(jsSrc) && /lb-swipe col5/.test(jsSrc) &&
+    /\.lb-swipe\.col4\s*\{[^}]*display: grid/.test(cssSrc) &&
+    /\.lb-swipe\.col5\s*\{[^}]*display: grid/.test(cssSrc) &&
+    /\.lb-swipe\.col4 \.lb-score,\s*\n\.lb-swipe\.col5 \.lb-score\s*\{[^}]*text-align: left/.test(cssSrc));
+  check('云存档自动化：记着密码就系统自己存，不用玩家点',
+    /function autoCloudSave/.test(jsSrc) && /autoCloudSave, rememberedPass/.test(jsSrc) &&
+    /function rememberPass/.test(jsSrc) && /rememberPass\(acc, pass\)/.test(jsSrc) &&
+    /Account\.autoCloudSave\(\)/.test(jsSrc) && htmlSrc.includes('☁️ 云存档（自动）') &&
+    htmlSrc.includes('自动存到服务器'));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

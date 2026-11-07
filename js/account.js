@@ -85,7 +85,7 @@
 
   function isSlotKey(k) { return String(k).indexOf(K.slot) === 0; }
   function isDeviceKey(k) {
-    return !!DEVICE_KEYS[k] || isSlotKey(k);
+    return !!DEVICE_KEYS[k] || isSlotKey(k) || String(k).indexOf('nl2:pwx:') === 0;
   }
 
   // ---------- 口令哈希 ----------
@@ -252,6 +252,7 @@
       arr[i].pass = hash(p.pass);
       arr[i].last = Date.now();
       saveList(arr);
+      rememberPass(orphan, p.pass);
       saveCurrent();                    // 当前登录着别的号就先存好它的进度
       write(K.cur, orphan.id);
       loadSlot(orphan.id);              // 这份老进度铺回来
@@ -277,6 +278,7 @@
     const arr = list();
     arr.push(acc);
     saveList(arr);
+    rememberPass(acc, p.pass);
     write(K.cur, uid);
     syncNick(acc);
     saveCurrent();
@@ -297,6 +299,7 @@
     write(K.cur, acc.id);
     syncNick(acc);
     touch(acc.id);
+    rememberPass(acc, pass);
     // 老账号（云端上线前建的）下次登录时静默搬上服务器：服务器上没有就帮它建档
     bgLogin(acc, pass).then((ok) => { if (!ok) bgRegister(acc, pass); });
     return { ok: true, account: acc };
@@ -354,6 +357,7 @@
     const arr = list().filter((x) => !acc || x.id !== acc.id);
     saveList(arr);
     if (uid) { try { localStorage.removeItem(K.slot + uid); } catch (e) {} }
+    if (uid) forgetPass(uid);            // 注销连「记住的密码」一起清
     try { if (global.Store && Store.wipeAll) Store.wipeAll(); } catch (e) {}   // 顺带清 v1 老键
     wipeActive();
     write(K.cur, '');
@@ -390,6 +394,7 @@
     arr[i].pass = hash(p.pass);
     arr[i].last = Date.now();
     saveList(arr);
+    rememberPass(acc, p.pass);      // 记着明文，下次开游戏系统自己把号存上服务器
     // 服务器上的密码一起改：有令牌直接改；令牌丢了但有旧密码，就先登录拿令牌再改
     // （注意只用这个号自己的令牌，别拿设备上别人的令牌去改别人的号）
     if (cloudOk()) {
@@ -454,6 +459,32 @@
     try { return JSON.parse(raw(K.slot + id) || 'null'); } catch (e) { return null; }
   }
 
+  // ---------- 记住密码（只为「自动存到服务器」） ----------
+  // 本机只存口令哈希，服务器建档必须有一次明文。玩家每次注册 / 登录 / 改密码
+  // 输入的明文在这里轻轻混淆后留一份，之后系统就能自己把账号存上服务器，
+  // 不需要玩家再去点「存到服务器」。只存在本机，随着账号记录一起被注销清掉。
+  const PWX = 'nl2:pwx:';
+  function xorStr(s) {
+    let out = '';
+    for (let i = 0; i < s.length; i++) out += String.fromCharCode(s.charCodeAt(i) ^ (0x5a + (i % 7)));
+    return out;
+  }
+  function rememberPass(acc, pass) {
+    if (!acc || !acc.id || !pass) return;
+    try { localStorage.setItem(PWX + acc.id, btoa(xorStr(String(pass)))); } catch (e) {}
+  }
+  function rememberedPass(acc) {
+    if (!acc || !acc.id) return '';
+    try {
+      const v = localStorage.getItem(PWX + acc.id);
+      if (!v) return '';
+      return xorStr(atob(v));
+    } catch (e) { return ''; }
+  }
+  function forgetPass(id) {
+    try { localStorage.removeItem(PWX + id); } catch (e) {}
+  }
+
   // 把账号 id 迁成服务器身份码（快照跟着搬家）
   function migrateAccId(acc, uid) {
     if (!/^[A-Za-z0-9_-]{3,24}$/.test(String(uid || '')) ||
@@ -513,6 +544,26 @@
         return false;
       })
       .catch(() => false);
+  }
+
+  // 系统自己把账号存到服务器：不需要玩家点任何东西
+  //   ① 已经绑过服务器（有令牌）→ 直接把存档推上去
+  //   ② 还没绑 + 记着密码 → 静默建档 / 认领，再按 savedAt 合并
+  //   ③ 没密码可用 → 返回 needPass，界面才弹一次输入框（只有老号会遇到）
+  function autoCloudSave() {
+    if (!cloudOk()) return Promise.resolve({ ok: false, reason: 'offline' });
+    const acc = current();
+    if (!acc) return Promise.resolve({ ok: false, reason: 'no-account' });
+    if (acc.cloud || acc.ctoken) {
+      return pushCloud(true).then((ok) => ({ ok: !!ok, reason: ok ? '' : 'push-failed' }));
+    }
+    if (!acc.name || acc.name === '奶龙玩家') return Promise.resolve({ ok: false, reason: 'need-name' });
+    const pass = rememberedPass(acc);
+    if (!pass) return Promise.resolve({ ok: false, reason: 'need-pass', needPass: true });
+    return pushAccountToCloud(pass).then((r) => {
+      if (r && r.ok) rememberPass(current() || acc, pass);
+      return { ok: !!(r && r.ok), reason: (r && r.reason) || '', needPass: !!(r && r.oldBad) };
+    }).catch(() => ({ ok: false, reason: 'net' }));
   }
 
   // 从服务器拉这份账号的存档；服务器的新就换掉本机（是当前号就热替换）
@@ -609,6 +660,7 @@
     const bind = (r) => {
       if (!r || !r.ok) return Promise.resolve({ ok: false, reason: (r && r.reason) || '没存上，稍后再试' });
       markCloud(acc);
+      rememberPass(acc, pass);
       const uid = String(r.uid || '');
       if (uid && acc.id !== uid && !find(uid)) migrateAccId(acc, uid);
       if (r.token) {
@@ -693,7 +745,12 @@
   // 开机自愈：有令牌就拉一次服务器；之后定期把当前号推上去，关页面前兜底一次
   function startCloudSync() {
     if (!cloudOk()) return;
-    setTimeout(() => { pullCloud(); }, 1500);
+    setTimeout(() => {
+      pullCloud().then(() => {
+        // 拉完再自动存一次：老号（还没绑服务器、但记着密码）这一下就自己绑好了
+        try { autoCloudSave(); } catch (e) {}
+      });
+    }, 1500);
     setInterval(() => { pushCloud(false); }, 30e3);
     global.addEventListener && global.addEventListener('pagehide', () => { pushCloud(true); });
   }
@@ -892,6 +949,7 @@
     setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick, purge,
     saveCurrent, checkName, checkPass,
     exportBackup, importBackup,
-    cloudLogin, pushCloud, pullCloud, pushAccountToCloud, startCloudSync, cloudOk
+    cloudLogin, pushCloud, pullCloud, pushAccountToCloud, startCloudSync, cloudOk,
+    autoCloudSave, rememberedPass, forgetPass
   };
 })(window);

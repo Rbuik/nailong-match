@@ -1745,10 +1745,11 @@
 
   // 一批货物送达：特效 + 计数 + 目标推进（被消后下面没方块直送、到底行收集，共用这一份）
   function deliverCargo(items, c) {
-    let n = 0, res = 0;
+    let n = 0, res = 0, candies = 0;
     (items || []).forEach((cg) => {
       n++;
       if (cg.kind === 'nailong') res++;
+      else if (cg.kind === 'candy') candies++;
     });
     if (!n) return 0;
     const last = items[items.length - 1];
@@ -1761,6 +1762,7 @@
     S.cargoLeft = Math.max(0, S.cargoLeft - n);
     S.rescueLeft = Math.max(0, S.rescueLeft - res);
     Meta.bump('cargo', n);
+    if (candies) Meta.bump('candy', candies);   // 「糖果爱好者」成就
     if (res) Meta.bump('rescue', res);
     if (S.goal) {
       Goals.progress(S.goal, { cargo: n, rescue: res });
@@ -3034,27 +3036,74 @@
     return true;
   }
 
-  // 毕业结算画面：每次打开都按存档里的最新数据重新算（总得分 / 总星数）
+  // 消消乐大师（主线成绩单）：每次打开都按存档里的最新数据重新算
+  // 关卡记录右下角的「结算」键随时都能进来，所以标题不是「恭喜全通关」
   function showCompletePanel() {
     const prog = Store.getProgress() || {};
-    let totalScore = 0, totalStars = 0;
+    const total = maxMainLevel() || 1;
+    let totalScore = 0, totalStars = 0, cleared = 0, perfect = 0;
     Object.keys(prog).forEach((k) => {
       const r = prog[k] || {};
       // 只有真的通关（有星）的关卡才计入总分；没通关的那局分数不算
-      if (r.stars > 0) totalScore += r.score || 0;
-      totalStars += r.stars || 0;
+      if ((r.stars || 0) > 0) {
+        totalScore += r.score || 0;
+        totalStars += r.stars || 0;
+        cleared++;
+        if (r.stars >= 3) perfect++;
+      }
     });
+    const ratio = Math.min(1, cleared / total);
+
+    // 称号：按通关进度（全部通关后再看三星数）
+    let title = '消消乐学徒', crown = '🌱', sub = '先去闯几关吧';
+    if (cleared >= total) {
+      if (perfect >= total) { title = '消消乐宗师'; crown = '👑'; sub = '全关三星，无可挑剔'; }
+      else { title = '消消乐大师'; crown = '🏆'; sub = '主线全部通关'; }
+    } else if (ratio >= 0.75) { title = '消消乐高手'; crown = '🥇'; sub = '离全部通关只差几关'; }
+    else if (ratio >= 0.5) { title = '消消乐达人'; crown = '🥈'; sub = '已经过半，继续往前'; }
+    else if (ratio >= 0.25) { title = '消消乐新星'; crown = '🥉'; sub = '渐入佳境'; }
+
+    const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
+    setText('master-crown', crown);
+    setText('master-title', title);
+    setText('master-sub', sub);
+    setText('master-progress', '已通关 ' + cleared + ' / ' + total + ' 关 · 三星 ' + perfect + ' 关');
+    const fill = $('master-bar-fill');
+    if (fill) fill.style.width = Math.round(ratio * 100) + '%';
+
+    // 成就：已经点亮的枚数
+    let achGot = 0, achAll = 0;
+    try {
+      achAll = Meta.ACHIEVEMENTS.length;
+      achGot = Meta.ACHIEVEMENTS.filter((a) => Meta.tierOf(a.id) >= 1).length;
+    } catch (e) {}
+    setText('master-ach', achGot + ' / ' + achAll);
+    setText('master-perfect', perfect + ' / ' + total);
+
+    let foot = '继续闯关，冲击满星';
+    if (cleared >= total && perfect >= total) foot = '全部三星，满分毕业 🎉';
+    else if (cleared >= total) foot = '还差 ' + (total - perfect) + ' 关拿到三星';
+    else foot = '还差 ' + (total - cleared) + ' 关全部通关';
+    setText('master-foot', foot);
+
     const sc = $('complete-total-score'), st = $('complete-total-stars');
-    if (st) {
-      st.textContent = '0';
-      countUp(st, totalStars, 900);   // 总星数和总分数同一时长滚动
-    }
-    if (sc) {
-      sc.textContent = '0';
-      countUp(sc, totalScore, 900);
-    }
+    if (st) { st.textContent = '0'; countUp(st, totalStars, 900); }   // 总星数和总分数同一时长滚动
+    if (sc) { sc.textContent = '0'; countUp(sc, totalScore, 900); }
     const panel = $('game-complete');
     if (panel) panel.style.display = 'flex';
+  }
+
+  // 这一关是不是「运送糖果」关（第四章起，运送关的货物里混了糖果）
+  function levelHasCandy(lv, def) {
+    const d = def || getLevelDef(lv);
+    return !!(d && d.goal && d.goal.type === 'drop' && d.id >= 31 && (d.cargo || 0) > 0);
+  }
+  // 关卡记录 / 章节地图上写的玩法名：运送关从第四章起标成「运送糖果 🍬」
+  function levelModeLabel(lv, def) {
+    const d = def || getLevelDef(lv);
+    if (!d || !d.goal) return '';
+    if (levelHasCandy(lv, d)) return '运送糖果 🍬';
+    return Goals.LABEL[d.goal.type] || '';
   }
 
   function renderHistory() {
@@ -3082,8 +3131,9 @@
       let tag = ' <small class="lock-tag">未解锁</small>';
       if (!locked) {
         const def = getLevelDef(i);
-        const modeName = def && def.goal ? (Goals.LABEL[def.goal.type] || '') : '';
-        tag = modeName ? ' <small class="mode-tag">' + modeName + '</small>' : '';
+        const modeName = levelModeLabel(i, def);
+        const candyCls = levelHasCandy(i, def) ? ' candy-tag' : '';
+        tag = modeName ? ' <small class="mode-tag' + candyCls + '">' + modeName + '</small>' : '';
       }
       row.innerHTML =
         '<span class="h-name"><span class="h-lv">第 ' + i + ' 关</span>' + tag + '</span>' +
@@ -4168,7 +4218,7 @@
       const row = document.createElement('div');
       row.className = 'lb-row' + (u.score > 0 ? '' : ' none');
       const inner = document.createElement('div');
-      inner.className = 'lb-swipe';
+      inner.className = 'lb-swipe col5';
       // 分数左边也带总星数（和排行榜同一个写法），0 星留空位，分数不挪窝
       const st = Math.max(0, u.stars || 0);
       const starHtml = st > 0
@@ -5583,10 +5633,12 @@
       for (let lv = ch.from; lv <= ch.to; lv++) {
         const rec = Store.getLevelRecord(lv);
         const open = lv <= maxU;
+        const candy = open && levelHasCandy(lv);
         const b = document.createElement('button');
         b.className = 'level-chip' + (open ? '' : ' locked') + ((rec.stars || 0) >= 1 ? ' done' : '') +
           (lv === (S.menuLevel || 0) ? ' current' : '');
-        b.innerHTML = '<b>' + lv + '</b><i>' + (open ? ('★★★'.slice(0, rec.stars || 0) || '·') : '🔒') + '</i>';
+        b.innerHTML = '<b>' + lv + '</b><i>' + (open ? ('★★★'.slice(0, rec.stars || 0) || '·') : '🔒') + '</i>' +
+          (candy ? '<span class="chip-candy" title="运送糖果">🍬</span>' : '');
         if (open) {
           b.addEventListener('click', () => {
             $('chapters-menu').style.display = 'none';
@@ -6261,7 +6313,7 @@
       const onBoard = (r.score || 0) > 0;
       row.className = 'lb-row' + (r.me ? ' me' : '') + (onBoard ? '' : ' none');
       const inner = document.createElement('div');
-      inner.className = 'lb-swipe';
+      inner.className = 'lb-swipe col4';
       const rank = !onBoard ? '—' : (i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1));
       // 分数左边带星星：局榜是这一局的星（最多 3 颗），总榜 / 省榜是总星数
       const stars = Math.max(0, r.stars || 0);
@@ -6757,7 +6809,8 @@
     openNickMenu(false, () => { try { openCloudMenu(); } catch (e) {} });
   }
 
-  // 该不该提示「把账号存到服务器」：只对「本机有密码、服务器上还没有」的账号提示
+  // 把账号存到服务器的提示：正常情况下系统自己就存了（account.js autoCloudSave），
+  // 只有「还没绑服务器、本机也没记着密码」的老账号才弹一次输入框
   function maybeCloudOffer() {
     if (cloudOffered) return false;
     if (!accountOk() || S.playing) return false;
@@ -6770,7 +6823,16 @@
     if (!acc.pass) return false;                 // 没密码的账号先去补密码
     if (need && need.any) return false;
     cloudOffered = true;
-    openCloudMenu();
+    const show = () => { try { openCloudMenu(); } catch (e) {} };
+    // 先让系统自己存：记着密码就一步都不用玩家点
+    if (typeof Account.autoCloudSave === 'function') {
+      Promise.resolve(Account.autoCloudSave()).then((r) => {
+        if (r && r.ok) { try { toast('☁️ 已自动存到服务器'); } catch (e) {} return; }
+        show();   // 没有可用的密码 / 名字被占 → 才请玩家输一次
+      }).catch(show);
+      return true;
+    }
+    show();
     return true;
   }
 
@@ -6789,7 +6851,7 @@
     if (btn) { btn.disabled = true; btn.textContent = '正在存…'; }
     let r = null;
     try { r = await Account.pushAccountToCloud(pass); } catch (e) { r = { ok: false, reason: '网络异常' }; }
-    if (btn) { btn.disabled = false; btn.textContent = '存到服务器'; }
+    if (btn) { btn.disabled = false; btn.textContent = '保存'; }
     if (!r || !r.ok) {
       // 名字在服务器被别的密码占了：给出「改个名字再存」的逃生口，别把玩家锁死在这
       const rn = $('btn-cloud-rename');

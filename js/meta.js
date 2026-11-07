@@ -33,7 +33,7 @@
 
   // ==================== 累计计数 ====================
   const STAT_KEYS = ['wins', 'starsGot', 'scoreTotal', 'maxCombo', 'rainbows', 'bombs', 'lines',
-    'jelly', 'ice', 'cargo', 'rescue', 'perfect', 'noUndo', 'daily', 'checkin'];
+    'jelly', 'ice', 'cargo', 'candy', 'rescue', 'perfect', 'noUndo', 'daily', 'checkin'];
 
   function stats() {
     const s = read(K.stats, {});
@@ -70,17 +70,16 @@
     { id: 'line100',  icon: '➡️', name: '线消达人',   desc: '累计触发线消',     key: 'lines',     tiers: [20, 100, 200, 400] },
     { id: 'ice100',   icon: '🧊', name: '冰块终结者', desc: '累计敲碎冰层',     key: 'ice',       tiers: [20, 100, 250, 500] },
     { id: 'cargo50',  icon: '🔑', name: '快递达人',   desc: '累计送达货物',     key: 'cargo',     tiers: [10, 50, 100, 200] },
+    { id: 'candylover', icon: '🍬', name: '糖果爱好者', desc: '累计送达糖果',     key: 'candy',     tiers: [10, 30, 80, 150] },
     { id: 'rescue30', icon: '奶龙', iconImg: './assets/nailong.png', name: '奶龙守护者', desc: '累计护送奶龙', key: 'rescue', tiers: [5, 30, 60, 120] },
     { id: 'jelly200', icon: '🟪', name: '果冻清道夫', desc: '累计清除果冻',     key: 'jelly',     tiers: [50, 200, 400, 800] },
     { id: 'perfect10',icon: '👑', name: '十全十美',   desc: '累计三星通关',     key: 'perfect',   tiers: [3, 10, 25, 50] },
-    { id: 'lv20',     icon: '🏅', name: '过半征程',   desc: '通关主线关数',     key: 'cleared',   tiers: [5, 10, 15, 20] },
-    { id: 'lv40',     icon: '🏆', name: '通关大师',   desc: '通关主线关数',     key: 'cleared',   tiers: [10, 20, 30, 40] },
     { id: 'endless',  icon: '♾️', name: '无尽旅人',   desc: '无尽模式最高分',   key: 'endless',   tiers: [5000, 20000, 50000, 100000] },
     { id: 'sprint',   icon: '⏱️', name: '冲刺高手',   desc: '60 秒冲刺最高分',  key: 'sprint',    tiers: [2000, 8000, 20000, 40000] },
     { id: 'rhythm',   icon: '🎧', name: '节拍感',     desc: '节奏关最高分',     key: 'rhythm',    tiers: [1500, 6000, 15000, 30000] },
     { id: 'checkin7', icon: '📅', name: '签到达人',   desc: '累计签到天数',     key: 'checkin',   tiers: [1, 3, 7, 14] },
     { id: 'checkin30',icon: '🗓️', name: '签到铁人',   desc: '累计签到天数',     key: 'checkin',   tiers: [30, 60, 100, 180] },
-    { id: 'score100k',icon: '🧮', name: '分数收割机', desc: '累计总分',         key: 'scoreTotal',tiers: [50000, 200000, 500000, 1000000] },
+    { id: 'score100k',icon: '🧮', name: '分数收割机', desc: '累计总分',         key: 'scoreTotal',tiers: [10000, 50000, 250000, 500000] },
     { id: 'wins250',  icon: '🎮', name: '消消乐老手', desc: '累计通关次数',     key: 'wins',      tiers: [200, 500, 1000, 2000] },
     { id: 'daily30',  icon: '🎯', name: '任务好手',   desc: '累计完成每日任务', key: 'daily',     tiers: [10, 30, 80, 150] },
     { id: 'combo12',  icon: '⚡', name: '连击传说',   desc: '单局最高连击',     key: 'maxCombo',  tiers: [12, 15, 18, 22] },

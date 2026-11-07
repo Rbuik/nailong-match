@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/themes.css">
+<style>
+ body{background:#fbf6ea;margin:0;padding:14px;font:13px system-ui,"Microsoft YaHei",sans-serif;display:block;}
+ .sim{width:360px;background:#f4ecff;border-radius:16px;padding:12px 0;margin-bottom:16px;}
+ .cap{font:12px system-ui;color:#8b84a0;margin:0 0 6px 4px;}
+ .lb-list{width:90%;margin:0 auto;display:flex;flex-direction:column;gap:6px;}
+ .guide{position:absolute;top:0;bottom:0;width:1px;background:red;opacity:.55;}
+ .guide.p{background:#a855f7;}
+</style>
+</head>
+<body>
+<div class="sim" style="position:relative;">
+  <div class="cap">总榜（固定列：星星 / 分数各对齐）</div>
+  <div class="lb-list" id="all"></div>
+</div>
+<div class="sim" style="position:relative;">
+  <div class="cap">后台玩家（col5）</div>
+  <div class="lb-list" id="adm"></div>
+</div>
+<script>
+function row(rank,name,starHtml,score,me,cls){
+  return '<div class="lb-row'+(me?' me':'')+'"><div class="lb-swipe '+(cls||'col4')+'">'+
+    '<span class="lb-rank">'+rank+'</span>'+
+    '<span class="lb-name">'+name+(me?'<i class="lb-me">我</i>':'')+'</span>'+
+    starHtml+
+    '<span class="lb-score">'+score+'</span></div></div>';
+}
+const starAll=(n)=> n<=0?'<span class="lb-stars"></span>'
+  :'<span class="lb-stars"><i class="lb-star-ico">★</i><b>'+n+'</b></span>';
+const allRows=[[108,'yone',237425],[63,'我为刘睿晴上榜一',135718],[39,'uu',76870],
+  [9,'nana',9560],[3,'abcdefgh',1200],[0,'新玩家',0]];
+document.getElementById('all').innerHTML=allRows.map((r,i)=>
+  row(i<3?['🥇','🥈','🥉'][i]:String(i+1),r[1],starAll(r[0]),r[2]===0?'未上榜':r[2],i===1)).join('');
+
+function arow(rank,name,st,score,prov){
+  const star = st>0?'<span class="lb-stars ul-stars"><i class="lb-star-ico">★</i><b>'+st+'</b></span>'
+    :'<span class="lb-stars ul-stars"></span>';
+  return '<div class="lb-row"><div class="lb-swipe col5">'+
+    '<span class="lb-rank">'+rank+'</span>'+
+    '<span class="lb-name">'+name+'</span>'+ star +
+    '<span class="lb-score ul-score">'+score+'</span>'+
+    '<span class="lb-score ul-prov">'+prov+'</span></div></div>';
+}
+document.getElementById('adm').innerHTML=[
+  [1,'yone',108,237425,'四川'],
+  [2,'我为刘睿晴上榜一',63,135718,'江西'],
+  [3,'uu',39,76870,'四川'],
+  [4,'abcdefgh',9,9560,'广东'],
+  [5,'新玩家',0,'—','未定位']
+].map((r)=>arow(r[0],r[1],r[2],r[3],r[4])).join('');
+</script>
+</body>
+</html>

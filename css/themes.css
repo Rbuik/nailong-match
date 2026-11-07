@@ -1464,6 +1464,55 @@ body.m-dragging .m-item { cursor: grabbing; }
   touch-action: pan-y;
 }
 .lb-row.me .lb-swipe { background: rgba(124, 92, 255, 0.08); }
+/* 榜单 / 后台名单：用「固定列宽」的表格布局，不是 flex。
+   这样每一行的「星星列」「分数列」起点都是同一条竖线，
+   名字多长、星星几位数、分数几位数都不会把后面的列挤偏。
+   col4 = 名次 / 名字 / 星星 / 分数（总榜、省榜、局榜）
+   col5 = 名次 / 名字 / 星星 / 分数 / 省份（后台玩家名单） */
+.lb-swipe.col4 {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 54px 80px;
+  column-gap: 8px;
+}
+.lb-swipe.col5 {
+  display: grid;
+  grid-template-columns: 26px minmax(0, 1fr) 50px 74px minmax(0, max-content);
+  column-gap: 8px;
+}
+.lb-swipe.col4 .lb-name,
+.lb-swipe.col5 .lb-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lb-swipe.col4 .lb-stars,
+.lb-swipe.col5 .lb-stars {
+  margin-left: 0;
+  margin-right: 0;
+  min-width: 0;
+  justify-self: start;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+.lb-swipe.col4 .lb-score,
+.lb-swipe.col5 .lb-score {
+  margin-left: 0;
+  min-width: 0;
+  justify-self: start;
+  text-align: left;
+}
+/* 后台名单的省份：跟在分数后面两个文字左右，右边缘贴住行的内边距 */
+.lb-swipe.col5 .ul-prov {
+  margin-left: 0;
+  padding-left: 18px;
+  justify-self: start;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* 分数是 6 位数时也不会挤到省份 */
+.lb-swipe.col5 .ul-score { white-space: nowrap; }
 .lb-del {
   position: absolute;
   top: 0;
@@ -2050,3 +2099,107 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 
 .btn-danger-outline:hover { background: rgba(255, 92, 92, 0.14); }
 .btn-danger-outline:active { transform: scale(0.95); }
+
+/* ================= 🏆 消消乐大师（主线成绩单） ================= */
+/* 关卡记录右下角「结算」键随时可打开，所以这一页是「档案 / 成绩单」而不是毕业动画 */
+.master-card {
+  width: 88%;
+  max-width: 380px;
+  box-sizing: border-box;
+  padding: 18px 16px 14px;
+  border-radius: 20px;
+  background: #fff;
+  border: 1px solid rgba(255, 180, 0, 0.28);
+  box-shadow: 0 10px 26px rgba(255, 168, 0, 0.16);
+}
+.master-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.master-crown {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 30px;
+  border-radius: 16px;
+  background: linear-gradient(160deg, #fff3cf, #ffe08a);
+  box-shadow: inset 0 0 0 2px rgba(255, 190, 40, 0.5);
+  animation: float-badge 3s ease-in-out infinite;
+}
+.master-title-box {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.master-title-box b {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, #ff8c00, #ff5c5c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.master-title-box i {
+  font-style: normal;
+  font-size: 11px;
+  color: #9a93ad;
+}
+.master-bar {
+  height: 10px;
+  margin: 14px 0 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+}
+.master-bar span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #ffd24a, #ff9a3c);
+  transition: width 0.6s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.master-progress {
+  margin: 0 0 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a82a6;
+  text-align: left;
+}
+.master-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.master-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 9px 6px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.035);
+}
+.master-item span { font-size: 11px; color: #8a82a6; }
+.master-item b {
+  font-size: 19px;
+  font-weight: 900;
+  color: #ff8c00;
+  font-variant-numeric: tabular-nums;
+}
+.master-item:nth-child(2) b { color: #ffb400; }
+.master-item:nth-child(3) b { color: #7c5cff; }
+.master-item:nth-child(4) b { color: #2fa84f; }
+.master-foot {
+  margin: 12px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #a08c5a;
+  text-align: center;
+}
