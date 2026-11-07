@@ -529,20 +529,24 @@
         const g = this.ctx.createGain();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(f, t0);
-        g.gain.setValueAtTime(Math.max(0.0001, this.BGM_NOTE_PEAK * this.bgmVol), t0);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.2);
+        // 关键：起音用 20ms 的快速爬坡，别让增益从 0 直接跳到峰值——
+        // 正弦波在非零相位突然出声会「咔哒」一下，整条 BGM 听着发脏
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_NOTE_PEAK * this.bgmVol), t0 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
         osc.connect(g); g.connect(this.ctx.destination);
-        osc.start(t0); osc.stop(t0 + 0.2);
+        osc.start(t0); osc.stop(t0 + 0.22);
 
         if (this._noteIndex % 2 === 0) {
           const o2 = this.ctx.createOscillator();
           const g2 = this.ctx.createGain();
           o2.type = 'triangle';
           o2.frequency.setValueAtTime(f / 2, t0);
-          g2.gain.setValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * this.bgmVol), t0);
-          g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.25);
+          g2.gain.setValueAtTime(0.0001, t0);
+          g2.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * this.bgmVol), t0 + 0.02);
+          g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.27);
           o2.connect(g2); g2.connect(this.ctx.destination);
-          o2.start(t0); o2.stop(t0 + 0.25);
+          o2.start(t0); o2.stop(t0 + 0.27);
         }
       } catch (e) {}
       this._noteIndex++;
@@ -581,7 +585,9 @@
         osc.type = 'sine';
         osc.frequency.setValueAtTime(70, t0);
         osc.frequency.exponentialRampToValueAtTime(38, t0 + 0.09);
-        g.gain.setValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * 0.8 * this.bgmVol), t0);
+        // 起音同样走 8ms 爬坡，去掉鼓点头上的「啪」声
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * 0.8 * this.bgmVol), t0 + 0.008);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
         osc.connect(g); g.connect(this.ctx.destination);
         osc.start(t0); osc.stop(t0 + 0.13);

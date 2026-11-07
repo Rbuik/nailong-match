@@ -210,9 +210,11 @@
 
   // 签到阶梯（对应 §8）
   const SIGN_REWARDS = [
-    { coins: 50 }, { coins: 80 }, { coins: 120 }, { coins: 180 },
-    { coins: 250 }, { coins: 350 }, { coins: 500, item: 'rainbow', itemN: 1 }
+    { coins: 50 }, { coins: 50 }, { coins: 50 }, { coins: 50 },
+    { coins: 50 }, { coins: 50 }, { coins: 50 }
   ];
+  // 连续签到每满 7 天（7/14/21/28…），额外 200 金币发到邮箱
+  const SIGN_MILESTONE = { every: 7, coins: 200 };
 
   // 补签：一次补 1 天，花 300 金币（只补连续天数，不发当日奖励）
   const MAKEUP_COST = 300;
@@ -226,6 +228,8 @@
   function normSign(s) {
     if (!Array.isArray(s.dates)) s.dates = [];
     if (!s.cycleStart) s.cycleStart = '';
+    // 老存档没有连续天数：用本轮已签天数近似（旧版一轮最多 7 天，误差最多几天）
+    if (typeof s.streak !== 'number') s.streak = s.dates.length;
     if (!s.dates.length && s.signDate) {
       const n = Math.max(1, Math.min(s.signDay || 1, SIGN_REWARDS.length));
       const end = dparse(s.signDate);
@@ -245,25 +249,36 @@
     if (s.signDate === today) return { ok: false, reason: 'already', day: s.signDay };
 
     const yesterday = todayKey(new Date(Date.now() - 86400000));
-    let day;
-    // 昨天签过且本轮还没满 7 天 → 连续；否则（断签 / 本轮已满）从第 1 天重新算
-    if (s.dates.length >= SIGN_REWARDS.length || s.dates.indexOf(yesterday) < 0) {
+    // 连续天数不受「7 天一轮」限制：只要昨天签过就一直 +1（7/14/21/28… 里程碑看这个数）
+    const broken = s.dates.indexOf(yesterday) < 0;
+    let streak, day;
+    if (broken) {
+      streak = 1;                       // 断签 → 重新数
       day = 1;
       s.dates = [];
       s.cycleStart = today;
     } else {
-      day = s.dates.length + 1;
+      streak = (s.streak || 0) + 1;     // 连续 +1
+      if (s.dates.length >= SIGN_REWARDS.length) {
+        day = 1;                        // 本轮 7 格签满 → 日期条翻新的一轮，连续天数照常累计
+        s.dates = [];
+        s.cycleStart = today;
+      } else {
+        day = s.dates.length + 1;
+      }
     }
 
     const reward = SIGN_REWARDS[day - 1];
     addCoins(reward.coins);
     if (reward.item) addItem(reward.item, reward.itemN);
 
+    s.streak = streak;
     s.dates.push(today);
     s.signDay = s.dates.length;
     s.signDate = today;
     setTaskState(s);
-    return { ok: true, day, reward };
+    const milestone = (streak > 0 && streak % SIGN_MILESTONE.every === 0) ? SIGN_MILESTONE.coins : 0;
+    return { ok: true, day, reward, streak: streak, milestone: milestone };
   }
 
   // 补签：补上指定的漏签日期（不传就补最早漏掉的那天），花 300 金币（不发当日奖励）
@@ -298,6 +313,7 @@
     s.dates.push(miss);
     s.dates.sort();
     s.signDay = s.dates.length;
+    s.streak = (s.streak || 0) + 1;   // 补上漏签的那天，连续天数照常 +1
     setTaskState(s);
     return { ok: true, day: s.signDay, date: miss };
   }
@@ -309,7 +325,7 @@
     const yesterday = todayKey(new Date(Date.now() - 86400000));
     const signedToday = s.signDate === today;
     let streak = 0;
-    if (signedToday || s.dates.indexOf(yesterday) >= 0) streak = s.signDay || s.dates.length;
+    if (signedToday || s.dates.indexOf(yesterday) >= 0) streak = s.streak || s.signDay || s.dates.length;
     let missed = 0;
     if (s.dates.length && s.dates.length < SIGN_REWARDS.length) {
       const start = dparse(s.cycleStart || s.dates[0]);
@@ -408,7 +424,7 @@
   migrate();
 
   global.Store = {
-    K, VERSION, SIGN_REWARDS,
+    K, VERSION, SIGN_REWARDS, SIGN_MILESTONE,
     getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,

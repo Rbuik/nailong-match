@@ -10,7 +10,7 @@ function makeEl(id) {
   const listeners = {};
   const el = {
     id: id || '',
-    style: { setProperty() {}, display: '', removeProperty() {} },
+    style: { setProperty() {}, removeProperty() {}, get display() { return this._d || ''; }, set display(v) { if (id === 'auth-menu' && v === 'none') { console.log('CLOSED-STACK-START'); console.log(new Error().stack); console.log('CLOSED-STACK-END'); } this._d = v; } },
     dataset: {},
     classList: {
       _s: new Set(),
@@ -605,12 +605,14 @@ function check(name, ok) {
   $('btn-goto-features').dispatch('click');
   check('点「功能介绍」进入功能介绍页', $('features-menu').style.display === 'flex' && $('rules-menu').style.display === 'none');
   const featsHtml = htmlSrc.slice(htmlSrc.indexOf('id="features-box"'), htmlSrc.indexOf('id="btn-features-back"'));
-  check('功能介绍按按键层次排：左上角 / 右上角 / 中间 / 按钮区 / 局内 / 结算 / 账号（不写序号）',
-    featsHtml.includes('左上角：🏠 主页') && featsHtml.includes('右上角：⚙️ 设置') &&
-    featsHtml.includes('主页中间：进度与开始') && featsHtml.includes('主页按钮区') &&
-    featsHtml.includes('局内按键') && featsHtml.includes('结算与成绩单') &&
-    featsHtml.includes('账号与云存档') && !/[①②③④⑤⑥⑦]/.test(featsHtml) &&
-    featsHtml.includes('📮 邮箱') && !featsHtml.includes('基本玩法'));
+  check('功能介绍按按键层次排：左上角 / 右上角 / 中间 / 按钮区 / 局内 / 结算 / 账号（标题只写区域名，不写序号）',
+    featsHtml.includes('<h3>左上角</h3>') && featsHtml.includes('<h3>右上角</h3>') &&
+    featsHtml.includes('<h3>进度与开始</h3>') && featsHtml.includes('<h3>主页按钮区</h3>') &&
+    featsHtml.includes('<h3>局内按键</h3>') && featsHtml.includes('<h3>结算与成绩单</h3>') &&
+    featsHtml.includes('<h3>账号与云存档</h3>') && !/[①②③④⑤⑥⑦]/.test(featsHtml) &&
+    featsHtml.includes('📮 邮箱') && !featsHtml.includes('基本玩法') &&
+    !featsHtml.includes('所有人同一局') &&
+    /🎯 每日任务[\s\S]*?<\/p>\s*<p><b>📅 每日挑战/.test(featsHtml));
   $('btn-features-back').dispatch('click');
   check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
   $('btn-goto-play-rules').dispatch('click');
@@ -2073,6 +2075,71 @@ function check(name, ok) {
       c3 && c3.reward === 20 && c3.event === 'combo3' &&
       w1 && w1.reward === 20 && w1.event === 'win' &&
       sandbox.Tasks.getToday().length === 5;
+  })());
+  check('每日任务奖励只有 20/40/60 三档，按难度分档，每天每档至少一个', (() => {
+    const pool = sandbox.Tasks.POOL;
+    const tiers = [20, 40, 60];
+    if (!pool.every((p) => tiers.indexOf(p.reward) >= 0)) return false;
+    if (!tiers.every((r) => pool.some((p) => p.reward === r))) return false;
+    const easy = pool.filter((p) => p.reward === 20).map((p) => p.id);
+    const hard = pool.filter((p) => p.reward === 60).map((p) => p.id);
+    if (easy.indexOf('win1') < 0 || easy.indexOf('combo3') < 0) return false;
+    if (['combo4', 'rainbow', 'jelly', 'score5000'].some((x) => hard.indexOf(x) < 0)) return false;
+    const today = sandbox.Tasks.getToday();
+    return today.length === 5 && tiers.every((r) => today.some((t) => t.reward === r));
+  })());
+  check('结算秒弹：特效一停立刻放行，不再垫固定延时', (() => {
+    const fn = jsSrc.slice(jsSrc.indexOf('async function waitForEffects'), jsSrc.indexOf('async function handleOutOfResource'));
+    return /await sleep\(30\)/.test(fn) && /await sleep\(50\)/.test(fn) &&
+      !/await sleep\(80\)/.test(fn) && /cap = 2000/.test(fn);
+  })());
+  check('货物送达计分：每件 +150，浮字带分数', (() => {
+    const fn = jsSrc.slice(jsSrc.indexOf('function deliverCargo'), jsSrc.indexOf('function collectCargo'));
+    return /const bonus = n \* 150/.test(fn) && /S\.score \+= bonus/.test(fn) && /\+' \+ bonus/.test(fn);
+  })());
+  check('默认 BGM 去杂音：主音 / 低音 / 鼓点起音都有爬坡，不再「咔哒」', (() => {
+    const a = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
+    const bgm = a.slice(a.indexOf('_bgmNoteAt(t0)'), a.indexOf('_drumNext'));
+    const drum = a.slice(a.indexOf('_drumAt(t0)'), a.indexOf('自定义 BGM'));
+    return (bgm.match(/setValueAtTime\(0\.0001, t0\)/g) || []).length >= 2 &&
+      /exponentialRampToValueAtTime[^;]*t0 \+ 0\.02\)/.test(bgm) &&
+      /setValueAtTime\(0\.0001, t0\)/.test(drum);
+  })());
+  check('签到：每天固定 50 金币；连续满 7 天额外 200 金币走邮箱', (() => {
+    const S2 = sandbox.Store;
+    const saved = lsMap.get('nl2:tasks');
+    const dates = [];
+    for (let i = 6; i >= 1; i--) dates.push(S2.todayKey(new Date(Date.now() - i * 86400000)));
+    lsMap.set('nl2:tasks', JSON.stringify({ dates: dates, streak: 6, cycleStart: dates[0], signDate: dates[5] }));
+    const r = S2.signIn();
+    const ok = r.ok && r.reward.coins === 50 && r.streak === 7 && r.milestone === 200;
+    const yesterday2 = S2.todayKey(new Date(Date.now() - 86400000));
+    lsMap.set('nl2:tasks', JSON.stringify({ dates: [yesterday2], streak: 1, cycleStart: yesterday2, signDate: yesterday2 }));
+    const r2 = S2.signIn();
+    const ok2 = r2.ok && r2.reward.coins === 50 && r2.milestone === 0;
+    if (saved !== undefined) lsMap.set('nl2:tasks', saved); else lsMap.delete('nl2:tasks');
+    return ok && ok2 && S2.SIGN_MILESTONE.coins === 200 && S2.SIGN_MILESTONE.every === 7;
+  })());
+  check('登录 / 注册页点背景不退出（排除列表 + 捕获吞点击）', (() => {
+    const am = $('auth-menu');
+    am.style.display = 'flex';
+    am.dispatch('click', { target: am, stopPropagation() {} });
+    const stillOpen = am.style.display === 'flex';
+    console.log('    [dbg] display=', JSON.stringify(am.style.display), 'r1=', /'auth-menu', 'auth-form'\]\.forEach/.test(jsSrc), 'r2=', /e\.stopPropagation\(\)/.test(jsSrc));
+    am.style.display = 'none';
+    return stillOpen &&
+      /'auth-menu', 'auth-form'\]\.forEach/.test(jsSrc) &&
+      /e\.stopPropagation\(\)/.test(jsSrc) &&
+      /'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'\]\.indexOf\(ov\.id\) >= 0/
+        .test(fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8'));
+  })());
+  check('成绩单：框框严格居中（master-stage 包裹）、进度条 1.4s 恒定慢速动画', (() => {
+    const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));
+    return gc.includes('master-stage') &&
+      /#game-complete \.master-stage \{/.test(cssSrc) &&
+      /transition: width 1\.4s linear/.test(cssSrc) &&
+      /fill\.style\.transition = 'none'/.test(jsSrc) &&
+      /void fill\.offsetWidth/.test(jsSrc);
   })());
   check('每日任务尽量不重样：上一批出过的排到候选队尾，通常整批换新', (() => {
     const saved = lsMap.get('nl2:tasks');

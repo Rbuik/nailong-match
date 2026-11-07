@@ -1708,11 +1708,16 @@
       else if (cg.kind === 'candy') candies++;
     });
     if (!n) return 0;
+    // 送达也计分：每件固定 +150，直接进总分（目标分关照样吃这笔）
+    const bonus = n * 150;
+    S.score += bonus;
+    S.levelStartScore = S.levelStartScore || 0;
     const last = items[items.length - 1];
     const cx = (c != null) ? c * CELL + CELL / 2 : VIEW_W / 2;
     const cy = (ROWS - 1) * CELL + CELL / 2;
     FX.text(cx, cy,
-      last.kind === 'nailong' ? '奶龙送达！' : (last.kind === 'candy' ? '送达 🍬' : '送达 🔑'), '#2fa84f', 16);
+      (last.kind === 'nailong' ? '奶龙送达！' : (last.kind === 'candy' ? '送达 🍬' : '送达 🔑')) + ' +' + bonus,
+      '#2fa84f', 16);
     FX.burst(cx, cy, '#7cf29a', 5);
     AudioManager.playSFX('coin');
     S.cargoLeft = Math.max(0, S.cargoLeft - n);
@@ -2541,14 +2546,14 @@
     const cap = 2000;               // 最多等 2 秒，防止一直挂着
     const t0 = performance.now();
     if (FX.isEmpty() && !frenzyActive()) return;   // 没特效也没双倍，直接结算
-    await sleep(70);                // 先让这一帧刚触发的特效排上去
-    while (fxPlaying() && performance.now() - t0 < cap) await sleep(70);
+    await sleep(30);                // 只留一帧让刚触发的特效排上去
+    // 特效一停就立刻放行：轮询间隔压到 50ms，不再额外垫固定延时
+    while (fxPlaying() && performance.now() - t0 < cap) await sleep(50);
     // 🔥 双倍小标刚亮起来时给它露个脸（上限 600ms）
     if (frenzyActive()) {
       const left = Math.min(600, cap - (performance.now() - t0));
       if (left > 0) await sleep(left);
     }
-    await sleep(80);
   }
 
   // 步数 / 时间用完：绝不碰玩家的背包。任何道具（+3 步、炸弹、线消、彩虹……）
@@ -3017,7 +3022,14 @@
     // 不写「/ 总数」：只说已经拿到多少
     setText('master-progress', '已通 ' + cleared + ' 关 · 三星 ' + perfect + ' 关');
     const fill = $('master-bar-fill');
-    if (fill) fill.style.width = Math.round(ratio * 100) + '%';
+    if (fill) {
+      // 进度条动画与进度无关：每次打开先归零，再用恒定 1.4s 匀速爬到目标位置
+      fill.style.transition = 'none';
+      fill.style.width = '0%';
+      void fill.offsetWidth;            // 强制回流，保证从 0 起跳
+      fill.style.transition = '';       // 交还给 CSS 的 1.4s linear
+      fill.style.width = Math.round(ratio * 100) + '%';
+    }
 
     // 成就：已经点亮的枚数
     let achGot = 0;
@@ -5279,6 +5291,14 @@
         }
       });
     });
+    // 登录 / 注册页双保险：捕获阶段就把点在空白处的点击吞掉，
+    // 这两个面板只能靠按钮离开，点背景怎么点都不能退出
+    ['auth-menu', 'auth-form'].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener('click', (e) => {
+        if (e.target === el && e.stopPropagation) e.stopPropagation();
+      }, true);
+    });
 
     // 窗口变化重排（§25）
     let rt = null;
@@ -6118,6 +6138,24 @@
     const r = Meta.signIn();
     if (r.ok) {
       toast('签到成功：+' + r.reward.coins + ' 金币' + (r.reward.item ? ' +彩虹道具' : ''));
+      // 连续签到每满 7 天（7/14/21/28…）：额外 200 金币发到邮箱
+      if (r.milestone && typeof Mail !== 'undefined' && Mail.sendMail) {
+        try {
+          const id = 'signin-milestone-' + r.streak;
+          if (!Mail.get(id)) {
+            Mail.sendMail({
+              id: id,
+              at: stampNow(),
+              icon: '🎉',
+              title: '恭喜连续签到 ' + r.streak + ' 天',
+              from: '系统',
+              body: '🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n请前往邮箱领取。\n\n点下面的「领取」直接进钱包，明天继续加油～',
+              coins: r.milestone
+            });
+          }
+        } catch (e) {}
+        setTimeout(() => toast('🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n请前往邮箱领取'), 400);
+      }
       AudioManager.playSFX('coin');
       renderWelfare();
       refreshMenu();

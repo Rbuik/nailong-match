@@ -1246,10 +1246,13 @@
     }
 
     // 点击遮罩关闭（重命名/列表类）
+    // 排除列表必须和 game.js 的一致：登录 / 注册 / 补资料 / 强制改名 / 云存档
+    // 这些面板只能靠按钮离开，点背景不能退出（game.js 关了，这里不再开一次口子）
     document.querySelectorAll('.overlay').forEach((ov) => {
       ov.addEventListener('click', (e) => {
         if (e.target !== ov) return;
-        if (['main-menu', 'level-clear', 'game-over', 'game-complete'].indexOf(ov.id) >= 0) return;
+        if (['main-menu', 'level-clear', 'game-over', 'game-complete',
+          'auth-menu', 'auth-form', 'fix-menu', 'nick-menu', 'cloud-menu'].indexOf(ov.id) >= 0) return;
         if (ov.id === 'rename-menu') { renameTarget = null; renameBackTo = ''; }
         ov.style.display = 'none';
       });

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/themes.css">
+<style>
+  body { margin: 0; background: #efe6fb; display: flex; flex-direction: column; align-items: center; gap: 26px; padding: 22px 0; }
+  .cap { font-size: 14px; color: #6b6285; font-weight: 700; margin: 0; }
+  /* 模拟 #game-complete 面板（尺寸对齐手机竖屏） */
+  .gc { width: 420px; height: 720px; border-radius: 24px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
+  .gc.t0 { background: #f6f4fa; }
+</style>
+</head>
+<body>
+
+<!-- 模板生成 6 个称号，见底部脚本 -->
+
+<script>
+const TITLES = [
+  { crown: '🌱', name: '消消乐学徒', cleared: 3,  perfect: 1,  score: 12460,   stars: 5,   ach: 2,  ratio: 0.075, foot: '继续闯关，冲击满星', bg: '#f6f4fa' },
+  { crown: '🥉', name: '消消乐新星', cleared: 12, perfect: 5,  score: 48230,   stars: 21,  ach: 5,  ratio: 0.3,   foot: '继续闯关，冲击满星', bg: '#fdf6ec' },
+  { crown: '🥈', name: '消消乐达人', cleared: 20, perfect: 10, score: 96150,   stars: 43,  ach: 9,  ratio: 0.5,   foot: '继续闯关，冲击满星', bg: '#f3f7fd' },
+  { crown: '🥇', name: '消消乐高手', cleared: 30, perfect: 18, score: 152890,  stars: 70,  ach: 13, ratio: 0.75,  foot: '继续闯关，冲击满星', bg: '#fff9ea' },
+  { crown: '🏆', name: '消消乐大师', cleared: 40, perfect: 30, score: 237425,  stars: 108, ach: 17, ratio: 1,     foot: '',                   bg: '#fdf0dd' },
+  { crown: '👑', name: '消消乐宗师', cleared: 40, perfect: 40, score: 358600,  stars: 120, ach: 25, ratio: 1,     foot: '全部三星，满分毕业 🎉', bg: '#f2ecff' }
+];
+const wrap = document.createElement('div');
+wrap.style.cssText = 'display:flex;flex-direction:column;align-items:center;gap:26px;';
+document.body.appendChild(wrap);
+TITLES.forEach((t) => {
+  const cap = document.createElement('p');
+  cap.className = 'cap';
+  cap.textContent = '称号：' + t.name;
+  const gc = document.createElement('div');
+  gc.className = 'gc';
+  gc.style.background = t.bg;
+  gc.innerHTML =
+    '<div class="master-stage">' +
+      '<h2 class="title small">🎉 恭喜</h2>' +
+      '<div class="master-card">' +
+        '<div class="master-head"><span class="master-crown">' + t.crown + '</span>' +
+        '<div class="master-title-box"><b>' + t.name + '</b></div></div>' +
+        '<div class="master-bar"><span style="transition:none;width:' + Math.round(t.ratio * 100) + '%"></span></div>' +
+        '<p class="master-progress">已通 ' + t.cleared + ' 关 · 三星 ' + t.perfect + ' 关</p>' +
+        '<div class="master-grid">' +
+          '<div class="master-item"><span>主线总分</span><b>' + t.score + '</b></div>' +
+          '<div class="master-item"><span>总星数</span><b>' + t.stars + '</b></div>' +
+          '<div class="master-item"><span>三星关卡</span><b>' + t.perfect + '</b></div>' +
+          '<div class="master-item"><span>成就</span><b>' + t.ach + '</b></div>' +
+        '</div>' +
+        '<p class="master-foot">' + t.foot + '</p>' +
+      '</div>' +
+    '</div>';
+  wrap.appendChild(cap);
+  wrap.appendChild(gc);
+});
+</script>
+</body>
+</html>

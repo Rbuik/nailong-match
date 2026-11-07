@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261108i">
-<link rel="stylesheet" href="./css/themes.css?v=20261108i">
+<link rel="stylesheet" href="./css/style.css?v=20261108j">
+<link rel="stylesheet" href="./css/themes.css?v=20261108j">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -271,31 +271,32 @@
     <h2 class="title small">🧩 功能介绍</h2>
     <div class="rules-box" id="features-box">
       <section class="rule-sec">
-        <h3>左上角：🏠 主页 · 📮 邮箱 · 📖 说明</h3>
+        <h3>左上角</h3>
         <p><b>🏠 主页</b>：看当前昵称，点「✏️ 改名」改名字（账号名一起变）。</p>
         <p><b>📮 邮箱</b>：系统公告和奖励。有未读亮<b>红角标</b>，带奖励的点「领取」进钱包，每封只能领一次。</p>
         <p><b>📖 说明</b>：就是这一页。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>右上角：⚙️ 设置 · 🎵 音乐 · 🎒 背包</h3>
+        <h3>右上角</h3>
         <p><b>⚙️ 设置</b>：账号安全（改密码 / 切换账号 / 云存档 / 存档码 / 注销）和音乐设置。</p>
         <p><b>🎵 音乐</b>：只开关背景音乐，音效照常。</p>
         <p><b>🎒 背包</b>：买到的道具都在里面，<b>点「使用」才生效</b>。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>主页中间：进度与开始</h3>
+        <h3>进度与开始</h3>
         <p>显示<b>当前进度、本关最高分、总星星、金币</b>。用 <b>◀ ▶</b> 切到别的关，点 <b>🎮 开始游戏</b> 进关。</p>
       </section>
 
       <section class="rule-sec">
-        <h3>主页按钮区（10 个键）</h3>
+        <h3>主页按钮区</h3>
         <p><b>🗺️ 章节地图</b>：按章节推进，每关 1 星解锁下一关；章节奖励 <b>200 金币</b> 发到邮箱。</p>
         <p><b>🏆 关卡记录</b>：每关的分数和星星，点一关就切过去；右下角「结算」看<b>成绩单</b>。</p>
-        <p><b>🎯 每日任务</b>：每天 <b>5</b> 个（尽量每天不重样），完成后回来领金币。<b>📅 每日挑战</b>：所有人同一局，拿到 3 星当天封盘。</p>
+        <p><b>🎯 每日任务</b>：每天 <b>5</b> 个（尽量每天不重样），完成后回来领金币。</p>
+        <p><b>📅 每日挑战</b>：拿到 3 星时，当天封盘；每个玩家的棋盘都是随机布局。</p>
         <p><b>🎮 更多玩法</b>：无尽模式、60 秒冲刺、节奏关卡，成绩单独记，<b>不提供续命</b>。</p>
-        <p><b>🎁 签到</b>：7 天一轮，断签可 <b>300 金币</b> 补签；旁边每日<b>转盘</b>免费 1 次。</p>
+        <p><b>🎁 签到</b>：每天 <b>50 金币</b>；连续签到每满 7 天（7 / 14 / 21 / 28…）额外送 <b>200 金币</b>到邮箱。断签可 <b>300 金币</b> 补签；旁边每日<b>转盘</b>免费 1 次。</p>
         <p><b>🛒 购物商店</b>：+3 步、+7s、洗牌、撤回、开局线消 / 炸弹、彩虹，买前弹确认。</p>
         <p><b>🎨 棋盘配色</b>：按总星星解锁，只换光晕和目标栏底色。</p>
         <p><b>🏅 成就</b>：每枚 5 阶（灰 → 铜 → 银 → 金 → 彩），升一阶奖 <b>50 / 100 / 150 / 200</b> 金币；点进某一枚直接停在<b>已解锁的最高阶</b>，左右滑看各阶奖杯、领奖，没领的会亮<b>小红点</b>。</p>
@@ -368,7 +369,7 @@
       </section>
 
       <section class="rule-sec">
-        <h3>🎯 关卡目标（9 种）</h3>
+        <h3>🎯 关卡目标</h3>
         <p><b>普通得分</b>：步数内到目标分。</p>
         <p><b>收集方块</b>：集齐指定图案与数量。</p>
         <p><b>清除果冻</b>：清掉全部果冻。</p>
@@ -759,23 +760,25 @@
 
   <!-- 🎉 恭喜：主线成绩单（关卡记录右下角「结算」键随时可看） -->
   <div class="overlay" id="game-complete" style="display:none;">
-    <h2 class="title small">🎉 恭喜</h2>
-    <div class="master-card">
-      <div class="master-head">
-        <span class="master-crown" id="master-crown">🌱</span>
-        <div class="master-title-box">
-          <b id="master-title">消消乐学徒</b>
+    <div class="master-stage">
+      <h2 class="title small">🎉 恭喜</h2>
+      <div class="master-card">
+        <div class="master-head">
+          <span class="master-crown" id="master-crown">🌱</span>
+          <div class="master-title-box">
+            <b id="master-title">消消乐学徒</b>
+          </div>
         </div>
+        <div class="master-bar"><span id="master-bar-fill"></span></div>
+        <p class="master-progress" id="master-progress">已通 0 关 · 三星 0 关</p>
+        <div class="master-grid">
+          <div class="master-item"><span>主线总分</span><b id="complete-total-score">0</b></div>
+          <div class="master-item"><span>总星数</span><b id="complete-total-stars">0</b></div>
+          <div class="master-item"><span>三星关卡</span><b id="master-perfect">0</b></div>
+          <div class="master-item"><span>成就</span><b id="master-ach">0</b></div>
+        </div>
+        <p class="master-foot" id="master-foot">继续闯关，冲击满星</p>
       </div>
-      <div class="master-bar"><span id="master-bar-fill"></span></div>
-      <p class="master-progress" id="master-progress">已通 0 关 · 三星 0 关</p>
-      <div class="master-grid">
-        <div class="master-item"><span>主线总分</span><b id="complete-total-score">0</b></div>
-        <div class="master-item"><span>总星数</span><b id="complete-total-stars">0</b></div>
-        <div class="master-item"><span>三星关卡</span><b id="master-perfect">0</b></div>
-        <div class="master-item"><span>成就</span><b id="master-ach">0</b></div>
-      </div>
-      <p class="master-foot" id="master-foot">继续闯关，冲击满星</p>
     </div>
   </div>
   <!-- 章节地图 -->
@@ -971,22 +974,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261108i"></script>
-<script src="./js/storage.js?v=20261108i"></script>
-<script src="./js/audio.js?v=20261108i"></script>
-<script src="./js/effects.js?v=20261108i"></script>
-<script src="./js/specials.js?v=20261108i"></script>
-<script src="./js/goals.js?v=20261108i"></script>
-<script src="./js/tasks.js?v=20261108i"></script>
-<script src="./js/mail.js?v=20261108i"></script>
-<script src="./js/input.js?v=20261108i"></script>
-<script src="./js/builtin-music.js?v=20261108i"></script>
-<script src="./js/music.js?v=20261108i"></script>
-<script src="./js/meta.js?v=20261108i"></script>
-<script src="./js/cloud-config.js?v=20261108i"></script>
-<script src="./js/cloud.js?v=20261108i"></script>
-<script src="./js/account.js?v=20261108i"></script>
-<script src="./js/board.js?v=20261108i"></script>
-<script src="./js/game.js?v=20261108i"></script>
+<script src="./js/rng.js?v=20261108j"></script>
+<script src="./js/storage.js?v=20261108j"></script>
+<script src="./js/audio.js?v=20261108j"></script>
+<script src="./js/effects.js?v=20261108j"></script>
+<script src="./js/specials.js?v=20261108j"></script>
+<script src="./js/goals.js?v=20261108j"></script>
+<script src="./js/tasks.js?v=20261108j"></script>
+<script src="./js/mail.js?v=20261108j"></script>
+<script src="./js/input.js?v=20261108j"></script>
+<script src="./js/builtin-music.js?v=20261108j"></script>
+<script src="./js/music.js?v=20261108j"></script>
+<script src="./js/meta.js?v=20261108j"></script>
+<script src="./js/cloud-config.js?v=20261108j"></script>
+<script src="./js/cloud.js?v=20261108j"></script>
+<script src="./js/account.js?v=20261108j"></script>
+<script src="./js/board.js?v=20261108j"></script>
+<script src="./js/game.js?v=20261108j"></script>
 </body>
 </html>
