@@ -2229,6 +2229,11 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
+  /* 称号后面接玩家名，名字长了就省略，别把卡片撑破 */
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .master-title-box i {
   font-style: normal;

@@ -2718,11 +2718,15 @@ function check(name, ok) {
       /rainbowEmojiData\('🎉'\)/.test(fn) &&
       /master-greet-ico/.test(fn);
   })());
-  check('成绩单按进度算称号，全三星才叫宗师；文案不写「/总数」「还差」', (() => {
+  check('成绩单按进度算称号（等级·玩家名），全三星才叫宗师；文案不写「/总数」「还差」', (() => {
     const fn = jsSrc.slice(jsSrc.indexOf('function showCompletePanel'), jsSrc.indexOf('function levelHasCandy'));
-    return /title = '消消乐宗师'/.test(fn) && /title = '消消乐大师'/.test(fn) &&
-      /title = '消消乐高手'/.test(fn) && /title = '消消乐达人'/.test(fn) &&
-      /title = '消消乐新星'/.test(fn) &&
+    // 称号 = 等级 + 「·」 + 玩家名，例如「达人·奶龙玩家」
+    return /let rank = '学徒'/.test(fn) &&
+      /rank = \(perfect >= total\) \? '宗师' : '大师'/.test(fn) &&
+      /rank = '高手'/.test(fn) && /rank = '达人'/.test(fn) && /rank = '新星'/.test(fn) &&
+      /const title = rank \+ '·' \+ nick/.test(fn) &&
+      /Meta\.nickname\(\)/.test(fn) &&
+      !/消消乐学徒|消消乐达人/.test(fn) &&
       /'已通 ' \+ cleared \+ ' 关 · 三星 ' \+ perfect \+ ' 关'/.test(fn) &&
       !/还差/.test(fn) && !fn.includes('主线全部通关');
   })());

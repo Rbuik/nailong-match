@@ -3970,20 +3970,26 @@
     });
     const ratio = Math.min(1, cleared / total);
 
-    // 称号：按通关进度（全部通关后再看三星数）
-    let title = '消消乐学徒';
-    if (cleared >= total) {
-      if (perfect >= total) title = '消消乐宗师';
-      else title = '消消乐大师';
-    } else if (ratio >= 0.75) title = '消消乐高手';
-    else if (ratio >= 0.5) title = '消消乐达人';
-    else if (ratio >= 0.25) title = '消消乐新星';
+    // 称号：等级 + 玩家名（如「达人·奶龙玩家」）；等级按通关进度，全通关后再看三星数
+    let rank = '学徒';
+    if (cleared >= total) rank = (perfect >= total) ? '宗师' : '大师';
+    else if (ratio >= 0.75) rank = '高手';
+    else if (ratio >= 0.5) rank = '达人';
+    else if (ratio >= 0.25) rank = '新星';
+    let nick = '奶龙玩家';
+    try { if (typeof Meta !== 'undefined' && Meta.nickname) nick = Meta.nickname() || '奶龙玩家'; } catch (e) {}
+    const title = rank + '·' + nick;
 
     const setText = (id, v) => { const el = $(id); if (el) el.textContent = v; };
     // 称号左边的方块：所有称号统一放原色奶龙贴图（什么颜色就是什么颜色，不染色不换图）
     const crownBox = $('master-crown');
     if (crownBox) crownBox.innerHTML = '<img src="./assets/nailong.png" alt="奶龙">';
     setText('master-title', title);
+    // 名字长了（8 字昵称 + 等级）就把称号字号收一点，别撑出卡片
+    if ($('master-title')) {
+      const n = title.length;
+      $('master-title').style.fontSize = n <= 7 ? '20px' : (n <= 9 ? '18px' : '16px');
+    }
     // 「🎉 恭喜」彩色：文字由 CSS 渐变裁切，🎉 用彩虹填充的图片（彩色字形无法直接染色）
     const greetIco = $('master-greet-ico');
     if (greetIco) {
