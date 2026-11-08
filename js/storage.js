@@ -97,24 +97,32 @@
 
   function getDailyRecord() {
     const rec = read(K.daily, null);
-    if (!rec || rec.date !== dailyKey()) return { date: dailyKey(), best: 0, times: 0, stars: 0 };
-    return { date: rec.date, best: rec.best || 0, times: rec.times || 0, stars: rec.stars || 0 };
+    if (!rec || rec.date !== dailyKey()) return { date: dailyKey(), best: 0, times: 0, stars: 0, moves: 0, coins: 0 };
+    return { date: rec.date, best: rec.best || 0, times: rec.times || 0, stars: rec.stars || 0, moves: rec.moves || 0, coins: rec.coins || 0 };
   }
 
   // 返回记录后的最佳分和是否刷新（当天第一次完成同样算新纪录）
   // stars 也一并记录：拿到 3 星后当天不能再挑战
-  function recordDaily(score, stars) {
+  // movesUsed：完成挑战这局用的步数（只记历史最少）；bonusCoins：完成奖励金币（一天只发一次）
+  function recordDaily(score, stars, movesUsed, bonusCoins) {
     const cur = getDailyRecord();
     const first = !cur.times;
     const isNewScore = first || score > cur.best;
+    const completed = (stars || 0) >= 1;   // 过关才算完成任务
+    let moves = cur.moves || 0;
+    if (completed && typeof movesUsed === 'number' && movesUsed >= 0) {
+      moves = moves ? Math.min(moves, movesUsed) : movesUsed;
+    }
     const next = {
       date: cur.date,
       best: first ? score : Math.max(cur.best, score),
       times: cur.times + 1,
-      stars: Math.max(cur.stars || 0, stars || 0)
+      stars: Math.max(cur.stars || 0, stars || 0),
+      moves: moves,
+      coins: bonusCoins ? bonusCoins : (cur.coins || 0)
     };
     write(K.daily, next);
-    return { isNewScore, best: next.best, times: next.times, stars: next.stars, first };
+    return { isNewScore, best: next.best, times: next.times, stars: next.stars, moves: next.moves, coins: next.coins, first };
   }
 
   // 玩过标记：只记「这关动过手」，不影响分数与星级（用于主页按钮区分「没玩过 / 玩过没通关」）

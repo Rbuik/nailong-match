@@ -3041,9 +3041,19 @@
       ? (Store.getDailyRecord().stars || 0)
       : (Store.getLevelRecord(S.level).stars || 0);
     const stars = Math.max(starsNow, bestStars);
+    // 每日挑战完成奖励：只有完成任务才发金币，用步越少给得越多（一天只发一次）
+    let dailyBonus = 0;
+    let dailyMovesUsed = -1;
+    if (S.daily) {
+      dailyMovesUsed = Math.max(0, (S.levelDef.moves || 20) - S.moves);
+      if (!again && starsNow >= 1 && !Store.getDailyRecord().coins) {
+        dailyBonus = 30 + (20 - dailyMovesUsed) * 4;   // 20 步打完 30 枚，每省 1 步 +4
+        Store.addCoins(dailyBonus);
+      }
+    }
     // 每日挑战也留一个「当天最佳」的纪录，第一次完成同样算新纪录
     const rec = S.daily
-      ? Store.recordDaily(S.score, starsNow)
+      ? Store.recordDaily(S.score, starsNow, dailyMovesUsed, dailyBonus)
       : Store.recordLevel(S.level, S.score, starsNow);
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
@@ -5155,12 +5165,8 @@
         startLevel(9999, { def: d, seed: d.seed, daily: true });
       });
     });
-    const dailyDoneHome = $('btn-daily-done-home');
-    if (dailyDoneHome) dailyDoneHome.addEventListener('click', () => {
-      $('daily-done').style.display = 'none';
-      showOverlay('main-menu');
-      refreshMenu();
-    });
+    // 「返回主页」键已删：点面板外空白回主页（panelBack）
+
     // 注销：两步确认弹窗（是/确认 = 红色，否/取消 = 绿色）
     const logout = $('btn-logout');
     if (logout) logout.addEventListener('click', () => {
@@ -6006,6 +6012,7 @@
       'playlist-menu': 'music-settings-menu',
       'auth-form': 'auth-menu',  // 只在登录 / 注册内部来回，永远进不了游戏
       // auth-menu（选登录还是注册的入口页）故意不在表里：点空白不动，不登录 / 不注册就只能停在这
+      'daily-done': 'main-menu', // 每日挑战结算页：点空白回主页
       'tasks-menu': 'main-menu',
       'chapters-menu': 'main-menu',
       'story-menu': 'chapters-menu',
@@ -6042,6 +6049,9 @@
           return true;
         case 'history-menu':
           hidePanel('history-menu'); showOverlay('main-menu'); refreshMenu();
+          return true;
+        case 'daily-done':
+          hidePanel('daily-done'); showOverlay('main-menu'); refreshMenu();
           return true;
         case 'backup-menu':
         case 'backup-import-menu':
@@ -6138,7 +6148,9 @@
       starEls[i].classList.toggle('on', i < (rec.stars || 0));
     }
     if ($('daily-done-star-num')) $('daily-done-star-num').textContent = rec.stars || 0;
-    if ($('daily-done-score')) $('daily-done-score').textContent = rec.best || 0;
+    // 用步：完成挑战那局用的步数（取历史最少）；金币：完成任务才发的奖励
+    if ($('daily-done-moves')) $('daily-done-moves').textContent = rec.moves || 0;
+    if ($('daily-done-coins')) $('daily-done-coins').textContent = '+' + (rec.coins || 0);
     showOverlay('daily-done');
   }
 
@@ -6867,8 +6879,8 @@
   }
 
   // ---------- 签到入口：日期条 + 签到 + 转盘 ----------
-  // 日期条：本轮周期每天一格（显示真实日期），后面多显示 3 天；
-  // 左右滑动看全部；签到了 = 绿色，今天 = 虚线框，漏签 = 红色（点击弹补签窗口）
+  // 日期条：今天固定在中间，两边各显示 4 天（共 9 天）；每天标注当日金币奖励；
+  // 左右滑动看全部；签到了 = 绿色 ✓，今天 = 虚线框，漏签 = 红色（点击弹补签窗口）
   function renderWelfare() {
     const info = Meta.signInfo();
     const dayBox = $('welfare-sign');
@@ -6882,15 +6894,23 @@
       if (!start) start = new Date(today);
       const fmt = (d) => (d.getMonth() + 1) + '/' + d.getDate();
       const week = ['日', '一', '二', '三', '四', '五', '六'];
-      const total = 7 + 3;   // 本轮 7 天 + 多显示的 3 天
       const dates = info.dates || [];
-      for (let i = 0; i < total; i++) {
-        const d = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+      for (let off = -4; off <= 4; off++) {
+        const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + off);
         const k = Store.todayKey(d);
         const isFuture = d > today;
-        const isToday = d.getTime() === today.getTime();
+        const isToday = off === 0;
         const signed = dates.indexOf(k) >= 0;
-        const missed = !signed && !isFuture && st.canMakeup;
+        // 漏签：本轮周期内、今天之前、还没签（周期前的日子补签接口不认，不算漏签）
+        const missed = !signed && !isFuture && st.canMakeup && d >= start;
+
+        // 每天的奖励：按本轮周期日取（越界就按 7 天一轮回取），全部日子都标出金币数
+        let reward = null;
+        if (info.rewards && info.rewards.length) {
+          const diff = Math.round((d - start) / 86400000);
+          const idx = ((diff % info.rewards.length) + info.rewards.length) % info.rewards.length;
+          reward = info.rewards[idx] || info.rewards[0];
+        }
 
         const cell = document.createElement('div');
         cell.className = 'sign-day' +
@@ -6898,13 +6918,20 @@
           (isToday ? ' today' : '') +
           (missed ? ' missed' : '') +
           (isFuture ? ' future' : '');
-        const reward = info.rewards[i];
         cell.innerHTML = '<i>' + week[d.getDay()] + ' ' + fmt(d) + '</i>' +
           '<b>' + (signed ? '✓' : (reward ? (reward.item ? '🌈' : reward.coins) : '—')) + '</b>';
         if (missed) {
           cell.addEventListener('click', () => openMakeupConfirm(d, k));
         }
         dayBox.appendChild(cell);
+      }
+      // 滑动定位：今天那一格居中（两边各正好露出 4 天）。
+      // 面板刚渲染时可能还没显示（clientWidth=0），放到下一帧等布局完成再定位
+      const todayCell = dayBox.querySelector('.sign-day.today');
+      if (todayCell) {
+        requestAnimationFrame(() => {
+          dayBox.scrollLeft = todayCell.offsetLeft - (dayBox.clientWidth - todayCell.offsetWidth) / 2;
+        });
       }
     }
     const btn = $('btn-welfare-signin');

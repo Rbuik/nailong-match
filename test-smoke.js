@@ -516,6 +516,19 @@ function check(name, ok) {
       /e\.target !== ov\) return;\s*\n\s*panelBack\(ov\.id\)/.test(gjs) &&
       /'mail-view': 'mail-menu'/.test(gjs) && /'chapters-menu': 'main-menu'/.test(gjs);
   })());
+  check('每日挑战结算页：用步 + 获得金币两行、没有返回主页键，点空白回主页', (() => {
+    const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
+    const sjs = fs.readFileSync(path.join(__dirname, 'js', 'storage.js'), 'utf8');
+    const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="daily-done"'), htmlSrc0.indexOf('id="game-complete"'));
+    return sec.includes('id="daily-done-moves"') && sec.includes('id="daily-done-coins"') &&
+      !sec.includes('daily-done-score') && !sec.includes('btn-daily-done-home') &&
+      /id="daily-done-star-num"[\s\S]*id="daily-done-moves"[\s\S]*id="daily-done-coins"/.test(sec) &&
+      gjs.includes("'daily-done': 'main-menu'") &&
+      /recordDaily\(S\.score, starsNow, dailyMovesUsed, dailyBonus\)/.test(gjs) &&
+      /30 \+ \(20 - dailyMovesUsed\) \* 4/.test(gjs) &&
+      /function recordDaily\(score, stars, movesUsed, bonusCoins\)/.test(sjs) &&
+      /moves: moves,/.test(sjs) && /coins: bonusCoins \? bonusCoins/.test(sjs);
+  })());
   check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，放在滚动区外面（下方右对齐）', (() => {
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="mail-list"'), htmlSrc0.indexOf('id="mail-view"'));
     return /class="mail-emoji-btn" id="btn-mail-read-all"[^>]*>✅</.test(sec) &&
@@ -764,7 +777,12 @@ function check(name, ok) {
   $('collection-menu').dispatch('click');
 
   $('btn-welfare').dispatch('click');
-  check('签到入口渲染日期条（7 天 + 多显示 3 天）', $('welfare-sign').children.length === 10);
+  check('签到日期条：今天居中，两边各 4 天（共 9 格），每天标出当日金币', (() => {
+    const cells = Array.from($('welfare-sign').children || []);
+    const todayIdx = cells.findIndex((c) => String(c.className).indexOf('today') >= 0);
+    return cells.length === 9 && todayIdx === 4 &&
+      cells.every((c) => /[✓🌈]|\d{2}/.test(String(c.innerHTML)));
+  })());
   $('welfare-menu').dispatch('click');
 
   $('btn-modes').dispatch('click');
