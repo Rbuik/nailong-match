@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261110k">
-<link rel="stylesheet" href="./css/themes.css?v=20261110k">
+<link rel="stylesheet" href="./css/style.css?v=20261110l">
+<link rel="stylesheet" href="./css/themes.css?v=20261110l">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -291,7 +291,7 @@
 
       <section class="rule-sec">
         <h3>右上角</h3>
-        <p><b>⚙️ 设置</b>：账号安全（改密码 / 切换账号 / 云存档 / 存档码 / 注销）和音乐设置。</p>
+        <p><b>⚙️ 设置</b>：账号安全（改密码 / 切换账号 / 存档账号 / 注销）和音乐设置。</p>
         <p><b>🎵 音乐</b>：只开关背景音乐，音效照常。</p>
         <p><b>🎒 背包</b>：买到的道具都在里面，<b>点「使用」确认后生效</b>。</p>
       </section>
@@ -495,13 +495,19 @@
     </div>
     <button class="btn-primary" id="btn-goto-password">🔑 修改密码</button>
     <button class="btn-primary" id="btn-goto-switch">🔄 切换账号</button>
-    <button class="btn-primary" id="btn-goto-cloud">☁️ 云存档（自动）</button>
-    <button class="btn-primary" id="btn-goto-backup">💾 存档码</button>
+    <button class="btn-primary" id="btn-goto-save">💾 存档账号</button>
     <button class="btn-danger-outline" id="btn-logout">🔒 注销账号</button>
   </div>
 
+  <!-- 存档账号：云存档 + 存档码 二合一 -->
+  <div class="overlay" id="save-menu" style="display:none;">
+    <h2 class="title small">💾 存档账号</h2>
+    <button class="btn-primary" id="btn-goto-cloud">☁️ 云存档（自动）</button>
+    <button class="btn-primary" id="btn-goto-backup">📂 存档码</button>
+  </div>
+
   <!-- 存档码：网址变了 / 换设备 / 微信清缓存时，把账号和进度整份搬过去 -->
-  <!-- 存档码：生成（设置 → 🔐 账号安全 → 💾 存档码） -->
+  <!-- 存档码：生成（设置 → 🔐 账号安全 → 💾 存档账号 → 📂 存档码） -->
   <div class="overlay" id="backup-menu" style="display:none;">
     <h2 class="title small">💾 存档码</h2>
     <div class="auth-box">
@@ -576,14 +582,14 @@
     <div class="auth-box">
       <label class="auth-label" for="forgot-name">名字</label>
       <input class="auth-input" type="text" id="forgot-name" maxlength="8" placeholder="输入你的名字" autocomplete="off">
-      <label class="auth-label" for="forgot-uid">身份号码 <span class="auth-label-tip" id="forgot-uid-tip">（换设备找回才要填）</span></label>
+      <label class="auth-label" for="forgot-uid">身份号码</label>
       <input class="auth-input" type="text" id="forgot-uid" maxlength="12" placeholder="p 开头的一串字母数字" autocomplete="off">
       <label class="auth-label" for="forgot-pass">新密码</label>
       <input class="auth-input" type="password" id="forgot-pass" maxlength="24" placeholder="4~24 位，不能有空格" autocomplete="off">
       <label class="auth-label" for="forgot-pass2">再输一次</label>
       <input class="auth-input" type="password" id="forgot-pass2" maxlength="24" placeholder="确认新密码" autocomplete="off">
       <p class="auth-err" id="forgot-err"></p>
-      <p class="auth-tip" id="forgot-tip">本机会自动认出你登录过的账号，不用填身份号码。</p>
+      <p class="auth-tip" id="forgot-tip" style="display:none"></p>
     </div>
     <button class="btn-primary" id="btn-forgot-submit">重设密码</button>
   </div>
@@ -1025,22 +1031,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261110k"></script>
-<script src="./js/storage.js?v=20261110k"></script>
-<script src="./js/audio.js?v=20261110k"></script>
-<script src="./js/effects.js?v=20261110k"></script>
-<script src="./js/specials.js?v=20261110k"></script>
-<script src="./js/goals.js?v=20261110k"></script>
-<script src="./js/tasks.js?v=20261110k"></script>
-<script src="./js/mail.js?v=20261110k"></script>
-<script src="./js/input.js?v=20261110k"></script>
-<script src="./js/builtin-music.js?v=20261110k"></script>
-<script src="./js/music.js?v=20261110k"></script>
-<script src="./js/meta.js?v=20261110k"></script>
-<script src="./js/cloud-config.js?v=20261110k"></script>
-<script src="./js/cloud.js?v=20261110k"></script>
-<script src="./js/account.js?v=20261110k"></script>
-<script src="./js/board.js?v=20261110k"></script>
-<script src="./js/game.js?v=20261110k"></script>
+<script src="./js/rng.js?v=20261110l"></script>
+<script src="./js/storage.js?v=20261110l"></script>
+<script src="./js/audio.js?v=20261110l"></script>
+<script src="./js/effects.js?v=20261110l"></script>
+<script src="./js/specials.js?v=20261110l"></script>
+<script src="./js/goals.js?v=20261110l"></script>
+<script src="./js/tasks.js?v=20261110l"></script>
+<script src="./js/mail.js?v=20261110l"></script>
+<script src="./js/input.js?v=20261110l"></script>
+<script src="./js/builtin-music.js?v=20261110l"></script>
+<script src="./js/music.js?v=20261110l"></script>
+<script src="./js/meta.js?v=20261110l"></script>
+<script src="./js/cloud-config.js?v=20261110l"></script>
+<script src="./js/cloud.js?v=20261110l"></script>
+<script src="./js/account.js?v=20261110l"></script>
+<script src="./js/board.js?v=20261110l"></script>
+<script src="./js/game.js?v=20261110l"></script>
 </body>
 </html>

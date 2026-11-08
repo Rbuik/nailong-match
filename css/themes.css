@@ -1342,6 +1342,9 @@ body.m-dragging .m-item { cursor: grabbing; }
 .sign-day.signed { background: rgba(92, 200, 143, 0.22); color: #1a8f4a; }
 .sign-day.signed b { color: #1a8f4a; }
 .sign-day.today { outline: 2px dashed #555; outline-offset: -2px; }
+/* 今天：不签也正常显示（日期下面是当日奖励），字用黑色——不当漏签处理 */
+.sign-day.today:not(.signed) { color: #222; }
+.sign-day.today:not(.signed) b { color: #222; }
 /* 今天之前漏签的日子：红色，点击可补签 */
 .sign-day.missed { background: rgba(255, 92, 92, 0.14); color: #c0392b; cursor: pointer; }
 .sign-day.missed b { color: #c0392b; }

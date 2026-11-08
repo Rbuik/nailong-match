@@ -94,6 +94,7 @@ function getEl(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; }
 ['main-menu', 'home-menu', 'admin-menu', 'admin-user-list', 'prov-user-list', 'rules-menu',
   'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'settings-menu',
   'music-settings-menu', 'account-menu', 'backup-menu', 'backup-import-menu', 'password-menu',
+  'save-menu',
   'switch-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu',
   'playlist-menu', 'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu',
   'backpack-menu', 'pause-menu', 'logout-confirm', 'logout-confirm2', 'level-clear', 'game-over',
@@ -1358,6 +1359,33 @@ function check(name, ok) {
       coins === 950 && st.streak === 2 && st.day === 2;
   })());
 
+  // 14d4a2. 今天不算漏签：没签也正常显示当日奖励（黑字 50），不标「补签」、点了也不弹补签窗
+  check('签到页今天那格不标「补签」：正常显示当日奖励 50、黑字，不弹补签窗', (() => {
+    const Store = sandbox.Store;
+    const savedAccs = lsMap.get('nl2:accounts');
+    const savedTasks = lsMap.get('nl2:tasks');
+    const savedWallet = lsMap.get('nl2:wallet');
+    const accs = JSON.parse(savedAccs || '[]');
+    accs.forEach((a) => { a.created = Date.now() - 3 * 86400000; });
+    lsMap.set('nl2:accounts', JSON.stringify(accs));
+    lsMap.set('nl2:tasks', JSON.stringify({ date: Store.todayKey(), list: [], signDay: 0, signDate: '', dates: [], cycleStart: Store.todayKey(new Date(Date.now() - 2 * 86400000)) }));
+    lsMap.set('nl2:wallet', JSON.stringify({ coins: 1000, items: {} }));
+    $('btn-welfare').dispatch('click');
+    const all = Array.from($('welfare-sign').children || []);
+    const todayCell = all.filter((c) => String(c.className).indexOf('today') >= 0)[0];
+    const ok = todayCell &&
+      String(todayCell.className).indexOf('missed') < 0 &&
+      String(todayCell.innerHTML).indexOf('补签') < 0 &&
+      String(todayCell.innerHTML).indexOf('50') >= 0;   // 日期下面是当日奖励 50
+    todayCell.dispatch('click');
+    const noPanel = $('makeup-menu').style.display !== 'flex';
+    $('welfare-menu').dispatch('click');
+    if (savedTasks !== undefined) lsMap.set('nl2:tasks', savedTasks);
+    if (savedWallet !== undefined) lsMap.set('nl2:wallet', savedWallet);
+    if (savedAccs !== undefined) lsMap.set('nl2:accounts', savedAccs); else lsMap.delete('nl2:accounts');
+    return ok && noPanel && /\.sign-day\.today:not\(\.signed\)/.test(cssSrc);
+  })());
+
   // 14d4b. 注销：Board.remove 把人从榜单拿掉，旧消息 / 老快照不再复活
   check('注销后从排行榜消失且不复活', (() => {
     const e = { uid: 'udeltest001', name: '要删的人', score: 5000, level: 3, ts: Date.now() - 60000, pv: '', lv: {} };
@@ -2086,6 +2114,23 @@ function check(name, ok) {
   check('账号上云是新方法（供界面调用）',
     typeof sandbox.Account.pushAccountToCloud === 'function');
   check('账号安全页有常驻的「存到服务器」入口', /id="btn-goto-cloud"/.test(htmlSrc0));
+  // 16b. 存档账号面板：云存档 + 存档码 二合一，点空白回账号安全页
+  check('「💾 存档账号」在切换账号下面，里面是云存档 + 存档码；点空白回账号安全页', (() => {
+    const box = htmlSrc0.slice(htmlSrc0.indexOf('id="account-menu"'), htmlSrc0.indexOf('id="save-menu"'));
+    const inOrder = box.indexOf('btn-goto-switch') >= 0 && box.indexOf('btn-goto-save') >= 0 &&
+      box.indexOf('btn-goto-switch') < box.indexOf('btn-goto-save') &&
+      box.indexOf('btn-goto-cloud') < 0 && box.indexOf('btn-goto-backup') < 0;
+    const save = htmlSrc0.slice(htmlSrc0.indexOf('id="save-menu"'), htmlSrc0.indexOf('save-menu') + 400);
+    const hasBoth = /id="btn-goto-cloud"/.test(save) && /id="btn-goto-backup"/.test(save);
+    // 真点一下：存档账号面板打开 → 点背景回账号安全页
+    $('btn-goto-account').dispatch('click');
+    $('btn-goto-save').dispatch('click');
+    const opened = $('save-menu').style.display === 'flex' && $('account-menu').style.display === 'none';
+    $('save-menu').dispatch('click');
+    const back = $('save-menu').style.display === 'none' && $('account-menu').style.display === 'flex';
+    $('account-menu').dispatch('click');
+    return inOrder && hasBoth && opened && back && /'save-menu': 'account-menu'/.test(jsSrc);
+  })());
   check('已绑定的号点「存到服务器」先真实推送验证（号被删过会自动解绑重弹窗口）',
     /pushCloud\(true\)\.then/.test(jsSrc) && !/已经存到服务器了/.test(jsSrc));
   check('上云窗口点背景可以关掉（进度仍在本机，之后在账号安全里再存）',

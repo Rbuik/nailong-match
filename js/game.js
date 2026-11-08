@@ -3414,7 +3414,7 @@
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
-      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot',
+      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'save-menu',
       'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu',
       'ach-detail',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
@@ -3437,7 +3437,7 @@
     'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
-    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot',
+    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'save-menu',
     'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu', 'ach-detail'];
 
   function setView(view) {
@@ -6107,6 +6107,11 @@
       fillAccountInfo();
       showOverlay('account-menu');
     });
+    // 💾 存档账号：云存档 + 存档码 二合一入口
+    on('btn-goto-save', () => {
+      $('account-menu').style.display = 'none';
+      showOverlay('save-menu');
+    });
     on('btn-close-account', () => {
       $('account-menu').style.display = 'none';
       showOverlay('settings-menu');
@@ -6122,8 +6127,10 @@
       if (backupFrom === 'auth') {
         if ($('auth-menu')) $('auth-menu').style.display = 'none';
         if ($('auth-form')) $('auth-form').style.display = 'none';
-      } else if ($('account-menu')) {
-        $('account-menu').style.display = 'none';
+      } else {
+        // 从「存档账号」面板进来：把它收起来（老入口账号安全页也一并收，保险）
+        if ($('save-menu')) $('save-menu').style.display = 'none';
+        if ($('account-menu')) $('account-menu').style.display = 'none';
       }
       showOverlay('backup-menu');
       setView('menu');
@@ -6147,8 +6154,7 @@
       $('backup-menu').style.display = 'none';
       $('backup-import-menu').style.display = 'none';
       if (backupFrom === 'auth') { showAuthScreen(); return; }
-      fillAccountInfo();
-      showOverlay('account-menu');
+      showOverlay('save-menu');
     }
 
     function genBackupCode() {
@@ -6228,15 +6234,15 @@
           }
           const err = $('cloud-err');
           if (err) err.textContent = '';
-          $('account-menu').style.display = 'none';
-          openCloudMenu('account');
+          if ($('save-menu')) $('save-menu').style.display = 'none';
+          openCloudMenu('save');
         });
         return;
       }
       const err = $('cloud-err');
       if (err) err.textContent = '';
-      $('account-menu').style.display = 'none';
-      openCloudMenu('account');     // 从账号安全页进来：关掉后回账号安全页
+      if ($('save-menu')) $('save-menu').style.display = 'none';
+      openCloudMenu('save');        // 从「存档账号」进来：关掉后回存档账号
     });
 
     // 修改密码
@@ -6408,6 +6414,7 @@
       'account-menu': 'settings-menu',
       'password-menu': 'account-menu',
       'switch-menu': 'account-menu',
+      'save-menu': 'account-menu',  // 存档账号：点空白回账号安全页
       'volume-menu': 'music-settings-menu',
       'custom-music-menu': 'music-settings-menu',
       'music-history-menu': 'custom-music-menu',
@@ -7367,8 +7374,9 @@
         const signed = dates.indexOf(k) >= 0;
         // 注册之前的日子：灰色、日期下面一条杠，不算漏签也不能点
         const isBefore = d < start;
-        // 漏签：注册那天到现在之间、今天之前、还没签（注册之前的日子不算漏签）
-        const missed = !signed && !isFuture && !isBefore && d >= start;
+        // 漏签：注册那天到「昨天」之间、还没签（注册之前的日子不算漏签；
+        // 今天不算漏签——今天还没过完，正常显示当日奖励，要补也是明天以后的事）
+        const missed = !signed && !isFuture && !isToday && !isBefore && d >= start;
 
         // 每天的奖励：按本轮周期日取（越界就按 7 天一轮回取），全部日子都标出金币数
         let reward = null;
@@ -8209,24 +8217,20 @@
   function syncForgotUidHint() {
     const name = ($('forgot-name') || {}).value || '';
     const uidEl = $('forgot-uid');
-    const tipEl = $('forgot-uid-tip');
     const tip = $('forgot-tip');
     const a = (typeof Account !== 'undefined' && Account.localAccount) ? Account.localAccount(name) : null;
     if (!String(name).trim()) {
-      // 还没输名字：别吓人，先说这栏怎么用
+      // 还没输名字：不放提示（玩家填了名字再看下面的说明）
       if (uidEl) { uidEl.value = ''; uidEl.readOnly = false; }
-      if (tipEl) tipEl.textContent = '（换设备找回才要填）';
-      if (tip) tip.innerHTML = '填上名字：本机会自动认号，认出来就不用填身份号码。';
+      if (tip) { tip.innerHTML = ''; tip.style.display = 'none'; }
       return;
     }
     if (a) {
       if (uidEl) { uidEl.value = a.id; uidEl.readOnly = true; }
-      if (tipEl) tipEl.textContent = '（本机已找到，自动填好）';
-      if (tip) tip.innerHTML = '本机认出了「' + a.name + '」：设个新密码就行，进度不会动。';
+      if (tip) { tip.innerHTML = '本机认出了「' + a.name + '」：设个新密码就行，进度不会动。'; tip.style.display = ''; }
     } else {
       if (uidEl) { uidEl.readOnly = false; if (/^p/i.test(String(uidEl.value || '')) && !uidEl.dataset.touched) uidEl.value = ''; }
-      if (tipEl) tipEl.textContent = '（换设备找回才要填）';
-      if (tip) tip.innerHTML = '本机没有这个名字：换设备 / 清了缓存时，要用身份号码证明这个号是你的<br>身份号码在 设置 → 账号安全 里，点一下能复制';
+      if (tip) { tip.innerHTML = '本机没有这个名字：换设备 / 清了缓存时，要用身份号码证明这个号是你的<br>身份号码在 设置 → 账号安全 里，点一下能复制'; tip.style.display = ''; }
     }
   }
 
@@ -8497,23 +8501,23 @@
   // 之后进度就会自动同步上去。密码不会被改动，也不会在这里留存。
   let cloudOffered = false;
   let cloudForced = false;      // 上云窗口的「正在存」态：存成功自己关，也可以被玩家跳过
-  let cloudFrom = 'auto';       // 'auto' 启动时自动弹 | 'account' 从账号安全页点进来
+  let cloudFrom = 'auto';       // 'auto' 启动时自动弹 | 'save' 从「存档账号」面板点进来
 
-  // 云存档页也能关掉：进度本来就在本机，之后在「设置 → 账号安全 → ☁️ 云存档」再补
+  // 云存档页也能关掉：进度本来就在本机，之后在「设置 → 账号安全 → 💾 存档账号 → ☁️ 云存档」再补
   function skipCloud() {
     cloudForced = false;
     cloudOffered = true;                 // 本次不再自动弹
     const box = $('cloud-menu');
     if (box) box.style.display = 'none';
-    // 从哪进来就回哪去：账号安全页 / 主页
-    if (cloudFrom === 'account') showOverlay('account-menu');
+    // 从哪进来就回哪去：存档账号面板 / 主页
+    if (cloudFrom === 'save') showOverlay('save-menu');
     else { showOverlay('main-menu'); refreshMenu(); }
     toast('已跳过上云：进度还在本机，随时可在 设置 → 账号安全 里再存');
   }
 
   function openCloudMenu(from) {
     cloudForced = true;
-    cloudFrom = from === 'account' ? 'account' : 'auto';
+    cloudFrom = from === 'save' ? 'save' : 'auto';
     const err = $('cloud-err');
     if (err) err.textContent = '';
     const rn = $('btn-cloud-rename');
