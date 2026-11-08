@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261110j">
-<link rel="stylesheet" href="./css/themes.css?v=20261110j">
+<link rel="stylesheet" href="./css/style.css?v=20261110k">
+<link rel="stylesheet" href="./css/themes.css?v=20261110k">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -334,7 +334,7 @@
         <h3>账号与云存档</h3>
         <p>注册只要<b>名字 + 密码</b>（4~24 位），名字 <b>1~8 个字符</b>、唯一且区分大小写，特殊符号只能用 <b>- . _</b>。</p>
         <p>账号和进度<b>自动存到服务器</b>，换手机 / 清缓存用名字 + 密码登录就能找回；「💾 存档码」可以整份搬家。</p>
-        <p><b>🔓 忘记密码</b>：登录页点「忘记密码」。同一台手机上直接设新密码就行；换了设备就填<b>名字 + 身份码</b>（身份码在 设置 → 账号安全 里，点一下能复制），服务器核对通过后会把进度一起取回。</p>
+        <p><b>🔓 忘记密码</b>：登录页点「忘记密码」。同一台手机上直接设新密码就行；换了设备就填<b>名字 + 身份号码</b>（身份号码在 设置 → 账号安全 里，点一下能复制），服务器核对通过后会把进度一起取回。</p>
         <p>注销 = <b>彻底删除</b>本机和服务器上的全部数据，无法恢复。</p>
       </section>
     </div>
@@ -490,9 +490,9 @@
     <div class="result-box" style="width:88%;">
       <p><span>当前账号</span><b id="account-cur-name">—</b></p>
       <p><span>注册时间</span><b id="account-created">—</b></p>
-      <p><span>身份码</span><b id="account-uid" title="换设备忘记密码时要用，点一下复制">—</b></p>
+      <p><span>身份号码</span><b id="account-uid" title="换设备忘记密码时要用，点一下复制">—</b></p>
+      <p class="uid-note">忘记密码时需填「名字+身份号码」重置密码</p>
     </div>
-    <p class="history-hint">忘记密码时填「名字 + 身份码」就能重设，身份码建议记下来（点一下可复制）。</p>
     <button class="btn-primary" id="btn-goto-password">🔑 修改密码</button>
     <button class="btn-primary" id="btn-goto-switch">🔄 切换账号</button>
     <button class="btn-primary" id="btn-goto-cloud">☁️ 云存档（自动）</button>
@@ -570,20 +570,20 @@
     <button class="auth-link" id="btn-auth-forgot">忘记密码</button>
   </div>
 
-  <!-- 忘记密码：本机有这个号就直接重设；换设备时用「名字 + 身份码」核验后重设 -->
+  <!-- 忘记密码：本机有这个号就直接重设；换设备时用「名字 + 身份号码」核验后重设 -->
   <div class="overlay auth-page" id="auth-forgot" style="display:none;">
     <h2 class="title small">重设密码</h2>
     <div class="auth-box">
       <label class="auth-label" for="forgot-name">名字</label>
       <input class="auth-input" type="text" id="forgot-name" maxlength="8" placeholder="输入你的名字" autocomplete="off">
-      <label class="auth-label" for="forgot-uid">身份码 <span class="auth-label-tip" id="forgot-uid-tip">（换设备找回才要填）</span></label>
+      <label class="auth-label" for="forgot-uid">身份号码 <span class="auth-label-tip" id="forgot-uid-tip">（换设备找回才要填）</span></label>
       <input class="auth-input" type="text" id="forgot-uid" maxlength="12" placeholder="p 开头的一串字母数字" autocomplete="off">
       <label class="auth-label" for="forgot-pass">新密码</label>
       <input class="auth-input" type="password" id="forgot-pass" maxlength="24" placeholder="4~24 位，不能有空格" autocomplete="off">
       <label class="auth-label" for="forgot-pass2">再输一次</label>
       <input class="auth-input" type="password" id="forgot-pass2" maxlength="24" placeholder="确认新密码" autocomplete="off">
       <p class="auth-err" id="forgot-err"></p>
-      <p class="auth-tip" id="forgot-tip">本机会自动认出你登录过的账号，不用填身份码。</p>
+      <p class="auth-tip" id="forgot-tip">本机会自动认出你登录过的账号，不用填身份号码。</p>
     </div>
     <button class="btn-primary" id="btn-forgot-submit">重设密码</button>
   </div>
@@ -1025,22 +1025,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261110j"></script>
-<script src="./js/storage.js?v=20261110j"></script>
-<script src="./js/audio.js?v=20261110j"></script>
-<script src="./js/effects.js?v=20261110j"></script>
-<script src="./js/specials.js?v=20261110j"></script>
-<script src="./js/goals.js?v=20261110j"></script>
-<script src="./js/tasks.js?v=20261110j"></script>
-<script src="./js/mail.js?v=20261110j"></script>
-<script src="./js/input.js?v=20261110j"></script>
-<script src="./js/builtin-music.js?v=20261110j"></script>
-<script src="./js/music.js?v=20261110j"></script>
-<script src="./js/meta.js?v=20261110j"></script>
-<script src="./js/cloud-config.js?v=20261110j"></script>
-<script src="./js/cloud.js?v=20261110j"></script>
-<script src="./js/account.js?v=20261110j"></script>
-<script src="./js/board.js?v=20261110j"></script>
-<script src="./js/game.js?v=20261110j"></script>
+<script src="./js/rng.js?v=20261110k"></script>
+<script src="./js/storage.js?v=20261110k"></script>
+<script src="./js/audio.js?v=20261110k"></script>
+<script src="./js/effects.js?v=20261110k"></script>
+<script src="./js/specials.js?v=20261110k"></script>
+<script src="./js/goals.js?v=20261110k"></script>
+<script src="./js/tasks.js?v=20261110k"></script>
+<script src="./js/mail.js?v=20261110k"></script>
+<script src="./js/input.js?v=20261110k"></script>
+<script src="./js/builtin-music.js?v=20261110k"></script>
+<script src="./js/music.js?v=20261110k"></script>
+<script src="./js/meta.js?v=20261110k"></script>
+<script src="./js/cloud-config.js?v=20261110k"></script>
+<script src="./js/cloud.js?v=20261110k"></script>
+<script src="./js/account.js?v=20261110k"></script>
+<script src="./js/board.js?v=20261110k"></script>
+<script src="./js/game.js?v=20261110k"></script>
 </body>
 </html>

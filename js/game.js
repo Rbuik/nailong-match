@@ -6054,7 +6054,7 @@
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
         ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
     }
-    // 复制一段文字（身份码用：手机上没有 ctrl+c）
+    // 复制一段文字（身份号码用：手机上没有 ctrl+c）
     function copyPlain(text) {
       const s = String(text || '');
       const fallback = () => {
@@ -6088,17 +6088,17 @@
       const c = $('account-created');
       if (c) c.textContent = (Account.loggedIn() && Account.current() && Account.current().created)
         ? fmtAccTime(Account.current().created) : '—';
-      // 身份码：换设备忘记密码时要用它证明这个号是你的
+      // 身份号码：换设备忘记密码时要用它证明这个号是你的
       const u = $('account-uid');
       if (u) u.textContent = Account.loggedIn() ? String(Account.currentId() || '—') : '—';
     }
 
-    // 点身份码复制（手机上没有 ctrl+c，给一个方便的复制入口）
+    // 点身份号码复制（手机上没有 ctrl+c，给一个方便的复制入口）
     on('account-uid', () => {
       if (!Account.loggedIn()) return;
       const id = String(Account.currentId() || '');
       if (!id) return;
-      copyPlain(id).then((ok) => toast(ok ? '身份码已复制：' + id : '复制失败，长按身份码手动复制'));
+      copyPlain(id).then((ok) => toast(ok ? '身份号码已复制：' + id : '复制失败，长按身份号码手动复制'));
     });
 
     // 设置 → 账号安全：修改密码 / 切换账号
@@ -6305,7 +6305,7 @@
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
     });
 
-    // 忘记密码：本机有这个号就直接重设，换设备时用「名字 + 身份码」核验
+    // 忘记密码：本机有这个号就直接重设，换设备时用「名字 + 身份号码」核验
     on('btn-auth-forgot', () => openForgotForm());
     on('btn-forgot-submit', submitForgot);
     ['forgot-name', 'forgot-uid', 'forgot-pass', 'forgot-pass2'].forEach((id) => {
@@ -7957,7 +7957,7 @@
     const mine = Meta.myUid();
     const taken = [];
     if (typeof Board !== 'undefined') {
-      // 只有「服务器身份码 p…」的榜上名字才算被占用（对应真正在服务器注册过的号）；
+      // 只有「服务器身份号码 p…」的榜上名字才算被占用（对应真正在服务器注册过的号）；
       // 本机码 u… 的成绩是临时的，玩家换设备/清缓存就换码，不能把人家的原名永远锁死
       Board.list().forEach((e) => {
         if (e.uid !== mine && /^p[0-9a-f]{8,}$/i.test(String(e.uid || ''))) taken.push(e.name);
@@ -8198,14 +8198,14 @@
   }
 
   // ==================== 忘记密码 ====================
-  // 本机还留着这个号（同一台设备）→ 直接重设，不用填身份码；
-  // 换了设备 / 清了缓存 → 填「名字 + 身份码」，服务器核验后重设并把存档一起取回。
+  // 本机还留着这个号（同一台设备）→ 直接重设，不用填身份号码；
+  // 换了设备 / 清了缓存 → 填「名字 + 身份号码」，服务器核验后重设并把存档一起取回。
   function setForgotError(msg) {
     const e = $('forgot-err');
     if (e) e.textContent = msg || '';
   }
 
-  // 名字一输入就看本机有没有这个号：有就把身份码自动补上（玩家多半记不住）
+  // 名字一输入就看本机有没有这个号：有就把身份号码自动补上（玩家多半记不住）
   function syncForgotUidHint() {
     const name = ($('forgot-name') || {}).value || '';
     const uidEl = $('forgot-uid');
@@ -8216,7 +8216,7 @@
       // 还没输名字：别吓人，先说这栏怎么用
       if (uidEl) { uidEl.value = ''; uidEl.readOnly = false; }
       if (tipEl) tipEl.textContent = '（换设备找回才要填）';
-      if (tip) tip.innerHTML = '填上名字：本机会自动认号，认出来就不用填身份码。';
+      if (tip) tip.innerHTML = '填上名字：本机会自动认号，认出来就不用填身份号码。';
       return;
     }
     if (a) {
@@ -8226,7 +8226,7 @@
     } else {
       if (uidEl) { uidEl.readOnly = false; if (/^p/i.test(String(uidEl.value || '')) && !uidEl.dataset.touched) uidEl.value = ''; }
       if (tipEl) tipEl.textContent = '（换设备找回才要填）';
-      if (tip) tip.innerHTML = '本机没有这个名字：换设备 / 清了缓存时，要用身份码证明这个号是你的<br>身份码在 设置 → 账号安全 里，点一下能复制';
+      if (tip) tip.innerHTML = '本机没有这个名字：换设备 / 清了缓存时，要用身份号码证明这个号是你的<br>身份号码在 设置 → 账号安全 里，点一下能复制';
     }
   }
 
@@ -8275,7 +8275,7 @@
     if (btn) { btn.disabled = false; btn.textContent = '重设密码'; }
     if (!r || !r.ok) {
       if (r && r.needUid) syncForgotUidHint();
-      return fail((r && r.reason) || '重设失败，检查一下名字和身份码');
+      return fail((r && r.reason) || '重设失败，检查一下名字和身份号码');
     }
 
     $('auth-forgot').style.display = 'none';
@@ -8586,7 +8586,7 @@
     cloudForced = false;
     $('cloud-menu').style.display = 'none';
     toast('已存到服务器，换设备也能找回了');
-    // 身份码换成了服务器码：旧码那条榜单记录已经撤掉，用新码重新发一次成绩
+    // 身份号码换成了服务器码：旧码那条榜单记录已经撤掉，用新码重新发一次成绩
     setTimeout(() => { try { publishMyScore(true); } catch (e) {} }, 300);
     try { AudioManager.playSFX('coin'); } catch (e) {}
     return true;

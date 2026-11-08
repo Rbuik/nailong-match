@@ -138,7 +138,7 @@
       });
   }
 
-  // 忘记密码：名字 + 身份码（服务器上的账号 id）核验通过后重设密码，存档一起取回
+  // 忘记密码：名字 + 身份号码（服务器上的账号 id）核验通过后重设密码，存档一起取回
   function recover(nick, uid, newPass) {
     if (!sdkOk) return Promise.resolve({ ok: false, offline: true, reason: '云服务没配置' });
     return call('nl_recover', {

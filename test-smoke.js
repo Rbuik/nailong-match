@@ -2299,7 +2299,7 @@ function check(name, ok) {
     !lsMap.has('nl2:progress') && !lsMap.has('nl2:wallet'));
   sandbox.__cloudOn = false;
 
-  // 38. 换身份码（本机码 u… → 服务器码 p…）后，榜单不能出现两个一模一样的名字
+  // 38. 换身份号码（本机码 u… → 服务器码 p…）后，榜单不能出现两个一模一样的名字
   sandbox.Board.publish({ uid: 'uabc12345', name: '重名去重', score: 500, level: 2 }, true);
   check('本机码成绩进榜', sandbox.Board.list().filter((e) => e.name === '重名去重').length === 1);
   sandbox.Board.publish({ uid: 'p0123456789abcdef', name: '重名去重', score: 900, level: 4 }, true);
@@ -2328,7 +2328,7 @@ function check(name, ok) {
   const up = await sandbox.Account.pushAccountToCloud('e2e1234');
   check('存到服务器成功', !!(up && up.ok));
   const newUid = sandbox.Account.current().id;
-  check('身份码换成了服务器码', newUid !== oldUid && newUid.indexOf('srv') === 0);
+  check('身份号码换成了服务器码', newUid !== oldUid && newUid.indexOf('srv') === 0);
   check('迁码后旧码那条已经从榜单撤掉', !sandbox.Board.get(oldUid));
   check('迁码后榜单上没有两条同名', sandbox.Board.list().filter((e) => e.name === '换码测试').length === 0);
   sandbox.__cloudOn = false;
@@ -2676,7 +2676,7 @@ function check(name, ok) {
     $('main-menu').style.display = 'flex';
     return formBack && guest && srcOk;
   })());
-  check('忘记密码：登录页有入口；本机有号直接重设，换设备用「名字 + 身份码」核验后重设', (() => {
+  check('忘记密码：登录页有入口；本机有号直接重设，换设备用「名字 + 身份号码」核验后重设', (() => {
     const cloudSrc = fs.readFileSync(path.join(__dirname, 'js', 'cloud.js'), 'utf8');
     const backSrc = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
     const fg = htmlSrc.slice(htmlSrc.indexOf('id="auth-forgot"'), htmlSrc.indexOf('id="fix-menu"'));
@@ -2697,7 +2697,11 @@ function check(name, ok) {
       /function recover\(nick, uid, newPass\)/.test(cloudSrc) &&
       /nl_recover/.test(cloudSrc) && /doRecover/.test(backSrc) &&
       /'auth-forgot': 'auth-form'/.test(jsSrc) && /case 'auth-forgot':/.test(jsSrc) &&
-      /\.auth-link/.test(cssSrc) && /id="account-uid"/.test(htmlSrc);
+      /\.auth-link/.test(cssSrc) && /id="account-uid"/.test(htmlSrc) &&
+      // 账号安全页：「身份号码」下面紧跟一行「忘记密码时需填…重置密码」
+      /<p><span>身份号码<\/span><b id="account-uid"/.test(htmlSrc) &&
+      /class="uid-note">忘记密码时需填「名字\+身份号码」重置密码<\/p>/.test(htmlSrc) &&
+      /\.result-box p\.uid-note/.test(cssSrc);
     if (!(domOk && back && srcOk)) console.log('[DBG-FORGOT]', domOk, back, srcOk,
       'disp=', $('auth-forgot').style.display, 'form=', $('auth-form').style.display);
     return domOk && back && srcOk;

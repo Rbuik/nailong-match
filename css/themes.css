@@ -1967,6 +1967,16 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 }
 #account-uid:active { opacity: 0.6; }
 
+/* 身份号码下面的提示：忘记密码怎么用（result-box 的 p 默认 flex，这里改回块级居中） */
+.result-box p.uid-note {
+  display: block;
+  width: 100%;
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: #999;
+  text-align: center;
+}
+
 .btn-row {
   display: flex;
   gap: 10px;

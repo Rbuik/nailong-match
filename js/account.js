@@ -183,7 +183,7 @@
         try { localStorage.setItem(k, slot.keys[k]); } catch (e) {}
       });
     }
-    // 身份码丢了就补回账号 id（榜单靠它认人）
+    // 身份号码丢了就补回账号 id（榜单靠它认人）
     if (!raw('nl2:muid')) write('nl2:muid', id);
     return true;
   }
@@ -196,7 +196,7 @@
       .map((x) => x.name);
     if (global.Board && Board.list) {
       try {
-        // 只有服务器身份码 p… 的榜上名字才算占用；本机码 u… 是临时的，
+        // 只有服务器身份号码 p… 的榜上名字才算占用；本机码 u… 是临时的，
         // 玩家清缓存/换设备后码会变，用原名不该被旧榜条目拦住
         Board.list().forEach((e) => {
           if (e && e.name && e.uid !== excludeId &&
@@ -426,8 +426,8 @@
   // ---------- 忘记密码 ----------
   // 两条路：
   //   ① 本机还留着这个号（同一台设备，进度都在）→ 直接重设，不用证明什么，数据本来就是你的
-  //   ② 本机没有（换设备 / 清了缓存）→ 用「名字 + 身份码」去服务器核验，验过才重设并取回存档
-  // 身份码就是账号 id（p 开头），只在「设置 → 账号安全」里给自己的，算第二凭证。
+  //   ② 本机没有（换设备 / 清了缓存）→ 用「名字 + 身份号码」去服务器核验，验过才重设并取回存档
+  // 身份号码就是账号 id（p 开头），只在「设置 → 账号安全」里给自己的，算第二凭证。
   function resetPassword(name, uid, newPass) {
     const nm = String(name == null ? '' : name).trim();
     const u = String(uid == null ? '' : uid).trim().toLowerCase();
@@ -438,7 +438,7 @@
     const acc = findByName(nm) || findByNameLoose(nm);
     if (acc) {
       if (u && u !== String(acc.id).toLowerCase()) {
-        return Promise.resolve({ ok: false, reason: '名字和身份码对不上，检查一下身份码' });
+        return Promise.resolve({ ok: false, reason: '名字和身份号码对不上，检查一下身份号码' });
       }
       const arr = list();
       const i = arr.findIndex((x) => x.id === acc.id);
@@ -458,7 +458,7 @@
       }
       if (currentId() === acc.id) syncNick(acc);
       if (!cloudOk()) return Promise.resolve({ ok: true, account: acc, local: true, cloud: 'offline' });
-      // 服务器上的密码一起改：有令牌直接改；没有就按「名字 + 身份码」核验后改
+      // 服务器上的密码一起改：有令牌直接改；没有就按「名字 + 身份号码」核验后改
       const doneCloud = (r) => ({ ok: true, account: acc, local: true, cloud: (r && r.ok) ? 'ok' : 'pending' });
       if (acc.ctoken) {
         try {
@@ -477,23 +477,23 @@
       }).catch(doneCloud);
     }
 
-    // 本机没有这个号：必须拿身份码去服务器证明
+    // 本机没有这个号：必须拿身份号码去服务器证明
     if (!u) {
       return Promise.resolve({
         ok: false, needUid: true,
-        reason: '本机没有这个账号：换设备找回要填身份码（设置 → 账号安全 里能看到）'
+        reason: '本机没有这个账号：换设备找回要填身份号码（设置 → 账号安全 里能看到）'
       });
     }
     if (!cloudOk()) return Promise.resolve({ ok: false, reason: '服务器连不上，等有网再试一次' });
     return global.Cloud.recover(nm, u, p.pass).then((r) => {
-      if (!r || !r.ok) return { ok: false, reason: (r && r.reason) || '名字和身份码对不上' };
+      if (!r || !r.ok) return { ok: false, reason: (r && r.reason) || '名字和身份号码对不上' };
       if (wasPurged(String(r.uid || ''), r.nick || nm)) {
         try { global.Cloud.remove().catch(() => {}); } catch (e) {}
         return { ok: false, reason: '这个账号已经注销了，换个名字重新注册就行', purged: true };
       }
       const uid2 = String(r.uid || '');
       const nick2 = String(r.nick || nm).trim() || nm;
-      if (!uid2) return { ok: false, reason: '服务器没有返回身份码' };
+      if (!uid2) return { ok: false, reason: '服务器没有返回身份号码' };
       saveCurrent();
       const acc2 = {
         id: uid2, name: nick2, pass: hash(p.pass),
@@ -517,7 +517,7 @@
     }).catch((e) => ({ ok: false, reason: '网络异常，等有网再试一次' }));
   }
 
-  // 这个名字在本机的账号（忘记密码页用来判断要不要填身份码）
+  // 这个名字在本机的账号（忘记密码页用来判断要不要填身份号码）
   function localAccount(name) {
     const nm = String(name == null ? '' : name).trim();
     if (!nm) return null;
@@ -596,7 +596,7 @@
     try { localStorage.removeItem(PWX + id); } catch (e) {}
   }
 
-  // 把账号 id 迁成服务器身份码（快照跟着搬家）
+  // 把账号 id 迁成服务器身份号码（快照跟着搬家）
   function migrateAccId(acc, uid) {
     if (!/^[A-Za-z0-9_-]{3,24}$/.test(String(uid || '')) ||
         !acc || acc.id === uid || find(uid)) return false;
@@ -612,7 +612,7 @@
     if (currentId() === acc.id) { write(K.cur, uid); write('nl2:muid', uid); }
     acc.id = uid;
     acc.cloud = 1;
-    // 身份码换了，榜单上按旧码存的那条要撤掉（广播注销墓碑）：
+    // 身份号码换了，榜单上按旧码存的那条要撤掉（广播注销墓碑）：
     // 否则新码再发一次成绩，榜单上就出现两个一模一样的名字
     if (oldId && /^[A-Za-z0-9_-]{3,24}$/.test(oldId) && oldId !== uid) {
       try { if (global.Board && Board.remove) Board.remove(oldId); } catch (e2) {}
@@ -951,7 +951,7 @@
     const uid = String(info.uid || '').trim();
     const nick = String(info.nick || '').trim();
     const slot = info.slot && typeof info.slot === 'object' ? info.slot : null;
-    if (!uid) return { ok: false, reason: '服务器没有返回身份码' };
+    if (!uid) return { ok: false, reason: '服务器没有返回身份号码' };
     let arr = list();
     // 名字在本机被另一个账号占着 → 以云端这个号为准，把旧的腾开
     const same = findByName(nick);
