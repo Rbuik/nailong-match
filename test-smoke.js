@@ -1011,6 +1011,10 @@ function check(name, ok) {
       /function openLedgerPop/.test(jsSrc) &&
       /function applyLedgerChoice/.test(jsSrc) &&
       /function closeLedgerPop/.test(jsSrc) &&
+      // 自绘列表的宽度 / 左右位置按当前按键的实测尺寸来，跟三个选择器对齐
+      /function placeLedgerPop/.test(jsSrc) &&
+      /pop\.style\.width = btn\.offsetWidth/.test(jsSrc) &&
+      /pop\.style\.left = btn\.offsetLeft/.test(jsSrc) &&
       /'coin-menu': 'main-menu'/.test(jsSrc);
 
     // 干净起点（不要自动补记的「历史收支」干扰计数）
@@ -2907,7 +2911,7 @@ function check(name, ok) {
       /case 'shop-menu':\s*\n\s*syncShopDot\(\);/.test(jsSrc);
   })());
 
-  check('特殊道具都叫「xx道具」，说明里不留分号、不带「开局」，长说明合并成一句用逗号隔开', (() => {
+  check('特殊道具都叫「xx道具」，说明里不留分号、不带「开局」；商店两行、只有背包合成一行', (() => {
     const shop = sandbox.Tasks.SHOP;
     const specials = ['startFrost', 'startBomb', 'startMagnet', 'startPropeller', 'startLine', 'startPaint', 'rainbow'];
     const namesOk = specials.every((k) => {
@@ -2917,14 +2921,23 @@ function check(name, ok) {
     // 商店里任何道具的名字 / 说明都不许出现「开局」
     const noKaiJu = shop.every((it) => it.name.indexOf('开局') < 0 && it.desc.indexOf('开局') < 0);
     const noSemi = specials.every((k) => shop.find((x) => x.key === k).desc.indexOf('；') < 0);
-    // 长说明一律一行写完：前半句后用逗号接着写，不再换行
-    const oneLine = ['startFrost', 'startMagnet', 'startPropeller', 'startPaint']
+    // 数据里这四件本来就是两句，用换行分开：商店卡片照旧显示两行
+    const twoLine = ['startFrost', 'startMagnet', 'startPropeller', 'startPaint']
       .every((k) => {
         const d = shop.find((x) => x.key === k).desc;
-        return d.indexOf('\n') < 0 && d.indexOf('，') > 0;
+        return d.split('\n').length === 2 && d.indexOf('，') < 0;
       });
-    const noNl = shop.every((it) => it.desc.indexOf('\n') < 0);
-    return namesOk && noKaiJu && noSemi && oneLine && noNl;
+    // 只有背包把换行换成逗号，接成一句话
+    const packInline = jsSrc.indexOf("item.desc.replace(/\\n+/g, '，')") >= 0;
+    // 商店卡片仍然用 <br> 换行
+    const shopBr = jsSrc.indexOf("item.desc.replace(/\\n/g, '<br>')") >= 0;
+    return namesOk && noKaiJu && noSemi && twoLine && packInline && shopBr;
+  })());
+
+  check('通关奖励 / 过关奖励在明细里写明是第几关', (() => {
+    const lv = jsSrc.split("'第 ' + S.level + ' 关'").length - 1;
+    return lv >= 3 && jsSrc.indexOf("'通关奖励', S.daily ? '每日挑战' : ('第 ' + S.level + ' 关')") >= 0 &&
+      /'过关奖励',[\s\S]{0,40}'每日挑战' : \('第 ' \+ S\.level \+ ' 关'\)/.test(jsSrc);
   })());
 
   check('商店做成横滑卡片（一次一张 + 圆点指示），背包仍是竖排列表',

@@ -3100,9 +3100,9 @@
     if (S.daily) refreshMenu();
     if (!S.daily) grantChapterMails();   // 这一关刚好是本章最后一关 → 发章节奖励
 
-    // 金币产出（§7）；续玩后的第二次结算也照发金币
+    // 金币产出（§7）；续玩后的第二次结算也照发金币。明细里写清是哪一关
     const coins = Math.max(10, Math.floor(S.score / 100));
-    Store.addCoins(coins, '通关奖励');
+    Store.addCoins(coins, '通关奖励', S.daily ? '每日挑战' : ('第 ' + S.level + ' 关'));
     if (!again) {
       Tasks.report('play', 1);
       Tasks.report('win', 1);          // 每日任务：通过 1 关
@@ -3235,7 +3235,9 @@
     if (!S.daily) Store.markPlayed(S.level);
     if (S.daily) refreshMenu();
     const coins = passed ? Math.max(10, Math.floor(S.score / 100)) : Math.floor(S.score / 300);
-    Store.addCoins(coins, passed ? '通关奖励' : '过关奖励');
+    // 过没过都标上是哪一关，免得明细里只看到「通关奖励」不知道打的是哪关
+    Store.addCoins(coins, passed ? '通关奖励' : '过关奖励',
+      S.daily ? '每日挑战' : ('第 ' + S.level + ' 关'));
     Tasks.report('play', 1);
     Tasks.report('score', S.score);
     try { recordMyScore(); } catch (e) {}   // 没通关也刷一次局榜 / 总榜
@@ -3681,7 +3683,8 @@
       row.className = 'shop-row';
       row.innerHTML =
         '<span class="shop-icon">' + item.icon + '</span>' +
-        '<div class="shop-info"><b>' + item.name + '</b><small>' + item.desc.replace(/\n/g, '<br>') + '</small></div>' +
+        // 背包里一行就够：第一句结尾用逗号接第二句（商店卡片依旧是两行）
+        '<div class="shop-info"><b>' + item.name + '</b><small>' + item.desc.replace(/\n+/g, '，') + '</small></div>' +
         '<span class="shop-own">x' + wallet.items[item.key] + '</span>';
       const useBtn = document.createElement('button');
       useBtn.className = 'shop-buy';
@@ -3789,6 +3792,19 @@
     syncLedgerButtons();
   }
 
+  // 下拉的宽度和位置跟着「当前正在点的那个按键」走：点年就贴年键、点月就贴月键，
+  // 宽度也和按键一样，看起来就像从键里拉出来的一张纸，不是横跨一整行。
+  function placeLedgerPop() {
+    const pop = $('ledger-pop');
+    if (!pop || !ledgerPop) return;
+    const btn = $(ledgerPop === 'year' ? 'ledger-year'
+      : (ledgerPop === 'month' ? 'ledger-month' : 'ledger-type'));
+    if (!btn || !btn.offsetWidth) return;   // 面板还没显示时量不到，等真正展开再量
+    pop.style.left = btn.offsetLeft + 'px';
+    pop.style.top = (btn.offsetTop + btn.offsetHeight + 6) + 'px';
+    pop.style.width = btn.offsetWidth + 'px';
+  }
+
   // 画当前展开的那个列表（一次只开一个）
   function renderLedgerPop() {
     const pop = $('ledger-pop');
@@ -3811,6 +3827,7 @@
       pop.appendChild(b);
     });
     pop.style.display = 'flex';
+    placeLedgerPop();                                      // 宽度 / 位置对齐当前按键
     const act = pop.querySelector('.is-active');           // 展开时让当前选中的那项露出来
     if (act && act.scrollIntoView) {
       try { act.scrollIntoView({ block: 'center' }); } catch (e) {}
@@ -5642,6 +5659,8 @@
       if (t && t.closest && t.closest('#ledger-pop, .ledger-bar')) return;
       closeLedgerPop();
     });
+    // 转屏 / 改窗口大小后按键位置会变，开着的列表跟着挪
+    window.addEventListener('resize', () => { if (ledgerPop) placeLedgerPop(); });
 
     // ==================== 新玩法：章节 / 模式 / 成就 / 图鉴 / 福利 / 排行榜 ====================
     const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };

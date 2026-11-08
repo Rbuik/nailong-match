@@ -31,13 +31,13 @@
     { key: 'extraTime', name: '+7s', price: 300, desc: '本局时间 +7s（限时关）', icon: '⏱️' },
     { key: 'shuffle', name: '洗牌 +1', price: 150, desc: '重排棋盘一次', icon: '🔄' },
     { key: 'undo', name: '撤回 +1', price: 150, desc: '回退上一步', icon: '↩️' },
-    { key: 'startFrost', name: '霜块道具', price: 20, desc: '放一块霜块，消掉后 3 步内机关暂停', icon: '❄️' },
+    { key: 'startFrost', name: '霜块道具', price: 20, desc: '放一块霜块\n消掉后 3 步内机关暂停', icon: '❄️' },
     { key: 'startBomb', name: '炸弹道具', price: 180, desc: '在随机位置放一颗炸弹', icon: '💣' },
-    { key: 'startMagnet', name: '磁铁道具', price: 210, desc: '放一块磁铁，吸同行同列同色一起消', icon: '🧲' },
+    { key: 'startMagnet', name: '磁铁道具', price: 210, desc: '放一块磁铁\n吸同行同列同色一起消', icon: '🧲' },
     { key: 'startLine', name: '线消道具', price: 230, desc: '在随机位置放一条线消', icon: '➖' },
-    { key: 'startPropeller', name: '螺旋桨道具', price: 250, desc: '放一块螺旋桨，斜扫两条对角线', icon: '🛩️' },
+    { key: 'startPropeller', name: '螺旋桨道具', price: 250, desc: '放一块螺旋桨\n斜扫两条对角线', icon: '🛩️' },
     { key: 'rainbow', name: '彩虹道具', price: 300, desc: '随机把一块变成彩虹', icon: '🌈' },
-    { key: 'startPaint', name: '颜料道具', price: 500, desc: '放一块颜料，把一大片刷成同一种颜色', icon: '🎨' }
+    { key: 'startPaint', name: '颜料道具', price: 500, desc: '放一块颜料\n把一大片刷成同一种颜色', icon: '🎨' }
   ];
 
   function todayStr() {

@@ -2614,12 +2614,13 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   border-top: 4px solid #b3adc4;
 }
 .ledger-sel.is-open { border-color: #cbbcf6; background: #f8f5ff; color: #6a4bd6; }
-/* 自绘下拉：贴在按键下面，一次只开一个，选项多点也能滚 */
+/* 自绘下拉：贴在按键下面，一次只开一个，选项多点也能滚。
+   宽度 / 左右位置由 JS 按当前按键的实测尺寸来设，这里给的只是没量到之前的兜底值 */
 .ledger-pop {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  width: 100%;
+  width: calc((100% - 16px) / 3);
   max-height: 46vh;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
