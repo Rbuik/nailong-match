@@ -5526,16 +5526,19 @@
     on('btn-close-welfare', () => { $('welfare-menu').style.display = 'none'; showOverlay('main-menu'); });
     on('btn-welfare-signin', doSignIn);
     on('btn-wheel', doWheel);
-    // 补签确认窗口：点红色漏签日弹出（补签花金币）
+    // 补签：点红色漏签日 → 补签窗口 → 「补签」→ 确认窗口（花 50 金币，不发奖励）
+    on('btn-makeup-go', () => { openMakeupConfirm(); });
     on('btn-makeup-yes', () => {
       const box = $('makeup-confirm');
       const k = box ? box.dataset.date : '';
       if (box) { box.style.display = 'none'; delete box.dataset.date; }
       doMakeup(k);
+      centerSignToday();
     });
     on('btn-makeup-no', () => {
       const box = $('makeup-confirm');
       if (box) { box.style.display = 'none'; delete box.dataset.date; }
+      centerSignToday();
     });
     // 排行榜：先进「选榜单」，再进列表
     on('btn-leaderboard', () => {
@@ -6020,6 +6023,7 @@
       'achievements-menu': 'main-menu',
       'collection-menu': 'main-menu',
       'welfare-menu': 'main-menu',
+      'makeup-menu': null,       // 补签窗口：点空白只关自己，回到签到页
       'backpack-menu': null,     // 局内回棋盘、主页回主页（底下那层本来就开着）
       'rename-menu': null
     };
@@ -6919,20 +6923,16 @@
           (missed ? ' missed' : '') +
           (isFuture ? ' future' : '');
         cell.innerHTML = '<i>' + week[d.getDay()] + ' ' + fmt(d) + '</i>' +
-          '<b>' + (signed ? '✓' : (reward ? (reward.item ? '🌈' : reward.coins) : '—')) + '</b>';
+          '<b>' + (signed ? '✓' : (missed ? '补签' : (reward ? (reward.item ? '🌈' : reward.coins) : '—'))) + '</b>';
         if (missed) {
-          cell.addEventListener('click', () => openMakeupConfirm(d, k));
+          cell.addEventListener('click', () => openMakeupPanel(d, k));
         }
         dayBox.appendChild(cell);
       }
-      // 滑动定位：今天那一格居中（两边各正好露出 4 天）。
-      // 面板刚渲染时可能还没显示（clientWidth=0），放到下一帧等布局完成再定位
-      const todayCell = dayBox.querySelector('.sign-day.today');
-      if (todayCell) {
-        requestAnimationFrame(() => {
-          dayBox.scrollLeft = todayCell.offsetLeft - (dayBox.clientWidth - todayCell.offsetWidth) / 2;
-        });
-      }
+      // 滑动定位：今天那一格永远居中（两边各正好露出 4 天）。
+      // 面板刚渲染时可能还没显示（clientWidth=0），放到下一帧等布局完成再定位；
+      // 用 getBoundingClientRect 算相对位置，不受 offsetParent 影响
+      centerSignToday();
     }
     const btn = $('btn-welfare-signin');
     if (btn) {
@@ -6950,13 +6950,43 @@
     if (stEl) stEl.textContent = '连续签到 ' + st2.streak + ' 天';
   }
 
-  // 点红色漏签日 → 弹补签确认窗口（补签要花金币）
-  function openMakeupConfirm(d, k) {
+  // 今天那一格永远居中：每次进签到入口、补签弹窗关掉后都重新定位
+  function centerSignToday() {
+    const dayBox = $('welfare-sign');
+    if (!dayBox) return;
+    const put = () => {
+      const tc = dayBox.querySelector('.sign-day.today');
+      if (!tc || !dayBox.clientWidth) return;
+      const b = dayBox.getBoundingClientRect();
+      const c = tc.getBoundingClientRect();
+      const delta = (c.left + c.width / 2) - (b.left + b.width / 2);
+      if (Math.abs(delta) > 0.5) dayBox.scrollLeft += delta;
+    };
+    requestAnimationFrame(() => { put(); setTimeout(put, 60); });
+  }
+
+  // 点红色漏签日 → 先弹补签窗口（显示费用、说明不发奖励），点「补签」再弹确认窗口
+  function openMakeupPanel(d, k) {
+    const box = $('makeup-menu');
+    if (!box) return;
+    if ($('makeup-menu-text')) $('makeup-menu-text').innerHTML =
+      '补签 <b>' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日</b>';
+    if ($('makeup-menu-cost')) $('makeup-menu-cost').innerHTML =
+      '花费 <b>' + (Store.MAKEUP_COST || 50) + '</b> 金币 · <b>不发</b>当日奖励';
+    box.dataset.date = k;
+    box.style.display = 'flex';
+  }
+
+  // 补签窗口里点「补签」→ 二次确认
+  function openMakeupConfirm() {
+    const menu = $('makeup-menu');
     const box = $('makeup-confirm');
     const txt = $('makeup-confirm-text');
+    const k = menu ? menu.dataset.date : '';
+    if (menu) menu.style.display = 'none';
     if (!box) return;
-    if (txt) txt.innerHTML = '补签 <b>' + (d.getMonth() + 1) + ' 月 ' + d.getDate() + ' 日</b> 需要花 <b>' +
-      (Store.MAKEUP_COST || 300) + ' 金币</b>（只补连续天数，不发当日奖励），确定补签吗？';
+    if (txt) txt.innerHTML = '确定花 <b>' + (Store.MAKEUP_COST || 50) + ' 金币</b> 补签这一天吗？' +
+      '<br>补签只补连续天数，<b>不发</b>当日奖励。';
     box.dataset.date = k;
     box.style.display = 'flex';
   }
@@ -7934,12 +7964,14 @@
     const TAP_TOL = 12;             // 小于这个位移算点击，不触发左滑
     let sx = 0, sy = 0, base = 0, dx = 0;
     let tracking = false, moved = false, pid = null;
+    let wasOpen = false;   // 按下这一瞬是不是「左滑露出删除键」的状态
 
     const setX = (x) => { row.style.transform = x ? 'translateX(' + x + 'px)' : ''; };
     const isOpen = () => wrap.classList.contains('open');
 
     row.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
+      wasOpen = isOpen();          // 先记住：这一下是在「露着删除键」的行上按的
       closeMailSwipe(wrap);
       tracking = true;
       moved = false;
@@ -7980,6 +8012,17 @@
 
     row.addEventListener('click', (e) => {
       if (moved) { moved = false; e.stopPropagation(); e.preventDefault(); return; }
+      // 左滑露出「删除」时点邮件：只把它收回原位，不点进邮件
+      if (wasOpen) {
+        wasOpen = false;
+        e.stopPropagation();
+        e.preventDefault();
+        closeMailSwipe();
+        wrap.classList.remove('open');
+        mailSwipeOpen = null;
+        setX(0);
+        return;
+      }
       if (isOpen()) { closeMailSwipe(); wrap.classList.remove('open'); mailSwipeOpen = null; setX(0); return; }
       openMail(m.id);
     });

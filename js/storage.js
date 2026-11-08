@@ -224,8 +224,8 @@
   // 连续签到每满 7 天（7/14/21/28…），额外 200 金币发到邮箱
   const SIGN_MILESTONE = { every: 7, coins: 200 };
 
-  // 补签：一次补 1 天，花 300 金币（只补连续天数，不发当日奖励）
-  const MAKEUP_COST = 300;
+  // 补签：一次补 1 天，花 50 金币（只补连续天数，不发当日奖励）
+  const MAKEUP_COST = 50;
 
   function dparse(k) {
     const p = String(k || '').split('-').map(Number);

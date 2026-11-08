@@ -100,7 +100,7 @@ function getEl(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; }
   'daily-done', 'game-complete', 'chapters-menu', 'story-menu', 'modes-menu', 'mode-over',
   'achievements-menu', 'ach-detail', 'collection-menu', 'welfare-menu', 'leaderboard-menu',
   'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'fix-menu', 'cloud-menu',
-  'buy-confirm', 'use-confirm', 'reset-bgm-confirm', 'mail-delall-confirm'
+  'buy-confirm', 'use-confirm', 'reset-bgm-confirm', 'mail-delall-confirm', 'makeup-menu'
 ].forEach((id) => getEl(id));
 
 const documentStub = {
@@ -516,11 +516,11 @@ function check(name, ok) {
       /e\.target !== ov\) return;\s*\n\s*panelBack\(ov\.id\)/.test(gjs) &&
       /'mail-view': 'mail-menu'/.test(gjs) && /'chapters-menu': 'main-menu'/.test(gjs);
   })());
-  check('每日挑战结算页：用步 + 获得金币两行、没有返回主页键，点空白回主页', (() => {
+  check('每日挑战结算页：使用步数 + 获得金币两行、没有返回主页键，点空白回主页', (() => {
     const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
     const sjs = fs.readFileSync(path.join(__dirname, 'js', 'storage.js'), 'utf8');
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="daily-done"'), htmlSrc0.indexOf('id="game-complete"'));
-    return sec.includes('id="daily-done-moves"') && sec.includes('id="daily-done-coins"') &&
+    return sec.includes('使用步数') && sec.includes('id="daily-done-moves"') && sec.includes('id="daily-done-coins"') &&
       !sec.includes('daily-done-score') && !sec.includes('btn-daily-done-home') &&
       /id="daily-done-star-num"[\s\S]*id="daily-done-moves"[\s\S]*id="daily-done-coins"/.test(sec) &&
       gjs.includes("'daily-done': 'main-menu'") &&
@@ -637,7 +637,7 @@ function check(name, ok) {
     htmlSrc.includes('唯一且区分大小写') && !htmlSrc.includes('不能和榜上的人重名') &&
     !htmlSrc.includes('默认的「奶龙玩家」'));
   check('规则页不剧透总章节数 / 总关数', !htmlSrc.includes('主线共 <b>40 关</b>') && !htmlSrc.includes('40 关') && !htmlSrc.includes('4 个章节'));
-  check('规则含补签说明', htmlSrc.includes('补签') && htmlSrc.includes('300 金币'));
+  check('规则含补签说明（50 金币、不发奖励）', htmlSrc.includes('补签') && htmlSrc.includes('50 金币') && htmlSrc.includes('不发'));
   check('结算页有继续游戏按钮且在进入下一关上面',
     htmlSrc.includes('btn-clear-continue') && htmlSrc.indexOf('btn-clear-continue') < htmlSrc.indexOf('id="btn-next-level"'));
   check('主页每日任务在更多玩法前面（已交换）',
@@ -645,6 +645,7 @@ function check(name, ok) {
   check('签到键上面是连续签到天数（黑色）、补签走红色日期弹窗',
     htmlSrc.includes('welfare-streak') && !htmlSrc.includes('btn-welfare-makeup') &&
     htmlSrc.indexOf('welfare-streak') < htmlSrc.indexOf('id="btn-welfare-signin"') &&
+    htmlSrc.includes('id="makeup-menu"') && htmlSrc.includes('btn-makeup-go') &&
     htmlSrc.includes('id="makeup-confirm"') && htmlSrc.includes('btn-makeup-yes'));
   check('省榜 / 局榜更换符号在标题右边', htmlSrc.includes('lb-title-row') && htmlSrc.includes('lb-swap') &&
     htmlSrc.indexOf('lb-view-title') < htmlSrc.indexOf('lb-prov-swap'));
@@ -972,8 +973,8 @@ function check(name, ok) {
   })());
 
 
-  // 14d4a. 签到入口：日期条状态 + 点红色漏签日补签（300 金币 / 天，不发奖励）
-  check('漏签日子标红、点击弹补签窗口，确认后扣金币补签', (() => {
+  // 14d4a. 签到入口：日期条状态 + 点红色漏签日补签（50 金币 / 天，不发奖励）
+  check('漏签日子标红写「补签」，点开补签窗 → 确认窗，扣 50 金币补签且不发奖励', (() => {
     const Store = sandbox.Store;
     const today = Store.todayKey();
     const savedTasks = lsMap.get('nl2:tasks');
@@ -985,9 +986,14 @@ function check(name, ok) {
     $('btn-welfare').dispatch('click');
     const streakTxt = String($('welfare-streak').textContent);
     const cells = ($('welfare-sign').children || []).filter((c) => String(c.className).indexOf('missed') >= 0);
-    const missedOk = cells.length === 2;   // 前天 + 昨天都是红色可点
+    const missedOk = cells.length === 2 && cells.every((c) => String(c.innerHTML).indexOf('补签') >= 0);
     cells[0].dispatch('click');
-    const dialogShown = $('makeup-confirm').style.display === 'flex';
+    // 第一步：补签窗口（费用 50、不发奖励）
+    const panelShown = $('makeup-menu').style.display === 'flex';
+    const panelTxt = String($('makeup-menu-cost').innerHTML);
+    $('btn-makeup-go').dispatch('click');
+    // 第二步：确认窗口
+    const dialogShown = $('makeup-confirm').style.display === 'flex' && $('makeup-menu').style.display === 'none';
     $('btn-makeup-yes').dispatch('click');
     const coins = sandbox.Store.getWallet().coins;
     const st = sandbox.Store.signStats();
@@ -995,8 +1001,9 @@ function check(name, ok) {
     $('welfare-menu').dispatch('click');
     if (savedTasks !== undefined) lsMap.set('nl2:tasks', savedTasks);
     if (savedWallet !== undefined) lsMap.set('nl2:wallet', savedWallet);
-    return streakTxt.indexOf('连续签到 1 天') >= 0 && missedOk && dialogShown && dialogClosed &&
-      coins === 700 && st.streak === 2 && st.day === 2;
+    return streakTxt.indexOf('连续签到 1 天') >= 0 && missedOk && panelShown &&
+      panelTxt.indexOf('50') >= 0 && panelTxt.indexOf('不发') >= 0 && dialogShown && dialogClosed &&
+      coins === 950 && st.streak === 2 && st.day === 2;
   })());
 
   // 14d4b. 注销：Board.remove 把人从榜单拿掉，旧消息 / 老快照不再复活
@@ -1727,12 +1734,17 @@ function check(name, ok) {
   row0.dispatch('pointermove', { pointerId: 1, clientX: 200, clientY: 44, cancelable: true, preventDefault() {} });
   row0.dispatch('pointerup', { pointerId: 1, clientX: 200, clientY: 44 });
   check('左滑超过一半 → 露出删除键', wraps[0].classList.contains('open'));
-  // 真实手指：按下 → 抬起 → click（滑动后的这一下不算点击）
+  // 真实手指：按下 → 抬起 → click（左滑露出删除键时，点一下只收回原位，不点进邮件）
   row0.dispatch('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 240, clientY: 40, button: 0, preventDefault() {} });
   row0.dispatch('pointerup', { pointerId: 1, clientX: 240, clientY: 40 });
   row0.dispatch('click');
-  check('点一下邮件行：删除键收起并直接打开邮件（不露删除键）',
-    !wraps[0].classList.contains('open') && $('mail-view').style.display === 'flex');
+  check('左滑露出删除键时点邮件：只收回原位，不点进邮件',
+    !wraps[0].classList.contains('open') && $('mail-view').style.display !== 'flex');
+  // 正常状态再点：才进入邮件详情
+  row0.dispatch('pointerdown', { pointerId: 1, pointerType: 'touch', clientX: 240, clientY: 40, button: 0, preventDefault() {} });
+  row0.dispatch('pointerup', { pointerId: 1, clientX: 240, clientY: 40 });
+  row0.dispatch('click');
+  check('正常状态点邮件进入详情', $('mail-view').style.display === 'flex');
   $('mail-view').dispatch('click');   // 回到列表
 
   const leftBefore = sandbox.Mail.list().length;
