@@ -2569,7 +2569,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 /* 主页「🪙 金币」那行可点，右边一个小箭头提示能进去 */
 .menu-coins-row { cursor: pointer; }
 .menu-coins-wrap { display: inline-flex; align-items: center; gap: 2px; }
-.menu-coins-more { font-style: normal; font-size: 15px; color: #b3adc4; margin-right: 4px; line-height: 1; }
+/* 「›」紧跟在「🪙 金币」文字右边（提示可点进明细），数字仍在最右 */
+.menu-coins-more { font-style: normal; font-size: 15px; color: #b3adc4; margin-left: 3px; line-height: 1; }
 
 /* 顶部一行：年 / 月 / 类型（全部 支出 收入），三个一样宽、样式一致，宽度和下面列表对齐 */
 .ledger-bar {

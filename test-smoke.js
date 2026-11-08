@@ -995,8 +995,8 @@ function check(name, ok) {
       !sec.includes('ledger-prev') && !sec.includes('ledger-next') &&
       sec.includes('id="ledger-list"') &&
       htmlSrc0.includes('id="menu-coins-row"') &&
-      // 主页金币：箭头在数字左边
-      /class="menu-coins-wrap"><em class="menu-coins-more">›<\/em><b id="menu-coins">/.test(htmlSrc0) &&
+      // 主页金币：箭头紧跟「🪙 金币」文字右边（数字仍在最右）
+      /<span>🪙 金币<em class="menu-coins-more">›<\/em><\/span>/.test(htmlSrc0) &&
       /\.ledger-list\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
       /\.ledger-list\s*\{[^}]*max-height:\s*64vh/.test(cssSrc) &&
       /\.ledger-bar\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
@@ -1336,7 +1336,7 @@ function check(name, ok) {
   check('货运关放置 4 件货物', cargoN === 4);
   check('货运关目标值 = 货物数', st.goal.target === cargoN);
 
-  // 16b. 第四章开始：运送关的货物里混入糖果，目标栏文案换成「运送糖果 🍬」
+  // 16b. 第四章开始：运送关的货物里混入糖果，目标栏写「运送货物」并报「场上还剩 N 件」
   sandbox.__nl_test.start(1, { def: { id: 33, chapter: 4, theme: 'candy', moves: 30, goal: { type: 'drop', target: 10 }, cargo: 10, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
   let candyCnt = 0, keyCnt = 0;
@@ -1347,9 +1347,11 @@ function check(name, ok) {
       list.forEach((cg) => { if (cg.kind === 'candy') candyCnt++; else if (cg.kind === 'key') keyCnt++; });
     }
   }
-  check('第四章运送关钥匙 + 糖果混装（数量和目标一致，目标栏写「运送糖果 🍬」）',
+  const bar0 = sandbox.Goals.barText(st.goal);
+  check('第四章运送关钥匙 + 糖果混装（数量和目标一致，目标栏写「运送货物 · 场上还剩 10 件」）',
     candyCnt === 5 && keyCnt === 5 && st.goal.hasCandy === true && st.goal.target === 10 &&
-    sandbox.Goals.barText(st.goal).indexOf('运送糖果 🍬') >= 0);
+    bar0.indexOf('运送货物') >= 0 && bar0.indexOf('场上还剩 10 件') >= 0 &&
+    bar0.indexOf('运送糖果') < 0);
   // 第三章（id < 31）仍是纯钥匙
   sandbox.__nl_test.start(1, { def: { id: 21, chapter: 3, theme: 'ocean', moves: 30, goal: { type: 'drop', target: 7 }, cargo: 7, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
@@ -1596,6 +1598,82 @@ function check(name, ok) {
   const cargoBefore = st.goal.cargoGot || 0;
   await sandbox.__nl_test.resolveClear(new Set(['7,0']), []);
   check('货物落到底行即送达', (st.goal.cargoGot || 0) === cargoBefore + 1);
+
+  // 24b. 运送关随机对局守恒：送达数 + 场上剩余数恒等于开局总数，
+  // 目标数永远等于「已送达 + 场上剩的」，撤回后要一模一样地回到走之前
+  await (async () => {
+    const countOnBoard = () => {
+      let n = 0;
+      for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) {
+        const b = st.board[r] && st.board[r][c];
+        if (b && b.cargo) n += Array.isArray(b.cargo) ? b.cargo.length : 1;
+      }
+      return n;
+    };
+    const defs = [
+      { id: 46, theme: 'forest', moves: 60, goal: { type: 'drop', target: 10 }, cargo: 10, ivy: 2, stars: [1, 2, 3] },
+      { id: 55, theme: 'sky', moves: 60, goal: { type: 'drop', target: 8 }, cargo: 8, portal: 2, track: 2, stars: [1, 2, 3] },
+      { id: 65, theme: 'desert', moves: 60, goal: { type: 'drop', target: 8 }, cargo: 8, sand: 6, fog: 10, stars: [1, 2, 3] }
+    ];
+    let bad = '';
+    for (const def of defs) {
+      if (bad) break;
+      sandbox.__nl_test.start(1, { def: def });
+      st = sandbox.__nl_test.state();
+      st.undoLeft = 999;              // 测试里每步都要撤回，别被「每局 3 次」拦住
+      const initial = countOnBoard();
+      const hasSand = !!def.sand;
+      for (let mv = 0; mv < 6 && st.playing && !bad; mv++) {
+        // 先在本地找一步确定能消的交换（不打动画、不耗步数），再真正走这一步
+        let move = null;
+        for (let r = 0; r < 8 && !move; r++) for (let c = 0; c < 8 && !move; c++) {
+          for (const d of [[0, 1], [1, 0]]) {
+            const r2 = r + d[0], c2 = c + d[1];
+            if (r2 >= 8 || c2 >= 8) continue;
+            const a = st.board[r][c], b = st.board[r2][c2];
+            if (!a || !b) continue;
+            if (st.chain[r][c] || st.chain[r2][c2] || st.ice[r][c] > 0 || st.ice[r2][c2] > 0) continue;
+            st.board[r][c] = b; st.board[r2][c2] = a;
+            const ok = sandbox.__nl_test.findMatches().size > 0;
+            st.board[r][c] = a; st.board[r2][c2] = b;
+            if (ok) { move = [{ r: r, c: c }, { r: r2, c: c2 }]; break; }
+          }
+        }
+        if (!move) break;
+        const gotBefore = st.goal.cargoGot || 0;
+        const onBefore = countOnBoard();
+        await sandbox.__nl_test.swap(move[0], move[1]);
+        if (!st.playing) break;
+        const gotNow = st.goal.cargoGot || 0;
+        const onNow = countOnBoard();
+        if (gotNow === gotBefore && onNow === onBefore) continue;   // 没消成（比如全是障碍），换一步
+        // 目标数必须跟着场上走：已送达 + 场上剩的
+        if (st.goal.target !== gotNow + onNow) {
+          bad = def.id + ' 目标数没校准：target=' + st.goal.target + ' 已送=' + gotNow + ' 场上=' + onNow;
+        } else if (gotNow + onNow > gotBefore + onBefore) {
+          bad = def.id + ' 货物凭空变多：走之前共=' + (gotBefore + onBefore) + ' 走之后共=' + (gotNow + onNow);
+        } else if (!hasSand && gotNow + onNow < gotBefore + onBefore) {
+          bad = def.id + ' 货物凭空消失：走之前共=' + (gotBefore + onBefore) + ' 走之后共=' + (gotNow + onNow);
+        }
+        if (bad) break;
+        // 撤回：必须一模一样回到走之前
+        sandbox.__nl_test.undoMove();
+        const uGot = st.goal.cargoGot || 0, uOn = countOnBoard();
+        if (uGot !== gotBefore || uOn !== onBefore) {
+          bad = def.id + ' 撤回后货物对不上：应 ' + gotBefore + '+' + onBefore + ' 实 ' + uGot + '+' + uOn;
+          break;
+        }
+        // 撤回后重走这一步（棋盘已经回到走之前，同样的交换应该照样能消）
+        await sandbox.__nl_test.swap(move[0], move[1]);
+      }
+      if (!bad && !hasSand && (st.goal.cargoGot || 0) + countOnBoard() !== initial) {
+        bad = def.id + ' 一整局下来货物总数变了：开局=' + initial +
+          ' 现在=' + ((st.goal.cargoGot || 0) + countOnBoard());
+      }
+    }
+    check('运送关随机对局：目标数永远=已送达+场上剩的，货物不丢不重，撤回能精确回到走之前', !bad);
+    if (bad) console.log('  ↳ 失败详情: ' + bad);
+  })();
 
   // 25. 全障碍也不会卡死（整片冰时 resolveClear 安全返回）
   const allIce = new Set();
@@ -2690,9 +2768,9 @@ function check(name, ok) {
     const metaSrc = fs.readFileSync(path.join(__dirname, 'js', 'meta.js'), 'utf8');
     return /Meta\.bump\('candy', candies\)/.test(jsSrc) && /'cargo', 'candy', 'rescue'/.test(metaSrc);
   })());
-  check('关卡记录标「运送糖果」四个字（不带 🍬），章节地图也不挂 🍬 角标',
-    /function levelHasCandy/.test(jsSrc) && /return '运送糖果';/.test(jsSrc) &&
-    !/运送糖果 🍬/.test(jsSrc) && !/chip-candy/.test(jsSrc) &&
+  check('关卡记录标「运送货物」四个字（不带 🍬），章节地图也不挂 🍬 角标',
+    /function levelHasCandy/.test(jsSrc) && /return '运送货物';/.test(jsSrc) &&
+    !/运送糖果/.test(jsSrc) && !/chip-candy/.test(jsSrc) &&
     /d\.id >= 31 && \(d\.cargo \|\| 0\) > 0/.test(jsSrc));
   // 41r. 成就奖励：铜 / 银 / 金 / 彩 各 50 / 100 / 150 / 200 金币，可领时亮红点
   check('成就四阶奖励金币：铜 50 / 银 100 / 金 150 / 彩 200', (() => {

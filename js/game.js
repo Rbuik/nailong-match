@@ -4011,16 +4011,16 @@
     if (panel) panel.style.display = 'flex';
   }
 
-  // 这一关是不是「运送糖果」关（第四章起，运送关的货物里混了糖果）
+  // 这一关是不是「运送货物」关（第四章起，运送关的货物里混了糖果）
   function levelHasCandy(lv, def) {
     const d = def || getLevelDef(lv);
     return !!(d && d.goal && d.goal.type === 'drop' && d.id >= 31 && (d.cargo || 0) > 0);
   }
-  // 关卡记录 / 章节地图上写的玩法名：运送关从第四章起标成「运送糖果」（不带 emoji）
+  // 关卡记录 / 章节地图上写的玩法名：运送关从第四章起标成「运送货物」（不带 emoji）
   function levelModeLabel(lv, def) {
     const d = def || getLevelDef(lv);
     if (!d || !d.goal) return '';
-    if (levelHasCandy(lv, d)) return '运送糖果';
+    if (levelHasCandy(lv, d)) return '运送货物';
     return Goals.LABEL[d.goal.type] || '';
   }
 
