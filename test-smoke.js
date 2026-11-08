@@ -934,6 +934,43 @@ function check(name, ok) {
     return m === '🥇' && shown;
   })());
 
+  // 14d2b. 局榜目标分：分数没到这一关目标分的玩家灰显、不参与排名（第 1 关目标 1000）
+  check('局榜：分数没到目标分的玩家灰显、名次「—」不占位；达标的第一名照常拿奖牌', (() => {
+    $('btn-leaderboard').dispatch('click');
+    $('btn-lb-hub-level').dispatch('click');
+    $('lb-level-swap').dispatch('click');
+    const pick = ($('lb-picker').children || []).filter((b) => String(b.textContent) === '第 1 关')[0];
+    if (pick) pick.dispatch('click');
+    const rows = ($('lb-list').children || []);
+    let sawLow = false, sawMe = false, ok = true;
+    rows.forEach((row) => {
+      const cls = String(row.className || '');
+      const inner = (row.children || [])[0];
+      const h = String((inner && inner.innerHTML) || '');
+      if (h.indexOf('对手') >= 0) {
+        sawLow = true;
+        // 没到目标分：整行灰显、名次是「—」、分数数字照常显示
+        if (cls.indexOf('none') < 0 || h.indexOf('lb-rank">—') < 0 ||
+          !/lb-score">[0-9]+<\/span>/.test(h)) ok = false;
+      }
+      if (h.indexOf('我') >= 0) {
+        sawMe = true;
+        // 我 1200 ≥ 目标 1000：正常名次 + 金牌
+        if (cls.indexOf('none') >= 0 || h.indexOf('🥇') < 0) ok = false;
+      }
+    });
+    $('lb-view').dispatch('click');
+    $('leaderboard-menu').dispatch('click');
+    return sawLow && sawMe && ok;
+  })());
+  check('局榜目标分规则：分数关按 goal.target 卡，其他玩法不卡；星星分数也一起灰', (() => {
+    return /function levelTargetScore/.test(jsSrc) &&
+      /myScore < target\) return 0/.test(jsSrc) &&
+      /pass: !\(target > 0\) \|\| \(r\.score \|\| 0\) >= target/.test(jsSrc) &&
+      /const noRank = onBoard && lbTab === 'level' && r\.pass === false/.test(jsSrc) &&
+      /\.lb-row\.none \.lb-stars,/.test(cssSrc) && /\.lb-row\.none \.lb-score \{ color: #b0a9c0; \}/.test(cssSrc);
+  })());
+
   // 14d3. 0 分的人在榜上显示「未上榜」，名次也不挂奖牌
   check('零分显示未上榜', (() => {
     const saved = lsMap.get('nl2:progress');
@@ -2343,7 +2380,8 @@ function check(name, ok) {
     !/adminUlQuery \|\| ''\)\.trim\(\)\.toLowerCase/.test(jsSrc) &&
     !/provUlQuery \|\| ''\)\.trim\(\)\.toLowerCase/.test(jsSrc));
   // 39d. 提示停留 3 秒（原来 1.6 秒看不及）
-  check('提示条停留 3 秒', /remove\('show'\), 3000\)/.test(jsSrc));
+  // 提示条停留 3 秒（普通提示）；排队提示按传入的毫秒数播
+  check('提示条停留 3 秒', /paintToast\(msg, 3000\)/.test(jsSrc) && /remove\('show'\)/.test(jsSrc));
   // 40. 白色页面撑满整屏高度：随手机屏幕高度自适应
   check('页面容器最小高度跟随整屏（vh + dvh 双写兼容地址栏）',
     cssSrc.includes('min-height: calc(100vh - 12px);') &&
@@ -3092,10 +3130,39 @@ function check(name, ok) {
       /SPECIAL_NAMES\[T\.RAINBOW\]/.test(jsSrc) &&
       /SPECIAL_NAMES\[plan\.type\]/.test(jsSrc) &&
       /这步生成了「'/.test(jsSrc);
-    // 提示条挂在双倍那一行下面：toast 里按 frenzy-slot 实际位置算 top
-    const toastOk = /frenzy-slot/.test(jsSrc.slice(jsSrc.indexOf('function toast'), jsSrc.indexOf('function toast') + 800)) &&
+    // 提示条挂在双倍那一行下面：真正负责贴位置的 paintToast 里按 frenzy-slot 算 top
+    const iPaintToast = jsSrc.indexOf('function paintToast');
+    const toastOk = iPaintToast >= 0 &&
+      /frenzy-slot/.test(jsSrc.slice(iPaintToast, iPaintToast + 900)) &&
       /el\.style\.bottom = 'auto'/.test(jsSrc);
-    return colorOk && genOk && toastOk;
+    // 生成提示不带 🎁，而且走排队：一步里连出好几个道具时逐条在同一位置播
+    const queueOk = /function toastQueued/.test(jsSrc) && /const toastQueue = \[\]/.test(jsSrc) &&
+      /toastQueued\('这步生成了「'/.test(jsSrc) && !/🎁 这步生成了/.test(jsSrc);
+    return colorOk && genOk && toastOk && queueOk;
+  })());
+
+  check('霜块❄️ 只在机关关卡自动生成（普通关不会冒霜块）', (() => {
+    return /function hasHazardLevel/.test(jsSrc) &&
+      /S\.hazardLevel = hasHazardLevel\(S\.levelDef\)/.test(jsSrc) &&
+      /S\.turnCount % FROST_EVERY === 0 && S\.hazardLevel\) spawnFrost\(\)/.test(jsSrc) &&
+      (() => {
+        const i = jsSrc.indexOf('function hasHazardLevel');
+        const body = i >= 0 ? jsSrc.slice(i, i + 400) : '';
+        return /d\.ivy/.test(body) && /d\.sand/.test(body) && /d\.portal/.test(body) && /d\.track/.test(body);
+      })();
+  })());
+
+  // 霜块只在机关关卡自动生成：普通关（第 1 关）标记为 false，机关关（第 41 关）为 true
+  const startAndFlag = (lv) => { sandbox.__nl_test.start(lv, {}); return sandbox.__nl_test.state().hazardLevel; };
+  const flagPlain = startAndFlag(1);
+  const flagHazard = startAndFlag(41);
+  check('霜块只在机关关卡：普通关 hazardLevel=false，机关关 hazardLevel=true',
+    flagPlain === false && flagHazard === true);
+
+  check('规则页：线消带 ↔️/↕️ 图示，霜块写明「只在机关关卡时每 6 步长一个」', (() => {
+    return htmlSrc0.indexOf('<b>线消↔️/↕️</b>') > 0 &&
+      htmlSrc0.indexOf('线消</b>：4 连生成') < 0 &&
+      htmlSrc0.indexOf('<b>霜块❄️</b>：在机关关卡时，每6步自动长一个；消掉它，3 步内所有机关暂停。') > 0;
   })());
 
   check('机关提示条：页面有 hazard-bar，样式有 hazard-chip，开局 / 每步都会刷新',

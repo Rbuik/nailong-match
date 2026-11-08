@@ -31,7 +31,15 @@
   const SAND_EVERY = 3;     // 流沙：每 3 步吞掉沙上的一件货
   const TRACK_EVERY = 4;    // 移动轨道：每 4 步整行滑一格
   const FROST_TURNS = 3;    // ❄️ 霜块：解除后定格 3 步
+  const FROST_EVERY = 6;    // ❄️ 霜块：机关关卡里每 6 步自动长一个
   const TBOX_HP = 2;        // 保险箱：相邻消除敲 2 下
+
+  // 这一关是不是「机关关卡」：有藤蔓 / 保险箱 / 流沙 / 步数炸弹 / 迷雾 / 传送门 / 轨道 / 霜块
+  // （霜块 ❄️ 只在机关关卡里自动生成，普通关不会冒出霜块）
+  function hasHazardLevel(d) {
+    if (!d) return false;
+    return !!(d.ivy || d.box || d.sand || d.tbomb || d.fog || d.portal || d.track || d.frost);
+  }
 
   const COMBO_WINDOW = 1600;   // 跨步连击窗口（ms）：改短了，停手一拍连击就断
   const COMBO_DECAY = 620;     // 连击条显示窗口（ms）：中央弹窗停留短一点，不挡棋盘
@@ -117,6 +125,7 @@
     portals: [],        // 成对的传送门坐标
     trackRows: [],      // 会整行滑动的行号（移动轨道）
     turnCount: 0,       // 本局走了几步（机关按这个节拍走）
+    hazardLevel: false, // 这一关是不是「机关关卡」（霜块 ❄️ 只在机关关卡里自动生成）
     frostTurns: 0,      // ❄️ 霜块定格的剩余回合：期间所有机关暂停
     failReason: '',     // 机关导致失败时的标题（炸弹爆炸 / 藤蔓铺满）
     cargoLeft: 0,       // 场上还没送达的货物数
@@ -669,7 +678,7 @@
       if (S.turnCount % IVY_EVERY === 0) growIvy();
       if (S.turnCount % SAND_EVERY === 0) burySand();
       if (S.turnCount % TRACK_EVERY === 0) shiftTrack();
-      if (S.turnCount % 6 === 0) spawnFrost();
+      if (S.turnCount % FROST_EVERY === 0 && S.hazardLevel) spawnFrost();
     }
     updateHazardBar();
     drawStatic();
@@ -2011,7 +2020,8 @@
           AudioManager.playSFX('coin');
         }
         // 黑底提示条也报一声：这步生成了什么（浮字容易看漏）
-        toast('🎁 这步生成了「' + (SPECIAL_NAMES[plan.type] || '线消') + '」');
+        // 一步里连出好几个道具时逐条排队播，每一条都在同一个位置显示
+        toastQueued('这步生成了「' + (SPECIAL_NAMES[plan.type] || '线消') + '」', 1500);
         swapPos = null; // 一局只生成一次，避免递归刷
       }
 
@@ -2763,6 +2773,7 @@
     S.levelDef = opts.def || getLevelDef(S.level);
     S.rng = opts.seed != null ? RNG.source(opts.seed) : null;
     S.chapter = S.levelDef.chapter || (S.level ? Math.ceil(S.level / 10) : 0);
+    S.hazardLevel = hasHazardLevel(S.levelDef);   // ❄️ 霜块只在机关关卡自动生成
 
     if (S.levelDef.goal && S.levelDef.goal.type === 'collect') {
       S.levelDef = randomCollectDef(S.levelDef);
@@ -3005,9 +3016,13 @@
   }
 
   let toastTimer = null;
-  function toast(msg) {
+  let toastBusy = false;         // 提示条上是不是已经有一条在显示
+  const toastQueue = [];         // 排队等展示的提示（连续生成了好几个道具时逐条播）
+
+  // 真正把一条提示显示出来
+  function paintToast(msg, ms) {
     const el = $('toast');
-    if (!el) return;
+    if (!el) { toastBusy = false; return; }
     // 提示条永远挂在「双倍 / 机关提示」那一行的正下方，别盖住双倍
     // （手机上内容一高，固定 bottom 就会顶到双倍，所以每次按实际位置算）
     try {
@@ -3024,8 +3039,33 @@
     } catch (e) {}
     el.textContent = msg;
     el.classList.add('show');
+    toastBusy = true;
     if (toastTimer) clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => el.classList.remove('show'), 3000);
+    toastTimer = setTimeout(() => {
+      // 后面还有排队的：同一条提示条原地换成下一条，位置一点不挪
+      if (toastQueue.length) {
+        const next = toastQueue.shift();
+        paintToast(next.msg, next.ms);
+        return;
+      }
+      el.classList.remove('show');
+      toastBusy = false;
+    }, ms);
+  }
+
+  function toast(msg) {
+    // 普通提示：立刻显示（顺手清掉还没播完的排队提示，免得过时信息挤在后面）
+    toastQueue.length = 0;
+    paintToast(msg, 3000);
+  }
+
+  // 排队提示：一条在显示时先把后面的排上，逐条在同一个位置展示
+  function toastQueued(msg, ms) {
+    if (toastBusy) {
+      if (toastQueue.length < 6) toastQueue.push({ msg: msg, ms: ms || 1500 });
+      return;
+    }
+    paintToast(msg, ms || 1500);
   }
 
   // ==================== 规则字号 ====================
@@ -7434,6 +7474,17 @@
     return out;
   }
 
+  // 这一关的「目标分」：分数关 = goal.target（比如第 40 关是 7000）；
+  // 其他玩法（运送 / 收集 / 护送 / 限时）没有目标分，返回 0 = 不按分数卡排名
+  function levelTargetScore(lv) {
+    try {
+      const def = getLevelDef(lv);
+      const g = def && def.goal;
+      if (g && g.type === 'score' && g.target > 0) return g.target;
+    } catch (e) {}
+    return 0;
+  }
+
   // 老榜单数据没带星级：按这一关的分数门槛反推（3 星 / 2 星 / 1 星达标线）
   function starsFromScore(level, score) {
     if (!(score > 0)) return 0;
@@ -7543,12 +7594,15 @@
     }).sort((a, b) => b.score - a.score);
   }
 
-  // 我在这一局排第几（1 起；没有成绩返回 0）
+  // 我在这一局排第几（1 起；没有成绩 / 分数没到目标分都算没排名，返回 0）
   function levelRank(lv) {
     const mine = Meta.myUid();
-    const rows = levelRows(lv);
+    const target = levelTargetScore(lv);
     const myScore = myLevelMap()[String(lv)] || 0;
-    if (!(myScore > 0)) return 0;
+    // 分数没达到这一关的目标分：不参与排名（主页也不挂奖牌）
+    if (!(myScore > 0) || myScore < target) return 0;
+    // 排名只在「达到目标分」的玩家里算，没达标的虽然挂在榜上但不占名次
+    const rows = levelRows(lv).filter((r) => !(target > 0) || (r.score || 0) >= target);
     for (let i = 0; i < rows.length; i++) if (rows[i].uid === mine) return i + 1;
     return 0;
   }
@@ -7716,7 +7770,13 @@
     // 省榜：只显示所选省份的玩家；局榜：只看这一关的最高分
     let shown;
     if (lbTab === 'level') {
-      shown = levelRows(lbLevel).map((r) => Object.assign({ friend: false }, r));
+      // 分数关有「目标分」：没达到的玩家灰显、不参与排名（分数照常显示，名次写「—」）
+      const target = levelTargetScore(lbLevel);
+      shown = levelRows(lbLevel).map((r) => Object.assign({ friend: false }, r, {
+        pass: !(target > 0) || (r.score || 0) >= target
+      }));
+      // 达到目标分的排前面按分数排名；没达标的垫底展示，不占名次
+      shown.sort((a, b) => ((b.pass ? 1 : 0) - (a.pass ? 1 : 0)) || (b.score - a.score));
     } else if (lbTab === 'prov') {
       shown = totalRows.filter((r) => r.pv === lbProv);
     } else {
@@ -7729,10 +7789,13 @@
       const row = document.createElement('div');
       // 0 分不上榜：整行灰显（名次留空、分数位置写「未上榜」）
       const onBoard = (r.score || 0) > 0;
-      row.className = 'lb-row' + (r.me ? ' me' : '') + (onBoard ? '' : ' none');
+      // 局榜：分数没到这一关的目标分 → 一样灰显、不参与排名（名次「—」，分数照常显示）
+      const noRank = onBoard && lbTab === 'level' && r.pass === false;
+      const ranked = onBoard && !noRank;
+      row.className = 'lb-row' + (r.me ? ' me' : '') + (ranked ? '' : ' none');
       const inner = document.createElement('div');
       inner.className = 'lb-swipe col4';
-      const rank = !onBoard ? '—' : (i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1));
+      const rank = !ranked ? '—' : (i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1));
       // 分数左边带星星：局榜是这一局的星（最多 3 颗），总榜 / 省榜是总星数
       const stars = Math.max(0, r.stars || 0);
       // 星星占固定一格：局榜是「★★★」，总榜 / 省榜是「★ 87」（图标 + 右对齐数字），

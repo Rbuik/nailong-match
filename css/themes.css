@@ -1718,6 +1718,11 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-row.none .lb-rank,
 .lb-row.none .lb-name { color: #b0a9c0; }
 .lb-row.none .lb-name .lb-me { background: rgba(176, 169, 192, 0.25); }
+/* 局榜里分数没到目标分的人：星星和分数也一起变灰（分数数字照常显示） */
+.lb-row.none .lb-stars,
+.lb-row.none .lb-stars b,
+.lb-row.none .lb-stars i,
+.lb-row.none .lb-score { color: #b0a9c0; }
 .lb-empty { padding: 18px; text-align: center; font-size: 12px; color: #9a93ad; }
 .lb-tip {
   width: 88%;
