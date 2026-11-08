@@ -2579,7 +2579,9 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   align-items: center;
   gap: 8px;
   margin-bottom: 8px;
+  position: relative;          /* 自绘下拉挂在这上面 */
 }
+/* 三个等宽按键：年 / 月 / 类型，长得一模一样 */
 .ledger-sel {
   width: 100%;
   min-width: 0;
@@ -2589,16 +2591,64 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   background: #fff;
   color: #5b5470;
   font-size: 13px;
-  padding: 0 2px;
-  text-align: center;
-  text-align-last: center;
+  font-family: inherit;
+  line-height: 1;
+  padding: 0 12px 0 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  cursor: pointer;
   -webkit-appearance: none;
   appearance: none;
+}
+/* 小三角提示可以点开 */
+.ledger-sel::after {
+  content: '';
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  margin-top: -1px;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
+  border-top: 4px solid #b3adc4;
+}
+.ledger-sel.is-open { border-color: #cbbcf6; background: #f8f5ff; color: #6a4bd6; }
+/* 自绘下拉：贴在按键下面，一次只开一个，选项多点也能滚 */
+.ledger-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 100%;
+  max-height: 46vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  border: 2px solid #eceaf6;
+  border-radius: 12px;
+  box-shadow: 0 10px 26px rgba(96, 76, 168, 0.18);
+  padding: 6px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  z-index: 8;
+}
+.ledger-opt {
+  width: 100%;
+  height: 34px;
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: #4b4560;
+  font-size: 13px;
+  font-family: inherit;
   cursor: pointer;
 }
-.ledger-sel:disabled { opacity: 0.5; }
-/* 选完一项立刻收焦点：不给下拉留蓝圈圈（会显得比选择器慢一拍） */
-.ledger-sel:focus { outline: none; }
+.ledger-opt:active { background: #f3eeff; }
+.ledger-opt.is-active { background: #efe9ff; color: #6a4bd6; font-weight: 600; }
+.ledger-opt.is-off { color: #cfcada; pointer-events: none; }
 /* 明细窗口：和关卡记录 / 成就一样宽，可上下滚动 */
 .ledger-list {
   width: 90%;

@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261109r">
-<link rel="stylesheet" href="./css/themes.css?v=20261109r">
+<link rel="stylesheet" href="./css/style.css?v=20261109s">
+<link rel="stylesheet" href="./css/themes.css?v=20261109s">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -700,13 +700,10 @@
   <div class="overlay" id="coin-menu" style="display:none;">
     <h2 class="title small">🪙 金币明细</h2>
     <div class="ledger-bar">
-      <select class="ledger-sel" id="ledger-year" aria-label="年份"></select>
-      <select class="ledger-sel" id="ledger-month" aria-label="月份"></select>
-      <select class="ledger-sel" id="ledger-type" aria-label="类型">
-        <option value="all">全部</option>
-        <option value="expense">支出</option>
-        <option value="income">收入</option>
-      </select>
+      <button class="ledger-sel" id="ledger-year" type="button" aria-haspopup="listbox">—</button>
+      <button class="ledger-sel" id="ledger-month" type="button" aria-haspopup="listbox">—</button>
+      <button class="ledger-sel" id="ledger-type" type="button" aria-haspopup="listbox">全部</button>
+      <div class="ledger-pop" id="ledger-pop" style="display:none;"></div>
     </div>
     <div class="ledger-list" id="ledger-list"></div>
   </div>
@@ -1003,22 +1000,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261109r"></script>
-<script src="./js/storage.js?v=20261109r"></script>
-<script src="./js/audio.js?v=20261109r"></script>
-<script src="./js/effects.js?v=20261109r"></script>
-<script src="./js/specials.js?v=20261109r"></script>
-<script src="./js/goals.js?v=20261109r"></script>
-<script src="./js/tasks.js?v=20261109r"></script>
-<script src="./js/mail.js?v=20261109r"></script>
-<script src="./js/input.js?v=20261109r"></script>
-<script src="./js/builtin-music.js?v=20261109r"></script>
-<script src="./js/music.js?v=20261109r"></script>
-<script src="./js/meta.js?v=20261109r"></script>
-<script src="./js/cloud-config.js?v=20261109r"></script>
-<script src="./js/cloud.js?v=20261109r"></script>
-<script src="./js/account.js?v=20261109r"></script>
-<script src="./js/board.js?v=20261109r"></script>
-<script src="./js/game.js?v=20261109r"></script>
+<script src="./js/rng.js?v=20261109s"></script>
+<script src="./js/storage.js?v=20261109s"></script>
+<script src="./js/audio.js?v=20261109s"></script>
+<script src="./js/effects.js?v=20261109s"></script>
+<script src="./js/specials.js?v=20261109s"></script>
+<script src="./js/goals.js?v=20261109s"></script>
+<script src="./js/tasks.js?v=20261109s"></script>
+<script src="./js/mail.js?v=20261109s"></script>
+<script src="./js/input.js?v=20261109s"></script>
+<script src="./js/builtin-music.js?v=20261109s"></script>
+<script src="./js/music.js?v=20261109s"></script>
+<script src="./js/meta.js?v=20261109s"></script>
+<script src="./js/cloud-config.js?v=20261109s"></script>
+<script src="./js/cloud.js?v=20261109s"></script>
+<script src="./js/account.js?v=20261109s"></script>
+<script src="./js/board.js?v=20261109s"></script>
+<script src="./js/game.js?v=20261109s"></script>
 </body>
 </html>

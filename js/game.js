@@ -3694,33 +3694,17 @@
     return out;
   }
 
-  // 填下拉：选项个数没变就只改文字 / 禁用状态，不重建 DOM
-  // （重建会把正打开着的下拉一起收回去——「点完年份再点月份，月份一闪就没」就是这么来的）
-  function fillSelectOptions(sel, items, value) {
-    if (!sel) return;
-    const cur = Array.prototype.slice.call(sel.children || []);
-    if (cur.length !== items.length) {
-      sel.innerHTML = '';
-      items.forEach((it) => {
-        const o = document.createElement('option');
-        o.value = String(it.value);
-        o.textContent = it.label;
-        if (it.disabled) o.disabled = true;
-        sel.appendChild(o);
-      });
-    } else {
-      items.forEach((it, i) => {
-        const o = cur[i];
-        if (!o) return;
-        if (o.textContent !== it.label) o.textContent = it.label;
-        if (!!o.disabled !== !!it.disabled) o.disabled = !!it.disabled;
-      });
-    }
-    if (String(sel.value) !== String(value)) sel.value = String(value);
+  // ---------- 顶部三个按键：年 / 月 / 类型 ----------
+  // 不用原生 <select>：手机上原生选择器收起后立刻点另一个会「闪一下就没」、点自己还不开，
+  // 干脆自己画一个列表，点哪项由我们说了算，跟游戏里其它面板一个手感。
+  let ledgerPop = '';          // '' | 'year' | 'month' | 'type'：当前展开的是哪一个
+
+  function ledgerTypeLabel(v) {
+    return v === 'expense' ? '支出' : (v === 'income' ? '收入' : '全部');
   }
 
-  // 把「年 / 月 / 类型」三个下拉填好：三个一样宽，月份只到当月（未来月份禁用）
-  function fillLedgerSelectors() {
+  // 把 ledgerMonth 纠正到合法范围（选不到未来），返回拆好的年月
+  function ledgerYM() {
     const now = new Date();
     const curY = now.getFullYear(), curM = now.getMonth() + 1;
     const parts = String(ledgerMonth || '').split('-');
@@ -3729,19 +3713,98 @@
     if (y > curY) { y = curY; m = curM; }
     if (y === curY && m > curM) m = curM;
     ledgerMonth = monthKey(y, m);
+    return { y: y, m: m, curY: curY, curM: curM };
+  }
 
-    fillSelectOptions($('ledger-year'),
-      ledgerYears().map((yy) => ({ value: yy, label: yy + ' 年' })), y);
+  // 三个按键上的文字 + 哪个正展开
+  function syncLedgerButtons() {
+    const ym = ledgerYM();
+    const map = [['year', $('ledger-year'), ym.y + ' 年'],
+      ['month', $('ledger-month'), ym.m + ' 月'],
+      ['type', $('ledger-type'), ledgerTypeLabel(ledgerType)]];
+    map.forEach((p) => {
+      if (!p[1]) return;
+      if (p[1].textContent !== p[2]) p[1].textContent = p[2];
+      if (p[1].classList) p[1].classList.toggle('is-open', ledgerPop === p[0]);
+    });
+  }
 
-    const months = [];
-    for (let mm = 1; mm <= 12; mm++) {
-      months.push({
-        value: mm < 10 ? '0' + mm : String(mm),
-        label: mm + ' 月',
-        disabled: y === curY && mm > curM       // 不能选未来的月份
-      });
+  function ledgerOptions(kind) {
+    const ym = ledgerYM();
+    if (kind === 'year') {
+      return ledgerYears().map((yy) => ({ value: String(yy), label: yy + ' 年', off: false }));
     }
-    fillSelectOptions($('ledger-month'), months, m < 10 ? '0' + m : String(m));
+    if (kind === 'month') {
+      const out = [];
+      for (let mm = 1; mm <= 12; mm++) {
+        out.push({
+          value: mm < 10 ? '0' + mm : String(mm),
+          label: mm + ' 月',
+          off: ym.y === ym.curY && mm > ym.curM      // 未来月份点不了
+        });
+      }
+      return out;
+    }
+    return [{ value: 'all', label: '全部', off: false },
+      { value: 'expense', label: '支出', off: false },
+      { value: 'income', label: '收入', off: false }];
+  }
+
+  function closeLedgerPop() {
+    ledgerPop = '';
+    const pop = $('ledger-pop');
+    if (pop) { pop.style.display = 'none'; pop.innerHTML = ''; }
+    syncLedgerButtons();
+  }
+
+  // 画当前展开的那个列表（一次只开一个）
+  function renderLedgerPop() {
+    const pop = $('ledger-pop');
+    if (!pop) return;
+    if (!ledgerPop) { pop.style.display = 'none'; pop.innerHTML = ''; return; }
+    const ym = ledgerYM();
+    const curVal = ledgerPop === 'year' ? String(ym.y)
+      : (ledgerPop === 'month' ? (ym.m < 10 ? '0' + ym.m : String(ym.m)) : ledgerType);
+    pop.innerHTML = '';
+    ledgerOptions(ledgerPop).forEach((o) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'ledger-opt' + (o.off ? ' is-off' : '') + (o.value === curVal ? ' is-active' : '');
+      b.textContent = o.label;
+      if (o.off) b.disabled = true;
+      b.addEventListener('click', () => {
+        if (o.off) return;
+        applyLedgerChoice(ledgerPop, o.value);
+      });
+      pop.appendChild(b);
+    });
+    pop.style.display = 'flex';
+    const act = pop.querySelector('.is-active');           // 展开时让当前选中的那项露出来
+    if (act && act.scrollIntoView) {
+      try { act.scrollIntoView({ block: 'center' }); } catch (e) {}
+    }
+  }
+
+  function applyLedgerChoice(kind, value) {
+    const ym = ledgerYM();
+    if (kind === 'year') {
+      const y = parseInt(value, 10) || ym.curY;
+      let m = ym.m;
+      if (y === ym.curY && m > ym.curM) m = ym.curM;   // 换到今年时月份不能超过当月
+      ledgerMonth = monthKey(y, m);
+    } else if (kind === 'month') {
+      ledgerMonth = monthKey(ym.y, parseInt(value, 10) || 1);
+    } else {
+      ledgerType = (value === 'income' || value === 'expense') ? value : 'all';
+    }
+    closeLedgerPop();
+    renderLedger();
+  }
+
+  function openLedgerPop(kind) {
+    ledgerPop = (ledgerPop === kind) ? '' : kind;   // 再点同一个就收起
+    renderLedgerPop();
+    syncLedgerButtons();
   }
 
   function renderLedger() {
@@ -3755,13 +3818,9 @@
       all.forEach((x) => { if (x.t > last) last = x.t; });
       ledgerMonth = monthKeyOf(last || Date.now());
     }
-    // 年 / 月 两个下拉跟着换；未来年月一律拉回当月
-    fillLedgerSelectors();
-    const sel = $('ledger-type');
-    if (sel) {
-      const v = sel.value;
-      ledgerType = (v === 'income' || v === 'expense') ? v : 'all';
-    }
+    // 三个按键的文字和展开的列表跟着状态走；未来年月一律拉回当月
+    syncLedgerButtons();
+    renderLedgerPop();
 
     const rows = all.filter((x) => {
       if (monthKeyOf(x.t) !== ledgerMonth) return false;
@@ -5535,32 +5594,21 @@
     if (coinsRow) {
       coinsRow.addEventListener('click', () => {
         // 上次看到哪年哪月、哪个类型，再进来还是那一页（第一次打开才默认落到最近一笔的月份）
-        const sel = $('ledger-type');
-        if (sel && sel.value !== ledgerType) sel.value = ledgerType;
+        closeLedgerPop();
         renderLedger();
         showOverlay('coin-menu');
       });
     }
-    const ledgerTypeSel = $('ledger-type');
-    if (ledgerTypeSel) ledgerTypeSel.addEventListener('change', () => {
-      renderLedger();
+    // 三个按键：点哪个开哪个，再点一下收起；点面板别处也收起
+    [['ledger-year', 'year'], ['ledger-month', 'month'], ['ledger-type', 'type']].forEach((p) => {
+      const b = $(p[0]);
+      if (b) b.addEventListener('click', () => openLedgerPop(p[1]));
     });
-    // 只换年份：月份超出现在（今年）就自动落到当月
-    const ledgerYearSel = $('ledger-year');
-    if (ledgerYearSel) ledgerYearSel.addEventListener('change', () => {
-      const now = new Date();
-      const y = parseInt(ledgerYearSel.value, 10) || now.getFullYear();
-      let m = parseInt(String(ledgerMonth).split('-')[1], 10) || (now.getMonth() + 1);
-      if (y === now.getFullYear() && m > now.getMonth() + 1) m = now.getMonth() + 1;
-      ledgerMonth = monthKey(y, m);
-      renderLedger();
-    });
-    const ledgerMonthSel = $('ledger-month');
-    if (ledgerMonthSel) ledgerMonthSel.addEventListener('change', () => {
-      const y = parseInt(String(ledgerMonth).split('-')[0], 10) || new Date().getFullYear();
-      const m = parseInt(ledgerMonthSel.value, 10) || 1;
-      ledgerMonth = monthKey(y, m);
-      renderLedger();
+    document.addEventListener('click', (e) => {
+      if (!ledgerPop) return;
+      const t = e.target;
+      if (t && t.closest && t.closest('#ledger-pop, .ledger-bar')) return;
+      closeLedgerPop();
     });
 
     // ==================== 新玩法：章节 / 模式 / 成就 / 图鉴 / 福利 / 排行榜 ====================
@@ -6290,6 +6338,10 @@
           showOverlay('admin-menu');
           showAdminPage('users');
           renderAdminUsers();
+          return true;
+        case 'coin-menu':
+          if (ledgerPop) { closeLedgerPop(); return true; }   // 先收起下拉，再点一次才回主页
+          hidePanel('coin-menu'); showOverlay('main-menu'); refreshMenu();
           return true;
         case 'ach-detail':
           return false;           // 详情页自己有点空白回成就页的处理

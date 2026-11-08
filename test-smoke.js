@@ -985,16 +985,14 @@ function check(name, ok) {
 
 
   // 14d3-4. 金币明细：主页点金币进去，按年月 + 类型筛选，明细可上下滚动
-  check('金币明细：年 / 月 / 类型三个等宽下拉（不能选未来）、每笔进出都记账、宽度和其它滚动页一致', (() => {
+  check('金币明细：年 / 月 / 类型三个等宽按键（自绘列表，不用原生下拉）、每笔进出都记账、宽度和其它滚动页一致', (() => {
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="coin-menu"'), htmlSrc0.indexOf('id="pause-menu"'));
-    const barOk = sec.includes('id="ledger-year"') && sec.includes('id="ledger-month"') &&
-      sec.includes('id="ledger-type"') &&
-      sec.indexOf('id="ledger-year"') < sec.indexOf('id="ledger-month"') &&
-      sec.indexOf('id="ledger-month"') < sec.indexOf('<option value="all">全部</option>') &&
-      sec.includes('<option value="income">收入</option>') &&
-      sec.includes('<option value="expense">支出</option>') &&
-      (sec.match(/class="ledger-sel"/g) || []).length === 3 &&     // 三个一样的下拉
-      !sec.includes('ledger-prev') && !sec.includes('ledger-next') &&  // 老的 ◀ ▶ 换月已去掉
+    const barOk =
+      sec.includes('id="ledger-year"') && sec.includes('id="ledger-month"') &&
+      sec.includes('id="ledger-type"') && sec.includes('id="ledger-pop"') &&
+      !/<select/.test(sec) &&                                        // 原生 select 全部去掉
+      (sec.match(/class="ledger-sel"/g) || []).length === 3 &&       // 三个长得一样的按键
+      !sec.includes('ledger-prev') && !sec.includes('ledger-next') &&
       sec.includes('id="ledger-list"') &&
       htmlSrc0.includes('id="menu-coins-row"') &&
       // 主页金币：箭头在数字左边
@@ -1007,13 +1005,12 @@ function check(name, ok) {
       // 点过的按键不留蓝焦点框（要跟选择器一起消失，含 :focus-visible）
       /button:focus,[^{]*\{[^}]*outline:\s*none\s*!important/.test(cssSrc) &&
       /button:focus-visible[^{]*\{[^}]*outline:\s*none\s*!important/.test(cssSrc) &&
-      /\.closest\('button'\)/.test(jsSrc) &&
-      // 下拉选完不再 blur（blur 会把紧接着点开的那个下拉一起关掉），蓝圈交给 CSS
-      !/ledgerMonthSel\.blur|ledgerTypeSel\.blur|ledgerYearSel\.blur/.test(jsSrc) &&
-      /\.ledger-sel:focus\s*\{[^}]*outline:\s*none/.test(cssSrc) &&
-      // 选项个数不变时只改文字 / 禁用状态，不重建 DOM（重建会让正开着的下拉瞬间收回）
-      /function fillSelectOptions/.test(jsSrc) &&
-      /cur\.length !== items\.length/.test(jsSrc) &&
+      // 自绘下拉：绝对定位挂在按键下面，未来月份点不了
+      /\.ledger-pop\s*\{[^}]*position:\s*absolute/.test(cssSrc) &&
+      /\.ledger-opt\.is-off\s*\{[^}]*pointer-events:\s*none/.test(cssSrc) &&
+      /function openLedgerPop/.test(jsSrc) &&
+      /function applyLedgerChoice/.test(jsSrc) &&
+      /function closeLedgerPop/.test(jsSrc) &&
       /'coin-menu': 'main-menu'/.test(jsSrc);
 
     // 干净起点（不要自动补记的「历史收支」干扰计数）
@@ -1033,77 +1030,118 @@ function check(name, ok) {
     const rowsAll = $('ledger-list').children.length;              // 本月只有 2 笔
     const allTxt = $('ledger-list').children.map((c) => String(c.innerHTML)).join('|');
 
-    // 年 / 月下拉：带「年」「月」后缀，12 个月，今年之后的月份禁用
-    const curY = new Date().getFullYear();
+    const curY = String(new Date().getFullYear());
     const curM = new Date().getMonth() + 1;
-    const yearOpts = $('ledger-year').children;
-    const monthOpts = $('ledger-month').children;
-    const yearLabels = yearOpts.map((o) => String(o.textContent));
+    // 三个按键上的字：带「年」「月」后缀，类型默认全部
+    const labelsOk = String($('ledger-year').textContent) === curY + ' 年' &&
+      String($('ledger-month').textContent) === curM + ' 月' &&
+      String($('ledger-type').textContent) === '全部';
+
+    // 点「月」：列表弹出来，12 项都带「月」，未来的月份灰掉点不了
+    $('ledger-month').dispatch('click');
+    const popOpen = $('ledger-pop').style.display === 'flex';
+    let monthOpts = $('ledger-pop').children;
     const monthLabels = monthOpts.map((o) => String(o.textContent));
-    const suffixOk = yearLabels.length >= 2 && /年$/.test(yearLabels[0]) &&
-      monthLabels.length === 12 && monthLabels[0] === '1 月' && monthLabels[11] === '12 月';
-    const keepOpt = monthOpts[5];      // 记住「6 月」这个选项对象，换完年份回来还要是同一个（没被重建）
-    const monthVal = String($('ledger-month').value);
-    const monthValueOk = monthVal === (curM < 10 ? '0' + curM : String(curM));
-    const futureOff = monthOpts.every((o, i) => (i + 1 <= curM) || o.disabled === true);
-    const yearValueOk = String($('ledger-year').value) === String(curY);
+    const monthListOk = monthOpts.length === 12 && monthLabels[0] === '1 月' && monthLabels[11] === '12 月';
+    const futureOff = monthOpts.every((o, i) => (i + 1 <= curM) ||
+      (o.disabled === true && String(o.className).indexOf('is-off') >= 0));
+    const activeOk = monthOpts.filter((o) => String(o.className).indexOf('is-active') >= 0)
+      .map((o) => String(o.textContent)).join(',') === curM + ' 月';
+    // 点里面的一项才算选中（列表自己关掉，按键文字跟着变）
+    const janOpt = monthOpts[0];
+    janOpt.dispatch('click');
+    const pickMonthOk = String($('ledger-month').textContent) === '1 月' &&
+      $('ledger-pop').style.display === 'none';
+    // 再点开可以换回来
+    $('ledger-month').dispatch('click');
+    $('ledger-pop').children[curM - 1].dispatch('click');
+    const backMonthOk = String($('ledger-month').textContent) === curM + ' 月';
+
+    // 点开另一个按键：上一个自动收起（一次只开一个）
+    $('ledger-month').dispatch('click');
+    $('ledger-year').dispatch('click');
+    let yearOpts = $('ledger-pop').children;
+    const yearLabels = yearOpts.map((o) => String(o.textContent));
+    const oneAtATime = $('ledger-pop').style.display === 'flex' &&
+      $('ledger-year').classList.contains('is-open') &&
+      !$('ledger-month').classList.contains('is-open') &&
+      yearLabels.filter((x) => /年$/.test(x)).length === yearLabels.length;
+    // 再点同一个按键 → 收起
+    $('ledger-year').dispatch('click');
+    const toggleOk = $('ledger-pop').style.display === 'none' &&
+      !$('ledger-year').classList.contains('is-open');
 
     // 只看收入
-    $('ledger-type').value = 'income';
-    $('ledger-type').dispatch('change');
+    $('ledger-type').dispatch('click');
+    $('ledger-pop').children.filter((o) => String(o.textContent) === '收入')[0].dispatch('click');
     const rowsIncome = $('ledger-list').children.length;
     const incomeTxt = String($('ledger-list').children[0].innerHTML);
-    // 只看支出：具体买了什么用小字写在「购买道具」左边
-    $('ledger-type').value = 'expense';
-    $('ledger-type').dispatch('change');
+    // 只看支出：具体买了什么用小字写在「购买道具」右边
+    $('ledger-type').dispatch('click');
+    $('ledger-pop').children.filter((o) => String(o.textContent) === '支出')[0].dispatch('click');
     const rowsExpense = $('ledger-list').children.length;
     const expenseTxt = String($('ledger-list').children[0].innerHTML);
-    // 具体道具名用小字写在「购买道具」右边
     const detailOk = expenseTxt.indexOf('购买道具<small class="ledger-detail">洗牌 +1</small>') >= 0;
-    $('ledger-type').value = 'all';
-    $('ledger-type').dispatch('change');
+    $('ledger-type').dispatch('click');
+    $('ledger-pop').children.filter((o) => String(o.textContent) === '全部')[0].dispatch('click');
 
-    // 换到去年：只能选到实际有数据 / 建号之后的年份，过去年份 12 个月都能选
-    const prevY = String(curY - 1);
-    const hasPrev = yearLabels.indexOf(prevY + ' 年') >= 0;
-    $('ledger-year').value = prevY;
-    $('ledger-year').dispatch('change');
+    // 换到去年：年份列表只到今年（不能选未来），过去年份 12 个月都能选
+    const prevY = String(Number(curY) - 1);
+    $('ledger-year').dispatch('click');
+    yearOpts = $('ledger-pop').children;
+    const hasPrev = yearOpts.map((o) => String(o.textContent)).indexOf(prevY + ' 年') >= 0;
+    yearOpts.filter((o) => String(o.textContent) === prevY + ' 年')[0].dispatch('click');
     const prevTxt = $('ledger-list').children.map((c) => String(c.innerHTML)).join('|');
     const prevRows = $('ledger-list').children.length;
-    const prevAllMonths = $('ledger-month').children.every((o) => !o.disabled);
+    $('ledger-month').dispatch('click');
+    const prevAllMonths = $('ledger-pop').children.every((o) => String(o.className).indexOf('is-off') < 0);
+    $('ledger-month').dispatch('click');
 
-    // 回到今年 + 试选未来月份 → 自动拉回当月
-    $('ledger-year').value = String(curY);
-    $('ledger-year').dispatch('change');
-    $('ledger-month').value = '12';
-    $('ledger-month').dispatch('change');
-    const noRebuild = $('ledger-month').children[5] === keepOpt;
-    const clampOk = String($('ledger-month').value) === (curM < 10 ? '0' + curM : String(curM));
+    // 回到今年：未来月份灰掉，点了不生效（月份还是当月）
+    $('ledger-year').dispatch('click');
+    $('ledger-pop').children.filter((o) => String(o.textContent) === curY + ' 年')[0].dispatch('click');
+    $('ledger-month').dispatch('click');
+    const futureOpt = $('ledger-pop').children[11];
+    futureOpt.dispatch('click');                                   // 12 月是灰的
+    const clampOk = String($('ledger-month').textContent) === curM + ' 月' &&
+      $('ledger-pop').style.display === 'flex';
+    $('ledger-month').dispatch('click');                           // 收起
     const rowsBack = $('ledger-list').children.length;
-    // 当月没有记录的月份 → 空提示
-    $('ledger-month').value = '01';
-    $('ledger-month').dispatch('change');
+
+    // 没有记录的月份 → 空提示
+    if (curM !== 1) {
+      $('ledger-month').dispatch('click');
+      $('ledger-pop').children[0].dispatch('click');
+    }
     const janEmpty = curM === 1 ? true
       : ($('ledger-list').children.length === 1 &&
         String($('ledger-list').children[0].className).indexOf('ledger-empty') >= 0);
-    $('ledger-month').value = (curM < 10 ? '0' + curM : String(curM));
-    $('ledger-month').dispatch('change');
+    if (curM !== 1) {
+      $('ledger-month').dispatch('click');
+      $('ledger-pop').children[curM - 1].dispatch('click');
+    }
 
-    // 点空白回主页
+    // 列表开着时点空白：先收起列表（面板不动），再点一次才回主页
+    $('ledger-month').dispatch('click');
+    const popBefore = $('ledger-pop').style.display;
+    $('coin-menu').dispatch('click');
+    const popFirst = popBefore === 'flex' && $('ledger-pop').style.display === 'none' &&
+      $('coin-menu').style.display === 'flex';
     $('coin-menu').dispatch('click');
     const backHome = $('coin-menu').style.display === 'none';
 
     // 退出再点进来：上次选到哪年哪月、哪个类型，还是那一页
-    $('ledger-month').value = '02';
-    $('ledger-month').dispatch('change');
-    $('ledger-type').value = 'income';
-    $('ledger-type').dispatch('change');
+    $('ledger-month').dispatch('click');
+    $('ledger-pop').children[1].dispatch('click');                 // 2 月
+    $('ledger-type').dispatch('click');
+    $('ledger-pop').children.filter((o) => String(o.textContent) === '收入')[0].dispatch('click');
     $('menu-coins-row').dispatch('click');
-    const keepSel = String($('ledger-month').value) === '02' && $('ledger-type').value === 'income' &&
+    const keepSel = String($('ledger-month').textContent) === '2 月' &&
+      String($('ledger-type').textContent) === '收入' &&
       $('coin-menu').style.display === 'flex';
     $('coin-menu').dispatch('click');
-    $('ledger-type').value = 'all';
-    $('ledger-type').dispatch('change');
+    $('ledger-type').dispatch('click');
+    $('ledger-pop').children.filter((o) => String(o.textContent) === '全部')[0].dispatch('click');
 
     // 金币数字实时更新：进账后主页数字当场变，不用手动刷新
     const before = sandbox.Store.getWallet().coins;
@@ -1112,11 +1150,12 @@ function check(name, ok) {
     sandbox.Store.spendCoins(100, '撤回实时测试');
 
     return barOk && opened && rowsAll === 2 && allTxt.includes('测试收入') && allTxt.includes('购买道具') &&
-      suffixOk && monthValueOk && futureOff && yearValueOk &&
+      labelsOk && popOpen && monthListOk && futureOff && activeOk && pickMonthOk && backMonthOk &&
+      oneAtATime && toggleOk &&
       rowsIncome === 1 && incomeTxt.includes('+120') &&
       rowsExpense === 1 && expenseTxt.includes('−50') && detailOk &&
       hasPrev && prevRows === 1 && prevTxt.includes('去年收入') && prevAllMonths &&
-      noRebuild && clampOk && rowsBack === 2 && janEmpty && backHome && keepSel && liveCoin;
+      clampOk && rowsBack === 2 && janEmpty && popFirst && backHome && keepSel && liveCoin;
   })());
 
   // 14d3-5. 明细上线前的金币：按余额补一条「历史收支」，补过就不再补
@@ -2868,7 +2907,7 @@ function check(name, ok) {
       /case 'shop-menu':\s*\n\s*syncShopDot\(\);/.test(jsSrc);
   })());
 
-  check('特殊道具都叫「xx道具」，说明里不留分号、不带「开局」、后半句换行显示', (() => {
+  check('特殊道具都叫「xx道具」，说明里不留分号、不带「开局」，长说明合并成一句用逗号隔开', (() => {
     const shop = sandbox.Tasks.SHOP;
     const specials = ['startFrost', 'startBomb', 'startMagnet', 'startPropeller', 'startLine', 'startPaint', 'rainbow'];
     const namesOk = specials.every((k) => {
@@ -2878,9 +2917,14 @@ function check(name, ok) {
     // 商店里任何道具的名字 / 说明都不许出现「开局」
     const noKaiJu = shop.every((it) => it.name.indexOf('开局') < 0 && it.desc.indexOf('开局') < 0);
     const noSemi = specials.every((k) => shop.find((x) => x.key === k).desc.indexOf('；') < 0);
-    const multi = ['startFrost', 'startMagnet', 'startPropeller', 'startPaint']
-      .every((k) => shop.find((x) => x.key === k).desc.indexOf('\n') > 0);
-    return namesOk && noKaiJu && noSemi && multi && /desc\.replace\(\/\\n\/g, '<br>'\)/.test(jsSrc);
+    // 长说明一律一行写完：前半句后用逗号接着写，不再换行
+    const oneLine = ['startFrost', 'startMagnet', 'startPropeller', 'startPaint']
+      .every((k) => {
+        const d = shop.find((x) => x.key === k).desc;
+        return d.indexOf('\n') < 0 && d.indexOf('，') > 0;
+      });
+    const noNl = shop.every((it) => it.desc.indexOf('\n') < 0);
+    return namesOk && noKaiJu && noSemi && oneLine && noNl;
   })());
 
   check('商店做成横滑卡片（一次一张 + 圆点指示），背包仍是竖排列表',
