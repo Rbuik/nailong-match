@@ -9,6 +9,7 @@
 //   nl_load     {p_token}             -> {ok, nick, uid, slot}
 //   nl_save     {p_token,p_slot}      -> {ok}
 //   nl_setpass  {p_token,p_new}       -> {ok}
+//   nl_recover  {p_nick,p_uid,p_new}  -> {ok, token, nick, uid, slot}   忘记密码
 //   nl_rename   {p_token,p_nick}      -> {ok}
 //   nl_delete   {p_token}             -> {ok}        注销：服务器上整号删除
 // 暴露 window.Cloud
@@ -137,6 +138,16 @@
       });
   }
 
+  // 忘记密码：名字 + 身份码（服务器上的账号 id）核验通过后重设密码，存档一起取回
+  function recover(nick, uid, newPass) {
+    if (!sdkOk) return Promise.resolve({ ok: false, offline: true, reason: '云服务没配置' });
+    return call('nl_recover', {
+      p_nick: String(nick || ''),
+      p_uid: String(uid || ''),
+      p_new: String(newPass || '')
+    });
+  }
+
   // 注销：把服务器上这个号整个删掉（账号行 + 令牌 + 存档）
   // 不删的话，玩家用同样的名字再登录，旧进度会被"找回来"
   function remove() {
@@ -159,6 +170,7 @@
     pull: pull,
     push: push,
     setPass: setPass,
+    recover: recover,
     rename: rename,
     remove: remove,
     lastSync: lastSync,

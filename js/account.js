@@ -423,6 +423,108 @@
     return { ok: true };
   }
 
+  // ---------- 忘记密码 ----------
+  // 两条路：
+  //   ① 本机还留着这个号（同一台设备，进度都在）→ 直接重设，不用证明什么，数据本来就是你的
+  //   ② 本机没有（换设备 / 清了缓存）→ 用「名字 + 身份码」去服务器核验，验过才重设并取回存档
+  // 身份码就是账号 id（p 开头），只在「设置 → 账号安全」里给自己的，算第二凭证。
+  function resetPassword(name, uid, newPass) {
+    const nm = String(name == null ? '' : name).trim();
+    const u = String(uid == null ? '' : uid).trim().toLowerCase();
+    if (!nm) return Promise.resolve({ ok: false, reason: '请填写名字' });
+    const p = checkPass(newPass);
+    if (!p.ok) return Promise.resolve(p);
+
+    const acc = findByName(nm) || findByNameLoose(nm);
+    if (acc) {
+      if (u && u !== String(acc.id).toLowerCase()) {
+        return Promise.resolve({ ok: false, reason: '名字和身份码对不上，检查一下身份码' });
+      }
+      const arr = list();
+      const i = arr.findIndex((x) => x.id === acc.id);
+      if (i < 0) return Promise.resolve({ ok: false, reason: '账号不存在' });
+      arr[i].pass = hash(p.pass);
+      arr[i].last = Date.now();
+      saveList(arr);
+      rememberPass(acc, p.pass);
+      // 能重设就说明这个号是本机的：顺手登进去，玩家不用再输一遍新密码
+      if (currentId() !== acc.id) {
+        saveCurrent();                // 当前登着别的号：先存好它的进度
+        write(K.cur, acc.id);
+        loadSlot(acc.id);
+        syncNick(acc);
+        touch(acc.id);
+        cloudPulled = false;          // 换号了，云端要重新对一次
+      }
+      if (currentId() === acc.id) syncNick(acc);
+      if (!cloudOk()) return Promise.resolve({ ok: true, account: acc, local: true, cloud: 'offline' });
+      // 服务器上的密码一起改：有令牌直接改；没有就按「名字 + 身份码」核验后改
+      const doneCloud = (r) => ({ ok: true, account: acc, local: true, cloud: (r && r.ok) ? 'ok' : 'pending' });
+      if (acc.ctoken) {
+        try {
+          global.Cloud.setToken(acc.ctoken);
+          return global.Cloud.setPass(p.pass).then(doneCloud).catch(doneCloud);
+        } catch (e) {}
+      }
+      return global.Cloud.recover(acc.name, acc.id, p.pass).then((r) => {
+        if (r && r.ok && r.token) {
+          const arr2 = list();
+          const j = arr2.findIndex((x) => x.id === acc.id);
+          if (j >= 0) { arr2[j].ctoken = r.token; arr2[j].cloud = 1; saveList(arr2); }
+          try { global.Cloud.setToken(r.token); } catch (e) {}
+        }
+        return doneCloud(r);
+      }).catch(doneCloud);
+    }
+
+    // 本机没有这个号：必须拿身份码去服务器证明
+    if (!u) {
+      return Promise.resolve({
+        ok: false, needUid: true,
+        reason: '本机没有这个账号：换设备找回要填身份码（设置 → 账号安全 里能看到）'
+      });
+    }
+    if (!cloudOk()) return Promise.resolve({ ok: false, reason: '服务器连不上，等有网再试一次' });
+    return global.Cloud.recover(nm, u, p.pass).then((r) => {
+      if (!r || !r.ok) return { ok: false, reason: (r && r.reason) || '名字和身份码对不上' };
+      if (wasPurged(String(r.uid || ''), r.nick || nm)) {
+        try { global.Cloud.remove().catch(() => {}); } catch (e) {}
+        return { ok: false, reason: '这个账号已经注销了，换个名字重新注册就行', purged: true };
+      }
+      const uid2 = String(r.uid || '');
+      const nick2 = String(r.nick || nm).trim() || nm;
+      if (!uid2) return { ok: false, reason: '服务器没有返回身份码' };
+      saveCurrent();
+      const acc2 = {
+        id: uid2, name: nick2, pass: hash(p.pass),
+        created: Date.now(), last: Date.now(), cloud: 1, ctoken: r.token || ''
+      };
+      const arr2 = list();
+      arr2.push(acc2);
+      saveList(arr2);
+      rememberPass(acc2, p.pass);
+      wipeActive();
+      const srv = r.slot && r.slot.keys ? r.slot : null;
+      if (srv) write(K.slot + uid2, srv);
+      loadSlot(uid2);
+      write(K.cur, uid2);
+      write('nl2:muid', uid2);
+      if (r.token) { try { global.Cloud.setToken(r.token); } catch (e) {} }
+      syncNick(acc2);
+      saveCurrent();
+      cloudPulled = true;
+      return { ok: true, account: acc2, cloud: 'ok', created: true };
+    }).catch((e) => ({ ok: false, reason: '网络异常，等有网再试一次' }));
+  }
+
+  // 这个名字在本机的账号（忘记密码页用来判断要不要填身份码）
+  function localAccount(name) {
+    const nm = String(name == null ? '' : name).trim();
+    if (!nm) return null;
+    const a = findByName(nm) || findByNameLoose(nm);
+    return a ? { id: a.id, name: a.name } : null;
+  }
+
   function rename(newName) {
     const acc = current();
     if (!acc) return { ok: false, reason: '还没有登录' };
@@ -956,6 +1058,7 @@
     list: all, find, findByName, current, currentId, loggedIn,
     register, login, logout, switchTo,
     setPassword, rename, needsFix, ensure, claimGrants, summary, syncNick, purge,
+    resetPassword, localAccount,
     saveCurrent, checkName, checkPass,
     exportBackup, importBackup,
     cloudLogin, pushCloud, pullCloud, pushAccountToCloud, startCloudSync, cloudOk,

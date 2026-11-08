@@ -6,6 +6,8 @@
 //   POST /api/rpc/nl_save     {p_token,p_slot}      -> {ok}
 //   POST /api/rpc/nl_setpass  {p_token,p_new}       -> {ok}
 //   POST /api/rpc/nl_rename   {p_token,p_nick}      -> {ok}
+//   POST /api/rpc/nl_recover  {p_nick,p_uid,p_new}  -> {ok,token,nick,uid,slot}  忘记密码
+//   POST /api/rpc/nl_delete   {p_token}             -> {ok}
 // 其它路径全部交给静态资源。密码 PBKDF2-SHA256 加盐，明文不落库。
 
 const CORS = {
@@ -210,6 +212,39 @@ async function doRename(env, b) {
   return json({ ok: true, nick: nick });
 }
 
+// 忘记密码：用「名字 + 身份码」核验身份后重设密码，并把服务器上的存档一起取回。
+// 身份码就是账号 id（p 开头），只在玩家自己的「设置 → 账号安全」里能看到，算第二凭证；
+// 没有邮箱 / 手机可发验证码，这是唯一不靠旧密码的找回方式。
+// 重设成功后删掉这个账号的全部旧令牌：别的地方要重新登录（防止密码泄露后被顶号）。
+async function doRecover(env, b) {
+  const nick = String(b.p_nick || '').trim();
+  const uid = String(b.p_uid || '').trim();
+  const np = String(b.p_new || '');
+  if (!nick) return json({ ok: false, reason: '请填写名字' });
+  if (!passOk(np)) return json({ ok: false, reason: '密码要 4-24 位，不能有空格' });
+  if (!/^p[0-9a-z]{6,}$/i.test(uid)) return json({ ok: false, reason: '身份码格式不对，是 p 开头的一串字母数字' });
+
+  const key = nickKey(nick);
+  let row = await env.DB.prepare('SELECT id, nick, slot FROM accounts WHERE nick_key = ?').bind(key).first();
+  if (!row) {
+    // 大小写不同的老名字：只有一个候选才认（和登录的兜底一致）
+    const rs = await env.DB.prepare('SELECT id, nick, slot FROM accounts WHERE lower(nick_key) = lower(?)')
+      .bind(key).all();
+    const hits = (rs && rs.results) || [];
+    if (hits.length === 1) row = hits[0];
+  }
+  if (!row) return json({ ok: false, reason: '服务器上没有这个名字，检查一下有没有打错' });
+  if (String(row.id).toLowerCase() !== uid.toLowerCase()) {
+    return json({ ok: false, reason: '名字和身份码对不上，检查一下身份码' });
+  }
+
+  await env.DB.prepare('UPDATE accounts SET pass = ?, updated_at = ? WHERE id = ?')
+    .bind(await makePass(np), Date.now(), row.id).run();
+  await env.DB.prepare('DELETE FROM sessions WHERE acc_id = ?').bind(row.id).run();
+  const token = await issueToken(env, row.id);
+  return json({ ok: true, token: token, nick: row.nick, uid: row.id, slot: parseSlot(row.slot) });
+}
+
 // 注销账号：把这个号在服务器上的存档、令牌、账号行一起删掉。
 // 必须真删：否则玩家注销后用同样的名字再登录，旧进度会被云端"找回来"。
 async function doDelete(env, b) {
@@ -249,6 +284,7 @@ export default {
       case 'nl_save':     return doSave(env, body);
       case 'nl_setpass':  return doSetPass(env, body);
       case 'nl_rename':   return doRename(env, body);
+      case 'nl_recover':  return doRecover(env, body);
       case 'nl_delete':   return doDelete(env, body);
       default:            return json({ ok: false, reason: '接口不存在' }, 404);
     }

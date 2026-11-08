@@ -1929,6 +1929,44 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   text-align: left;
 }
 
+/* 登录页底部的「忘记密码？」：只在登录表单里出现，注册不用 */
+.auth-link {
+  margin: 2px 0 0;
+  padding: 6px 12px;
+  border: 0;
+  background: transparent;
+  color: #7c5cff;
+  font-family: inherit;
+  font-size: 13px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.auth-link:active { opacity: 0.6; }
+#auth-forgot .auth-link { margin-top: 6px; }
+
+/* 忘记密码页：身份码那一栏的补充说明 */
+.auth-label-tip {
+  font-size: 11px;
+  font-weight: 400;
+  color: #a89fc4;
+}
+/* 本机认出来的账号：身份码自动填好，改成浅底色表示「不用你填」 */
+#auth-forgot .auth-input[readonly] {
+  background: #f2f0fb;
+  color: #6b6483;
+  border-color: #e6e0fb;
+}
+
+/* 账号安全页的身份码：等宽字体，点一下复制 */
+#account-uid {
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px;
+  color: #7c5cff;
+  cursor: pointer;
+}
+#account-uid:active { opacity: 0.6; }
+
 .btn-row {
   display: flex;
   gap: 10px;

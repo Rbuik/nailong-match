@@ -99,7 +99,7 @@ function getEl(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; }
   'backpack-menu', 'pause-menu', 'logout-confirm', 'logout-confirm2', 'level-clear', 'game-over',
   'daily-done', 'game-complete', 'chapters-menu', 'story-menu', 'modes-menu', 'mode-over',
   'achievements-menu', 'ach-detail', 'collection-menu', 'welfare-menu', 'leaderboard-menu',
-  'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'fix-menu', 'cloud-menu',
+  'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'fix-menu', 'cloud-menu',
   'buy-confirm', 'use-confirm', 'reset-bgm-confirm', 'mail-delall-confirm', 'makeup-menu', 'coin-menu'
 ].forEach((id) => getEl(id));
 
@@ -2675,6 +2675,32 @@ function check(name, ok) {
     if (hadSkip === undefined) lsMap.delete('nl2:authSkip'); else lsMap.set('nl2:authSkip', hadSkip);
     $('main-menu').style.display = 'flex';
     return formBack && guest && srcOk;
+  })());
+  check('忘记密码：登录页有入口；本机有号直接重设，换设备用「名字 + 身份码」核验后重设', (() => {
+    const cloudSrc = fs.readFileSync(path.join(__dirname, 'js', 'cloud.js'), 'utf8');
+    const backSrc = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
+    const fg = htmlSrc.slice(htmlSrc.indexOf('id="auth-forgot"'), htmlSrc.indexOf('id="fix-menu"'));
+    const domOk = /id="btn-auth-forgot"[^>]*>忘记密码？</.test(htmlSrc) &&
+      fg.includes('id="forgot-name"') && fg.includes('id="forgot-uid"') &&
+      fg.includes('id="forgot-pass"') && fg.includes('id="forgot-pass2"') &&
+      fg.includes('id="btn-forgot-submit"') && !fg.includes('btn-forgot-back');
+    // 点空白回登录表单（名字还留着），不是回登录菜单
+    $('auth-form').style.display = 'flex';
+    $('auth-forgot').style.display = 'flex';
+    $('auth-forgot').dispatch('click');
+    const back = $('auth-forgot').style.display === 'none' && $('auth-form').style.display === 'flex';
+    $('auth-form').style.display = 'none';
+    const srcOk = /function resetPassword\(name, uid, newPass\)/.test(jsSrc) &&
+      /function localAccount\(name\)/.test(jsSrc) &&
+      /Cloud\.recover\(acc\.name, acc\.id, p\.pass\)/.test(jsSrc) &&
+      /needUid: true/.test(jsSrc) &&
+      /function recover\(nick, uid, newPass\)/.test(cloudSrc) &&
+      /nl_recover/.test(cloudSrc) && /doRecover/.test(backSrc) &&
+      /'auth-forgot': 'auth-form'/.test(jsSrc) && /case 'auth-forgot':/.test(jsSrc) &&
+      /\.auth-link/.test(cssSrc) && /id="account-uid"/.test(htmlSrc);
+    if (!(domOk && back && srcOk)) console.log('[DBG-FORGOT]', domOk, back, srcOk,
+      'disp=', $('auth-forgot').style.display, 'form=', $('auth-form').style.display);
+    return domOk && back && srcOk;
   })());
   check('成绩单：卡片严格居中（stage width:100% 包裹、标题悬浮上方、不改卡片尺寸）、无底部文案、进度线恒满格', (() => {
     const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));

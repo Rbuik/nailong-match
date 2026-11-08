@@ -3414,7 +3414,7 @@
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
-      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
+      'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot',
       'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu',
       'ach-detail',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
@@ -3437,7 +3437,7 @@
     'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
-    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form',
+    'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot',
     'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu', 'ach-detail'];
 
   function setView(view) {
@@ -6054,13 +6054,52 @@
       return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
         ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
     }
+    // 复制一段文字（身份码用：手机上没有 ctrl+c）
+    function copyPlain(text) {
+      const s = String(text || '');
+      const fallback = () => {
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = s;
+          ta.setAttribute('readonly', 'readonly');
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          if (ta.select) ta.select();
+          const ok = document.execCommand && document.execCommand('copy');
+          document.body.removeChild(ta);
+          return !!ok;
+        } catch (e) { return false; }
+      };
+      return new Promise((resolve) => {
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(s).then(() => resolve(true)).catch(() => resolve(fallback()));
+            return;
+          }
+        } catch (e) {}
+        resolve(fallback());
+      });
+    }
+
     function fillAccountInfo() {
       const n = $('account-cur-name');
       if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
       const c = $('account-created');
       if (c) c.textContent = (Account.loggedIn() && Account.current() && Account.current().created)
         ? fmtAccTime(Account.current().created) : '—';
+      // 身份码：换设备忘记密码时要用它证明这个号是你的
+      const u = $('account-uid');
+      if (u) u.textContent = Account.loggedIn() ? String(Account.currentId() || '—') : '—';
     }
+
+    // 点身份码复制（手机上没有 ctrl+c，给一个方便的复制入口）
+    on('account-uid', () => {
+      if (!Account.loggedIn()) return;
+      const id = String(Account.currentId() || '');
+      if (!id) return;
+      copyPlain(id).then((ok) => toast(ok ? '身份码已复制：' + id : '复制失败，长按身份码手动复制'));
+    });
 
     // 设置 → 账号安全：修改密码 / 切换账号
     on('btn-goto-account', () => {
@@ -6265,6 +6304,18 @@
       const el = $(id);
       if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitAuth(); });
     });
+
+    // 忘记密码：本机有这个号就直接重设，换设备时用「名字 + 身份码」核验
+    on('btn-auth-forgot', () => openForgotForm());
+    on('btn-forgot-submit', submitForgot);
+    ['forgot-name', 'forgot-uid', 'forgot-pass', 'forgot-pass2'].forEach((id) => {
+      const el = $(id);
+      if (el) el.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitForgot(); });
+    });
+    const forgotName = $('forgot-name');
+    if (forgotName) forgotName.addEventListener('input', syncForgotUidHint);
+    const forgotUid = $('forgot-uid');
+    if (forgotUid) forgotUid.addEventListener('input', () => { forgotUid.dataset.touched = '1'; });
     on('btn-fix-save', saveFix);
     const fixName = $('fix-name');
     if (fixName) fixName.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveFix(); });
@@ -6362,6 +6413,7 @@
       'music-history-menu': 'custom-music-menu',
       'playlist-menu': 'music-settings-menu',
       'auth-form': 'auth-menu',  // 登录 / 注册表单点背景回选择页
+      'auth-forgot': 'auth-form', // 忘记密码：点背景回登录表单（名字已经填着的）
       // auth-menu（选登录还是注册）点背景 = 不登录直接玩，见 skipAuth()
       'daily-done': 'main-menu', // 每日挑战结算页：点空白回主页
       'tasks-menu': 'main-menu',
@@ -6413,6 +6465,12 @@
           return true;
         case 'auth-menu':
           skipAuth();             // 登录页点背景 = 不登录，按游客玩
+          return true;
+        case 'auth-forgot':
+          hidePanel('auth-forgot');   // 回登录表单，名字还留着
+          setForgotError('');
+          showOverlay('auth-form');
+          setView('menu');
           return true;
         case 'cloud-menu':
           skipCloud();            // 云存档页点背景 = 先不存，之后在账号安全里再补
@@ -8129,11 +8187,106 @@
       const el = $(id);
       if (el) el.value = '';
     });
+    // 「忘记密码？」只在登录时有意义（注册还没有密码）
+    const fg = $('btn-auth-forgot');
+    if (fg) fg.style.display = authMode === 'register' ? 'none' : '';
     setAuthError('');
     showOverlay('auth-form');
     setView('menu');
     const n = $('auth-name');
     if (n && n.focus) setTimeout(() => n.focus(), 60);
+  }
+
+  // ==================== 忘记密码 ====================
+  // 本机还留着这个号（同一台设备）→ 直接重设，不用填身份码；
+  // 换了设备 / 清了缓存 → 填「名字 + 身份码」，服务器核验后重设并把存档一起取回。
+  function setForgotError(msg) {
+    const e = $('forgot-err');
+    if (e) e.textContent = msg || '';
+  }
+
+  // 名字一输入就看本机有没有这个号：有就把身份码自动补上（玩家多半记不住）
+  function syncForgotUidHint() {
+    const name = ($('forgot-name') || {}).value || '';
+    const uidEl = $('forgot-uid');
+    const tipEl = $('forgot-uid-tip');
+    const tip = $('forgot-tip');
+    const a = (typeof Account !== 'undefined' && Account.localAccount) ? Account.localAccount(name) : null;
+    if (!String(name).trim()) {
+      // 还没输名字：别吓人，先说这栏怎么用
+      if (uidEl) { uidEl.value = ''; uidEl.readOnly = false; }
+      if (tipEl) tipEl.textContent = '（换设备找回才要填）';
+      if (tip) tip.innerHTML = '填上名字：本机会自动认号，认出来就不用填身份码。';
+      return;
+    }
+    if (a) {
+      if (uidEl) { uidEl.value = a.id; uidEl.readOnly = true; }
+      if (tipEl) tipEl.textContent = '（本机已找到，自动填好）';
+      if (tip) tip.innerHTML = '本机认出了「' + a.name + '」：设个新密码就行，进度不会动。';
+    } else {
+      if (uidEl) { uidEl.readOnly = false; if (/^p/i.test(String(uidEl.value || '')) && !uidEl.dataset.touched) uidEl.value = ''; }
+      if (tipEl) tipEl.textContent = '（换设备找回才要填）';
+      if (tip) tip.innerHTML = '本机没有这个名字：换设备 / 清了缓存时，要用身份码证明这个号是你的<br>身份码在 设置 → 账号安全 里，点一下能复制';
+    }
+  }
+
+  function openForgotForm() {
+    AudioManager.gateBGM(false);
+    $('auth-menu').style.display = 'none';
+    $('auth-form').style.display = 'none';
+    // 登录页已经输了名字就带过来
+    const nm = $('forgot-name');
+    const src = $('auth-name');
+    if (nm) nm.value = (src && src.value) ? src.value : '';
+    const uidEl = $('forgot-uid');
+    if (uidEl) { uidEl.value = ''; uidEl.readOnly = false; delete uidEl.dataset.touched; }
+    ['forgot-pass', 'forgot-pass2'].forEach((id) => { const el = $(id); if (el) el.value = ''; });
+    setForgotError('');
+    syncForgotUidHint();
+    showOverlay('auth-forgot');
+    setView('menu');
+    if (nm && nm.focus) setTimeout(() => nm.focus(), 60);
+  }
+
+  async function submitForgot() {
+    const name = ($('forgot-name') || {}).value || '';
+    const uid = ($('forgot-uid') || {}).value || '';
+    const p1 = ($('forgot-pass') || {}).value || '';
+    const p2 = ($('forgot-pass2') || {}).value || '';
+    const fail = (m) => {
+      setForgotError(m);
+      try { AudioManager.playSFX('invalid'); } catch (e) {}
+      return false;
+    };
+    if (!String(name).trim()) return fail('请填写名字');
+    if (!String(p1)) return fail('请填写新密码');
+    if (String(p1) !== String(p2)) return fail('两次输入的密码不一样');
+    if (typeof Account === 'undefined' || !Account.resetPassword) return fail('账号功能没加载出来，请刷新页面');
+
+    const btn = $('btn-forgot-submit');
+    if (btn) { btn.disabled = true; btn.textContent = '正在重设…'; }
+    setForgotError('');
+    let r = null;
+    try {
+      r = await Account.resetPassword(name, uid, p1);
+    } catch (e) {
+      r = { ok: false, reason: '网络异常，等有网再试一次' };
+    }
+    if (btn) { btn.disabled = false; btn.textContent = '重设密码'; }
+    if (!r || !r.ok) {
+      if (r && r.needUid) syncForgotUidHint();
+      return fail((r && r.reason) || '重设失败，检查一下名字和身份码');
+    }
+
+    $('auth-forgot').style.display = 'none';
+    const nm = $('auth-name');
+    if (nm) nm.value = r.account.name;
+    const pw = $('auth-pass');
+    if (pw) pw.value = '';
+    afterAuthEnter(r.created
+      ? '密码已重设，「' + r.account.name + '」的存档已取回'
+      : '密码已重设，下次用新密码登录就行');
+    return true;
   }
 
   // 找回账号 / 忘记密码：本机有就重设密码，本机没有但榜上有就用榜上身份建号
