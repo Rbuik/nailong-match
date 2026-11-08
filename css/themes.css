@@ -1346,6 +1346,9 @@ body.m-dragging .m-item { cursor: grabbing; }
 .sign-day.missed { background: rgba(255, 92, 92, 0.14); color: #c0392b; cursor: pointer; }
 .sign-day.missed b { color: #c0392b; }
 .sign-day.missed:active { transform: scale(0.94); }
+/* 注册之前的日子：整体灰色、日期下面一条杠，不算漏签也不能点 */
+.sign-day.before { background: rgba(0, 0, 0, 0.03); color: #b9b4c8; }
+.sign-day.before b { color: #b9b4c8; font-weight: 600; }
 /* 本轮之后多显示的 3 天：淡灰不可点 */
 .sign-day.future { opacity: 0.5; }
 .wheel-box {

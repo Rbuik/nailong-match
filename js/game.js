@@ -6905,8 +6905,10 @@
         const isFuture = d > today;
         const isToday = off === 0;
         const signed = dates.indexOf(k) >= 0;
+        // 注册之前的日子：灰色、日期下面一条杠，不算漏签也不能点
+        const isBefore = d < start;
         // 漏签：注册那天到现在之间、今天之前、还没签（注册之前的日子不算漏签）
-        const missed = !signed && !isFuture && d >= start;
+        const missed = !signed && !isFuture && !isBefore && d >= start;
 
         // 每天的奖励：按本轮周期日取（越界就按 7 天一轮回取），全部日子都标出金币数
         let reward = null;
@@ -6918,12 +6920,13 @@
 
         const cell = document.createElement('div');
         cell.className = 'sign-day' +
+          (isBefore ? ' before' : '') +
           (signed ? ' signed' : '') +
           (isToday ? ' today' : '') +
           (missed ? ' missed' : '') +
           (isFuture ? ' future' : '');
         cell.innerHTML = '<i>' + week[d.getDay()] + ' ' + fmt(d) + '</i>' +
-          '<b>' + (signed ? '✓' : (missed ? '补签' : (reward ? (reward.item ? '🌈' : reward.coins) : '—'))) + '</b>';
+          '<b>' + (isBefore ? '—' : (signed ? '✓' : (missed ? '补签' : (reward ? (reward.item ? '🌈' : reward.coins) : '—')))) + '</b>';
         if (missed) {
           cell.addEventListener('click', () => openMakeupPanel(d, k));
         }

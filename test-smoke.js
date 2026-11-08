@@ -992,7 +992,9 @@ function check(name, ok) {
     const streakTxt = String($('welfare-streak').textContent);
     const all = ($('welfare-sign').children || []);
     const cells = all.filter((c) => String(c.className).indexOf('missed') >= 0);
-    const beforeRegOk = String(all[0].className).indexOf('missed') < 0;   // 注册前那天不标补签
+    const beforeRegOk = String(all[0].className).indexOf('missed') < 0 &&
+      String(all[0].className).indexOf('before') >= 0 &&
+      String(all[0].innerHTML).indexOf('—') >= 0;   // 注册之前：灰色一条杠，不标补签
     const missedOk = cells.length === 3 && cells.every((c) => String(c.innerHTML).indexOf('补签') >= 0);
     cells[0].dispatch('click');
     // 第一步：补签窗口（费用 50、不发奖励）
