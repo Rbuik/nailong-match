@@ -979,14 +979,21 @@ function check(name, ok) {
     const today = Store.todayKey();
     const savedTasks = lsMap.get('nl2:tasks');
     const savedWallet = lsMap.get('nl2:wallet');
-    // 本周期从 2 天前开始，只签了今天 → 漏了前天和昨天，可补 2 天
+    const savedAccs = lsMap.get('nl2:accounts');
+    // 签到起始日 = 注册那天：把建号时间改成 3 天前 → 前天/昨天/大前天三天漏签，4 天前在注册之前不算漏签
+    const accs = JSON.parse(savedAccs || '[]');
+    accs.forEach((a) => { a.created = Date.now() - 3 * 86400000; });
+    lsMap.set('nl2:accounts', JSON.stringify(accs));
+    // 只签了今天
     const cycleStart = Store.todayKey(new Date(Date.now() - 2 * 86400000));
     lsMap.set('nl2:tasks', JSON.stringify({ date: today, list: [], signDay: 1, signDate: today, dates: [today], cycleStart: cycleStart }));
     lsMap.set('nl2:wallet', JSON.stringify({ coins: 1000, items: {} }));
     $('btn-welfare').dispatch('click');
     const streakTxt = String($('welfare-streak').textContent);
-    const cells = ($('welfare-sign').children || []).filter((c) => String(c.className).indexOf('missed') >= 0);
-    const missedOk = cells.length === 2 && cells.every((c) => String(c.innerHTML).indexOf('补签') >= 0);
+    const all = ($('welfare-sign').children || []);
+    const cells = all.filter((c) => String(c.className).indexOf('missed') >= 0);
+    const beforeRegOk = String(all[0].className).indexOf('missed') < 0;   // 注册前那天不标补签
+    const missedOk = cells.length === 3 && cells.every((c) => String(c.innerHTML).indexOf('补签') >= 0);
     cells[0].dispatch('click');
     // 第一步：补签窗口（费用 50、不发奖励）
     const panelShown = $('makeup-menu').style.display === 'flex';
@@ -1001,7 +1008,8 @@ function check(name, ok) {
     $('welfare-menu').dispatch('click');
     if (savedTasks !== undefined) lsMap.set('nl2:tasks', savedTasks);
     if (savedWallet !== undefined) lsMap.set('nl2:wallet', savedWallet);
-    return streakTxt.indexOf('连续签到 1 天') >= 0 && missedOk && panelShown &&
+    if (savedAccs !== undefined) lsMap.set('nl2:accounts', savedAccs); else lsMap.delete('nl2:accounts');
+    return streakTxt.indexOf('连续签到 1 天') >= 0 && beforeRegOk && missedOk && panelShown &&
       panelTxt.indexOf('50') >= 0 && panelTxt.indexOf('不发') >= 0 && dialogShown && dialogClosed &&
       coins === 950 && st.streak === 2 && st.day === 2;
   })());

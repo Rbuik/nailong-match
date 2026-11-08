@@ -235,6 +235,8 @@
   // 兼容旧存档：只有 signDay/signDate 时，按它们推导出本周期已签的日期表
   function normSign(s) {
     if (!Array.isArray(s.dates)) s.dates = [];
+    // all：所有签过的日期（跨轮保留，日期条判断「签到了变绿」要用它，不能只看本轮 dates）
+    if (!Array.isArray(s.all)) s.all = s.dates.slice();
     if (!s.cycleStart) s.cycleStart = '';
     // 老存档没有连续天数：用本轮已签天数近似（旧版一轮最多 7 天，误差最多几天）
     if (typeof s.streak !== 'number') s.streak = s.dates.length;
@@ -282,6 +284,8 @@
 
     s.streak = streak;
     s.dates.push(today);
+    if (s.all.indexOf(today) < 0) s.all.push(today);
+    if (s.all.length > 400) s.all = s.all.slice(-400);
     s.signDay = s.dates.length;
     s.signDate = today;
     setTaskState(s);
@@ -289,27 +293,44 @@
     return { ok: true, day, reward, streak: streak, milestone: milestone };
   }
 
-  // 补签：补上指定的漏签日期（不传就补最早漏掉的那天），花 300 金币（不发当日奖励）
+  // 签到起始日 = 用户注册（建号）那一天；取不到就退回最早签到的日子，再退回今天
+  // 从这一天起：签过的变绿，没签的可以补签；这一天之前不算漏签
+  function signStart() {
+    const s = normSign(getTaskState());
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    let reg = null;
+    try {
+      const acc = (typeof Account !== 'undefined' && Account && Account.current) ? Account.current() : null;
+      if (acc && acc.created) {
+        reg = new Date(acc.created);
+        if (isNaN(reg.getTime())) reg = null;
+        else reg.setHours(0, 0, 0, 0);
+      }
+    } catch (e) {}
+    if (reg) return reg > today ? today : reg;
+    const list = (s.all || []).slice().sort();
+    if (list.length) return dparse(list[0]);
+    return today;
+  }
+
+  // 补签：补上指定的漏签日期（不传就补最早漏掉的那天），花 50 金币（不发当日奖励）
   function makeupSign(dateKey) {
     const s = normSign(getTaskState());
-    if (!s.dates.length) return { ok: false, reason: 'none' };
-    if (s.dates.length >= SIGN_REWARDS.length) return { ok: false, reason: 'full' };
-
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const start = dparse(s.cycleStart || s.dates[0]);
+    const start = signStart();
     let miss = null;
     if (dateKey) {
-      // 指定日期：必须是本轮周期里、今天之前、且还没签的
+      // 指定日期：必须是注册之后、今天之前、且还没签的
       const dk = dparse(dateKey);
       if (dk >= today) return { ok: false, reason: 'none' };
       if (dk < start) return { ok: false, reason: 'none' };
-      if (s.dates.indexOf(todayKey(dk)) >= 0) return { ok: false, reason: 'none' };
+      if (s.all.indexOf(todayKey(dk)) >= 0) return { ok: false, reason: 'none' };
       miss = todayKey(dk);
     } else {
       const yest = new Date(); yest.setDate(yest.getDate() - 1);
       for (let d = new Date(start); d <= yest; d.setDate(d.getDate() + 1)) {
         const k = todayKey(d);
-        if (s.dates.indexOf(k) < 0) { miss = k; break; }
+        if (s.all.indexOf(k) < 0) { miss = k; break; }
       }
     }
     if (!miss) return { ok: false, reason: 'none' };
@@ -320,6 +341,9 @@
 
     s.dates.push(miss);
     s.dates.sort();
+    if (s.all.indexOf(miss) < 0) s.all.push(miss);
+    s.all.sort();
+    if (s.all.length > 400) s.all = s.all.slice(-400);
     s.signDay = s.dates.length;
     s.streak = (s.streak || 0) + 1;   // 补上漏签的那天，连续天数照常 +1
     setTaskState(s);
@@ -333,14 +357,14 @@
     const yesterday = todayKey(new Date(Date.now() - 86400000));
     const signedToday = s.signDate === today;
     let streak = 0;
-    if (signedToday || s.dates.indexOf(yesterday) >= 0) streak = s.streak || s.signDay || s.dates.length;
+    if (signedToday || s.all.indexOf(yesterday) >= 0) streak = s.streak || s.signDay || s.dates.length;
+    // 可补签天数：从注册那天到昨天，还没签的天数
     let missed = 0;
-    if (s.dates.length && s.dates.length < SIGN_REWARDS.length) {
-      const start = dparse(s.cycleStart || s.dates[0]);
-      const yd = dparse(yesterday);
-      for (let d = new Date(start); d <= yd; d.setDate(d.getDate() + 1)) {
-        if (s.dates.indexOf(todayKey(d)) < 0) missed++;
-      }
+    const start = signStart();
+    const yd = dparse(yesterday);
+    for (let d = new Date(start); d <= yd; d.setDate(d.getDate() + 1)) {
+      if (s.all.indexOf(todayKey(d)) < 0) missed++;
+      if (missed > 400) break;
     }
     return { streak: streak, signedToday: signedToday, missed: missed, canMakeup: missed > 0, day: s.signDay || 0 };
   }
@@ -436,7 +460,7 @@
     getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
-    getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex, signCycleStart,
+    getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex, signCycleStart, signStart,
     getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet, countStart,
     COUNT_START,
     saveRun, loadRun, clearRun, wipeAll

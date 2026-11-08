@@ -325,7 +325,9 @@
       day: s.signDay || 0,
       signedToday: global.Store ? !Store.canSignIn() : true,
       rewards: (global.Store && Store.SIGN_REWARDS) || [],
-      dates: Array.isArray(s.dates) ? s.dates : []
+      dates: Array.isArray(s.dates) ? s.dates : [],
+      // 所有签过的日期（跨轮保留）：日期条判断「签到了变绿」用它
+      all: Array.isArray(s.all) ? s.all : (Array.isArray(s.dates) ? s.dates : [])
     };
   }
 

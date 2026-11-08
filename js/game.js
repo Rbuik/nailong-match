@@ -6890,23 +6890,23 @@
     const dayBox = $('welfare-sign');
     if (dayBox) {
       dayBox.innerHTML = '';
-      const st = Meta.signStats();
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      // 本轮起点：最近一次签到日往前的 cycleStart（由 storage 维护），没签过就从今天算
+      // 签到起始日 = 用户注册（建号）那天：这一天起没签的变红「补签」，之前的日子不算漏签
       let start = null;
-      try { start = Store.signCycleStart(); } catch (e) {}
+      try { start = Store.signStart ? Store.signStart() : Store.signCycleStart(); } catch (e) {}
       if (!start) start = new Date(today);
       const fmt = (d) => (d.getMonth() + 1) + '/' + d.getDate();
       const week = ['日', '一', '二', '三', '四', '五', '六'];
-      const dates = info.dates || [];
+      // 已签判断用「跨轮保留的全部签约记录」，避免 7 天一轮翻新后旧签到被当成漏签
+      const dates = (info.all && info.all.length) ? info.all : (info.dates || []);
       for (let off = -4; off <= 4; off++) {
         const d = new Date(today.getFullYear(), today.getMonth(), today.getDate() + off);
         const k = Store.todayKey(d);
         const isFuture = d > today;
         const isToday = off === 0;
         const signed = dates.indexOf(k) >= 0;
-        // 漏签：本轮周期内、今天之前、还没签（周期前的日子补签接口不认，不算漏签）
-        const missed = !signed && !isFuture && st.canMakeup && d >= start;
+        // 漏签：注册那天到现在之间、今天之前、还没签（注册之前的日子不算漏签）
+        const missed = !signed && !isFuture && d >= start;
 
         // 每天的奖励：按本轮周期日取（越界就按 7 天一轮回取），全部日子都标出金币数
         let reward = null;
