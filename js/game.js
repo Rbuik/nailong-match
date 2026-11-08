@@ -8187,7 +8187,7 @@
       const el = $(id);
       if (el) el.value = '';
     });
-    // 「忘记密码？」只在登录时有意义（注册还没有密码）
+    // 「忘记密码」只在登录时有意义（注册还没有密码）
     const fg = $('btn-auth-forgot');
     if (fg) fg.style.display = authMode === 'register' ? 'none' : '';
     setAuthError('');

@@ -2680,7 +2680,7 @@ function check(name, ok) {
     const cloudSrc = fs.readFileSync(path.join(__dirname, 'js', 'cloud.js'), 'utf8');
     const backSrc = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
     const fg = htmlSrc.slice(htmlSrc.indexOf('id="auth-forgot"'), htmlSrc.indexOf('id="fix-menu"'));
-    const domOk = /id="btn-auth-forgot"[^>]*>忘记密码？</.test(htmlSrc) &&
+    const domOk = /id="btn-auth-forgot"[^>]*>忘记密码</.test(htmlSrc) &&
       fg.includes('id="forgot-name"') && fg.includes('id="forgot-uid"') &&
       fg.includes('id="forgot-pass"') && fg.includes('id="forgot-pass2"') &&
       fg.includes('id="btn-forgot-submit"') && !fg.includes('btn-forgot-back');
@@ -2701,6 +2701,17 @@ function check(name, ok) {
     if (!(domOk && back && srcOk)) console.log('[DBG-FORGOT]', domOk, back, srcOk,
       'disp=', $('auth-forgot').style.display, 'form=', $('auth-form').style.display);
     return domOk && back && srcOk;
+  })());
+  check('注册时间以服务器为准：换设备登录不把「今天」当建号时间，邮箱历史公告不再被过滤', (() => {
+    const accSrc = fs.readFileSync(path.join(__dirname, 'js', 'account.js'), 'utf8');
+    const backSrc = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
+    return /function adoptCreated\(acc, created\)/.test(accSrc) &&
+      /created: Number\(r\.created\) \|\| Date\.now\(\)/.test(accSrc) &&
+      /created: Number\(info\.created\) \|\| Date\.now\(\)/.test(accSrc) &&
+      /adoptCreated\(acc, r\.created\)/.test(accSrc) &&
+      /created: Number\(acc\.created_at\) \|\| 0/.test(backSrc) &&
+      /created: Number\(row\.created_at\) \|\| 0/.test(backSrc) &&
+      /a\.created_at/.test(backSrc);
   })());
   check('成绩单：卡片严格居中（stage width:100% 包裹、标题悬浮上方、不改卡片尺寸）、无底部文案、进度线恒满格', (() => {
     const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));

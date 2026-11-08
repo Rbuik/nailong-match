@@ -497,7 +497,7 @@
       saveCurrent();
       const acc2 = {
         id: uid2, name: nick2, pass: hash(p.pass),
-        created: Date.now(), last: Date.now(), cloud: 1, ctoken: r.token || ''
+        created: Number(r.created) || Date.now(), last: Date.now(), cloud: 1, ctoken: r.token || ''
       };
       const arr2 = list();
       arr2.push(acc2);
@@ -685,6 +685,7 @@
     return global.Cloud.pull().then((r) => {
       if (!r || !r.ok) return false;
       cloudPulled = true;
+      adoptCreated(acc, r.created);      // 注册时间以服务器为准（老设备建错的自愈）
       const srv = r.slot && r.slot.keys ? r.slot : null;
       const loc = slotOf(acc.id);
       const srvT = (srv && srv.savedAt) || 0;
@@ -796,6 +797,22 @@
   }
 
   // 本机没有这个号 → 去服务器找（名字和密码在服务器上）
+  // 服务器上的注册时间才是真的。换设备登录时本机要新建账号，如果拿「现在」当建号时间，
+  // 账号安全页会显示今天注册、欢迎邮件变成今天发的、注册之前的历史公告还会被过滤掉
+  // —— 看起来就像邮箱被重置了。所以拿服务器返回的 created 校正本机。
+  function adoptCreated(acc, created) {
+    const c = Number(created) || 0;
+    if (!acc || !c) return false;
+    const cur = Number(acc.created) || 0;
+    // 正常情况（本机记得真实时间）不动；只修「本机没有」或「本机明显比服务器晚」
+    if (cur && cur <= c + 36e5) return false;
+    acc.created = c;
+    const arr = list();
+    const i = arr.findIndex((x) => x.id === acc.id);
+    if (i >= 0) { arr[i].created = c; saveList(arr); }
+    return true;
+  }
+
   function cloudLogin(name, pass) {
     if (!cloudOk()) return Promise.resolve({ ok: false, reason: BAD_PASS, badAccount: true });
     const p = checkPass(pass);
@@ -812,7 +829,7 @@
       saveCurrent();
       let acc = find(uid) || findByName(nick) || findByName(name);
       if (!acc) {
-        acc = { id: uid, name: nick, pass: hash(pass), created: Date.now(), last: Date.now(), cloud: 1 };
+        acc = { id: uid, name: nick, pass: hash(pass), created: Number(r.created) || Date.now(), last: Date.now(), cloud: 1 };
         const arr = list();
         arr.push(acc);
         saveList(arr);
@@ -829,6 +846,7 @@
         return { ok: true, account: acc, created: true };
       }
       if (acc.id !== uid) migrateAccId(acc, uid);
+      adoptCreated(acc, r.created);      // 本机建号时间错了（比如今天才建）→ 按服务器的改回来
       const loc = slotOf(acc.id);
       const srv = r.slot && r.slot.keys ? r.slot : null;
       const srvT = (srv && srv.savedAt) || 0;
@@ -940,7 +958,7 @@
     if (same && same.id !== uid) arr = arr.filter((a) => a.id !== same.id);
     let acc = arr.filter((a) => a.id === uid)[0];
     if (!acc) {
-      acc = { id: uid, name: nick, pass: '', created: Date.now(), last: Date.now(), cloud: true };
+      acc = { id: uid, name: nick, pass: '', created: Number(info.created) || Date.now(), last: Date.now(), cloud: true };
       arr.push(acc);
     } else {
       acc.name = nick || acc.name;

@@ -112,7 +112,7 @@ async function issueToken(env, accId) {
 async function accByToken(env, token) {
   if (!token) return null;
   const row = await env.DB.prepare(
-    'SELECT a.id, a.nick, a.slot, s.expires_at FROM sessions s JOIN accounts a ON a.id = s.acc_id WHERE s.token = ?'
+    'SELECT a.id, a.nick, a.slot, a.created_at, s.expires_at FROM sessions s JOIN accounts a ON a.id = s.acc_id WHERE s.token = ?'
   ).bind(token).first();
   if (!row) return null;
   if (Number(row.expires_at) < Date.now()) {
@@ -144,7 +144,7 @@ async function doRegister(env, b) {
   ).bind(id, key, nick, await makePass(pass), now, now).run();
 
   const token = await issueToken(env, id);
-  return json({ ok: true, token: token, nick: nick, uid: id, slot: null });
+  return json({ ok: true, token: token, nick: nick, uid: id, created: now, slot: null });
 }
 
 async function doLogin(env, b) {
@@ -152,14 +152,14 @@ async function doLogin(env, b) {
   const pass = String(b.p_pass || '');
   if (!nick || !pass) return json({ ok: false, reason: '名字或密码不对' });
   const row = await env.DB.prepare(
-    'SELECT id, nick, pass, slot FROM accounts WHERE nick_key = ?'
+    'SELECT id, nick, pass, slot, created_at FROM accounts WHERE nick_key = ?'
   ).bind(nickKey(nick)).first();
   // 登录兜底：精确匹配不到时，允许大小写不同（只有一个候选才认）——
   // 老玩家当年注册写的是「Yone」，今天顺手输「yone」不该直接查无此人
   let acc = row;
   if (!acc) {
     const rs = await env.DB.prepare(
-      'SELECT id, nick, pass, slot FROM accounts WHERE lower(nick_key) = lower(?)'
+      'SELECT id, nick, pass, slot, created_at FROM accounts WHERE lower(nick_key) = lower(?)'
     ).bind(nickKey(nick)).all();
     const hits = (rs && rs.results) || [];
     if (hits.length === 1) acc = hits[0];
@@ -167,7 +167,9 @@ async function doLogin(env, b) {
   if (!acc) return json({ ok: false, reason: '没有找到这个玩家' });
   if (!await checkPass(pass, acc.pass)) return json({ ok: false, reason: '密码不对' });
   const token = await issueToken(env, acc.id);
-  return json({ ok: true, token: token, nick: acc.nick, uid: acc.id, slot: parseSlot(acc.slot) });
+  // created：账号真实的注册时间（客户端换设备建本地账号时要用它，不能当成「今天刚注册」）
+  return json({ ok: true, token: token, nick: acc.nick, uid: acc.id,
+    created: Number(acc.created_at) || 0, slot: parseSlot(acc.slot) });
 }
 
 async function doLoad(env, b) {
@@ -225,10 +227,10 @@ async function doRecover(env, b) {
   if (!/^p[0-9a-z]{6,}$/i.test(uid)) return json({ ok: false, reason: '身份码格式不对，是 p 开头的一串字母数字' });
 
   const key = nickKey(nick);
-  let row = await env.DB.prepare('SELECT id, nick, slot FROM accounts WHERE nick_key = ?').bind(key).first();
+  let row = await env.DB.prepare('SELECT id, nick, slot, created_at FROM accounts WHERE nick_key = ?').bind(key).first();
   if (!row) {
     // 大小写不同的老名字：只有一个候选才认（和登录的兜底一致）
-    const rs = await env.DB.prepare('SELECT id, nick, slot FROM accounts WHERE lower(nick_key) = lower(?)')
+    const rs = await env.DB.prepare('SELECT id, nick, slot, created_at FROM accounts WHERE lower(nick_key) = lower(?)')
       .bind(key).all();
     const hits = (rs && rs.results) || [];
     if (hits.length === 1) row = hits[0];
@@ -242,7 +244,8 @@ async function doRecover(env, b) {
     .bind(await makePass(np), Date.now(), row.id).run();
   await env.DB.prepare('DELETE FROM sessions WHERE acc_id = ?').bind(row.id).run();
   const token = await issueToken(env, row.id);
-  return json({ ok: true, token: token, nick: row.nick, uid: row.id, slot: parseSlot(row.slot) });
+  return json({ ok: true, token: token, nick: row.nick, uid: row.id,
+    created: Number(row.created_at) || 0, slot: parseSlot(row.slot) });
 }
 
 // 注销账号：把这个号在服务器上的存档、令牌、账号行一起删掉。
