@@ -3614,12 +3614,6 @@
   function renderBackpack() {
     const list = $('backpack-list');
     if (!list) return;
-    const hint = $('backpack-hint');
-    if (hint) {
-      hint.textContent = canUseItems()
-        ? '点「使用」立即对本局生效'
-        : '道具在游戏中使用；开始一局后即可点「使用」';
-    }
     const wallet = Store.getWallet();
     list.innerHTML = '';
     const owned = Tasks.SHOP.filter((item) => (wallet.items[item.key] || 0) > 0);
@@ -3641,15 +3635,38 @@
       useBtn.className = 'shop-buy';
       useBtn.textContent = ITEM_ACTION[item.key] || '使用';
       useBtn.disabled = !canUseItems();
-      useBtn.addEventListener('click', () => useBackpackItem(item.key));
+      useBtn.addEventListener('click', () => openUseConfirm(item));
       row.appendChild(useBtn);
       list.appendChild(row);
     });
   }
 
+  // 使用道具确认：点「使用」先弹确认，确认后才真正扣道具生效
+  let pendingUse = null;
+  function openUseConfirm(item) {
+    if (!canUseItems()) { useBackpackItem(item.key); return; }   // 未开局：按钮本应禁用，兜底走提示
+    pendingUse = item;
+    const box = $('use-confirm');
+    if (!box) { useBackpackItem(item.key); return; }
+    const wallet = Store.getWallet();
+    const txt = $('use-confirm-text');
+    if (txt) {
+      txt.innerHTML = '是否使用 <b>' + escHtml(item.name) + '</b>？<br>' +
+        '<small>现有 ' + (wallet.items[item.key] || 0) + ' 个</small>';
+    }
+    box.style.display = 'flex';
+  }
+  function closeUseConfirm() {
+    const box = $('use-confirm');
+    if (box) box.style.display = 'none';
+    pendingUse = null;
+  }
+
   // 关卡记录：点任意一关 → 回主页，并把主页当前关卡切到这一关
   function selectMenuLevel(lv) {
-    S.menuLevel = Math.max(1, Math.min(lv, maxMainLevel()));
+    // 只允许切到已解锁的关卡（存了超前值也拉回来）
+    const maxU = Store.maxUnlockedLevel(maxMainLevel());
+    S.menuLevel = Math.max(1, Math.min(lv, maxU));
     Store.setSettings({ menuLevel: S.menuLevel });
     const hm = $('history-menu');
     if (hm) hm.style.display = 'none';
@@ -5193,6 +5210,16 @@
     const buyNo = $('btn-buy-no');
     if (buyNo) buyNo.addEventListener('click', closeBuyConfirm);
 
+    // 使用道具：确认 / 取消
+    const useYes = $('btn-use-yes');
+    if (useYes) useYes.addEventListener('click', () => {
+      const item = pendingUse;
+      closeUseConfirm();
+      if (item) useBackpackItem(item.key);
+    });
+    const useNo = $('btn-use-no');
+    if (useNo) useNo.addEventListener('click', closeUseConfirm);
+
     // ==================== 隐藏后台：同时按住奶龙图案 + 注销键 3 秒 ====================
     const adminMascot = (typeof document.querySelector === 'function')
       ? document.querySelector('#main-menu .mascot') : null;
@@ -6126,7 +6153,8 @@
       const saved = Store.getSettings().menuLevel;
       S.menuLevel = saved || maxUnlocked;
     }
-    S.menuLevel = Math.max(1, Math.min(S.menuLevel, max));
+    // 只能在「已解锁」范围内显示：存档里留了超前值（如直接落到未解锁的第 80 关）也一律拉回来
+    S.menuLevel = Math.max(1, Math.min(S.menuLevel, maxUnlocked));
 
     const lvEl = $('menu-current-level');
     if (lvEl) lvEl.textContent = S.menuLevel;

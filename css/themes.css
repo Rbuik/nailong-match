@@ -281,7 +281,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .shop-info { flex: 1; min-width: 0; }
 .shop-info b { font-size: 14px; display: block; color: #333; }
 .shop-info small { font-size: 11px; color: #999; }
-.shop-own { font-size: 11px; color: #999; white-space: nowrap; }
+.shop-own { font-size: 16px; font-weight: 800; color: #4a3f66; white-space: nowrap; }
 
 .shop-buy {
   flex: 0 0 auto;
@@ -1748,12 +1748,14 @@ body.m-dragging .m-item { cursor: grabbing; }
    呼吸节奏跟棋盘上的钥匙 / 奶龙一致（同样的缩放 + 光晕起伏，周期约 1.85s） */
 .frenzy-slot {
   width: 100%;
-  height: 32px;            /* 固定占位：出现/消失都不挤动棋盘 */
+  min-height: 32px;        /* 固定占位：出现/消失都不挤动棋盘；机关多换行时往下长 */
+  height: auto;
   margin-top: 5px;         /* 离棋盘下沿再空一点，别贴着 */
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;                /* 双倍小标和机关胶囊同行排开 */
+  flex-wrap: wrap;
+  gap: 4px 8px;            /* 双倍小标和机关胶囊同行排开 */
 }
 .hud-frenzy {
   display: none;

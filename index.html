@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261109b">
-<link rel="stylesheet" href="./css/themes.css?v=20261109b">
+<link rel="stylesheet" href="./css/style.css?v=20261109c">
+<link rel="stylesheet" href="./css/themes.css?v=20261109c">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -87,6 +87,16 @@
     <div>
       <button class="btn-primary btn-danger" id="btn-buy-yes">确认</button>
       <button class="btn-primary btn-success" id="btn-buy-no">取消</button>
+    </div>
+  </div>
+
+  <!-- 使用道具确认 -->
+  <div class="overlay confirm-overlay" id="use-confirm" style="display:none;">
+    <h2 class="title small">使用道具</h2>
+    <p class="confirm-text" id="use-confirm-text">是否使用？</p>
+    <div>
+      <button class="btn-primary btn-danger" id="btn-use-yes">确认</button>
+      <button class="btn-primary btn-success" id="btn-use-no">取消</button>
     </div>
   </div>
 
@@ -280,7 +290,7 @@
         <h3>右上角</h3>
         <p><b>⚙️ 设置</b>：账号安全（改密码 / 切换账号 / 云存档 / 存档码 / 注销）和音乐设置。</p>
         <p><b>🎵 音乐</b>：只开关背景音乐，音效照常。</p>
-        <p><b>🎒 背包</b>：买到的道具都在里面，<b>点「使用」才生效</b>。</p>
+        <p><b>🎒 背包</b>：买到的道具都在里面，<b>点「使用」确认后生效</b>。</p>
       </section>
 
       <section class="rule-sec">
@@ -679,7 +689,6 @@
   <!-- 背包 -->
   <div class="overlay" id="backpack-menu" style="display:none;">
     <h2 class="title small">🎒 背包</h2>
-    <p class="history-hint" id="backpack-hint">道具在游戏中使用，点「使用」立即生效</p>
     <div class="shop-list" id="backpack-list"></div>
   </div>
 
@@ -967,22 +976,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261109b"></script>
-<script src="./js/storage.js?v=20261109b"></script>
-<script src="./js/audio.js?v=20261109b"></script>
-<script src="./js/effects.js?v=20261109b"></script>
-<script src="./js/specials.js?v=20261109b"></script>
-<script src="./js/goals.js?v=20261109b"></script>
-<script src="./js/tasks.js?v=20261109b"></script>
-<script src="./js/mail.js?v=20261109b"></script>
-<script src="./js/input.js?v=20261109b"></script>
-<script src="./js/builtin-music.js?v=20261109b"></script>
-<script src="./js/music.js?v=20261109b"></script>
-<script src="./js/meta.js?v=20261109b"></script>
-<script src="./js/cloud-config.js?v=20261109b"></script>
-<script src="./js/cloud.js?v=20261109b"></script>
-<script src="./js/account.js?v=20261109b"></script>
-<script src="./js/board.js?v=20261109b"></script>
-<script src="./js/game.js?v=20261109b"></script>
+<script src="./js/rng.js?v=20261109c"></script>
+<script src="./js/storage.js?v=20261109c"></script>
+<script src="./js/audio.js?v=20261109c"></script>
+<script src="./js/effects.js?v=20261109c"></script>
+<script src="./js/specials.js?v=20261109c"></script>
+<script src="./js/goals.js?v=20261109c"></script>
+<script src="./js/tasks.js?v=20261109c"></script>
+<script src="./js/mail.js?v=20261109c"></script>
+<script src="./js/input.js?v=20261109c"></script>
+<script src="./js/builtin-music.js?v=20261109c"></script>
+<script src="./js/music.js?v=20261109c"></script>
+<script src="./js/meta.js?v=20261109c"></script>
+<script src="./js/cloud-config.js?v=20261109c"></script>
+<script src="./js/cloud.js?v=20261109c"></script>
+<script src="./js/account.js?v=20261109c"></script>
+<script src="./js/board.js?v=20261109c"></script>
+<script src="./js/game.js?v=20261109c"></script>
 </body>
 </html>

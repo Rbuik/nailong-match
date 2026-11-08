@@ -99,7 +99,8 @@ function getEl(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; }
   'backpack-menu', 'pause-menu', 'logout-confirm', 'logout-confirm2', 'level-clear', 'game-over',
   'daily-done', 'game-complete', 'chapters-menu', 'story-menu', 'modes-menu', 'mode-over',
   'achievements-menu', 'ach-detail', 'collection-menu', 'welfare-menu', 'leaderboard-menu',
-  'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'fix-menu', 'cloud-menu'
+  'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'fix-menu', 'cloud-menu',
+  'buy-confirm', 'use-confirm', 'reset-bgm-confirm', 'mail-delall-confirm'
 ].forEach((id) => getEl(id));
 
 const documentStub = {
@@ -570,18 +571,26 @@ function check(name, ok) {
   const useBtns = packRows2.map((r) => r.children[r.children.length - 1]);
   check('局内使用按钮可点', useBtns.every((b) => b && b.disabled === false));
 
-  useBtns[0].dispatch('click'); // +3 步
-  check('使用「+3 步」生效', Number($('moves').textContent) === movesBefore + 3);
+  const useConfirmOpen = () => $('use-confirm').style.display === 'flex';
+  useBtns[0].dispatch('click'); // +3 步：先弹确认
+  check('点「使用」先弹确认窗口', useConfirmOpen() && $('use-confirm-text').innerHTML.includes('+3 步'));
+  $('btn-use-yes').dispatch('click');
+  check('确认后「+3 步」生效', !useConfirmOpen() && Number($('moves').textContent) === movesBefore + 3);
   check('「+3 步」消耗 1 个', (sandbox.Store.getWallet().items.extraMoves || 0) === 0);
 
   const shuffleBefore = Number($('shuffle-count').textContent);
   packRows2 = $('backpack-list').children; // 使用后重渲染
-  packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 洗牌 +1（转入本局）
+  packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 洗牌 +1（弹确认）
+  $('btn-use-no').dispatch('click'); // 先取消：不消耗
+  check('取消使用不消耗道具', !useConfirmOpen() && (sandbox.Store.getWallet().items.shuffle || 0) === 1);
+  packRows2[0].children[packRows2[0].children.length - 1].dispatch('click');
+  $('btn-use-yes').dispatch('click');
   check('使用「洗牌」转入本局次数', (sandbox.Store.getWallet().items.shuffle || 0) === 0);
   check('洗牌徽章 +1（只算本局次数）', Number($('shuffle-count').textContent) === shuffleBefore + 1);
 
   packRows2 = $('backpack-list').children;
-  packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置）
+  packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置，弹确认）
+  $('btn-use-yes').dispatch('click');
   check('使用「炸弹」放置成功', $('toast').textContent.includes('炸弹'));
   check('「炸弹」消耗 1 个', (sandbox.Store.getWallet().items.startBomb || 0) === 0);
   $('backpack-menu').dispatch('click');
@@ -597,8 +606,7 @@ function check(name, ok) {
   const homeBtn = homeRows[0].children[homeRows[0].children.length - 1];
   check('未开局时使用按钮禁用', homeBtn.disabled === true);
   homeBtn.dispatch('click');
-  check('未开局点击不消耗道具', (sandbox.Store.getWallet().items.rainbow || 0) === 1);
-  check('未开局有引导提示', $('toast').textContent.includes('局内使用'));
+  check('未开局点击不弹确认、不消耗道具', $('use-confirm').style.display !== 'flex' && (sandbox.Store.getWallet().items.rainbow || 0) === 1);
 
   // 9. 玩法规则面板
   $('backpack-menu').dispatch('click');
@@ -2635,11 +2643,12 @@ function check(name, ok) {
     /function updateHazardBar/.test(jsSrc) && /updateHazardBar\(\);/.test(jsSrc));
 
   check('机关提示条挪到棋盘下方「双倍」右边，目标栏下面不再放任何东西', (() => {
-    const slot = htmlSrc0.slice(htmlSrc0.indexOf('class="frenzy-slot"'), htmlSrc0.indexOf('</div>\n\n  <!-- 节奏关') >= 0 ? htmlSrc0.indexOf('节拍条') : htmlSrc0.indexOf('id="beat-bar"'));
+    const slot = htmlSrc0.slice(htmlSrc0.indexOf('class="frenzy-slot"'), htmlSrc0.indexOf('节拍条') >= 0 ? htmlSrc0.indexOf('节拍条') : htmlSrc0.indexOf('id="beat-bar"'));
     const between = htmlSrc0.slice(htmlSrc0.indexOf('id="target-bar"'), htmlSrc0.indexOf('class="tools"'));
     return slot.includes('id="frenzy-chip"') && slot.indexOf('id="frenzy-chip"') < slot.indexOf('id="hazard-bar"') &&
       !between.includes('id="hazard-bar"') &&
-      /\.hazard-bar\s*\{[^}]*max-width:\s*62%/.test(cssSrc) &&
+      /\.hazard-bar\s*\{[^}]*max-width:\s*100%/.test(cssSrc) &&
+      /\.hazard-bar\s*\{[^}]*flex-wrap:\s*wrap/.test(cssSrc) &&
       !/\.hazard-bar\s*\{[^}]*margin-top/.test(cssSrc);
   })());
 

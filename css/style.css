@@ -47,14 +47,16 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 
 .target-bar { width: 100%; text-align: center; font-size: 15px; color: #1a8f4a; background: rgba(92, 200, 143, 0.15); padding: 8px; border-radius: 8px; font-weight: bold; }
 
-/* 机关状态条：横排小胶囊；放在棋盘下方 frenzy-slot 里（「双倍」的右边），没有机关的关卡整条隐藏 */
+/* 机关状态条：横排小胶囊；放在棋盘下方 frenzy-slot 里（「双倍」的右边），没有机关的关卡整条隐藏。
+   最宽不超过棋盘宽度，一排放不下自动换到第二排 */
 .hazard-bar {
   display: none;
-  flex-wrap: nowrap;
-  gap: 5px;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 4px 5px;
   justify-content: center;
-  max-width: 62%;
-  overflow: hidden;
+  max-width: 100%;
 }
 .hazard-chip {
   font-size: 11px;
