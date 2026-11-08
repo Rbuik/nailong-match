@@ -13,6 +13,7 @@
     {
       id: 'welcome-2026-11',
       at: '2026-11-05 12:00',
+      atRegister: true,             // 发送时间 = 这个账号的建号时间（下面 at 只是没有建号时间时的兜底）
       icon: '🎉',
       title: '欢迎来到奶龙消消乐',
       from: '系统',
@@ -35,6 +36,15 @@
       title: '说明页更新：功能介绍和玩法说明分开了',
       from: '系统',
       body: '左上角的 📖 说明现在先让你选看哪一份：\n\n· 🧩 功能介绍：章节、更多玩法、金币道具、每日挑战、福利、成就与配色、排行榜、音乐、账号\n· 🎮 玩法说明：基本玩法、特殊块、组合技、连击、关卡目标、障碍与货物、星级、分数与纪录、提示与续命\n\n只想查一个机制的时候，不用再翻完一整页了。',
+      coins: 0
+    },
+    {
+      id: 'notice-ledger-2026-11-08',
+      at: '2026-11-08 15:45',
+      icon: '🪙',
+      title: '金币明细上线：每一笔收支都能查',
+      from: '系统',
+      body: '主页点「🪙 金币」这一行就能打开金币明细：\n\n· 上面一行选年月（不会让你选到未来的月份）和类型（全部 / 支出 / 收入）\n· 买道具会写明买的是哪个、成就奖励会写明是哪一枚哪一阶\n· 明细上线之前的收支补成了一条「历史收支」，全部加起来正好是钱包里的金币',
       coins: 0
     },
     {
@@ -92,6 +102,34 @@
     return String(m.to).trim().toLowerCase() === myName();
   }
 
+  function p2(n) { return n < 10 ? '0' + n : String(n); }
+  function fmtTime(d) {
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) +
+      ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
+  }
+  // 建号时间：欢迎邮件的发送时间就用它；比它早的系统邮件玩家一律看不到
+  function registeredAt() {
+    try {
+      const acc = (global.Account && Account.current) ? Account.current() : null;
+      if (acc && acc.created) {
+        const d = new Date(acc.created);
+        if (!isNaN(d.getTime())) {
+          d.setSeconds(0, 0);          // 只精确到分钟：建号同一分钟里发的邮件也算「注册之后」
+          return { ts: d.getTime(), text: fmtTime(d) };
+        }
+      }
+    } catch (e) {}
+    return { ts: 0, text: '' };
+  }
+  function atOf(m, reg) {
+    if (m.atRegister) return reg.text || m.at || '';
+    return m.at || '';
+  }
+  function atTime(at) {
+    const t = Date.parse(String(at || '').replace(' ', 'T'));
+    return isNaN(t) ? 0 : t;
+  }
+
   function normalize(m) {
     return {
       id: m.id,
@@ -117,9 +155,10 @@
       seen[m.id] = true;
       return true;
     });
+    const reg = registeredAt();
     return uniq.map((m) => ({
       id: m.id,
-      at: m.at,
+      at: atOf(m, reg),
       icon: m.icon || '📮',
       title: m.title,
       from: m.from || '系统',
@@ -129,7 +168,10 @@
       read: !!s.read[m.id],
       claimed: !!s.claimed[m.id],
       hasGift: !!(m.coins || m.items)
-    })).sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+    }))
+      // 建号之前的系统邮件不展示（老玩家不会有「你注册前就发过」的邮件）
+      .filter((m) => !reg.ts || !atTime(m.at) || atTime(m.at) >= reg.ts)
+      .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   }
 
   // 发一封邮件到当前账号的邮箱（奖励走这里，金币作为附件，等用户自己领）

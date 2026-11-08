@@ -19,6 +19,7 @@
     net: NS + ':net',             // 后台缓存 { globalHits, geo:{country,region,city,ts} }
     ledger: NS + ':ledger',       // 金币明细 [{ t:时间, d:正负金额, m:说明, x:具体说明 }]
     ledgerInit: NS + ':ledgerInit', // 明细上线时补记过历史收支（只补一次）
+    ledgerDetail: NS + ':ledgerDetail', // 老记录补过「具体买了什么 / 哪一阶成就」（只补一次）
     save: NS + ':save'            // 当前局
   };
 
@@ -211,8 +212,31 @@
     } catch (e) {}
     write(K.ledger, [{ t: t, d: coins, m: '历史收支', x: '明细上线前' }]);
   }
+  // 上线早期记的「购买道具 / 成就奖励」没有具体说明：按当时的金额把能认出来的补上
+  // （道具价格、成就阶位都是固定的，反推即可；同价位的几种就一起写上）
+  const PRICE_DETAIL = {
+    20: '霜块道具', 150: '洗牌 / 撤回 +1', 180: '炸弹道具', 210: '磁铁道具',
+    230: '线消道具', 250: '螺旋桨道具', 300: '彩虹 / +3 步 / +7s', 500: '颜料道具'
+  };
+  const TIER_DETAIL = { 50: '铜阶', 100: '银阶', 150: '金阶', 200: '彩阶' };
+  function fillLegacyDetail() {
+    if (read(K.ledgerDetail, false)) return;
+    write(K.ledgerDetail, true);
+    const arr = readLedger();
+    let changed = false;
+    arr.forEach((x) => {
+      if (x.x) return;                       // 已经有具体说明的跳过
+      let d = '';
+      if (x.m === '购买道具' && x.d < 0) d = PRICE_DETAIL[-x.d] || '';
+      else if (x.m === '成就奖励' && x.d > 0) d = TIER_DETAIL[x.d] || '';
+      if (d) { x.x = d; changed = true; }
+    });
+    if (changed) write(K.ledger, arr);
+  }
+
   function getLedger() {
     ensureLedger();
+    fillLegacyDetail();
     return readLedger();
   }
   function pushLedger(delta, memo, detail) {

@@ -1004,9 +1004,10 @@ function check(name, ok) {
       /\.ledger-bar\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
       /\.ledger-bar\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*1fr\)/.test(cssSrc) &&
       /\.ledger-detail\s*\{[^}]*font-size:\s*11px[^}]*font-weight:\s*400/.test(cssSrc) &&
-      // 点过的按键不留蓝焦点框（要跟选择器一起消失），键盘 Tab 仍保留
-      /button:focus:not\(:focus-visible\)[^{]*\{[^}]*outline:\s*none/.test(cssSrc) &&
-      /button:focus-visible[^{]*\{[^}]*outline:/.test(cssSrc) &&
+      // 点过的按键不留蓝焦点框（要跟选择器一起消失，含 :focus-visible）
+      /button:focus,[^{]*\{[^}]*outline:\s*none\s*!important/.test(cssSrc) &&
+      /button:focus-visible[^{]*\{[^}]*outline:\s*none\s*!important/.test(cssSrc) &&
+      /\.closest\('button'\)/.test(jsSrc) &&
       /if \(ledgerMonthSel\.blur\) ledgerMonthSel\.blur\(\)/.test(jsSrc) &&
       /if \(ledgerTypeSel\.blur\) ledgerTypeSel\.blur\(\)/.test(jsSrc) &&
       /'coin-menu': 'main-menu'/.test(jsSrc);
@@ -1120,6 +1121,29 @@ function check(name, ok) {
     if (savedLedger === undefined) lsMap.delete('nl2:ledger'); else lsMap.set('nl2:ledger', savedLedger);
     lsMap.set('nl2:ledgerInit', 'true');
     return seeded && onceOk && balanceOk;
+  })());
+
+  // 14d3-6. 老记录（没有具体说明的购买道具 / 成就奖励）也要补上具体说明
+  check('金币明细：老的「购买道具 / 成就奖励」记录也按金额补上具体说明（只认得出才补）', (() => {
+    const saved = lsMap.get('nl2:ledger');
+    const now = Date.now();
+    lsMap.set('nl2:ledger', JSON.stringify([
+      { t: now, d: -150, m: '购买道具' },
+      { t: now, d: 100, m: '成就奖励' },
+      { t: now, d: 30, m: '通关奖励' }
+    ]));
+    lsMap.delete('nl2:ledgerDetail');
+    const rows = sandbox.Store.getLedger();
+    const buy = rows.filter((x) => x.m === '购买道具')[0];
+    const ach = rows.filter((x) => x.m === '成就奖励')[0];
+    const other = rows.filter((x) => x.m === '通关奖励')[0];
+    const ok = !!buy.x && buy.x.indexOf('洗牌') >= 0 && ach.x === '银阶' && !other.x;
+    // 已经有说明的记录不改
+    lsMap.set('nl2:ledger', JSON.stringify([{ t: now, d: -150, m: '购买道具', x: '洗牌 +1' }]));
+    lsMap.delete('nl2:ledgerDetail');
+    const kept = sandbox.Store.getLedger()[0].x === '洗牌 +1';
+    if (saved === undefined) lsMap.delete('nl2:ledger'); else lsMap.set('nl2:ledger', saved);
+    return ok && kept;
   })());
 
   // 14d4a. 签到入口：日期条状态 + 点红色漏签日补签（50 金币 / 天，不发奖励）
@@ -1832,12 +1856,39 @@ function check(name, ok) {
   check('测试账号名复位', sandbox.Account.current().name === '老玩家2');
 
   // 35. 📮 邮箱：系统邮件 / 未读角标 / 领取奖励
+  // 34b. 欢迎邮件时间 = 建号时间；建号之前的系统邮件不展示；金币明细公告对所有老玩家可见
+  check('邮箱：欢迎邮件按建号时间显示，注册之前发的系统邮件看不到', (() => {
+    const curId = sandbox.Account.current().id;
+    const accs = JSON.parse(lsMap.get('nl2:accounts'));
+    const me = accs.filter((a) => a.id === curId)[0];
+    const saved = me.created;
+    me.created = new Date(2026, 10, 6, 9, 0, 0).getTime();     // 2026-11-06 09:00 建号
+    lsMap.set('nl2:accounts', JSON.stringify(accs));
+    const list = sandbox.Mail.list();
+    const ids = list.map((m) => m.id);
+    const welcome = list.filter((m) => m.id === 'welcome-2026-11')[0];
+    const welcomeOk = !!welcome && welcome.at === '2026-11-06 09:00';
+    // 11-05 发的两封公告：建号之前 → 看不到；11-08 发的两封 → 能看到（含金币明细公告）
+    const oldHidden = ids.indexOf('notice-account-2026-11') < 0 && ids.indexOf('notice-rules-2026-11') < 0;
+    const newVisible = ids.indexOf('notice-master-2026-11-08') >= 0 && ids.indexOf('notice-ledger-2026-11-08') >= 0;
+    me.created = saved;
+    lsMap.set('nl2:accounts', JSON.stringify(accs));
+    return welcomeOk && oldHidden && newVisible;
+  })());
+
+  // 新号看不到建号之前的系统邮件，这里补一封「刚发的」带奖励邮件，后面的领取用例用它
+  const nowStamp = (() => {
+    const d = new Date();
+    const p = (n) => (n < 10 ? '0' + n : String(n));
+    return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes());
+  })();
+  sandbox.Mail.sendMail({ id: 'utest-gift-b', at: nowStamp, icon: '🎁', title: '测试奖励', coins: 50 });
   const mailListAll = sandbox.Mail.list();
   const giftMail = mailListAll.filter((m) => m.hasGift)[0];
   check('邮箱里有系统邮件（公告 + 带奖励的）',
     mailListAll.length >= 3 && !!giftMail && !!giftMail.coins);
   check('未读数和已读状态初始正确', sandbox.Mail.get(giftMail.id).read === false);
-  sandbox.__nl_test && null;
+  sandbox.__nl_test.refreshMenu();          // 刚补的那封要让角标重新算一遍
   $('main-menu').style.display = 'flex';
   check('主页邮箱键显示未读角标（数字 = 未读封数）',
     String($('mail-badge').textContent) === String(mailListAll.length) && $('mail-badge').style.display !== 'none');
@@ -1919,7 +1970,10 @@ function check(name, ok) {
     sandbox.Mail.list().length === leftBefore - 1);
 
   // 一键删除：未领奖励的邮件不删
-  sandbox.Mail.sendMail({ id: 'utest-gift', at: '2026-11-05 20:30', title: '测试奖励', coins: 50 });
+  // 先把其它带奖励的邮件领掉，保证「一键删除」只会剩下下面这封没领奖的
+  sandbox.Mail.list().filter((m) => m.hasGift && !m.claimed && m.id !== 'utest-gift')
+    .forEach((m) => sandbox.Mail.claim(m.id));
+  sandbox.Mail.sendMail({ id: 'utest-gift', at: nowStamp, title: '测试奖励', coins: 50 });
   $('btn-mail-del-all').dispatch('click');
   check('一键删除先弹确认窗口',
     $('mail-delall-confirm').style.display === 'flex' &&

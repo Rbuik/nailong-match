@@ -7,10 +7,14 @@ html, body {
 }
 body { display: flex; align-items: center; justify-content: center; touch-action: none; }
 
-/* 点过的按键 / 下拉不要再留一圈蓝色焦点框（要跟选择器一起消失，不能滞后）；
-   键盘操作（Tab）依然保留焦点框，方便无障碍使用 */
-button:focus:not(:focus-visible), select:focus:not(:focus-visible), a:focus:not(:focus-visible) { outline: none; }
-button:focus-visible, select:focus-visible { outline: 2px solid #7c5cff; outline-offset: 2px; }
+/* 点过的按键 / 下拉不要再留蓝色焦点框：收起选择器的那一刻圈圈就跟着消失，不许滞后。
+   焦点框（含 :focus-visible / iOS 的 -webkit-focus-ring）一律不画。 */
+button:focus, select:focus, a:focus,
+button:focus-visible, select:focus-visible,
+button:active, select:active {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
 
 .game-container {
   position: relative; display: flex; flex-direction: column; align-items: center;

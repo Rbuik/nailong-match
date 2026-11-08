@@ -84,8 +84,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
   // 小字是否在类别右边（DOM 顺序 + 位置）
   console.log('detailRight', await evaluate(`(function(){
-    var m = document.querySelector('.ledger-memo');
-    var d = m && m.querySelector('.ledger-detail');
+    var d0 = document.querySelector('.ledger-detail'); var m = d0 && d0.parentNode;
+    var d = d0;
     if (!d) return 'no-detail';
     var mr = m.getBoundingClientRect(), dr = d.getBoundingClientRect();
     return JSON.stringify({ domAfter: m.lastElementChild === d, x: Math.round(dr.x), memoRight: Math.round(mr.right), right: dr.x > mr.x });
@@ -103,7 +103,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   })()`));
 
   const shot = await send('Page.captureScreenshot', { format: 'png' });
-  require('fs').writeFileSync('D:/nailong-match/_preview/coin-ledger4.png', Buffer.from(shot.result.data, 'base64'));
+  require('fs').writeFileSync('D:/nailong-match/_preview/coin-ledger5.png', Buffer.from(shot.result.data, 'base64'));
   console.log('shot ok');
   ws.close();
 })();

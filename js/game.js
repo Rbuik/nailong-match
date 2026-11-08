@@ -6426,6 +6426,12 @@
   }
   if (Store.onWallet) Store.onWallet(syncCoinUI);
 
+  // 点过的按键立刻收回焦点：蓝圈圈不留在屏幕上（下拉在选择完自己 blur）
+  document.addEventListener('click', (e) => {
+    const el = (e.target && e.target.closest) ? e.target.closest('button') : null;
+    if (el && el.blur) el.blur();
+  }, true);
+
   // ==================== 主循环 ====================
   function loop(now) {
     const dt = Math.min(0.05, (now - (S.lastFrame || now)) / 1000);
