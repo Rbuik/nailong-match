@@ -82,8 +82,28 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   })()`);
   console.log('geo', geo);
 
+  // 小字是否在类别右边（DOM 顺序 + 位置）
+  console.log('detailRight', await evaluate(`(function(){
+    var m = document.querySelector('.ledger-memo');
+    var d = m && m.querySelector('.ledger-detail');
+    if (!d) return 'no-detail';
+    var mr = m.getBoundingClientRect(), dr = d.getBoundingClientRect();
+    return JSON.stringify({ domAfter: m.lastElementChild === d, x: Math.round(dr.x), memoRight: Math.round(mr.right), right: dr.x > mr.x });
+  })()`));
+
+  // 焦点圈：下拉选中后是否还留蓝圈
+  console.log('focus', await evaluate(`(function(){
+    var y = document.getElementById('ledger-year');
+    y.focus();
+    var cs = getComputedStyle(y);
+    var out = { selOutline: cs.outlineStyle, selWidth: cs.outlineWidth };
+    var btn = document.querySelector('#coin-menu .btn-primary') || document.querySelector('button');
+    if (btn) { btn.focus(); out.btnOutline = getComputedStyle(btn).outlineStyle; }
+    return JSON.stringify(out);
+  })()`));
+
   const shot = await send('Page.captureScreenshot', { format: 'png' });
-  require('fs').writeFileSync('D:/nailong-match/_preview/coin-ledger3.png', Buffer.from(shot.result.data, 'base64'));
+  require('fs').writeFileSync('D:/nailong-match/_preview/coin-ledger4.png', Buffer.from(shot.result.data, 'base64'));
   console.log('shot ok');
   ws.close();
 })();

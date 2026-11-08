@@ -3773,9 +3773,9 @@
       const row = document.createElement('div');
       row.className = 'ledger-row';
       row.innerHTML = '<div class="ledger-info">' +
-        '<span class="ledger-memo">' +
+        '<span class="ledger-memo">' + escHtml(x.m) +
         (x.x ? '<small class="ledger-detail">' + escHtml(x.x) + '</small>' : '') +
-        escHtml(x.m) + '</span>' +
+        '</span>' +
         '<span class="ledger-time">' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) +
         ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + '</span>' +
         '</div>' +
@@ -5530,7 +5530,10 @@
       });
     }
     const ledgerTypeSel = $('ledger-type');
-    if (ledgerTypeSel) ledgerTypeSel.addEventListener('change', renderLedger);
+    if (ledgerTypeSel) ledgerTypeSel.addEventListener('change', () => {
+      if (ledgerTypeSel.blur) ledgerTypeSel.blur();
+      renderLedger();
+    });
     // 只换年份：月份超出现在（今年）就自动落到当月
     const ledgerYearSel = $('ledger-year');
     if (ledgerYearSel) ledgerYearSel.addEventListener('change', () => {
@@ -5539,6 +5542,7 @@
       let m = parseInt(String(ledgerMonth).split('-')[1], 10) || (now.getMonth() + 1);
       if (y === now.getFullYear() && m > now.getMonth() + 1) m = now.getMonth() + 1;
       ledgerMonth = monthKey(y, m);
+      if (ledgerYearSel.blur) ledgerYearSel.blur();   // 选完就松开焦点，蓝圈圈跟选择器一起消失
       renderLedger();
     });
     const ledgerMonthSel = $('ledger-month');
@@ -5546,6 +5550,7 @@
       const y = parseInt(String(ledgerMonth).split('-')[0], 10) || new Date().getFullYear();
       const m = parseInt(ledgerMonthSel.value, 10) || 1;
       ledgerMonth = monthKey(y, m);
+      if (ledgerMonthSel.blur) ledgerMonthSel.blur();
       renderLedger();
     });
 

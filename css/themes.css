@@ -2597,6 +2597,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   cursor: pointer;
 }
 .ledger-sel:disabled { opacity: 0.5; }
+/* 选完一项立刻收焦点：不给下拉留蓝圈圈（会显得比选择器慢一拍） */
+.ledger-sel:focus { outline: none; }
 /* 明细窗口：和关卡记录 / 成就一样宽，可上下滚动 */
 .ledger-list {
   width: 90%;
@@ -2623,8 +2625,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 }
 .ledger-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ledger-memo { font-size: 14px; color: #3f3a52; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-/* 具体买了什么 / 领的哪枚成就：灰色小字，不加粗，放在「购买道具」「成就奖励」左边 */
-.ledger-detail { font-size: 11px; font-weight: 400; color: #9d97ad; margin-right: 6px; }
+/* 具体买了什么 / 领的哪枚成就：灰色小字，不加粗，放在「购买道具」「成就奖励」右边 */
+.ledger-detail { font-size: 11px; font-weight: 400; color: #9d97ad; margin-left: 6px; }
 .ledger-time { font-size: 11px; color: #9d97ad; }
 .ledger-amt { font-size: 16px; font-weight: 800; white-space: nowrap; }
 .ledger-amt.up { color: #1a8f4a; }

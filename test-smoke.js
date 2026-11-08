@@ -1004,6 +1004,11 @@ function check(name, ok) {
       /\.ledger-bar\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
       /\.ledger-bar\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*1fr\)/.test(cssSrc) &&
       /\.ledger-detail\s*\{[^}]*font-size:\s*11px[^}]*font-weight:\s*400/.test(cssSrc) &&
+      // 点过的按键不留蓝焦点框（要跟选择器一起消失），键盘 Tab 仍保留
+      /button:focus:not\(:focus-visible\)[^{]*\{[^}]*outline:\s*none/.test(cssSrc) &&
+      /button:focus-visible[^{]*\{[^}]*outline:/.test(cssSrc) &&
+      /if \(ledgerMonthSel\.blur\) ledgerMonthSel\.blur\(\)/.test(jsSrc) &&
+      /if \(ledgerTypeSel\.blur\) ledgerTypeSel\.blur\(\)/.test(jsSrc) &&
       /'coin-menu': 'main-menu'/.test(jsSrc);
 
     // 干净起点（不要自动补记的「历史收支」干扰计数）
@@ -1046,7 +1051,8 @@ function check(name, ok) {
     $('ledger-type').dispatch('change');
     const rowsExpense = $('ledger-list').children.length;
     const expenseTxt = String($('ledger-list').children[0].innerHTML);
-    const detailOk = expenseTxt.indexOf('<small class="ledger-detail">洗牌 +1</small>购买道具') >= 0;
+    // 具体道具名用小字写在「购买道具」右边
+    const detailOk = expenseTxt.indexOf('购买道具<small class="ledger-detail">洗牌 +1</small>') >= 0;
     $('ledger-type').value = 'all';
     $('ledger-type').dispatch('change');
 
