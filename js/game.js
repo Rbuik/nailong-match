@@ -3694,6 +3694,31 @@
     return out;
   }
 
+  // 填下拉：选项个数没变就只改文字 / 禁用状态，不重建 DOM
+  // （重建会把正打开着的下拉一起收回去——「点完年份再点月份，月份一闪就没」就是这么来的）
+  function fillSelectOptions(sel, items, value) {
+    if (!sel) return;
+    const cur = Array.prototype.slice.call(sel.children || []);
+    if (cur.length !== items.length) {
+      sel.innerHTML = '';
+      items.forEach((it) => {
+        const o = document.createElement('option');
+        o.value = String(it.value);
+        o.textContent = it.label;
+        if (it.disabled) o.disabled = true;
+        sel.appendChild(o);
+      });
+    } else {
+      items.forEach((it, i) => {
+        const o = cur[i];
+        if (!o) return;
+        if (o.textContent !== it.label) o.textContent = it.label;
+        if (!!o.disabled !== !!it.disabled) o.disabled = !!it.disabled;
+      });
+    }
+    if (String(sel.value) !== String(value)) sel.value = String(value);
+  }
+
   // 把「年 / 月 / 类型」三个下拉填好：三个一样宽，月份只到当月（未来月份禁用）
   function fillLedgerSelectors() {
     const now = new Date();
@@ -3705,30 +3730,18 @@
     if (y === curY && m > curM) m = curM;
     ledgerMonth = monthKey(y, m);
 
-    const yearSel = $('ledger-year');
-    if (yearSel) {
-      yearSel.innerHTML = '';
-      ledgerYears().forEach((yy) => {
-        const o = document.createElement('option');
-        o.value = String(yy);
-        o.textContent = yy + ' 年';
-        yearSel.appendChild(o);
-      });
-      yearSel.value = String(y);
-    }
+    fillSelectOptions($('ledger-year'),
+      ledgerYears().map((yy) => ({ value: yy, label: yy + ' 年' })), y);
 
-    const monthSel = $('ledger-month');
-    if (monthSel) {
-      monthSel.innerHTML = '';
-      for (let mm = 1; mm <= 12; mm++) {
-        const o = document.createElement('option');
-        o.value = (mm < 10 ? '0' + mm : String(mm));
-        o.textContent = mm + ' 月';
-        if (y === curY && mm > curM) o.disabled = true;   // 不能选未来的月份
-        monthSel.appendChild(o);
-      }
-      monthSel.value = (m < 10 ? '0' + m : String(m));
+    const months = [];
+    for (let mm = 1; mm <= 12; mm++) {
+      months.push({
+        value: mm < 10 ? '0' + mm : String(mm),
+        label: mm + ' 月',
+        disabled: y === curY && mm > curM       // 不能选未来的月份
+      });
     }
+    fillSelectOptions($('ledger-month'), months, m < 10 ? '0' + m : String(m));
   }
 
   function renderLedger() {
@@ -5521,17 +5534,15 @@
     const coinsRow = $('menu-coins-row');
     if (coinsRow) {
       coinsRow.addEventListener('click', () => {
-        ledgerMonth = '';
-        ledgerType = 'all';
+        // 上次看到哪年哪月、哪个类型，再进来还是那一页（第一次打开才默认落到最近一笔的月份）
         const sel = $('ledger-type');
-        if (sel) sel.value = 'all';
+        if (sel && sel.value !== ledgerType) sel.value = ledgerType;
         renderLedger();
         showOverlay('coin-menu');
       });
     }
     const ledgerTypeSel = $('ledger-type');
     if (ledgerTypeSel) ledgerTypeSel.addEventListener('change', () => {
-      if (ledgerTypeSel.blur) ledgerTypeSel.blur();
       renderLedger();
     });
     // 只换年份：月份超出现在（今年）就自动落到当月
@@ -5542,7 +5553,6 @@
       let m = parseInt(String(ledgerMonth).split('-')[1], 10) || (now.getMonth() + 1);
       if (y === now.getFullYear() && m > now.getMonth() + 1) m = now.getMonth() + 1;
       ledgerMonth = monthKey(y, m);
-      if (ledgerYearSel.blur) ledgerYearSel.blur();   // 选完就松开焦点，蓝圈圈跟选择器一起消失
       renderLedger();
     });
     const ledgerMonthSel = $('ledger-month');
@@ -5550,7 +5560,6 @@
       const y = parseInt(String(ledgerMonth).split('-')[0], 10) || new Date().getFullYear();
       const m = parseInt(ledgerMonthSel.value, 10) || 1;
       ledgerMonth = monthKey(y, m);
-      if (ledgerMonthSel.blur) ledgerMonthSel.blur();
       renderLedger();
     });
 

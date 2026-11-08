@@ -1008,13 +1008,18 @@ function check(name, ok) {
       /button:focus,[^{]*\{[^}]*outline:\s*none\s*!important/.test(cssSrc) &&
       /button:focus-visible[^{]*\{[^}]*outline:\s*none\s*!important/.test(cssSrc) &&
       /\.closest\('button'\)/.test(jsSrc) &&
-      /if \(ledgerMonthSel\.blur\) ledgerMonthSel\.blur\(\)/.test(jsSrc) &&
-      /if \(ledgerTypeSel\.blur\) ledgerTypeSel\.blur\(\)/.test(jsSrc) &&
+      // 下拉选完不再 blur（blur 会把紧接着点开的那个下拉一起关掉），蓝圈交给 CSS
+      !/ledgerMonthSel\.blur|ledgerTypeSel\.blur|ledgerYearSel\.blur/.test(jsSrc) &&
+      /\.ledger-sel:focus\s*\{[^}]*outline:\s*none/.test(cssSrc) &&
+      // 选项个数不变时只改文字 / 禁用状态，不重建 DOM（重建会让正开着的下拉瞬间收回）
+      /function fillSelectOptions/.test(jsSrc) &&
+      /cur\.length !== items\.length/.test(jsSrc) &&
       /'coin-menu': 'main-menu'/.test(jsSrc);
 
     // 干净起点（不要自动补记的「历史收支」干扰计数）
     lsMap.set('nl2:ledger', '[]');
     lsMap.set('nl2:ledgerInit', 'true');
+    lsMap.set('nl2:ledgerTop', 'true');
     sandbox.Store.addCoins(120, '测试收入');
     sandbox.Store.spendCoins(50, '购买道具', '洗牌 +1');
     // 去年还有一笔（用来验证换年份）
@@ -1037,6 +1042,7 @@ function check(name, ok) {
     const monthLabels = monthOpts.map((o) => String(o.textContent));
     const suffixOk = yearLabels.length >= 2 && /年$/.test(yearLabels[0]) &&
       monthLabels.length === 12 && monthLabels[0] === '1 月' && monthLabels[11] === '12 月';
+    const keepOpt = monthOpts[5];      // 记住「6 月」这个选项对象，换完年份回来还要是同一个（没被重建）
     const monthVal = String($('ledger-month').value);
     const monthValueOk = monthVal === (curM < 10 ? '0' + curM : String(curM));
     const futureOff = monthOpts.every((o, i) => (i + 1 <= curM) || o.disabled === true);
@@ -1071,6 +1077,7 @@ function check(name, ok) {
     $('ledger-year').dispatch('change');
     $('ledger-month').value = '12';
     $('ledger-month').dispatch('change');
+    const noRebuild = $('ledger-month').children[5] === keepOpt;
     const clampOk = String($('ledger-month').value) === (curM < 10 ? '0' + curM : String(curM));
     const rowsBack = $('ledger-list').children.length;
     // 当月没有记录的月份 → 空提示
@@ -1086,6 +1093,18 @@ function check(name, ok) {
     $('coin-menu').dispatch('click');
     const backHome = $('coin-menu').style.display === 'none';
 
+    // 退出再点进来：上次选到哪年哪月、哪个类型，还是那一页
+    $('ledger-month').value = '02';
+    $('ledger-month').dispatch('change');
+    $('ledger-type').value = 'income';
+    $('ledger-type').dispatch('change');
+    $('menu-coins-row').dispatch('click');
+    const keepSel = String($('ledger-month').value) === '02' && $('ledger-type').value === 'income' &&
+      $('coin-menu').style.display === 'flex';
+    $('coin-menu').dispatch('click');
+    $('ledger-type').value = 'all';
+    $('ledger-type').dispatch('change');
+
     // 金币数字实时更新：进账后主页数字当场变，不用手动刷新
     const before = sandbox.Store.getWallet().coins;
     sandbox.Store.addCoins(100, '实时测试');
@@ -1097,7 +1116,7 @@ function check(name, ok) {
       rowsIncome === 1 && incomeTxt.includes('+120') &&
       rowsExpense === 1 && expenseTxt.includes('−50') && detailOk &&
       hasPrev && prevRows === 1 && prevTxt.includes('去年收入') && prevAllMonths &&
-      clampOk && rowsBack === 2 && janEmpty && backHome && liveCoin;
+      noRebuild && clampOk && rowsBack === 2 && janEmpty && backHome && keepSel && liveCoin;
   })());
 
   // 14d3-5. 明细上线前的金币：按余额补一条「历史收支」，补过就不再补
@@ -1116,11 +1135,23 @@ function check(name, ok) {
     const onceOk = again.length === 2 && again.filter((x) => x.m === '历史收支').length === 1;
     const total = again.reduce((a, x) => a + x.d, 0);
     const balanceOk = total === sandbox.Store.getWallet().coins;
+    // 老档：明细刚上线时已经有几笔零散记录（余额对不上）→ 按差额补，不是整笔重置
+    lsMap.set('nl2:wallet', JSON.stringify({ coins: 400, items: wallet.items || {} }));
+    lsMap.set('nl2:ledger', JSON.stringify([{ t: Date.now(), d: -50, m: '购买道具', x: '洗牌 +1' }]));
+    lsMap.delete('nl2:ledgerInit');
+    lsMap.delete('nl2:ledgerTop');
+    const mixed = sandbox.Store.getLedger();
+    const last = mixed.filter((x) => x.m === '历史收支')[0];
+    const topUpOk = mixed.length === 2 && !!last && last.d === 450 &&
+      String(lsMap.get('nl2:ledgerTop')) === 'true' &&
+      mixed.reduce((a, x) => a + x.d, 0) === 400 &&
+      last.t <= mixed.filter((x) => x.m !== '历史收支')[0].t;   // 排在明细最前面
     // 还原，后面的用例还要用
     lsMap.set('nl2:wallet', JSON.stringify(wallet));
     if (savedLedger === undefined) lsMap.delete('nl2:ledger'); else lsMap.set('nl2:ledger', savedLedger);
     lsMap.set('nl2:ledgerInit', 'true');
-    return seeded && onceOk && balanceOk;
+    lsMap.set('nl2:ledgerTop', 'true');
+    return seeded && onceOk && balanceOk && topUpOk;
   })());
 
   // 14d3-6. 老记录（没有具体说明的购买道具 / 成就奖励）也要补上具体说明

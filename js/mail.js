@@ -44,7 +44,8 @@
       icon: '🪙',
       title: '金币明细上线：每一笔收支都能查',
       from: '系统',
-      body: '主页点「🪙 金币」这一行就能打开金币明细：\n\n· 上面一行选年月（不会让你选到未来的月份）和类型（全部 / 支出 / 收入）\n· 买道具会写明买的是哪个、成就奖励会写明是哪一枚哪一阶\n· 明细上线之前的收支补成了一条「历史收支」，全部加起来正好是钱包里的金币',
+      always: true,                 // 长期公告：不管哪天注册都能看到
+      body: '主页点「🪙 金币」这一行就能打开金币明细：\n\n· 上面一行选年月和类型（全部 / 支出 / 收入）\n· 买道具会写明买的是哪个、成就奖励会写明是哪一枚哪一阶',
       coins: 0
     },
     {
@@ -167,10 +168,12 @@
       items: m.items || null,
       read: !!s.read[m.id],
       claimed: !!s.claimed[m.id],
-      hasGift: !!(m.coins || m.items)
+      hasGift: !!(m.coins || m.items),
+      always: !!m.always
     }))
-      // 建号之前的系统邮件不展示（老玩家不会有「你注册前就发过」的邮件）
-      .filter((m) => !reg.ts || !atTime(m.at) || atTime(m.at) >= reg.ts)
+      // 建号之前的系统邮件不展示（老玩家不会有「你注册前就发过」的邮件）；
+      // 标了 always 的长期公告不受这个限制，什么时候注册都看得到
+      .filter((m) => m.always || !reg.ts || !atTime(m.at) || atTime(m.at) >= reg.ts)
       .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   }
 

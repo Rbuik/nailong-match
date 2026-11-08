@@ -20,6 +20,7 @@
     ledger: NS + ':ledger',       // 金币明细 [{ t:时间, d:正负金额, m:说明, x:具体说明 }]
     ledgerInit: NS + ':ledgerInit', // 明细上线时补记过历史收支（只补一次）
     ledgerDetail: NS + ':ledgerDetail', // 老记录补过「具体买了什么 / 哪一阶成就」（只补一次）
+    ledgerTop: NS + ':ledgerTop',       // 已经按余额对齐过一次「历史收支」
     save: NS + ':save'            // 当前局
   };
 
@@ -198,19 +199,34 @@
   }
   // 明细上线前的金币进出没有逐笔记账，第一笔先按余额补一条「历史收支」，
   // 保证明细里的加总 = 钱包余额；时间落在建号那天，之后就不再补了
-  function ensureLedger() {
-    if (read(K.ledgerInit, false)) return;
-    write(K.ledgerInit, true);
-    if (readLedger().length) return;          // 已经有记账（新档），不用补
-    const coins = getWallet().coins;
-    if (!coins) return;
-    let t = Date.now();
+  function createdTime() {
+    let t = 0;
     try {
       const acc = (typeof Account !== 'undefined' && Account && Account.current) ? Account.current() : null;
       const d = acc && acc.created ? new Date(acc.created) : null;
       if (d && !isNaN(d.getTime())) t = d.getTime();
     } catch (e) {}
-    write(K.ledger, [{ t: t, d: coins, m: '历史收支', x: '明细上线前' }]);
+    return t;
+  }
+
+  // 明细上线时对齐一次：上线之前的每一笔还原不出来，就压成一条「历史收支」，
+  // 让明细全部加起来正好等于钱包余额。老档可能已经有零散记录，所以按差额补而不是整笔重置。
+  function ensureLedger() {
+    if (read(K.ledgerInit, false) && read(K.ledgerTop, false)) return;
+    write(K.ledgerInit, true);
+    write(K.ledgerTop, true);
+    const arr = readLedger();
+    const sum = arr.reduce((a, x) => a + x.d, 0);
+    const diff = getWallet().coins - sum;
+    if (!diff) return;
+    // 时间落在建号那天（比任何一笔都早，排在明细最前面）
+    let t = createdTime() || Date.now();
+    const earliest = arr.length ? Math.min.apply(null, arr.map((x) => x.t)) : 0;
+    if (earliest && t >= earliest) t = earliest - 60000;
+    arr.push({ t: t, d: diff, m: '历史收支', x: '明细上线前' });
+    arr.sort((a, b) => a.t - b.t);
+    while (arr.length > LEDGER_MAX) arr.shift();
+    write(K.ledger, arr);
   }
   // 上线早期记的「购买道具 / 成就奖励」没有具体说明：按当时的金额把能认出来的补上
   // （道具价格、成就阶位都是固定的，反推即可；同价位的几种就一起写上）
