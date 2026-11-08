@@ -562,9 +562,25 @@
     return true;
   }
 
-  // 🎨 颜料：把一片方块统一成场上最多的颜色（更容易凑出新的连消）
+  // 特殊块中文名（生成时的提示条用）
+  const SPECIAL_NAMES = {};
+  SPECIAL_NAMES[T.RAINBOW] = '彩虹 🌈';
+  SPECIAL_NAMES[T.BOMB] = '炸弹 💣';
+  SPECIAL_NAMES[T.MAGNET] = '磁铁 🧲';
+  SPECIAL_NAMES[T.PAINT] = '颜料 🎨';
+  SPECIAL_NAMES[T.PROPELLER] = '螺旋桨 🛩️';
+  SPECIAL_NAMES[T.LINE_H] = '线消 ↔️';
+  SPECIAL_NAMES[T.LINE_V] = '线消 ↕️';
+  SPECIAL_NAMES[T.FROST] = '霜块 ❄️';
+
+  // 🎨 颜料：把一片方块统一成同一种颜色
+  // 刷成的颜色 = 颜料块正下方那格方块自己的颜色（不是它交换过来的颜色）；
+  // 万一那格没有正常方块（被冰 / 锁链占着），才退回「场上最多的颜色」
   function paintArea(r, c, rad) {
-    const color = Specials.dominantColor(S.board, ROWS, COLS);
+    const self = S.board[r] && S.board[r][c];
+    const color = (self && self.type != null && self.special === T.PAINT)
+      ? self.type
+      : Specials.dominantColor(S.board, ROWS, COLS);
     if (color == null) return 0;
     let n = 0;
     for (let dr = -rad; dr <= rad; dr++) {
@@ -1994,6 +2010,8 @@
           FX.text(planAt.c * CELL + CELL / 2, planAt.r * CELL + CELL / 2, '生成线消', '#5c8fff', 16);
           AudioManager.playSFX('coin');
         }
+        // 黑底提示条也报一声：这步生成了什么（浮字容易看漏）
+        toast('🎁 这步生成了「' + (SPECIAL_NAMES[plan.type] || '线消') + '」');
         swapPos = null; // 一局只生成一次，避免递归刷
       }
 
@@ -2990,6 +3008,20 @@
   function toast(msg) {
     const el = $('toast');
     if (!el) return;
+    // 提示条永远挂在「双倍 / 机关提示」那一行的正下方，别盖住双倍
+    // （手机上内容一高，固定 bottom 就会顶到双倍，所以每次按实际位置算）
+    try {
+      const slot = document.querySelector('.frenzy-slot');
+      const host = el.offsetParent || document.querySelector('.game-container');
+      if (slot && host && slot.getBoundingClientRect && host.getBoundingClientRect) {
+        const sr = slot.getBoundingClientRect();
+        const hr = host.getBoundingClientRect();
+        if (sr.height > 0 && hr.height > 0) {
+          el.style.bottom = 'auto';
+          el.style.top = Math.max(0, Math.round(sr.bottom - hr.top + 4)) + 'px';
+        }
+      }
+    } catch (e) {}
     el.textContent = msg;
     el.classList.add('show');
     if (toastTimer) clearTimeout(toastTimer);
@@ -8444,6 +8476,7 @@
     autoPause: autoPauseIfPlaying,
     pause: pauseGame,
     refreshMenu: refreshMenu,
+    toast: toast,
     dailyCompleted: dailyCompleted,
     hud: updateHUD,
     openProvStats: openProvStats,

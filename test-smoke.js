@@ -2956,6 +2956,23 @@ function check(name, ok) {
       /frostTurns: S\.frostTurns \|\| 0/.test(jsSrc);
   })());
 
+  check('颜料刷成的颜色取「颜料块底下」那格自己的颜色；生成特殊块时黑底提示条也报一声', (() => {
+    const iPaint = jsSrc.indexOf('function paintArea');
+    const paintSrc = iPaint >= 0 ? jsSrc.slice(iPaint, iPaint + 700) : '';
+    // 颜色优先用颜料块自己的 type（正下方那格），不是「场上最多的颜色」
+    const colorOk = /self\.type/.test(paintSrc) &&
+      paintSrc.indexOf('dominantColor') > paintSrc.indexOf('self.type');
+    // 生成提示：每种特殊块有名字，生成时走 toast
+    const genOk = /const SPECIAL_NAMES/.test(jsSrc) &&
+      /SPECIAL_NAMES\[T\.RAINBOW\]/.test(jsSrc) &&
+      /SPECIAL_NAMES\[plan\.type\]/.test(jsSrc) &&
+      /这步生成了「'/.test(jsSrc);
+    // 提示条挂在双倍那一行下面：toast 里按 frenzy-slot 实际位置算 top
+    const toastOk = /frenzy-slot/.test(jsSrc.slice(jsSrc.indexOf('function toast'), jsSrc.indexOf('function toast') + 800)) &&
+      /el\.style\.bottom = 'auto'/.test(jsSrc);
+    return colorOk && genOk && toastOk;
+  })());
+
   check('机关提示条：页面有 hazard-bar，样式有 hazard-chip，开局 / 每步都会刷新',
     htmlSrc.includes('id="hazard-bar"') &&
     /\.hazard-bar\s*\{[^}]*display:\s*none/.test(cssSrc) && /\.hazard-chip/.test(cssSrc) &&
