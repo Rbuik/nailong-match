@@ -176,7 +176,7 @@
     const items = [];
     if (m.coins) {
       coins = m.coins;
-      if (global.Store && Store.addCoins) Store.addCoins(coins);
+      if (global.Store && Store.addCoins) Store.addCoins(coins, '邮件附件');
     }
     if (m.items) {
       Object.keys(m.items).forEach((k) => {

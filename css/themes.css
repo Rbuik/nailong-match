@@ -2564,3 +2564,74 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   line-height: 1;
 }
 .ach-d-ico img { width: 1em; height: 1em; object-fit: contain; }
+
+/* ==================== 金币明细 ==================== */
+/* 主页「🪙 金币」那行可点，右边一个小箭头提示能进去 */
+.menu-coins-row { cursor: pointer; }
+.menu-coins-wrap { display: inline-flex; align-items: center; gap: 2px; }
+.menu-coins-more { font-style: normal; font-size: 15px; color: #b3adc4; margin-left: 2px; line-height: 1; }
+
+/* 顶部一行：◀ 2026-11 ▶ 和类型选择，宽度与下面列表对齐 */
+.ledger-bar {
+  width: 90%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.ledger-nav {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 2px solid #eceaf6;
+  background: #fff;
+  color: #6b6480;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+}
+.ledger-nav:active { transform: scale(0.94); }
+.ledger-month { flex: 1; text-align: center; font-size: 15px; color: #4b4560; letter-spacing: 0.5px; }
+.ledger-type {
+  flex: 0 0 auto;
+  height: 32px;
+  border-radius: 10px;
+  border: 2px solid #eceaf6;
+  background: #fff;
+  color: #5b5470;
+  font-size: 13px;
+  padding: 0 4px;
+}
+/* 明细窗口：和关卡记录 / 成就一样宽，可上下滚动 */
+.ledger-list {
+  width: 90%;
+  max-height: 64vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 12px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+}
+.ledger-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 8px;
+}
+.ledger-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ledger-memo { font-size: 14px; color: #3f3a52; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ledger-time { font-size: 11px; color: #9d97ad; }
+.ledger-amt { font-size: 16px; font-weight: 800; white-space: nowrap; }
+.ledger-amt.up { color: #1a8f4a; }
+.ledger-amt.down { color: #c0392b; }
+.ledger-empty { text-align: center; color: #9d97ad; font-size: 13px; padding: 26px 0; }

@@ -3030,7 +3030,7 @@
       movesUsed = Math.max(0, (S.levelDef.moves || 20) - S.moves);
       if (allowGrant && (starsNow || 0) >= 1 && !Store.getDailyRecord().coins) {
         bonus = Math.max(0, 30 + (20 - movesUsed) * 4);   // 20 步打完 30 枚，每省 1 步 +4
-        Store.addCoins(bonus);
+        Store.addCoins(bonus, '每日挑战奖励');
       }
     }
     return { movesUsed: movesUsed, bonus: bonus };
@@ -3070,7 +3070,7 @@
 
     // 金币产出（§7）；续玩后的第二次结算也照发金币
     const coins = Math.max(10, Math.floor(S.score / 100));
-    Store.addCoins(coins);
+    Store.addCoins(coins, '通关奖励');
     if (!again) {
       Tasks.report('play', 1);
       Tasks.report('win', 1);          // 每日任务：通过 1 关
@@ -3203,7 +3203,7 @@
     if (!S.daily) Store.markPlayed(S.level);
     if (S.daily) refreshMenu();
     const coins = passed ? Math.max(10, Math.floor(S.score / 100)) : Math.floor(S.score / 300);
-    Store.addCoins(coins);
+    Store.addCoins(coins, passed ? '通关奖励' : '过关奖励');
     Tasks.report('play', 1);
     Tasks.report('score', S.score);
     try { recordMyScore(); } catch (e) {}   // 没通关也刷一次局榜 / 总榜
@@ -3661,9 +3661,78 @@
     });
   }
 
+  // ---------- 金币明细 ----------
+  // 顶部一行：◀ 2026-11 ▶（月份）+ 类型（全部 / 支出 / 收入）；下面是上下滚动的明细列表
+  let ledgerMonth = '';
+  let ledgerType = 'all';
+
+  function monthKeyOf(ms) {
+    const d = new Date(ms);
+    const m = d.getMonth() + 1;
+    return d.getFullYear() + '-' + (m < 10 ? '0' + m : String(m));
+  }
+  function shiftMonth(key, delta) {
+    const p = String(key || '').split('-');
+    let y = parseInt(p[0], 10), m = parseInt(p[1], 10);
+    if (isNaN(y) || isNaN(m)) { const d = new Date(); y = d.getFullYear(); m = d.getMonth() + 1; }
+    m += delta;
+    while (m < 1) { m += 12; y--; }
+    while (m > 12) { m -= 12; y++; }
+    return y + '-' + (m < 10 ? '0' + m : String(m));
+  }
+
+  function renderLedger() {
+    const list = $('ledger-list');
+    if (!list) return;
+    const all = Store.getLedger ? Store.getLedger() : [];
+    // 第一次打开：默认落在最近一条记录所在的月份
+    if (!ledgerMonth) {
+      const last = all.length ? all[all.length - 1].t : Date.now();
+      ledgerMonth = monthKeyOf(last);
+    }
+    if ($('ledger-month')) $('ledger-month').textContent = ledgerMonth;
+    const sel = $('ledger-type');
+    if (sel) {
+      const v = sel.value;
+      ledgerType = (v === 'income' || v === 'expense') ? v : 'all';
+    }
+
+    const rows = all.filter((x) => {
+      if (monthKeyOf(x.t) !== ledgerMonth) return false;
+      if (ledgerType === 'income') return x.d > 0;
+      if (ledgerType === 'expense') return x.d < 0;
+      return true;
+    }).sort((a, b) => b.t - a.t);   // 最新一笔排最上面
+
+    list.innerHTML = '';
+    if (!rows.length) {
+      const empty = document.createElement('div');
+      empty.className = 'ledger-empty';
+      empty.textContent = ledgerType === 'income' ? '这个月没有收入'
+        : (ledgerType === 'expense' ? '这个月没有支出' : '这个月没有记录');
+      list.appendChild(empty);
+      list.scrollTop = 0;
+      return;
+    }
+    const p2 = (n) => (n < 10 ? '0' + n : String(n));
+    rows.forEach((x) => {
+      const d = new Date(x.t);
+      const row = document.createElement('div');
+      row.className = 'ledger-row';
+      row.innerHTML = '<div class="ledger-info">' +
+        '<span class="ledger-memo">' + escHtml(x.m) + '</span>' +
+        '<span class="ledger-time">' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) +
+        ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + '</span>' +
+        '</div>' +
+        '<b class="ledger-amt ' + (x.d > 0 ? 'up' : 'down') + '">' +
+        (x.d > 0 ? '+' : '−') + Math.abs(x.d) + '</b>';
+      list.appendChild(row);
+    });
+    list.scrollTop = 0;
+  }
+
   // 使用道具确认：点「使用」先弹确认，确认后才真正扣道具生效
-  let pendingUse = null;
-  function openUseConfirm(item) {
+  let pendingUse = null;  function openUseConfirm(item) {
     if (!canUseItems()) { useBackpackItem(item.key); return; }   // 未开局：按钮本应禁用，兜底走提示
     pendingUse = item;
     const box = $('use-confirm');
@@ -5393,6 +5462,31 @@
     const closePack = $('btn-close-backpack');
     if (closePack) closePack.addEventListener('click', () => $('backpack-menu').style.display = 'none');
 
+    // 金币明细：点主页「🪙 金币」那一行进去；◀ ▶ 换月份，下拉选类型
+    const coinsRow = $('menu-coins-row');
+    if (coinsRow) {
+      coinsRow.addEventListener('click', () => {
+        ledgerMonth = '';
+        ledgerType = 'all';
+        const sel = $('ledger-type');
+        if (sel) sel.value = 'all';
+        renderLedger();
+        showOverlay('coin-menu');
+      });
+    }
+    const ledgerSel = $('ledger-type');
+    if (ledgerSel) ledgerSel.addEventListener('change', renderLedger);
+    const ledgerPrev = $('ledger-prev');
+    if (ledgerPrev) ledgerPrev.addEventListener('click', () => {
+      ledgerMonth = shiftMonth(ledgerMonth, -1);
+      renderLedger();
+    });
+    const ledgerNext = $('ledger-next');
+    if (ledgerNext) ledgerNext.addEventListener('click', () => {
+      ledgerMonth = shiftMonth(ledgerMonth, 1);
+      renderLedger();
+    });
+
     // ==================== 新玩法：章节 / 模式 / 成就 / 图鉴 / 福利 / 排行榜 ====================
     const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
 
@@ -6050,6 +6144,7 @@
       'welfare-menu': 'main-menu',
       'makeup-menu': null,       // 补签窗口：点空白只关自己，回到签到页
       'backpack-menu': null,     // 局内回棋盘、主页回主页（底下那层本来就开着）
+      'coin-menu': 'main-menu',  // 金币明细：点空白回主页
       'rename-menu': null
     };
 
@@ -6288,7 +6383,7 @@
     try {
       const drec = Store.getDailyRecord();
       if ((drec.stars || 0) >= 1 && !(drec.coins || 0)) {
-        Store.addCoins(30);
+        Store.addCoins(30, '每日挑战补发');
         Store.patchDaily({ coins: 30 });
       }
     } catch (e) {}
@@ -6630,7 +6725,7 @@
   }
 
   function doRevive() {
-    if (!Store.spendCoins(REVIVE_COST)) { toast('金币不够'); return; }
+    if (!Store.spendCoins(REVIVE_COST, '续命')) { toast('金币不够'); return; }
     S.reviveUsed = true;
     if (S.timerOn) S.timeLeft = Math.max(0, S.timeLeft) + 7;
     else S.moves += 3;
@@ -6698,7 +6793,7 @@
     const mode = S.mode === 'main' ? 'endless' : S.mode;
     const r = Meta.recordBest(mode, S.score);
     const coins = Math.max(5, Math.floor(S.score / 200));
-    Store.addCoins(coins);
+    Store.addCoins(coins, '模式奖励');
     Meta.bump('modes', 1);
     Meta.setMax('maxCombo', S.maxCombo);
     const got = Meta.check();

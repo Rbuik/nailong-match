@@ -117,7 +117,7 @@
     if (!t || t.claimed || t.progress < t.target) return false;
     t.claimed = true;
     Store.setTaskState(s);
-    Store.addCoins(t.reward);
+    Store.addCoins(t.reward, '每日任务');
     if (global.Meta && Meta.bump) Meta.bump('daily', 1);   // 成就：累计完成每日任务
     AudioManager.playSFX('coin');
     return t.reward;
@@ -144,7 +144,7 @@
   function buy(key) {
     const item = SHOP.find((x) => x.key === key);
     if (!item) return { ok: false, reason: 'no-item' };
-    if (!Store.spendCoins(item.price)) return { ok: false, reason: 'no-coins' };
+    if (!Store.spendCoins(item.price, '购买道具')) return { ok: false, reason: 'no-coins' };
     Store.addItem(key, 1);
     AudioManager.playSFX('coin');
     return { ok: true, item };

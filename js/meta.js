@@ -170,7 +170,7 @@
     arr.push(t);
     m[id] = arr;
     write(K.achc, m);
-    if (coins && global.Store && Store.addCoins) Store.addCoins(coins);
+    if (coins && global.Store && Store.addCoins) Store.addCoins(coins, '成就奖励');
     return { ok: true, coins: coins, tier: t, label: ACH_TIERS[t], ach: a };
   }
 
@@ -311,7 +311,7 @@
     }
     const prize = WHEEL[idx];
     if (global.Store) {
-      if (prize.coins) Store.addCoins(prize.coins);
+      if (prize.coins) Store.addCoins(prize.coins, '转盘奖励');
       if (prize.item) Store.addItem(prize.item, 1);
     }
     write(K.wheel, { date: todayKey(), result: prize.label });

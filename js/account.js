@@ -65,7 +65,7 @@
         items: g.items || null
       });
     }
-    if (g.coins && global.Store && Store.addCoins) Store.addCoins(g.coins);
+    if (g.coins && global.Store && Store.addCoins) Store.addCoins(g.coins, '系统礼包');
     return true;
   }
 

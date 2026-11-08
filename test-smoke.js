@@ -100,7 +100,7 @@ function getEl(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; }
   'daily-done', 'game-complete', 'chapters-menu', 'story-menu', 'modes-menu', 'mode-over',
   'achievements-menu', 'ach-detail', 'collection-menu', 'welfare-menu', 'leaderboard-menu',
   'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'fix-menu', 'cloud-menu',
-  'buy-confirm', 'use-confirm', 'reset-bgm-confirm', 'mail-delall-confirm', 'makeup-menu'
+  'buy-confirm', 'use-confirm', 'reset-bgm-confirm', 'mail-delall-confirm', 'makeup-menu', 'coin-menu'
 ].forEach((id) => getEl(id));
 
 const documentStub = {
@@ -537,7 +537,7 @@ function check(name, ok) {
       /const ds = S\.daily \? dailySettle\(stars, true\) : \{ movesUsed: -1, bonus: 0 \};/.test(gjs) &&
       /recordDaily\(S\.score, stars, ds\.movesUsed, ds\.bonus\)/.test(gjs) &&
       /rec\.stars >= 1 && !rec\.moves\) \? '—'/.test(gjs) &&
-      /Store\.addCoins\(30\);/.test(gjs) && /Store\.patchDaily\(\{ coins: 30 \}\);/.test(gjs) &&
+      /Store\.addCoins\(30, '每日挑战补发'\);/.test(gjs) && /Store\.patchDaily\(\{ coins: 30 \}\);/.test(gjs) &&
       /function patchDaily\(patch\)/.test(sjs) && /patchDaily,/.test(sjs);
   })());
   check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，放在滚动区外面（下方右对齐）', (() => {
@@ -981,6 +981,58 @@ function check(name, ok) {
       /e\.lv \|\| \{\}, e\.st \|\| \{\}\]/.test(src) &&
       /st: row\[7\]/.test(src) && /function starsFromScore/.test(jsSrc) &&
       /function totalStarsOf/.test(jsSrc);
+  })());
+
+
+  // 14d3-4. 金币明细：主页点金币进去，按月份 + 类型筛选，明细可上下滚动
+  check('金币明细：每笔进出都记账、点主页金币打开、按月 / 类型筛选、宽度和其它滚动页一致', (() => {
+    const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="coin-menu"'), htmlSrc0.indexOf('id="pause-menu"'));
+    const barOk = sec.includes('id="ledger-month"') && sec.includes('id="ledger-type"') &&
+      sec.indexOf('id="ledger-month"') < sec.indexOf('<option value="all">全部</option>') &&
+      sec.includes('<option value="income">收入</option>') &&
+      sec.includes('<option value="expense">支出</option>') &&
+      sec.includes('id="ledger-list"') &&
+      htmlSrc0.includes('id="menu-coins-row"') &&
+      /\.ledger-list\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
+      /\.ledger-list\s*\{[^}]*max-height:\s*64vh/.test(cssSrc) &&
+      /\.ledger-bar\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
+      /'coin-menu': 'main-menu'/.test(jsSrc);
+
+    // 记两笔（一收一支）再打开明细
+    sandbox.Store.addCoins(120, '测试收入');
+    sandbox.Store.spendCoins(50, '测试支出');
+    $('menu-coins-row').dispatch('click');
+    const opened = $('coin-menu').style.display === 'flex';
+    const rowsAll = $('ledger-list').children.length;
+    const allTxt = $('ledger-list').children.map((c) => String(c.innerHTML)).join('|');
+    const monthShown = /^\d{4}-\d{2}$/.test(String($('ledger-month').textContent));
+
+    // 只看收入
+    $('ledger-type').value = 'income';
+    $('ledger-type').dispatch('change');
+    const rowsIncome = $('ledger-list').children.length;
+    const incomeTxt = String($('ledger-list').children[0].innerHTML);
+    // 只看支出
+    $('ledger-type').value = 'expense';
+    $('ledger-type').dispatch('change');
+    const rowsExpense = $('ledger-list').children.length;
+    const expenseTxt = String($('ledger-list').children[0].innerHTML);
+    // 全部 + 上一月（没有记录 → 空提示）
+    $('ledger-type').value = 'all';
+    $('ledger-type').dispatch('change');
+    const thisMonth = String($('ledger-month').textContent);
+    $('ledger-prev').dispatch('click');
+    const prevMonth = String($('ledger-month').textContent);
+    const prevEmpty = $('ledger-list').children.length === 1 &&
+      String($('ledger-list').children[0].className).indexOf('ledger-empty') >= 0;
+    // 点空白回主页
+    $('coin-menu').dispatch('click');
+    const backHome = $('coin-menu').style.display === 'none';
+
+    return barOk && opened && rowsAll === 2 && allTxt.includes('测试收入') && allTxt.includes('测试支出') &&
+      monthShown && rowsIncome === 1 && incomeTxt.includes('+120') &&
+      rowsExpense === 1 && expenseTxt.includes('−50') &&
+      prevMonth !== thisMonth && prevEmpty && backHome;
   })());
 
 

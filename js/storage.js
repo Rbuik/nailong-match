@@ -17,6 +17,7 @@
     daily: NS + ':daily',         // 每日挑战当天最佳 { date, best, times }
     visits: NS + ':visits',       // 链接点击次数 { count, first, last }
     net: NS + ':net',             // 后台缓存 { globalHits, geo:{country,region,city,ts} }
+    ledger: NS + ':ledger',       // 金币明细 [{ t:时间, d:正负金额, m:说明 }]
     save: NS + ':save'            // 当前局
   };
 
@@ -176,18 +177,39 @@
     write(K.wallet, w);
   }
 
-  function addCoins(n) {
+  // ---------- 金币明细 ----------
+  // 只保留最近 300 条，避免存档无限膨胀；每次进出账都记一条（金额正=收入、负=支出）
+  const LEDGER_MAX = 300;
+  function getLedger() {
+    const a = read(K.ledger, []);
+    return Array.isArray(a) ? a.filter((x) => x && typeof x.d === 'number' && x.t) : [];
+  }
+  function pushLedger(delta, memo) {
+    if (!delta) return;
+    const arr = getLedger();
+    arr.push({
+      t: Date.now(),
+      d: delta,
+      m: String(memo || (delta > 0 ? '金币收入' : '金币支出'))
+    });
+    while (arr.length > LEDGER_MAX) arr.shift();
+    write(K.ledger, arr);
+  }
+
+  function addCoins(n, memo) {
     const w = getWallet();
     w.coins = Math.max(0, w.coins + n);
     setWallet(w);
+    pushLedger(n, memo);
     return w.coins;
   }
 
-  function spendCoins(n) {
+  function spendCoins(n, memo) {
     const w = getWallet();
     if (w.coins < n) return false;
     w.coins -= n;
     setWallet(w);
+    pushLedger(-n, memo);
     return true;
   }
 
@@ -288,7 +310,7 @@
     }
 
     const reward = SIGN_REWARDS[day - 1];
-    addCoins(reward.coins);
+    addCoins(reward.coins, '签到奖励');
     if (reward.item) addItem(reward.item, reward.itemN);
 
     s.streak = streak;
@@ -346,7 +368,7 @@
 
     const w = getWallet();
     if ((w.coins || 0) < MAKEUP_COST) return { ok: false, reason: 'poor', need: MAKEUP_COST - (w.coins || 0) };
-    if (!spendCoins(MAKEUP_COST)) return { ok: false, reason: 'poor', need: MAKEUP_COST };
+    if (!spendCoins(MAKEUP_COST, '补签')) return { ok: false, reason: 'poor', need: MAKEUP_COST };
 
     s.dates.push(miss);
     s.dates.sort();
@@ -468,7 +490,7 @@
     K, VERSION, SIGN_REWARDS, SIGN_MILESTONE,
     getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, patchDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
-    getWallet, addCoins, spendCoins, addItem, useItem,
+    getWallet, addCoins, spendCoins, addItem, useItem, getLedger, LEDGER_MAX,
     getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex, signCycleStart, signStart,
     getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet, countStart,
     COUNT_START,

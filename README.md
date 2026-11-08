@@ -33,7 +33,7 @@
 │   ├── goals.js                          # 关卡目标
 │   ├── board.js                          # 棋盘
 │   ├── meta.js                           # 成就 / 统计元数据
-│   ├── storage.js                        # 存档与钱包
+│   ├── storage.js                        # 存档、钱包与金币明细
 │   ├── tasks.js                          # 每日任务与商店
 │   ├── input.js                          # 触摸与点击输入
 │   ├── rng.js                            # 随机数
