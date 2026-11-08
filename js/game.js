@@ -3427,11 +3427,7 @@
       if (nm && needForcedRename()) nm.style.display = 'flex';
     }
     setView('game');
-    // 上云窗口同样是强制闸：只有密码存成功才会关，别的流程关掉也要顶回来
-    if (typeof cloudForced !== 'undefined' && cloudForced) {
-      const cm = $('cloud-menu');
-      if (cm) { cm.style.display = 'flex'; setView('menu'); }
-    }
+    // 上云窗口不是强制闸：玩家点背景就能跳过（skipCloud），不再顶回来
   }
 
   // 主页与游戏中的容器高度不同：主页内容更高，需要更长的白色背景
@@ -6201,7 +6197,7 @@
       const err = $('cloud-err');
       if (err) err.textContent = '';
       $('account-menu').style.display = 'none';
-      openCloudMenu();
+      openCloudMenu('account');     // 从账号安全页进来：关掉后回账号安全页
     });
 
     // 修改密码
@@ -6250,7 +6246,8 @@
     });
     // 登录其他账号：先退出当前号（数据留档），再回到登录页
     on('btn-switch-login', () => {
-      Account.logout();
+      // 游客本来就没登录：直接去登录页，别走 logout（logout 会清掉游客进度）
+      if (Account.loggedIn()) Account.logout();
       $('switch-menu').style.display = 'none';
       showAuthScreen();
     });
@@ -6364,8 +6361,8 @@
       'custom-music-menu': 'music-settings-menu',
       'music-history-menu': 'custom-music-menu',
       'playlist-menu': 'music-settings-menu',
-      'auth-form': 'auth-menu',  // 只在登录 / 注册内部来回，永远进不了游戏
-      // auth-menu（选登录还是注册的入口页）故意不在表里：点空白不动，不登录 / 不注册就只能停在这
+      'auth-form': 'auth-menu',  // 登录 / 注册表单点背景回选择页
+      // auth-menu（选登录还是注册）点背景 = 不登录直接玩，见 skipAuth()
       'daily-done': 'main-menu', // 每日挑战结算页：点空白回主页
       'tasks-menu': 'main-menu',
       'chapters-menu': 'main-menu',
@@ -6413,6 +6410,12 @@
         case 'backup-menu':
         case 'backup-import-menu':
           backupBack();           // 从哪进来就回哪去（设置 / 登录页）
+          return true;
+        case 'auth-menu':
+          skipAuth();             // 登录页点背景 = 不登录，按游客玩
+          return true;
+        case 'cloud-menu':
+          skipCloud();            // 云存档页点背景 = 先不存，之后在账号安全里再补
           return true;
         case 'music-library-menu':
           hidePanel('music-library-menu');
@@ -6636,7 +6639,11 @@
   async function boot() {
     // 账号：老版本的本机数据先认领成一个账号；没有登录会话的停在登录页
     // 必须在任何启动期写 localStorage 之前跑，否则会把「启动缓存」误认成老用户数据
-    try { if (typeof Account !== 'undefined') Account.ensure(); } catch (e) {}
+    // 注意：玩家主动选了「先不登录，当游客玩」时不要自动建号，不然游客进度会被中途认领、
+    // 之后注册时又当成本机老号的数据清掉
+    try {
+      if (typeof Account !== 'undefined' && !authSkipped()) Account.ensure();
+    } catch (e) {}
     try { if (typeof Account !== 'undefined' && Account.startCloudSync) Account.startCloudSync(); } catch (e) {}
     const loggedIn = (typeof Account !== 'undefined') && Account.loggedIn();
 
@@ -6718,6 +6725,9 @@
       setTimeout(() => { try { maybeAccountGate(); } catch (e) {} }, 400);
       // 本机账号还没存到服务器 → 进主页后提示一次（改名 / 补密码优先，所以晚一点）
       setTimeout(() => { try { maybeCloudOffer(); } catch (e) {} }, 1600);
+    } else if (authSkipped()) {
+      // 玩家上次主动关掉了登录页：直接当游客进主页（进度只存本机），别再拦一次
+      showOverlay('main-menu');
     } else {
       AudioManager.gateBGM(false);   // 登录页不放背景音乐
       showAuthScreen();
@@ -8072,6 +8082,35 @@
     setView('menu');
   }
 
+  // ==================== 登录页 / 云存档页都可以关掉 ====================
+  // 关掉登录页 = 当游客玩（进度只存这台设备，不上榜、不跨设备同步）；
+  // 记一个标记，下次启动直接进主页，不再被拦在登录页。登录成功后自动清掉。
+  const AUTH_SKIP_KEY = 'nl2:authSkip';
+  function authSkipped() {
+    try { return !!localStorage.getItem(AUTH_SKIP_KEY); } catch (e) { return false; }
+  }
+  function clearAuthSkip() {
+    try { localStorage.removeItem(AUTH_SKIP_KEY); } catch (e) {}
+  }
+  function skipAuth() {
+    const menu = $('auth-menu');
+    if (menu) menu.style.display = 'none';
+    const form = $('auth-form');
+    if (form) form.style.display = 'none';
+    const fix = $('fix-menu');
+    if (fix) fix.style.display = 'none';
+    const bk = $('backup-menu');
+    if (bk) bk.style.display = 'none';
+    const bki = $('backup-import-menu');
+    if (bki) bki.style.display = 'none';
+    try { localStorage.setItem(AUTH_SKIP_KEY, String(Date.now())); } catch (e) {}
+    AudioManager.gateBGM(true);        // 游客也要有背景音乐
+    try { AudioManager.unlock(); } catch (e) {}
+    showOverlay('main-menu');
+    refreshMenu();
+    toast('未登录：进度只存这台设备、不上排行榜，随时可在 设置 → 账号安全 登录');
+  }
+
   function openAuthForm(mode) {
     authMode = mode === 'register' ? 'register' : 'login';
     AudioManager.gateBGM(false);     // 登录 / 注册页不放背景音乐
@@ -8154,6 +8193,7 @@
 
   function afterAuthEnter(msg) {
     try { Account.claimGrants(); } catch (e) {}
+    clearAuthSkip();          // 登录 / 注册成功：以后开机直接进主页，不再问「要不要登录」
     if (msg) { try { toast(msg); } catch (e) {} }
     // 换账号后内存里的 S / 音频 / 缓存全是上一个号的，直接重载最干净
     setTimeout(() => { try { location.reload(); } catch (e) {} }, msg ? 420 : 60);
@@ -8285,12 +8325,14 @@
     return true;
   }
 
-  // 玩之前必须先有完整账号
+  // 玩之前先把账号理顺：没登录也能玩（游客模式，进度只存本机），
+  // 登录着但资料不全的才拦下来补资料
   function ensureAccount(then) {
-    if (!accountOk()) { showAuthScreen(); return false; }
-    // 还叫「奶龙玩家」→ 先改名，别的地方都不许去
-    if (needForcedRename()) { openNickMenu(true); return false; }
-    if (Account.needsFix().any) { openFixMenu(); return false; }
+    if (accountOk()) {
+      // 还叫「奶龙玩家」→ 先改名，别的地方都不许去
+      if (needForcedRename()) { openNickMenu(true); return false; }
+      if (Account.needsFix().any) { openFixMenu(); return false; }
+    }
     then();
     return true;
   }
@@ -8301,10 +8343,24 @@
   // 本机校验通过后，拿这串明文去服务器按「同样的名字 + 同样的密码」建档，
   // 之后进度就会自动同步上去。密码不会被改动，也不会在这里留存。
   let cloudOffered = false;
-  let cloudForced = false;      // 上云窗口开着就是强制态：不许任何流程把它关掉
+  let cloudForced = false;      // 上云窗口的「正在存」态：存成功自己关，也可以被玩家跳过
+  let cloudFrom = 'auto';       // 'auto' 启动时自动弹 | 'account' 从账号安全页点进来
 
-  function openCloudMenu() {
+  // 云存档页也能关掉：进度本来就在本机，之后在「设置 → 账号安全 → ☁️ 云存档」再补
+  function skipCloud() {
+    cloudForced = false;
+    cloudOffered = true;                 // 本次不再自动弹
+    const box = $('cloud-menu');
+    if (box) box.style.display = 'none';
+    // 从哪进来就回哪去：账号安全页 / 主页
+    if (cloudFrom === 'account') showOverlay('account-menu');
+    else { showOverlay('main-menu'); refreshMenu(); }
+    toast('已跳过上云：进度还在本机，随时可在 设置 → 账号安全 里再存');
+  }
+
+  function openCloudMenu(from) {
     cloudForced = true;
+    cloudFrom = from === 'account' ? 'account' : 'auto';
     const err = $('cloud-err');
     if (err) err.textContent = '';
     const rn = $('btn-cloud-rename');

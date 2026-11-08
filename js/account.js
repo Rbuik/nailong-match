@@ -26,7 +26,8 @@
     'nl2:net': 1,
     'nl2:lb-del': 1,
     'nl2:statsVer': 1,
-    'nl2:purged': 1      // 注销记录：注销过的号不许再从服务器"找回来"
+    'nl2:purged': 1,     // 注销记录：注销过的号不许再从服务器"找回来"
+    'nl2:authSkip': 1    // 这台设备选了「先不登录，当游客玩」：设备级，不跟着账号走
   };
 
   // 一次性补偿（换设备 / 找回账号时丢过金币的补偿）
@@ -265,6 +266,8 @@
     const n = checkName(name);
     if (!n.ok) return n;
 
+    // 没登录时当游客玩出来的进度：注册这个新号就顺延过去，别让玩家白玩
+    const guestKeys = loggedIn() ? null : activeSnapshot();
     saveCurrent();                      // 已登录时注册新号，别把当前号的进度弄丢
     wipeActive();                       // 新号：从零开始
     const uid = newUid();
@@ -280,6 +283,12 @@
     saveList(arr);
     rememberPass(acc, p.pass);
     write(K.cur, uid);
+    // 游客进度铺回给这个新号（设备级设置不在快照里）
+    if (guestKeys) {
+      Object.keys(guestKeys).forEach((k) => {
+        try { localStorage.setItem(k, guestKeys[k]); } catch (e) {}
+      });
+    }
     syncNick(acc);
     saveCurrent();
     bgRegister(acc, p.pass);

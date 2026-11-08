@@ -2088,9 +2088,10 @@ function check(name, ok) {
   check('账号安全页有常驻的「存到服务器」入口', /id="btn-goto-cloud"/.test(htmlSrc0));
   check('已绑定的号点「存到服务器」先真实推送验证（号被删过会自动解绑重弹窗口）',
     /pushCloud\(true\)\.then/.test(jsSrc) && !/已经存到服务器了/.test(jsSrc));
-  check('上云窗口点背景不关（强制窗口不在「回上一层」名单里）',
-    !/'cloud-menu':/.test(jsSrc) && !/'fix-menu':/.test(jsSrc) &&
-    /cloudForced = true/.test(jsSrc) && /cloudForced = false/.test(jsSrc));
+  check('上云窗口点背景可以关掉（进度仍在本机，之后在账号安全里再存）',
+    /case 'cloud-menu':\s*\n\s*skipCloud\(\);/.test(jsSrc) &&
+    /function skipCloud\(\)/.test(jsSrc) && /cloudOffered = true;/.test(jsSrc) &&
+    !/if \(typeof cloudForced !== 'undefined' && cloudForced\)/.test(jsSrc));
   check('注册后自动把账号存到服务器', /bgRegister\(acc, p\.pass\)/.test(jsSrc));
   check('改名 / 改密码会同步到服务器',
     /Cloud\.rename/.test(jsSrc) && /Cloud\.setPass/.test(jsSrc));
@@ -2651,16 +2652,29 @@ function check(name, ok) {
     if (saved !== undefined) lsMap.set('nl2:tasks', saved); else lsMap.delete('nl2:tasks');
     return ok && ok2 && S2.SIGN_MILESTONE.coins === 200 && S2.SIGN_MILESTONE.every === 7;
   })());
-  check('登录 / 注册页没有返回键，点背景进不了游戏（不登录不注册只能停在登录 / 注册界面）', (() => {
+  check('登录 / 注册页点背景可以跳过登录（游客也能玩），并记住这个选择', (() => {
+    const hadSkip = lsMap.get('nl2:authSkip');
     $('auth-menu').style.display = 'none';
     $('auth-form').style.display = 'flex';
     $('auth-form').dispatch('click');
     const formBack = $('auth-form').style.display === 'none' && $('auth-menu').style.display === 'flex';
     $('auth-menu').dispatch('click');
-    const stuck = $('auth-menu').style.display === 'flex';
-    return formBack && stuck &&
-      !htmlSrc.includes('id="btn-auth-back"') &&
-      /'auth-form': 'auth-menu'/.test(jsSrc) && !/'auth-menu':\s*'main-menu'/.test(jsSrc);
+    const guest = $('auth-menu').style.display === 'none' &&
+      $('main-menu').style.display === 'flex' && !!lsMap.get('nl2:authSkip');
+    // 源码：游客不再被拦在登录页；下次启动直接进主页；游客不会被自动认领成老账号；注册时进度顺延
+    const srcOk = /function skipAuth\(\)/.test(jsSrc) &&
+      /AUTH_SKIP_KEY = 'nl2:authSkip'/.test(jsSrc) &&
+      /else if \(authSkipped\(\)\) \{/.test(jsSrc) &&
+      /case 'auth-menu':\s*\n\s*skipAuth\(\);/.test(jsSrc) &&
+      /'auth-form': 'auth-menu'/.test(jsSrc) &&
+      /!authSkipped\(\)\) Account\.ensure\(\)/.test(jsSrc) &&
+      /const guestKeys = loggedIn\(\) \? null : activeSnapshot\(\)/.test(jsSrc) &&
+      /'nl2:authSkip': 1/.test(jsSrc) &&
+      !/if \(!accountOk\(\)\) \{ showAuthScreen\(\); return false; \}/.test(jsSrc);
+    // 还原：后面的用例都按「已登录」跑
+    if (hadSkip === undefined) lsMap.delete('nl2:authSkip'); else lsMap.set('nl2:authSkip', hadSkip);
+    $('main-menu').style.display = 'flex';
+    return formBack && guest && srcOk;
   })());
   check('成绩单：卡片严格居中（stage width:100% 包裹、标题悬浮上方、不改卡片尺寸）、无底部文案、进度线恒满格', (() => {
     const gc = htmlSrc.slice(htmlSrc.indexOf('id="game-complete"'), htmlSrc.indexOf('id="chapters-menu"'));
