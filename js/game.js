@@ -7474,8 +7474,7 @@
     return out;
   }
 
-  // 这一关的「目标分」：分数关 = goal.target（比如第 40 关是 7000）；
-  // 其他玩法（运送 / 收集 / 护送 / 限时）没有目标分，返回 0 = 不按分数卡排名
+  // 这一关的目标分（只有分数关才有）：老榜单没带星级时，用它反推「有没有通关」
   function levelTargetScore(lv) {
     try {
       const def = getLevelDef(lv);
@@ -7502,12 +7501,31 @@
   }
 
   // 某一关的星星：优先用对方自己公布的星级，没有就反推
+  // st 是整张星级表（只记通关过的关），所以有表却查不到这一关 = 这关没通关，不能拿分数反推
   function starsOf(entry, level) {
     const key = String(level);
     const st = entry && entry.st;
-    if (st && st[key] > 0) return Math.min(3, st[key]);
+    if (st && typeof st === 'object' && Object.keys(st).length) {
+      return Math.min(3, Math.max(0, Math.round(Number(st[key]) || 0)));
+    }
     const lv = entry && entry.lv;
     return starsFromScore(level, lv ? lv[key] : 0);
+  }
+
+  // 这一关算不算「通关了」（局榜排名只看这个，不看分数线）：
+  // 手上有整张星级表的以表为准（表里查不到这一关 = 没通关）；
+  // 老数据没有表——分数关按目标分算，其他玩法只能按一星线近似
+  function hasStarMap(entry) {
+    const st = entry && entry.st;
+    return !!(st && typeof st === 'object' && Object.keys(st).length);
+  }
+  function entryPassed(entry, lv, stars) {
+    const st = (stars == null) ? starsOf(entry, lv) : stars;
+    if (hasStarMap(entry)) return st > 0;
+    const target = levelTargetScore(lv);
+    const score = (entry && entry.lv && entry.lv[String(lv)]) || 0;
+    if (target > 0) return score >= target;
+    return st > 0;
   }
 
   // 总星数：优先把对方公布的每关星级加起来，没有就按分数反推
@@ -7573,37 +7591,55 @@
     const key = String(lv);
     const mine = Meta.myUid();
     const map = {};
-    const push = (uid, name, sc, ts, pv, stars) => {
+    const push = (uid, name, sc, ts, pv, stars, passed) => {
       if (!uid || !(sc > 0)) return;
       const cur = map[uid];
-      if (!cur) { map[uid] = { uid: uid, name: name || '玩家', score: sc, ts: ts || 0, pv: pv || '', stars: stars || 0 }; return; }
+      if (!cur) {
+        map[uid] = {
+          uid: uid, name: name || '玩家', score: sc, ts: ts || 0,
+          pv: pv || '', stars: stars || 0, pass: !!passed
+        };
+        return;
+      }
       if (sc > cur.score) cur.score = sc;   // 星只取最大值，别被低星盖掉
       if ((ts || 0) >= (cur.ts || 0)) { cur.name = name || cur.name; cur.ts = ts || 0; }
       if (!cur.pv && pv) cur.pv = pv;
       if ((stars || 0) > (cur.stars || 0)) cur.stars = stars || 0;
+      if (passed) cur.pass = true;          // 有一条成绩说他通关了就算通关
     };
     if (typeof Board !== 'undefined') {
-      Board.list().forEach((e) => { if (e.lv) push(e.uid, e.name, e.lv[key], e.ts, e.pv, starsOf(e, lv)); });
+      Board.list().forEach((e) => {
+        if (!e.lv) return;
+        const st = starsOf(e, lv);
+        push(e.uid, e.name, e.lv[key], e.ts, e.pv, st, entryPassed(e, lv, st));
+      });
     }
-    Meta.friends().forEach((f) => { if (f.lv) push(f.uid, f.name, f.lv[key], f.ts, f.pv, starsOf(f, lv)); });
-    push(mine, Meta.nickname(), myLevelMap()[key], Date.now(), myProvCode(), starsOf(myBestEntry(), lv));
+    Meta.friends().forEach((f) => {
+      if (!f.lv) return;
+      const st = starsOf(f, lv);
+      push(f.uid, f.name, f.lv[key], f.ts, f.pv, st, entryPassed(f, lv, st));
+    });
+    // 自己：星级直接按本机进度取（进度表里没这一关 = 没过），别拿失败局的分数反推
+    const myStars = myStarMap()[key] || 0;
+    push(mine, Meta.nickname(), myLevelMap()[key], Date.now(), myProvCode(), myStars, myStars > 0);
     return Object.keys(map).map((k) => {
       const r = map[k];
       r.me = r.uid === mine;
+      // 局榜以「这一关有没有通关」为准：没通关的分数再高也不进排名
+      if (typeof r.pass !== 'boolean') r.pass = (r.stars || 0) > 0;
       return r;
     }).sort((a, b) => b.score - a.score);
   }
 
-  // 我在这一局排第几（1 起；没有成绩 / 分数没到目标分都算没排名，返回 0）
+  // 我在这一局排第几（1 起；没通关这一关就不参与排名，返回 0）
   function levelRank(lv) {
     const mine = Meta.myUid();
-    const target = levelTargetScore(lv);
-    const myScore = myLevelMap()[String(lv)] || 0;
-    // 分数没达到这一关的目标分：不参与排名（主页也不挂奖牌）
-    if (!(myScore > 0) || myScore < target) return 0;
-    // 排名只在「达到目标分」的玩家里算，没达标的虽然挂在榜上但不占名次
-    const rows = levelRows(lv).filter((r) => !(target > 0) || (r.score || 0) >= target);
-    for (let i = 0; i < rows.length; i++) if (rows[i].uid === mine) return i + 1;
+    const rows = levelRows(lv);
+    const meRow = rows.filter((r) => r.uid === mine)[0];
+    if (!meRow || !meRow.pass) return 0;
+    // 名次只在「通关了这一关」的玩家里算，没通关的挂在榜上但不占名次
+    const passed = rows.filter((r) => r.pass);
+    for (let i = 0; i < passed.length; i++) if (passed[i].uid === mine) return i + 1;
     return 0;
   }
 
@@ -7770,12 +7806,9 @@
     // 省榜：只显示所选省份的玩家；局榜：只看这一关的最高分
     let shown;
     if (lbTab === 'level') {
-      // 分数关有「目标分」：没达到的玩家灰显、不参与排名（分数照常显示，名次写「—」）
-      const target = levelTargetScore(lbLevel);
-      shown = levelRows(lbLevel).map((r) => Object.assign({ friend: false }, r, {
-        pass: !(target > 0) || (r.score || 0) >= target
-      }));
-      // 达到目标分的排前面按分数排名；没达标的垫底展示，不占名次
+      // 局榜以「这一关有没有通关」为准：通关的（星星 > 0）按分数排名，
+      // 没通关的灰显垫底、名次写「—」（分数照常显示，不参与排名）
+      shown = levelRows(lbLevel).map((r) => Object.assign({ friend: false }, r));
       shown.sort((a, b) => ((b.pass ? 1 : 0) - (a.pass ? 1 : 0)) || (b.score - a.score));
     } else if (lbTab === 'prov') {
       shown = totalRows.filter((r) => r.pv === lbProv);
@@ -7789,8 +7822,8 @@
       const row = document.createElement('div');
       // 0 分不上榜：整行灰显（名次留空、分数位置写「未上榜」）
       const onBoard = (r.score || 0) > 0;
-      // 局榜：分数没到这一关的目标分 → 一样灰显、不参与排名（名次「—」，分数照常显示）
-      const noRank = onBoard && lbTab === 'level' && r.pass === false;
+      // 局榜：这一关没通关 → 一样灰显、不参与排名（名次「—」，分数照常显示）
+      const noRank = lbTab === 'level' && r.pass === false;
       const ranked = onBoard && !noRank;
       row.className = 'lb-row' + (r.me ? ' me' : '') + (ranked ? '' : ' none');
       const inner = document.createElement('div');

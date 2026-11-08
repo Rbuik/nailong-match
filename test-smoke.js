@@ -934,8 +934,8 @@ function check(name, ok) {
     return m === '🥇' && shown;
   })());
 
-  // 14d2b. 局榜目标分：分数没到这一关目标分的玩家灰显、不参与排名（第 1 关目标 1000）
-  check('局榜：分数没到目标分的玩家灰显、名次「—」不占位；达标的第一名照常拿奖牌', (() => {
+  // 14d2b. 局榜：没通过这一关的玩家灰显、不参与排名（第 1 关目标 1000 分）
+  check('局榜：没通关的玩家灰显、名次「—」不占位；通关的第一名照常拿奖牌', (() => {
     $('btn-leaderboard').dispatch('click');
     $('btn-lb-hub-level').dispatch('click');
     $('lb-level-swap').dispatch('click');
@@ -963,12 +963,46 @@ function check(name, ok) {
     $('leaderboard-menu').dispatch('click');
     return sawLow && sawMe && ok;
   })());
-  check('局榜目标分规则：分数关按 goal.target 卡，其他玩法不卡；星星分数也一起灰', (() => {
-    return /function levelTargetScore/.test(jsSrc) &&
-      /myScore < target\) return 0/.test(jsSrc) &&
-      /pass: !\(target > 0\) \|\| \(r\.score \|\| 0\) >= target/.test(jsSrc) &&
-      /const noRank = onBoard && lbTab === 'level' && r\.pass === false/.test(jsSrc) &&
-      /\.lb-row\.none \.lb-stars,/.test(cssSrc) && /\.lb-row\.none \.lb-score \{ color: #b0a9c0; \}/.test(cssSrc);
+  check('局榜以「这一关有没有通关」为准：星级 > 0 才算通关，没通关灰显垫底不排名', (() => {
+    return /r\.pass = \(r\.stars \|\| 0\) > 0/.test(jsSrc) &&
+      /if \(!meRow \|\| !meRow\.pass\) return 0/.test(jsSrc) &&
+      /const passed = rows\.filter\(\(r\) => r\.pass\)/.test(jsSrc) &&
+      /const noRank = lbTab === 'level' && r\.pass === false/.test(jsSrc) &&
+      /function entryPassed/.test(jsSrc) &&
+      /if \(passed\) cur\.pass = true/.test(jsSrc) &&
+      /Object\.keys\(st\)\.length/.test(jsSrc) &&
+      /\.lb-row\.none \.lb-stars,/.test(cssSrc);
+  })());
+
+  // 14d2c. 非分数关（第 2 关是收集关）同样按「有没有通关」卡排名
+  check('局榜：收集关没通关的分数再高也灰显，通关了分数低照常排名', (() => {
+    // 第 2 关（收集关）：一个通关了但分数低，一个没通关但刷了 9000 分
+    sandbox.Board.publish({ uid: 'rival003', name: '通关了', score: 1300, level: 2,
+      lv: { 2: 1300 }, st: { 2: 1 } }, true);
+    sandbox.Board.publish({ uid: 'rival004', name: '没通关', score: 9000, level: 2,
+      lv: { 2: 9000 }, st: { 1: 3 } }, true);
+    $('btn-leaderboard').dispatch('click');
+    $('btn-lb-hub-level').dispatch('click');
+    $('lb-level-swap').dispatch('click');
+    const pick = ($('lb-picker').children || []).filter((b) => String(b.textContent) === '第 2 关')[0];
+    if (pick) pick.dispatch('click');
+    const rows = ($('lb-list').children || []).map((row) => {
+      const inner = (row.children || [])[0];
+      return { cls: String(row.className || ''), h: String((inner && inner.innerHTML) || '') };
+    });
+    let passIdx = -1, failIdx = -1;
+    rows.forEach((r, i) => {
+      if (r.h.indexOf('通关了') >= 0) passIdx = i;
+      if (r.h.indexOf('没通关') >= 0) failIdx = i;
+    });
+    const passOk = passIdx >= 0 && rows[passIdx].cls.indexOf('none') < 0 &&
+      /lb-rank">[0-9🥇🥈🥉]/.test(rows[passIdx].h);
+    const failOk = failIdx >= 0 && rows[failIdx].cls.indexOf('none') >= 0 &&
+      /lb-rank">—/.test(rows[failIdx].h) && /lb-score">9000</.test(rows[failIdx].h);
+    const orderOk = passIdx >= 0 && failIdx >= 0 && passIdx < failIdx;
+    $('lb-view').dispatch('click');
+    $('leaderboard-menu').dispatch('click');
+    return passOk && failOk && orderOk;
   })());
 
   // 14d3. 0 分的人在榜上显示「未上榜」，名次也不挂奖牌
