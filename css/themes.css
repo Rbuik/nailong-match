@@ -2222,7 +2222,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   min-width: 0;
 }
 .master-title-box b {
-  font-size: 20px;
+  /* 字号固定，不随字数变化；比「恭喜」(24px) 小一号 */
+  font-size: 22px;
   font-weight: 900;
   letter-spacing: 1px;
   background: linear-gradient(90deg, #ff8c00, #ff5c5c);

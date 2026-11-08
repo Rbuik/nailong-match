@@ -3985,11 +3985,6 @@
     const crownBox = $('master-crown');
     if (crownBox) crownBox.innerHTML = '<img src="./assets/nailong.png" alt="奶龙">';
     setText('master-title', title);
-    // 名字长了（8 字昵称 + 等级）就把称号字号收一点，别撑出卡片
-    if ($('master-title')) {
-      const n = title.length;
-      $('master-title').style.fontSize = n <= 7 ? '20px' : (n <= 9 ? '18px' : '16px');
-    }
     // 「🎉 恭喜」彩色：文字由 CSS 渐变裁切，🎉 用彩虹填充的图片（彩色字形无法直接染色）
     const greetIco = $('master-greet-ico');
     if (greetIco) {

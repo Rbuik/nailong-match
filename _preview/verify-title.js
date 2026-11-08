@@ -1,7 +1,7 @@
 // 实测：成绩单称号「等级·玩家名」的显示与长度（8 字昵称不撑破卡片）
 const http = require('http');
 const fs = require('fs');
-const PORT = 9229;
+const PORT = 9230;
 function get(p){return new Promise((res,rej)=>{http.get({host:'127.0.0.1',port:PORT,path:p},(r)=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>res(d));}).on('error',rej);});}
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
@@ -20,7 +20,7 @@ const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
   // 通关 23/46 → 达人；昵称改成 8 个字（最长的合法昵称）
   console.log('setup', await ev(`(function(){
     for (var i=1;i<=23;i++) Store.recordLevel(i, 2000+i, 2);
-    Meta.setNickname('奶龙大玩家啊啊啊');
+    Meta.setNickname('奶龙大玩家啊啊啊');   // 8 字（最长的合法昵称）
     return Meta.nickname() + ' / 已通 ' + Object.keys(Store.getProgress()).length;
   })()`));
 
@@ -31,6 +31,22 @@ const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
   await ev(`document.getElementById('btn-replay-ending').click(); 'ok'`);
   await sleep(1500);
   console.log('title', await ev(`document.getElementById('master-title').textContent`));
+  console.log('sizes-A', await ev(`(function(){
+    var greet = document.querySelector('.master-greet-txt');
+    var b = document.getElementById('master-title');
+    return JSON.stringify({ greet: getComputedStyle(greet).fontSize, title: getComputedStyle(b).fontSize,
+      len: b.textContent.length, clipped: b.scrollWidth > b.clientWidth + 1 });
+  })()`));
+  // 换成短昵称，字号必须一模一样
+  await ev(`Meta.setNickname('奶龙'); document.getElementById('btn-history').click(); 'ok'`);
+  await sleep(400);
+  await ev(`document.getElementById('btn-replay-ending').click(); 'ok'`);
+  await sleep(1200);
+  console.log('sizes-B', await ev(`(function(){
+    var b = document.getElementById('master-title');
+    return JSON.stringify({ text: b.textContent, title: getComputedStyle(b).fontSize,
+      len: b.textContent.length, clipped: b.scrollWidth > b.clientWidth + 1 });
+  })()`));
   console.log('fit', await ev(`(function(){
     var b = document.getElementById('master-title');
     var card = document.querySelector('.master-card');
