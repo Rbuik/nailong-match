@@ -5192,7 +5192,7 @@
       row.innerHTML = '<span class="lb-swipe"><span class="lb-name">' + escHtml(r.name) + '</span>' +
         '<span class="lb-score ul-prov">' + r.count + ' 人</span></span>';
       row.addEventListener('click', () => {
-        openAdminUserList(r.code);
+        openAdminUserList(r.code, true);   // 从省份详情进来的，点背景要回省份详情
       });
       box.appendChild(row);
     });
@@ -5213,8 +5213,13 @@
     try { AudioManager.playSFX('select'); } catch (e) {}
   }
 
-  function openAdminUserList(code) {
+  // 名单页是从哪进来的：后台「用户数量」直接进 = false；「省份详情」点省份进 = true
+  // （决定点背景返回时回哪一层）
+  let adminUlFromProv = false;
+
+  function openAdminUserList(code, fromProv) {
     adminUlProv = String(code == null ? '' : code);
+    adminUlFromProv = !!fromProv;
     adminUlQuery = '';
     const se = $('admin-ul-search');
     if (se) se.value = '';
@@ -6390,9 +6395,16 @@
         case 'admin-user-list':
           hidePanel('admin-user-list');
           hideAdminUlPicker();
-          showOverlay('admin-menu');
-          showAdminPage('users');
-          renderAdminUsers();
+          if (adminUlFromProv) {
+            // 从「省份详情」点省份进来的：点背景回省份详情，不是回后台
+            adminUlFromProv = false;
+            renderProvUserList();
+            showOverlay('prov-user-list');
+          } else {
+            showOverlay('admin-menu');
+            showAdminPage('users');
+            renderAdminUsers();
+          }
           return true;
         case 'prov-user-list':
           hidePanel('prov-user-list');
