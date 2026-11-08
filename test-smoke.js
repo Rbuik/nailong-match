@@ -1473,8 +1473,9 @@ function check(name, ok) {
   // 29. 登录页 / 登录失败提示
   $('settings-menu').style.display = 'flex';
   $('btn-goto-account').dispatch('click');
-  check('账号安全面板显示当前账号', $('account-menu').style.display === 'flex' &&
-    String($('account-cur-name').textContent) === '测试奶龙');
+  check('账号安全面板显示当前账号 + 注册时间（yyyy-MM-dd HH:mm:ss 补零）', $('account-menu').style.display === 'flex' &&
+    String($('account-cur-name').textContent) === '测试奶龙' &&
+    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(String($('account-created').textContent)));
   $('btn-goto-switch').dispatch('click');
   check('切换账号列表有当前账号', $('switch-menu').style.display === 'flex' &&
     $('acct-list').children.length >= 1);

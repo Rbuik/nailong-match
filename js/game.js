@@ -5721,11 +5721,27 @@
     });
 
     // ==================== 账号安全 ====================
+    // 注册时间：yyyy-MM-dd HH:mm:ss（个位数前面补 0）
+    function fmtAccTime(ms) {
+      if (!ms) return '—';
+      const d = new Date(ms);
+      if (isNaN(d.getTime())) return '—';
+      const p = (n) => (n < 10 ? '0' + n : String(n));
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+        ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
+    }
+    function fillAccountInfo() {
+      const n = $('account-cur-name');
+      if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
+      const c = $('account-created');
+      if (c) c.textContent = (Account.loggedIn() && Account.current() && Account.current().created)
+        ? fmtAccTime(Account.current().created) : '—';
+    }
+
     // 设置 → 账号安全：修改密码 / 切换账号
     on('btn-goto-account', () => {
       $('settings-menu').style.display = 'none';
-      const n = $('account-cur-name');
-      if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
+      fillAccountInfo();
       showOverlay('account-menu');
     });
     on('btn-close-account', () => {
@@ -5768,8 +5784,7 @@
       $('backup-menu').style.display = 'none';
       $('backup-import-menu').style.display = 'none';
       if (backupFrom === 'auth') { showAuthScreen(); return; }
-      const n = $('account-cur-name');
-      if (n) n.textContent = Account.loggedIn() ? Account.current().name : '未登录';
+      fillAccountInfo();
       showOverlay('account-menu');
     }
 
