@@ -389,7 +389,16 @@ function check(name, ok) {
   sandbox.__nl_test.setUserListProv('guangdong');
   check('筛到广东省只剩外省玩家', $('admin-ul-list').children.length === 1 &&
     String($('admin-ul-list').children[0].children[0].innerHTML).indexOf('外省玩家') >= 0);
+  // 选了具体省份：省份列去掉，行改成和排行榜一样的 col4（星星 / 分数同一条线）
+  check('筛到具体省份：省份列去掉，行用排行榜同款 col4 排列', (() => {
+    const inner = $('admin-ul-list').children[0].children[0];
+    return inner.className === 'lb-swipe col4' && inner.innerHTML.indexOf('ul-prov') < 0 &&
+      inner.innerHTML.indexOf('ul-score') >= 0 && inner.innerHTML.indexOf('lb-stars') >= 0;
+  })());
   sandbox.__nl_test.setUserListProv('');
+  check('切回全服又全部列出（省份列回来，还是 col5）', $('admin-ul-list').children.length === su2.users &&
+    $('admin-ul-list').children[0].children[0].className === 'lb-swipe col5' &&
+    String($('admin-ul-list').children[0].children[0].innerHTML).indexOf('ul-prov') >= 0);
   check('切回全服又全部列出', $('admin-ul-list').children.length === su2.users);
   const ulSearch = $('admin-ul-search');
   ulSearch.value = '外省';

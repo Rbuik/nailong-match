@@ -1,6 +1,6 @@
 // 实测：后台名单页「点背景返回」——从省份详情进的回省份详情，从后台直接进的回后台
 const http = require('http');
-const PORT = 9231;
+const PORT = 9234;
 function get(p){return new Promise((res,rej)=>{http.get({host:'127.0.0.1',port:PORT,path:p},(r)=>{let d='';r.on('data',c=>d+=c);r.on('end',()=>res(d));}).on('error',rej);});}
 const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
 (async()=>{
@@ -44,6 +44,16 @@ const sleep=(ms)=>new Promise(r=>setTimeout(r,ms));
   await ev(`(function(){ var r=document.querySelector('#prov-ul-list .lb-row'); if(r) r.click(); return 'ok'; })()`);
   await sleep(400);
   console.log('p1-open', await ev(vis));
+  // 量列几何：星星列 / 分数列的起点要和排行榜 col4 一致；省模式下不应有省份列
+  console.log('cols', await ev(`(function(){
+    var inner=document.querySelector('#admin-ul-list .lb-row .lb-swipe');
+    var cs=getComputedStyle(inner);
+    var stars=inner.querySelector('.lb-stars'), score=inner.querySelector('.ul-score');
+    var sr=stars.getBoundingClientRect(), cr=score.getBoundingClientRect(), ir=inner.getBoundingClientRect();
+    return JSON.stringify({cls:inner.className, cols:cs.gridTemplateColumns,
+      starsLeft:Math.round(sr.left-ir.left), scoreLeft:Math.round(cr.left-ir.left),
+      hasProv: !!inner.querySelector('.ul-prov')});
+  })()`));
   await ev(`document.getElementById('admin-user-list').click(); 'ok'`);
   await sleep(400);
   console.log('p1-back(expect prov)', await ev(vis));

@@ -5133,11 +5133,14 @@
     }
     box.innerHTML = '';
     rows.forEach((u, i) => {
-      const p = u.prov ? (provByCode(u.prov) || {}).name || u.prov : '未定位';
+      // 选了具体省份就不显示省份列，行改成和排行榜一样的 col4 排列
+      // （星星 40px / 分数 6ch / 中间 42px 空档，和总榜、省榜每列起点完全同一条线）
+      const byProv = !!adminUlProv;
+      const p = byProv ? '' : (u.prov ? (provByCode(u.prov) || {}).name || u.prov : '未定位');
       const row = document.createElement('div');
       row.className = 'lb-row' + (u.score > 0 ? '' : ' none');
       const inner = document.createElement('div');
-      inner.className = 'lb-swipe col5';
+      inner.className = byProv ? 'lb-swipe col4' : 'lb-swipe col5';
       // 分数左边也带总星数（和排行榜同一个写法），0 星留空位，分数不挪窝
       const st = Math.max(0, u.stars || 0);
       const starHtml = st > 0
@@ -5147,7 +5150,7 @@
         '<span class="lb-name">' + escHtml(String(u.name).slice(0, 8)) + '</span>' +
         starHtml +
         '<span class="lb-score ul-score">' + (u.score > 0 ? String(u.score) : '—') + '</span>' +
-        '<span class="lb-score ul-prov">' + escHtml(p) + '</span>';
+        (byProv ? '' : '<span class="lb-score ul-prov">' + escHtml(p) + '</span>');
       row.appendChild(inner);
       box.appendChild(row);
     });
@@ -8302,11 +8305,16 @@
   }
 
   // 左滑打开的邮件行：同一时间只允许一行打开
-  let mailSwipeOpen = null;
+  let mailSwipeOpen = null;   // 打开的那行外层 .mail-swipe
+  let mailSwipeRow = null;    // 对应的 .mail-row（收起时要连内联位移一起清掉）
   function closeMailSwipe(except) {
     if (mailSwipeOpen && mailSwipeOpen !== except) {
       mailSwipeOpen.classList.remove('open');
+      // 必须把行上的内联 transform 一并清掉：只摘 open 类的话，行还停在左移的位置，
+      // 删除键就一直露在外面（行收回了删除键没收，看起来就像删除键脱离了那一行）
+      if (mailSwipeRow) mailSwipeRow.style.transform = '';
       mailSwipeOpen = null;
+      mailSwipeRow = null;
     }
   }
 
@@ -8358,6 +8366,7 @@
       const open = dx < -DEL / 2;
       wrap.classList.toggle('open', open);
       mailSwipeOpen = open ? wrap : (mailSwipeOpen === wrap ? null : mailSwipeOpen);
+      mailSwipeRow = open ? row : (mailSwipeOpen === wrap ? mailSwipeRow : null);
       setX(open ? -DEL : 0);
     };
     ['pointerup', 'pointercancel'].forEach((ev) => row.addEventListener(ev, finish));
@@ -8371,11 +8380,11 @@
         e.preventDefault();
         closeMailSwipe();
         wrap.classList.remove('open');
-        mailSwipeOpen = null;
+        mailSwipeOpen = null; mailSwipeRow = null;
         setX(0);
         return;
       }
-      if (isOpen()) { closeMailSwipe(); wrap.classList.remove('open'); mailSwipeOpen = null; setX(0); return; }
+      if (isOpen()) { closeMailSwipe(); wrap.classList.remove('open'); mailSwipeOpen = null; mailSwipeRow = null; setX(0); return; }
       openMail(m.id);
     });
 
@@ -8385,7 +8394,7 @@
       if (m.hasGift && !m.claimed) {
         toast('先领取附件再删除这封邮件');
         wrap.classList.remove('open');
-        mailSwipeOpen = null;
+        mailSwipeOpen = null; mailSwipeRow = null;
         setX(0);
         return;
       }
@@ -8401,7 +8410,13 @@
     const box = $('mail-list');
     if (!box) return;
     box.innerHTML = '';
-    mailSwipeOpen = null;
+    mailSwipeOpen = null; mailSwipeRow = null;
+    // 滚动列表就收起左滑露出的删除键：行滚出视野后删除键还挂在原地，
+    // 看起来就像一个悬空的删除键（尤其贴着列表底缘被裁一半的时候）
+    if (!box.dataset.swipeScroll) {
+      box.addEventListener('scroll', () => { if (mailSwipeOpen) closeMailSwipe(); }, { passive: true });
+      box.dataset.swipeScroll = '1';
+    }
     const arr = (typeof Mail !== 'undefined') ? Mail.list() : [];
     if (!arr.length) {
       const p = document.createElement('p');

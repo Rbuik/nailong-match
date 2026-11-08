@@ -2051,6 +2051,8 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
   border-radius: 14px;
   overflow: hidden;
   flex: 0 0 auto;
+  /* 自成一层：iOS 滚动时行和删除键一起合成，不会出现行没了、删除键悬在列表底缘的错层 */
+  transform: translateZ(0);
 }
 
 .mail-swipe .mail-row {
