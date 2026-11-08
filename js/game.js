@@ -3671,14 +3671,64 @@
     const m = d.getMonth() + 1;
     return d.getFullYear() + '-' + (m < 10 ? '0' + m : String(m));
   }
-  function shiftMonth(key, delta) {
-    const p = String(key || '').split('-');
-    let y = parseInt(p[0], 10), m = parseInt(p[1], 10);
-    if (isNaN(y) || isNaN(m)) { const d = new Date(); y = d.getFullYear(); m = d.getMonth() + 1; }
-    m += delta;
-    while (m < 1) { m += 12; y--; }
-    while (m > 12) { m -= 12; y++; }
+  function monthKey(y, m) {
     return y + '-' + (m < 10 ? '0' + m : String(m));
+  }
+
+  // 年份下拉：从最早一笔记录（或建号）所在年到今年，未来的年份不列
+  function ledgerYears() {
+    const now = new Date();
+    const curY = now.getFullYear();
+    let minY = curY;
+    (Store.getLedger ? Store.getLedger() : []).forEach((x) => {
+      const y = new Date(x.t).getFullYear();
+      if (y < minY) minY = y;
+    });
+    try {
+      const acc = Account && Account.current ? Account.current() : null;
+      const d = acc && acc.created ? new Date(acc.created) : null;
+      if (d && !isNaN(d.getTime()) && d.getFullYear() < minY) minY = d.getFullYear();
+    } catch (e) {}
+    const out = [];
+    for (let y = minY; y <= curY; y++) out.push(y);
+    return out;
+  }
+
+  // 把「年 / 月 / 类型」三个下拉填好：三个一样宽，月份只到当月（未来月份禁用）
+  function fillLedgerSelectors() {
+    const now = new Date();
+    const curY = now.getFullYear(), curM = now.getMonth() + 1;
+    const parts = String(ledgerMonth || '').split('-');
+    let y = parseInt(parts[0], 10), m = parseInt(parts[1], 10);
+    if (!y || !m) { y = curY; m = curM; }
+    if (y > curY) { y = curY; m = curM; }
+    if (y === curY && m > curM) m = curM;
+    ledgerMonth = monthKey(y, m);
+
+    const yearSel = $('ledger-year');
+    if (yearSel) {
+      yearSel.innerHTML = '';
+      ledgerYears().forEach((yy) => {
+        const o = document.createElement('option');
+        o.value = String(yy);
+        o.textContent = yy + ' 年';
+        yearSel.appendChild(o);
+      });
+      yearSel.value = String(y);
+    }
+
+    const monthSel = $('ledger-month');
+    if (monthSel) {
+      monthSel.innerHTML = '';
+      for (let mm = 1; mm <= 12; mm++) {
+        const o = document.createElement('option');
+        o.value = (mm < 10 ? '0' + mm : String(mm));
+        o.textContent = mm + ' 月';
+        if (y === curY && mm > curM) o.disabled = true;   // 不能选未来的月份
+        monthSel.appendChild(o);
+      }
+      monthSel.value = (m < 10 ? '0' + m : String(m));
+    }
   }
 
   function renderLedger() {
@@ -3687,10 +3737,13 @@
     const all = Store.getLedger ? Store.getLedger() : [];
     // 第一次打开：默认落在最近一条记录所在的月份
     if (!ledgerMonth) {
-      const last = all.length ? all[all.length - 1].t : Date.now();
-      ledgerMonth = monthKeyOf(last);
+      // 默认落在最近一笔所在的月份（不是数组最后一条：补记的历史收支会插在更早的时间）
+      let last = 0;
+      all.forEach((x) => { if (x.t > last) last = x.t; });
+      ledgerMonth = monthKeyOf(last || Date.now());
     }
-    if ($('ledger-month')) $('ledger-month').textContent = ledgerMonth;
+    // 年 / 月 两个下拉跟着换；未来年月一律拉回当月
+    fillLedgerSelectors();
     const sel = $('ledger-type');
     if (sel) {
       const v = sel.value;
@@ -3720,7 +3773,9 @@
       const row = document.createElement('div');
       row.className = 'ledger-row';
       row.innerHTML = '<div class="ledger-info">' +
-        '<span class="ledger-memo">' + escHtml(x.m) + '</span>' +
+        '<span class="ledger-memo">' +
+        (x.x ? '<small class="ledger-detail">' + escHtml(x.x) + '</small>' : '') +
+        escHtml(x.m) + '</span>' +
         '<span class="ledger-time">' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) +
         ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes()) + '</span>' +
         '</div>' +
@@ -5462,7 +5517,7 @@
     const closePack = $('btn-close-backpack');
     if (closePack) closePack.addEventListener('click', () => $('backpack-menu').style.display = 'none');
 
-    // 金币明细：点主页「🪙 金币」那一行进去；◀ ▶ 换月份，下拉选类型
+    // 金币明细：点主页「🪙 金币」那一行进去；年 / 月 / 类型三个下拉筛选
     const coinsRow = $('menu-coins-row');
     if (coinsRow) {
       coinsRow.addEventListener('click', () => {
@@ -5474,16 +5529,23 @@
         showOverlay('coin-menu');
       });
     }
-    const ledgerSel = $('ledger-type');
-    if (ledgerSel) ledgerSel.addEventListener('change', renderLedger);
-    const ledgerPrev = $('ledger-prev');
-    if (ledgerPrev) ledgerPrev.addEventListener('click', () => {
-      ledgerMonth = shiftMonth(ledgerMonth, -1);
+    const ledgerTypeSel = $('ledger-type');
+    if (ledgerTypeSel) ledgerTypeSel.addEventListener('change', renderLedger);
+    // 只换年份：月份超出现在（今年）就自动落到当月
+    const ledgerYearSel = $('ledger-year');
+    if (ledgerYearSel) ledgerYearSel.addEventListener('change', () => {
+      const now = new Date();
+      const y = parseInt(ledgerYearSel.value, 10) || now.getFullYear();
+      let m = parseInt(String(ledgerMonth).split('-')[1], 10) || (now.getMonth() + 1);
+      if (y === now.getFullYear() && m > now.getMonth() + 1) m = now.getMonth() + 1;
+      ledgerMonth = monthKey(y, m);
       renderLedger();
     });
-    const ledgerNext = $('ledger-next');
-    if (ledgerNext) ledgerNext.addEventListener('click', () => {
-      ledgerMonth = shiftMonth(ledgerMonth, 1);
+    const ledgerMonthSel = $('ledger-month');
+    if (ledgerMonthSel) ledgerMonthSel.addEventListener('change', () => {
+      const y = parseInt(String(ledgerMonth).split('-')[0], 10) || new Date().getFullYear();
+      const m = parseInt(ledgerMonthSel.value, 10) || 1;
+      ledgerMonth = monthKey(y, m);
       renderLedger();
     });
 
@@ -6347,6 +6409,17 @@
       dailyBtn.classList.toggle('is-done', done);
     }
   }
+
+  // 金币数字实时跟着钱包走：领成就 / 买道具 / 收邮件附件都不用手动刷新
+  function syncCoinUI(w) {
+    const coins = (w && typeof w.coins === 'number') ? w.coins : Store.getWallet().coins;
+    if ($('menu-coins')) $('menu-coins').textContent = coins;
+    if ($('shop-coins')) $('shop-coins').textContent = coins;
+    // 明细页开着时，新的一笔立刻出现在列表里
+    const box = $('coin-menu');
+    if (box && box.style.display === 'flex') renderLedger();
+  }
+  if (Store.onWallet) Store.onWallet(syncCoinUI);
 
   // ==================== 主循环 ====================
   function loop(now) {

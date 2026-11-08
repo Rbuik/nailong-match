@@ -17,7 +17,8 @@
     daily: NS + ':daily',         // 每日挑战当天最佳 { date, best, times }
     visits: NS + ':visits',       // 链接点击次数 { count, first, last }
     net: NS + ':net',             // 后台缓存 { globalHits, geo:{country,region,city,ts} }
-    ledger: NS + ':ledger',       // 金币明细 [{ t:时间, d:正负金额, m:说明 }]
+    ledger: NS + ':ledger',       // 金币明细 [{ t:时间, d:正负金额, m:说明, x:具体说明 }]
+    ledgerInit: NS + ':ledgerInit', // 明细上线时补记过历史收支（只补一次）
     save: NS + ':save'            // 当前局
   };
 
@@ -173,43 +174,75 @@
     return w;
   }
 
+  // 钱包一变就通知外面（主页 / 商店 / 明细页的数字要跟着走，不用等手动刷新）
+  const walletSubs = [];
+  function onWallet(fn) {
+    if (typeof fn === 'function' && walletSubs.indexOf(fn) < 0) walletSubs.push(fn);
+  }
+
   function setWallet(w) {
     write(K.wallet, w);
+    for (let i = 0; i < walletSubs.length; i++) {
+      try { walletSubs[i](w); } catch (e) {}
+    }
   }
 
   // ---------- 金币明细 ----------
   // 只保留最近 300 条，避免存档无限膨胀；每次进出账都记一条（金额正=收入、负=支出）
+  // x = 具体说明（买的是哪个道具 / 领的是哪枚成就），列表里用灰色小字显示
   const LEDGER_MAX = 300;
-  function getLedger() {
+  function readLedger() {
     const a = read(K.ledger, []);
     return Array.isArray(a) ? a.filter((x) => x && typeof x.d === 'number' && x.t) : [];
   }
-  function pushLedger(delta, memo) {
+  // 明细上线前的金币进出没有逐笔记账，第一笔先按余额补一条「历史收支」，
+  // 保证明细里的加总 = 钱包余额；时间落在建号那天，之后就不再补了
+  function ensureLedger() {
+    if (read(K.ledgerInit, false)) return;
+    write(K.ledgerInit, true);
+    if (readLedger().length) return;          // 已经有记账（新档），不用补
+    const coins = getWallet().coins;
+    if (!coins) return;
+    let t = Date.now();
+    try {
+      const acc = (typeof Account !== 'undefined' && Account && Account.current) ? Account.current() : null;
+      const d = acc && acc.created ? new Date(acc.created) : null;
+      if (d && !isNaN(d.getTime())) t = d.getTime();
+    } catch (e) {}
+    write(K.ledger, [{ t: t, d: coins, m: '历史收支', x: '明细上线前' }]);
+  }
+  function getLedger() {
+    ensureLedger();
+    return readLedger();
+  }
+  function pushLedger(delta, memo, detail) {
     if (!delta) return;
-    const arr = getLedger();
-    arr.push({
+    const arr = readLedger();
+    const row = {
       t: Date.now(),
       d: delta,
       m: String(memo || (delta > 0 ? '金币收入' : '金币支出'))
-    });
+    };
+    if (detail) row.x = String(detail);
+    arr.push(row);
     while (arr.length > LEDGER_MAX) arr.shift();
     write(K.ledger, arr);
   }
 
-  function addCoins(n, memo) {
+  function addCoins(n, memo, detail) {
     const w = getWallet();
     w.coins = Math.max(0, w.coins + n);
     setWallet(w);
-    pushLedger(n, memo);
+    pushLedger(n, memo, detail);
     return w.coins;
   }
 
-  function spendCoins(n, memo) {
+  function spendCoins(n, memo, detail) {
     const w = getWallet();
     if (w.coins < n) return false;
     w.coins -= n;
     setWallet(w);
-    pushLedger(-n, memo);
+    pushLedger(-n, memo, detail);
     return true;
   }
 
@@ -490,7 +523,7 @@
     K, VERSION, SIGN_REWARDS, SIGN_MILESTONE,
     getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, patchDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
-    getWallet, addCoins, spendCoins, addItem, useItem, getLedger, LEDGER_MAX,
+    getWallet, onWallet, addCoins, spendCoins, addItem, useItem, getLedger, LEDGER_MAX,
     getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex, signCycleStart, signStart,
     getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet, countStart,
     COUNT_START,

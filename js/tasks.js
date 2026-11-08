@@ -144,7 +144,7 @@
   function buy(key) {
     const item = SHOP.find((x) => x.key === key);
     if (!item) return { ok: false, reason: 'no-item' };
-    if (!Store.spendCoins(item.price, '购买道具')) return { ok: false, reason: 'no-coins' };
+    if (!Store.spendCoins(item.price, '购买道具', item.name)) return { ok: false, reason: 'no-coins' };
     Store.addItem(key, 1);
     AudioManager.playSFX('coin');
     return { ok: true, item };

@@ -170,7 +170,7 @@
     arr.push(t);
     m[id] = arr;
     write(K.achc, m);
-    if (coins && global.Store && Store.addCoins) Store.addCoins(coins, '成就奖励');
+    if (coins && global.Store && Store.addCoins) Store.addCoins(coins, '成就奖励', a.name + ' · ' + ACH_TIERS[t]);
     return { ok: true, coins: coins, tier: t, label: ACH_TIERS[t], ach: a };
   }
 

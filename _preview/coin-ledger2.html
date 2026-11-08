@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>金币明细预览</title>
+<link rel="stylesheet" href="../css/style.css">
+<link rel="stylesheet" href="../css/themes.css">
+<style>
+  body { background: #efe6fb; margin: 0; padding: 16px 0; font-family: system-ui, "Microsoft YaHei", sans-serif; }
+  .wrap { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .stage { background: #fff; border-radius: 24px; padding: 18px 0 12px; width: 380px; box-shadow: 0 10px 30px rgba(80,60,140,.12); display: flex; flex-direction: column; align-items: center; }
+  .cap { font-size: 12px; color: #8b84a0; margin-bottom: 8px; }
+  .overlay { position: static; display: flex; background: transparent; padding: 0; }
+  .result-box { width: 320px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="stage">
+    <p class="cap">主页：箭头在金币数字左边</p>
+    <div class="result-box">
+      <p><span>⭐ 总星星</span><b>87</b></p>
+      <p id="menu-coins-row" class="menu-coins-row" title="查看金币明细"><span>🪙 金币</span><span class="menu-coins-wrap"><em class="menu-coins-more">›</em><b id="menu-coins">1360</b></span></p>
+    </div>
+  </div>
+
+  <div class="stage">
+    <p class="cap">金币明细：年 / 月 / 类型三个等宽下拉</p>
+    <div class="overlay" id="coin-menu">
+      <h2 class="title small">🪙 金币明细</h2>
+      <div class="ledger-bar">
+        <select class="ledger-sel" id="ledger-year" aria-label="年份">
+          <option>2025 年</option><option selected>2026 年</option>
+        </select>
+        <select class="ledger-sel" id="ledger-month" aria-label="月份">
+          <option>1 月</option><option>2 月</option><option>3 月</option><option>4 月</option>
+          <option>5 月</option><option>6 月</option><option>7 月</option><option>8 月</option>
+          <option>9 月</option><option>10 月</option><option selected>11 月</option>
+          <option disabled>12 月</option>
+        </select>
+        <select class="ledger-sel" id="ledger-type" aria-label="类型">
+          <option value="all">全部</option>
+          <option value="expense">支出</option>
+          <option value="income">收入</option>
+        </select>
+      </div>
+      <div class="ledger-list" id="ledger-list">
+        <div class="ledger-row">
+          <div class="ledger-info">
+            <span class="ledger-memo"><small class="ledger-detail">连击狂人 · 金</small>成就奖励</span>
+            <span class="ledger-time">11-08 15:02</span>
+          </div>
+          <b class="ledger-amt up">+150</b>
+        </div>
+        <div class="ledger-row">
+          <div class="ledger-info">
+            <span class="ledger-memo"><small class="ledger-detail">洗牌 +1</small>购买道具</span>
+            <span class="ledger-time">11-08 14:38</span>
+          </div>
+          <b class="ledger-amt down">−150</b>
+        </div>
+        <div class="ledger-row">
+          <div class="ledger-info">
+            <span class="ledger-memo">通关奖励</span>
+            <span class="ledger-time">11-08 13:20</span>
+          </div>
+          <b class="ledger-amt up">+60</b>
+        </div>
+        <div class="ledger-row">
+          <div class="ledger-info">
+            <span class="ledger-memo"><small class="ledger-detail">明细上线前</small>历史收支</span>
+            <span class="ledger-time">10-02 00:00</span>
+          </div>
+          <b class="ledger-amt up">+1360</b>
+        </div>
+        <div class="ledger-row">
+          <div class="ledger-info">
+            <span class="ledger-memo">签到奖励</span>
+            <span class="ledger-time">10-01 08:12</span>
+          </div>
+          <b class="ledger-amt up">+50</b>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
