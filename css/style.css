@@ -165,10 +165,11 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
   }
 }
 
-/* 所有确认窗口统一：按钮一样大（112px），肯定（红）在左、否定（绿）在右 */
-#buy-confirm > div, #reset-bgm-confirm > div, #mail-delall-confirm > div,
+/* 所有确认窗口统一：按钮一样大（112px），肯定（红）在左、否定（绿）在右。
+   规矩：以后新增任何确认窗口，都要把它的 id 加进下面两组选择器 */
+#buy-confirm > div, #use-confirm > div, #reset-bgm-confirm > div, #mail-delall-confirm > div,
 #makeup-confirm > div, #logout-confirm > div, #logout-confirm2 > div { display: flex; gap: 14px; justify-content: center; }
-#buy-confirm .btn-primary, #reset-bgm-confirm .btn-primary, #mail-delall-confirm .btn-primary,
+#buy-confirm .btn-primary, #use-confirm .btn-primary, #reset-bgm-confirm .btn-primary, #mail-delall-confirm .btn-primary,
 #makeup-confirm .btn-primary, #logout-confirm .btn-primary, #logout-confirm2 .btn-primary {
   width: 112px;
   padding: 9px 0;
