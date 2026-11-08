@@ -117,7 +117,7 @@
     if (!t || t.claimed || t.progress < t.target) return false;
     t.claimed = true;
     Store.setTaskState(s);
-    Store.addCoins(t.reward, '每日任务');
+    Store.addCoins(t.reward, '每日任务', t.desc);   // 明细里写清是哪个任务
     if (global.Meta && Meta.bump) Meta.bump('daily', 1);   // 成就：累计完成每日任务
     AudioManager.playSFX('coin');
     return t.reward;

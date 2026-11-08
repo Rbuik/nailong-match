@@ -984,6 +984,21 @@ function check(name, ok) {
   })());
 
 
+  // 14d3-3c. 局内工具栏：背包和说明中间多一个购物商店
+  check('局内工具栏 🎒 背包 与 📖 说明 中间是 🛒 商店，点它进同一个购物商店', (() => {
+    const row = htmlSrc0.slice(htmlSrc0.indexOf('class="tools-row"'), htmlSrc0.indexOf('tools-row tools-row-2'));
+    const seq = ['btn-music-game', 'btn-backpack-game', 'btn-shop-game', 'btn-rules-game', 'btn-settings-game']
+      .map((id) => row.indexOf('id="' + id + '"'));
+    const ordered = seq.every((pos, i) => pos >= 0 && (i === 0 || pos > seq[i - 1]));
+    const icon = /id="btn-shop-game"[^>]*>\s*<span class="icon">🛒<\/span>/.test(row);
+    return ordered && icon &&
+      /const shopGameBtn = \$\('btn-shop-game'\)/.test(jsSrc) &&
+      /function openShop\(\)/.test(jsSrc) &&
+      // 局内逛商店静默暂停，关掉接着打
+      /if \(S\.playing\) quietPauseGame\(\);\s*\n\s*renderShop\(\);/.test(jsSrc) &&
+      htmlSrc0.indexOf('🎒 背包 / 🛒 商店 / 📖 说明') > 0;
+  })());
+
   // 14d3-4. 金币明细：主页点金币进去，按年月 + 类型筛选，明细可上下滚动
   check('金币明细：年 / 月 / 类型三个等宽按键（自绘列表，不用原生下拉）、每笔进出都记账、宽度和其它滚动页一致', (() => {
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="coin-menu"'), htmlSrc0.indexOf('id="pause-menu"'));
@@ -3016,6 +3031,12 @@ function check(name, ok) {
     const lv = jsSrc.split("'第 ' + S.level + ' 关'").length - 1;
     return lv >= 3 && jsSrc.indexOf("'通关奖励', S.daily ? '每日挑战' : ('第 ' + S.level + ' 关')") >= 0 &&
       /'过关奖励',[\s\S]{0,40}'每日挑战' : \('第 ' \+ S\.level \+ ' 关'\)/.test(jsSrc);
+  })());
+
+  check('每日任务 / 续命 在明细里也写明来由（哪个任务、第几关）', (() => {
+    const tj = fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8');
+    return /Store\.addCoins\(t\.reward, '每日任务', t\.desc\)/.test(tj) &&
+      /Store\.spendCoins\(REVIVE_COST, '续命', S\.daily \? '每日挑战' : \('第 ' \+ S\.level \+ ' 关'\)\)/.test(jsSrc);
   })());
 
   check('商店做成横滑卡片（一次一张 + 圆点指示），背包仍是竖排列表',

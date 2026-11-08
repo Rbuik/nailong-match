@@ -6274,8 +6274,10 @@
     });
     const closeTasks = $('btn-close-tasks');
     if (closeTasks) closeTasks.addEventListener('click', () => $('tasks-menu').style.display = 'none');
-    const shopBtn = $('btn-goto-shop');
-    if (shopBtn) shopBtn.addEventListener('click', () => {
+    // 打开购物商店：主页「🛒 购物商店」和局内工具栏的 🛒 共用这一套
+    function openShop() {
+      // 局内逛商店时静默暂停，别让计时 / 节拍在遮罩后面白走
+      if (S.playing) quietPauseGame();
       renderShop();
       showOverlay('shop-menu');
       // 面板刚从隐藏变显示，滚动位置要等布局落地后再还原一次
@@ -6283,11 +6285,17 @@
       if (typeof requestAnimationFrame === 'function') requestAnimationFrame(restoreShopScroll);
       else setTimeout(restoreShopScroll, 16);
       setTimeout(restoreShopScroll, 80);
-    });
+    }
+    const shopBtn = $('btn-goto-shop');
+    if (shopBtn) shopBtn.addEventListener('click', openShop);
+    // 游戏界面工具栏里的 🛒 也进同一个商店（主机 / 局内都走这一套）
+    const shopGameBtn = $('btn-shop-game');
+    if (shopGameBtn) shopGameBtn.addEventListener('click', openShop);
     const closeShop = $('btn-close-shop');
     if (closeShop) closeShop.addEventListener('click', () => {
       syncShopDot();          // 关之前先记住停在哪一张
       $('shop-menu').style.display = 'none';
+      if (quietPaused) quietResumeGame();
     });
 
     // ==================== 点面板外空白 = 回到上一层 ====================
@@ -6339,6 +6347,7 @@
         case 'shop-menu':
           syncShopDot();          // 记住停在哪一张
           hidePanel('shop-menu');
+          if (quietPaused) quietResumeGame();   // 局内逛完商店接着打
           return true;
         case 'mail-menu':
           hidePanel('mail-menu'); showOverlay('main-menu'); refreshMenu();
@@ -6921,7 +6930,8 @@
   }
 
   function doRevive() {
-    if (!Store.spendCoins(REVIVE_COST, '续命')) { toast('金币不够'); return; }
+    // 明细里写明是在第几关续的命
+    if (!Store.spendCoins(REVIVE_COST, '续命', S.daily ? '每日挑战' : ('第 ' + S.level + ' 关'))) { toast('金币不够'); return; }
     S.reviveUsed = true;
     if (S.timerOn) S.timeLeft = Math.max(0, S.timeLeft) + 7;
     else S.moves += 3;
