@@ -125,6 +125,15 @@
     return { isNewScore, best: next.best, times: next.times, stars: next.stars, moves: next.moves, coins: next.coins, first };
   }
 
+  // 局部更新当天的每日挑战记录（老档补发完成奖励用）
+  function patchDaily(patch) {
+    const rec = getDailyRecord();
+    if (!rec.times) return null;
+    const next = Object.assign({}, rec, patch || {});
+    write(K.daily, next);
+    return next;
+  }
+
   // 玩过标记：只记「这关动过手」，不影响分数与星级（用于主页按钮区分「没玩过 / 玩过没通关」）
   function markPlayed(id) {
     const all = getProgress();
@@ -457,7 +466,7 @@
 
   global.Store = {
     K, VERSION, SIGN_REWARDS, SIGN_MILESTONE,
-    getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, totalStars, maxUnlockedLevel,
+    getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, patchDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
     getWallet, addCoins, spendCoins, addItem, useItem,
     getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex, signCycleStart, signStart,

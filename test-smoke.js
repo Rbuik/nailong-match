@@ -525,9 +525,20 @@ function check(name, ok) {
       /id="daily-done-star-num"[\s\S]*id="daily-done-moves"[\s\S]*id="daily-done-coins"/.test(sec) &&
       gjs.includes("'daily-done': 'main-menu'") &&
       /recordDaily\(S\.score, starsNow, dailyMovesUsed, dailyBonus\)/.test(gjs) &&
-      /30 \+ \(20 - dailyMovesUsed\) \* 4/.test(gjs) &&
+      /30 \+ \(20 - movesUsed\) \* 4/.test(gjs) &&
       /function recordDaily\(score, stars, movesUsed, bonusCoins\)/.test(sjs) &&
       /moves: moves,/.test(sjs) && /coins: bonusCoins \? bonusCoins/.test(sjs);
+  })());
+  check('每日挑战两条结算路径都发完成奖励（最后一步达标走 endGame 也照发），老档补发 30 枚', (() => {
+    const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
+    const sjs = fs.readFileSync(path.join(__dirname, 'js', 'storage.js'), 'utf8');
+    return /function dailySettle\(starsNow, allowGrant\)/.test(gjs) &&
+      /const ds = dailySettle\(starsNow, !again\);/.test(gjs) &&
+      /const ds = S\.daily \? dailySettle\(stars, true\) : \{ movesUsed: -1, bonus: 0 \};/.test(gjs) &&
+      /recordDaily\(S\.score, stars, ds\.movesUsed, ds\.bonus\)/.test(gjs) &&
+      /rec\.stars >= 1 && !rec\.moves\) \? '—'/.test(gjs) &&
+      /Store\.addCoins\(30\);/.test(gjs) && /Store\.patchDaily\(\{ coins: 30 \}\);/.test(gjs) &&
+      /function patchDaily\(patch\)/.test(sjs) && /patchDaily,/.test(sjs);
   })());
   check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，放在滚动区外面（下方右对齐）', (() => {
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="mail-list"'), htmlSrc0.indexOf('id="mail-view"'));

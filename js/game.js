@@ -3022,6 +3022,20 @@
   }
 
   // ==================== 结算 ====================
+  // 每日挑战完成奖励（levelWin / endGame 两条结算路径共用）：
+  // 只有完成任务（过关）才发金币，用步越少给得越多，一天只发一次
+  function dailySettle(starsNow, allowGrant) {
+    let movesUsed = -1, bonus = 0;
+    if (S.daily) {
+      movesUsed = Math.max(0, (S.levelDef.moves || 20) - S.moves);
+      if (allowGrant && (starsNow || 0) >= 1 && !Store.getDailyRecord().coins) {
+        bonus = Math.max(0, 30 + (20 - movesUsed) * 4);   // 20 步打完 30 枚，每省 1 步 +4
+        Store.addCoins(bonus);
+      }
+    }
+    return { movesUsed: movesUsed, bonus: bonus };
+  }
+
   // again = 续玩剩余步数后的第二次结算（金币照发，成就 / 任务 / 榜单不重复计）
   async function levelWin(again) {
     if (S.mode && S.mode !== 'main') { endModeRun(); return; }
@@ -3042,15 +3056,9 @@
       : (Store.getLevelRecord(S.level).stars || 0);
     const stars = Math.max(starsNow, bestStars);
     // 每日挑战完成奖励：只有完成任务才发金币，用步越少给得越多（一天只发一次）
-    let dailyBonus = 0;
-    let dailyMovesUsed = -1;
-    if (S.daily) {
-      dailyMovesUsed = Math.max(0, (S.levelDef.moves || 20) - S.moves);
-      if (!again && starsNow >= 1 && !Store.getDailyRecord().coins) {
-        dailyBonus = 30 + (20 - dailyMovesUsed) * 4;   // 20 步打完 30 枚，每省 1 步 +4
-        Store.addCoins(dailyBonus);
-      }
-    }
+    const ds = dailySettle(starsNow, !again);
+    const dailyMovesUsed = ds.movesUsed;
+    const dailyBonus = ds.bonus;
     // 每日挑战也留一个「当天最佳」的纪录，第一次完成同样算新纪录
     const rec = S.daily
       ? Store.recordDaily(S.score, starsNow, dailyMovesUsed, dailyBonus)
@@ -3185,9 +3193,11 @@
     const remainRatio = S.timerOn ? S.timeLeft / (S.levelDef.goal.time || 1) : S.moves / (S.levelDef.moves || 1);
     const passed = Goals.isComplete(S.goal);
     const stars = passed ? Goals.stars(S.levelDef, S.score, remainRatio) : 0;
+    // 最后一步刚好达标（步数用完）也会走到这里：每日挑战的完成奖励照发、步数照记
+    const ds = S.daily ? dailySettle(stars, true) : { movesUsed: -1, bonus: 0 };
     // 没通关也记本关最高分（只记分不加星）；第一次玩这关同样算「新纪录」
     const rec = S.daily
-      ? Store.recordDaily(S.score, stars)
+      ? Store.recordDaily(S.score, stars, ds.movesUsed, ds.bonus)
       : Store.recordLevel(S.level, S.score, stars);
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
@@ -6168,7 +6178,8 @@
     }
     if ($('daily-done-star-num')) $('daily-done-star-num').textContent = rec.stars || 0;
     // 用步：完成挑战那局用的步数（取历史最少）；金币：完成任务才发的奖励
-    if ($('daily-done-moves')) $('daily-done-moves').textContent = rec.moves || 0;
+    // 老档（更新前完成的）没记过步数，显示「—」而不是 0
+    if ($('daily-done-moves')) $('daily-done-moves').textContent = (rec.stars >= 1 && !rec.moves) ? '—' : (rec.moves || 0);
     if ($('daily-done-coins')) $('daily-done-coins').textContent = '+' + (rec.coins || 0);
     showOverlay('daily-done');
   }
@@ -6272,6 +6283,15 @@
     try { if (typeof Account !== 'undefined') Account.ensure(); } catch (e) {}
     try { if (typeof Account !== 'undefined' && Account.startCloudSync) Account.startCloudSync(); } catch (e) {}
     const loggedIn = (typeof Account !== 'undefined') && Account.loggedIn();
+
+    // 老档补发：更新前完成的每日挑战没发过完成奖励，按基础 30 枚补进钱包（步数未知，结算页显示 —）
+    try {
+      const drec = Store.getDailyRecord();
+      if ((drec.stars || 0) >= 1 && !(drec.coins || 0)) {
+        Store.addCoins(30);
+        Store.patchDaily({ coins: 30 });
+      }
+    } catch (e) {}
 
     // 读关卡数据（§20）
     try {
