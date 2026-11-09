@@ -565,7 +565,7 @@ function check(name, ok) {
       /id="daily-done-star-num"[\s\S]*id="daily-done-moves"[\s\S]*id="daily-done-coins"/.test(sec) &&
       gjs.includes("'daily-done': 'main-menu'") &&
       /recordDaily\(S\.score, starsNow, dailyMovesUsed, dailyBonus\)/.test(gjs) &&
-      /30 \+ \(20 - movesUsed\) \* 4/.test(gjs) &&
+      /bonus = 100 \+ Math\.max\(30 \* movesLeft, Math\.floor\(S\.score \/ 10\) \+ 100\);/.test(gjs) &&
       /function recordDaily\(score, stars, movesUsed, bonusCoins\)/.test(sjs) &&
       /moves: moves,/.test(sjs) && /coins: bonusCoins \? bonusCoins/.test(sjs);
   })());
@@ -583,7 +583,8 @@ function check(name, ok) {
   check('三星后封盘：「✅ 已完成今日挑战」出现在面板的开始键上（绿色），点了只看战绩', (() => {
     const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8');
-    return /btn\.textContent = done \? '✅ 已完成今日挑战' : '▶ 开始挑战';/.test(gjs) &&
+    return /btn\.textContent = done \? '✅ 已完成今日挑战' : txt;/.test(gjs) &&
+      /'▶ 继续挑战'/.test(gjs) &&                                            // 有当天没打完的存档 → 继续挑战
       /btn\.classList\.toggle\('is-done', done\)/.test(gjs) &&
       /if \(dailyCompleted\(\)\) \{ showDailyDone\(\); return; \}/.test(gjs) &&   // 三星后再点只看战绩，不能再打
       /\.btn-primary\.is-done\s*\{[^}]*#1a8f4a/.test(css) &&                 // 开始键变绿
@@ -1702,6 +1703,24 @@ function check(name, ok) {
     /const again = \$\('btn-restart'\);[\s\S]{0,400}restartCurrentLevel\(\);/.test(jsSrc) &&
     /rt\.textContent = S\.daily \? '🔄 重新开始' : '重新挑战';/.test(jsSrc));
   lsMap.delete('nl2:daily');   // 还原，别影响后面的用例
+
+  // 17g. 每日挑战中途退出 → 回来是「继续」不是重开（棋盘 / 步数 / 分数原样回来）
+  const ddef = sandbox.Tasks.getDailyChallenge();
+  sandbox.__nl_test.start(9999, { def: ddef, seed: ddef.seed, daily: true });
+  sandbox.__nl_test.state().moves = 14;
+  sandbox.__nl_test.state().score = 321;
+  sandbox.__nl_test.saveRun();                     // 模拟中途退出时的自动存档
+  sandbox.__nl_test.start(1, {});                  // 先去玩了别的
+  const resumed = sandbox.__nl_test.loadRun();     // 回到每日挑战面板点「继续挑战」
+  check('每日挑战中途退出后能继续：局面 / 步数 / 分数原样回来，不是重新开始',
+    resumed === true &&
+    sandbox.__nl_test.state().daily === true &&
+    sandbox.__nl_test.state().moves === 14 &&
+    sandbox.__nl_test.state().score === 321);
+  lsMap.delete('nl2:save');    // 还原
+  check('每日挑战续玩校验同一天的种子（跨天存档自动作废），开局入口先试续玩再重开',
+    /if \(s\.daily\) \{[\s\S]{0,400}s\.seed !== d\.seed\) return false;/.test(jsSrc) &&
+    /run\.daily && d && run\.seed === d\.seed && loadRun\(\) return;|if \(run && run\.daily && d && run\.seed === d\.seed && loadRun\(\)\) return;/.test(jsSrc));
 
   // 18. 提示按钮：消耗次数并高亮（先开一局正常的，上面两局已经结算掉了）
   sandbox.__nl_test.start(1, { def: { id: 90, theme: 'candy', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
@@ -3240,6 +3259,14 @@ function check(name, ok) {
       /playSFX\('propeller'\)/.test(gjs) && /playSFX\('rainbow'\)/.test(gjs) &&
       /else if \(!dedicatedBoomSfx\) AudioManager\.playSFX\('match'/.test(gjs);
   })());
+  check('飞机音效是低沉的嗡嗡声（双层低频锯齿波拍频）且整段渐隐，不再扑扑扑', (() => {
+    const ajq = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
+    const m = ajq.match(/case 'propeller': \{[\s\S]*?\n        \}/);
+    if (!m) return false;
+    const body = m[0];
+    return /92, 'sawtooth'/.test(body) && /94\.5, 'sawtooth'/.test(body) &&
+      body.indexOf('扑、扑、扑') < 0 && /嗡/.test(body);
+  })());
   check('音乐开关不再有延迟：BGM 走独立总线，关掉立即静音、打开先叫醒 ctx', (() => {
     const ajq = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
     return /_bgmGain = this\.ctx\.createGain\(\)/.test(ajq) &&
@@ -3395,9 +3422,10 @@ function check(name, ok) {
       /passed \? '通关奖励' : '过关奖励', '第 ' \+ S\.level \+ ' 关'/.test(jsSrc) &&
       /addCoins\(bonus, '通关奖励', '每日挑战'\)/.test(jsSrc);
   })());
-  check('每日挑战：三星才发金币、步数越少给得越多；没通关 / 没三星一分不发', (() => {
+  check('每日挑战：三星才发金币；奖励 = 100 + max(30×剩余步数, 总分/10+100)；没通关 / 没三星一分不发', (() => {
     return /allowGrant && \(starsNow \|\| 0\) >= 3 && !Store\.getDailyRecord\(\)\.coins/.test(jsSrc) &&
-      /30 \+ \(20 - movesUsed\) \* 4/.test(jsSrc) &&
+      /const movesLeft = Math\.max\(0, \(S\.levelDef\.moves \|\| 20\) - movesUsed\);/.test(jsSrc) &&
+      /bonus = 100 \+ Math\.max\(30 \* movesLeft, Math\.floor\(S\.score \/ 10\) \+ 100\);/.test(jsSrc) &&
       /if \(S\.daily\) \{\s*\n\s*coins = dailyBonus;/.test(jsSrc) &&      // 通关结算：金额就是按步算的奖励
       /if \(!S\.daily\) \{\s*\n\s*coins = passed \?/.test(jsSrc);         // 步数耗尽结算：每日挑战不发
   })());

@@ -3119,7 +3119,9 @@
     if (S.daily) {
       movesUsed = Math.max(0, (S.levelDef.moves || 20) - S.moves);
       if (allowGrant && (starsNow || 0) >= 3 && !Store.getDailyRecord().coins) {
-        bonus = Math.max(0, 30 + (20 - movesUsed) * 4);   // 三星打底 30 枚，每省 1 步 +4
+        // 三星奖励 = 100 打底 + max(30×剩余步数, 总分/10 + 100)
+        const movesLeft = Math.max(0, (S.levelDef.moves || 20) - movesUsed);
+        bonus = 100 + Math.max(30 * movesLeft, Math.floor(S.score / 10) + 100);
         Store.addCoins(bonus, '通关奖励', '每日挑战');
       }
     }
@@ -3369,7 +3371,7 @@
 
   // ==================== 存档 ====================
   function saveRun() {
-    if (!S.playing || S.daily || (S.mode && S.mode !== 'main')) return;
+    if (!S.playing || (S.mode && S.mode !== 'main')) return;   // 每日挑战也存：中途退出后能接着打，不用重开
     Store.saveRun({
       level: S.level,
       board: S.board,
@@ -3401,14 +3403,23 @@
       collectTarget: (S.goal && S.goal.type === 'collect') ? S.goal.target : null,
       shuffleLeft: S.shuffleLeft,
       undoLeft: S.undoLeft,
-      daily: S.daily
+      daily: S.daily,
+      // 每日挑战：把当天的种子一起存下，续玩时校验还是同一天的挑战（跨天自动作废）
+      seed: S.daily ? (S.levelDef && S.levelDef.seed) : undefined
     });
   }
 
   function loadRun() {
     const s = Store.loadRun();
     if (!s || !s.board || !s.board.length) return false;
-    startLevel(s.level || 1, {});
+    if (s.daily) {
+      // 每日挑战续玩：必须是「今天」的挑战（种子一致），隔天的存档直接作废
+      const d = (typeof Tasks !== 'undefined' && Tasks.getDailyChallenge) ? Tasks.getDailyChallenge() : null;
+      if (!d || s.seed !== d.seed) return false;
+      startLevel(9999, { def: d, seed: d.seed, daily: true });
+    } else {
+      startLevel(s.level || 1, {});
+    }
     S.board = s.board;
     S.jelly = s.jelly || S.jelly;
     if (s.ice) S.ice = s.ice;
@@ -5567,6 +5578,10 @@
       if (dailyCompleted()) { showDailyDone(); return; }
       ensureAccount(() => {
         const d = Tasks.getDailyChallenge();
+        // 中途退出过 → 继续刚才那一局（棋盘 / 步数 / 分数原样回来），不是重开
+        const run = Store.loadRun();
+        if (run && run.daily && d && run.seed === d.seed && loadRun()) return;
+        Store.clearRun();
         startLevel(9999, { def: d, seed: d.seed, daily: true });
       });
     });
@@ -6703,12 +6718,19 @@
     return (Store.getDailyRecord().stars || 0) >= 3;
   }
 
-  // 每日挑战面板的开始键：当天已满 3 星 → 绿色「✅ 已完成今日挑战」（点了只看战绩）
+  // 每日挑战面板的开始键：当天已满 3 星 → 绿色「✅ 已完成今日挑战」（点了只看战绩）；
+  // 有当天没打完的中途存档 → 「▶ 继续挑战」（点进去接着上次的局面打）
   function syncDailyMenu() {
     const btn = $('btn-daily-start');
     if (!btn) return;
     const done = dailyCompleted();
-    btn.textContent = done ? '✅ 已完成今日挑战' : '▶ 开始挑战';
+    let txt = '▶ 开始挑战';
+    if (!done) {
+      const run = Store.loadRun();
+      const d = (typeof Tasks !== 'undefined' && Tasks.getDailyChallenge) ? Tasks.getDailyChallenge() : null;
+      if (run && run.daily && d && run.seed === d.seed) txt = '▶ 继续挑战';
+    }
+    btn.textContent = done ? '✅ 已完成今日挑战' : txt;
     btn.classList.toggle('is-done', done);
   }
 
@@ -9023,6 +9045,8 @@
     refreshMenu: refreshMenu,
     toast: toast,
     dailyCompleted: dailyCompleted,
+    saveRun: saveRun,
+    loadRun: loadRun,
     hud: updateHUD,
     openProvStats: openProvStats,
     renderAdmin: renderAdmin,
