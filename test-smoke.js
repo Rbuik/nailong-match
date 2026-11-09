@@ -1963,7 +1963,7 @@ function check(name, ok) {
   check('账号安全页右边的值和左边标签一样大（16px），身份号码本身小一号（13px）', (() => {
     const css = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8');
     return /#account-menu \.result-box b \{ font-size: 16px/.test(css) &&
-      /#account-uid \{[^}]*font-size: 13px/.test(css);
+      /#account-menu b#account-uid \{[^}]*font-size: 13px/.test(css);   // 优先级要压过上面 16px 的 b 规则
   })());
   $('btn-goto-switch').dispatch('click');
   check('切换账号列表有当前账号', $('switch-menu').style.display === 'flex' &&

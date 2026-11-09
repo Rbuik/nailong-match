@@ -1963,8 +1963,9 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 
 /* 账号安全页的身份码：等宽字体，点一下复制 */
 /* 账号安全页：右边的值（账号名 / 注册时间）和左边标签一样大；身份号码只是号码本身小一号 */
+/* 注意 #account-uid 要写得比上面的 b 规则优先级高，不然 16px 会压过 13px */
 #account-menu .result-box b { font-size: 16px; }
-#account-uid {
+#account-menu b#account-uid {
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 13px;
   color: #7c5cff;
