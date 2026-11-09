@@ -98,6 +98,9 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   padding: 24px 12px;
   justify-content: safe center;
   align-items: center;
+  /* 上下照常滚动；横向滑动交给页面自己处理（成就详情背景左右滑切成就），
+     不然安卓浏览器会把滑动当成滚动意图直接 pointercancel，pointerup 永远不来 */
+  touch-action: pan-y;
 }
 
 /* 所有可滑动区域都不显示右侧灰线（滚动条），滚动功能保留 */

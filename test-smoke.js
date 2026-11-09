@@ -3004,6 +3004,8 @@ function check(name, ok) {
     return /achDetail = \{ id: id, tier: t \}/.test(open) &&
       /achDetail = \{ id: nx\.id, tier: Math\.max\(1, Meta\.tierOf\(nx\.id\)\) \}/.test(go);
   })());
+  check('弹层 touch-action: pan-y（安卓上背景左右滑不会被浏览器当滚动掐掉，成就详情才能切成就）',
+    /touch-action: pan-y/.test(cssSrc.slice(cssSrc.indexOf('.overlay {'), cssSrc.indexOf('.overlay {') + 300)));
   check('详情页整页随阶变色：卡片/遮罩挂 tN 类、领取键用主题色、奖杯右下角没 emoji、标题左边是图标剪影',
     /card\.className = 'ach-detail-card t' \+ tier/.test(jsSrc) &&
     /dPanel\.className = 'overlay t' \+ tier/.test(jsSrc) &&
