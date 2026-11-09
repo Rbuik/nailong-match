@@ -5728,11 +5728,11 @@
     const closePack = $('btn-close-backpack');
     if (closePack) closePack.addEventListener('click', () => $('backpack-menu').style.display = 'none');
 
-    // 金币明细：只有点金币图标（🪙 阴影圆片）才进去；点行里其它地方（包括数字）不跳
+    // 金币明细：点金币图标、「金币」两个字、「›」都进去；右边的数字和行内其它空白不跳
     // 年 / 月 / 类型三个下拉筛选
-    const coinsIco = $('menu-coins-ico');
-    if (coinsIco) {
-      coinsIco.addEventListener('click', (e) => {
+    const coinsBtn = $('menu-coins-btn');
+    if (coinsBtn) {
+      coinsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         // 上次看到哪年哪月、哪个类型，再进来还是那一页（第一次打开才默认落到最近一笔的月份）
         closeLedgerPop();
@@ -6092,13 +6092,14 @@
     });
 
     // ==================== 账号安全 ====================
-    // 注册时间：yyyy-MM-dd HH:mm:ss（个位数前面补 0）
+    // 注册时间：yy-MM-dd HH:mm:ss（个位数前面补 0），比如 26-11-06 19:18:22
     function fmtAccTime(ms) {
       if (!ms) return '—';
       const d = new Date(ms);
       if (isNaN(d.getTime())) return '—';
       const p = (n) => (n < 10 ? '0' + n : String(n));
-      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
+      const yy = String(d.getFullYear() % 100).padStart(2, '0');
+      return yy + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) +
         ' ' + p(d.getHours()) + ':' + p(d.getMinutes()) + ':' + p(d.getSeconds());
     }
     // 复制一段文字（身份号码用：手机上没有 ctrl+c）

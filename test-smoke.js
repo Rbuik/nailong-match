@@ -1120,11 +1120,11 @@ function check(name, ok) {
       !sec.includes('ledger-prev') && !sec.includes('ledger-next') &&
       sec.includes('id="ledger-list"') &&
       htmlSrc0.includes('id="menu-coins-row"') &&
-      // 主页金币：金币图标单独一个可点元素（只有它进明细），箭头紧跟文字右边（数字仍在最右）
-      /<i id="menu-coins-ico" class="menu-coins-ico" title="查看金币明细">🪙<\/i> 金币<em class="menu-coins-more">›<\/em>/.test(htmlSrc0) &&
-      /menu-coins-ico/.test(jsSrc) &&                                    // 点击只绑在图标上
+      // 主页金币：左边「图标 + 金币 + ›」整块可点（数字不在里面），数字仍在最右
+      /<span id="menu-coins-btn" title="查看金币明细"><i id="menu-coins-ico" class="menu-coins-ico">🪙<\/i> 金币<em class="menu-coins-more">›<\/em><\/span><span class="menu-coins-wrap"><b id="menu-coins">0<\/b><\/span>/.test(htmlSrc0) &&
+      /menu-coins-btn/.test(jsSrc) &&                                    // 点击只绑在左边这一块上
       !/\.menu-coins-row\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&     // 整行不再可点
-      /\.menu-coins-ico\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&
+      /\.menu-coins-btn\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&
       /\.ledger-list\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
       /\.ledger-list\s*\{[^}]*max-height:\s*64vh/.test(cssSrc) &&
       /\.ledger-bar\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
@@ -1161,7 +1161,7 @@ function check(name, ok) {
     $('menu-coins-row').dispatch('click');
     $('menu-coins').dispatch('click');
     const rowNoJump = $('coin-menu').style.display !== 'flex';
-    $('menu-coins-ico').dispatch('click');
+    $('menu-coins-btn').dispatch('click');
     const opened = rowNoJump && $('coin-menu').style.display === 'flex';
     const rowsAll = $('ledger-list').children.length;              // 本月只有 2 笔
     const allTxt = $('ledger-list').children.map((c) => String(c.innerHTML)).join('|');
@@ -1271,7 +1271,7 @@ function check(name, ok) {
     $('ledger-pop').children[1].dispatch('click');                 // 2 月
     $('ledger-type').dispatch('click');
     $('ledger-pop').children.filter((o) => String(o.textContent) === '收入')[0].dispatch('click');
-    $('menu-coins-ico').dispatch('click');
+    $('menu-coins-btn').dispatch('click');
     const keepSel = String($('ledger-month').textContent) === '2 月' &&
       String($('ledger-type').textContent) === '收入' &&
       $('coin-menu').style.display === 'flex';
@@ -1957,9 +1957,9 @@ function check(name, ok) {
   // 29. 登录页 / 登录失败提示
   $('settings-menu').style.display = 'flex';
   $('btn-goto-account').dispatch('click');
-  check('账号安全面板显示当前账号 + 注册时间（yyyy-MM-dd HH:mm:ss 补零）', $('account-menu').style.display === 'flex' &&
+  check('账号安全面板显示当前账号 + 注册时间（yy-MM-dd HH:mm:ss 补零，比如 26-11-06 19:18:22）', $('account-menu').style.display === 'flex' &&
     String($('account-cur-name').textContent) === '测试奶龙' &&
-    /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(String($('account-created').textContent)));
+    /^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(String($('account-created').textContent)));
   $('btn-goto-switch').dispatch('click');
   check('切换账号列表有当前账号', $('switch-menu').style.display === 'flex' &&
     $('acct-list').children.length >= 1);
