@@ -5029,6 +5029,29 @@
   // 全服用户口径：
   //   · 用户 = 有名字 + 有密码的账号（名字按小写去重；没上榜的也算）
   //   · 省份 = 这些账号所在的省（本机账号取本机定位的省；榜上玩家取发成绩时带上去的省）
+  //   · 另外并上「服务器真账号」（后端 nl_users）：有些号只在服务器建了档，
+  //     既没在本机登录过、也没往共享榜发过成绩（比如林夕），只并前两处就会漏人
+  let serverAccs = [];      // [{ uid, name, prov, score, created }]
+  let serverAccsAt = 0;     // 上次拉取时间（30 秒内不重复拉）
+
+  // 拉一次服务器账号名单：只回名字 / 身份号码 / 注册时间，没有密码和存档
+  function loadServerAccs() {
+    if (typeof Cloud === 'undefined' || !Cloud.users) return Promise.resolve(false);
+    if (serverAccs.length && Date.now() - serverAccsAt < 30e3) return Promise.resolve(true);
+    return Cloud.users().then((r) => {
+      if (!r || !r.ok || !Array.isArray(r.users)) return false;
+      serverAccs = r.users.filter((u) => u && u.name).map((u) => ({
+        uid: String(u.uid || ''),
+        name: String(u.name).trim(),
+        prov: '',
+        score: 0,
+        created: Number(u.created) || 0
+      }));
+      serverAccsAt = Date.now();
+      return true;
+    }).catch(() => false);
+  }
+
   function collectServerUsers() {
     const names = Object.create(null);
     const provs = Object.create(null);
@@ -5058,6 +5081,12 @@
         });
       }
     } catch (e) {}
+    // 服务器上建档的号（本机和榜单都没有的那些，比如林夕）
+    serverAccs.forEach((a) => {
+      const k = String(a.name || '').trim().toLowerCase();
+      if (!k) return;
+      names[k] = true;
+    });
     return { users: Object.keys(names).length, provs: Object.keys(provs).length };
   }
 
@@ -5067,6 +5096,18 @@
     const r = collectServerUsers();
     if (u) u.textContent = r.users > 0 ? String(r.users) : '—';
     if (p) p.textContent = r.provs > 0 ? String(r.provs) : '—';
+  }
+
+  // 进后台「全服用户」时用：先按本地数据画一遍，服务器名单回来再补一遍
+  function refreshAdminUsers() {
+    renderAdminUsers();
+    const ul = $('admin-user-list');
+    if (ul && ul.style.display !== 'none') renderAdminUserList();
+    loadServerAccs().then((ok) => {
+      if (!ok) return;
+      renderAdminUsers();
+      if (ul && ul.style.display !== 'none') renderAdminUserList();
+    });
   }
 
   // ---------- 全服用户名单（后台隐藏页：名字 + 所在省，可按省筛） ----------
@@ -5096,6 +5137,8 @@
         Board.list().forEach((e) => { if (e) add(e && e.name, e && e.pv, e); });
       }
     } catch (e) {}
+    // 服务器上建档、但没在本机、也没发过成绩的号：补进名单（省份未知、分数 0）
+    serverAccs.forEach((a) => add(a.name, a.prov, null));
     // 总分：取共享榜里同名（不分大小写）的最高分，没上榜的就是 0 分
     try {
       if (typeof Board !== 'undefined' && Board.list) {
@@ -5267,6 +5310,8 @@
     const pvUl = $('prov-user-list');
     if (pvUl) pvUl.style.display = 'none';
     renderAdminUserList();
+    // 服务器账号名单回来后再补画一遍（没上过榜、也不在本机的号靠这一步才出现）
+    loadServerAccs().then(() => renderAdminUserList());
     showOverlay('admin-user-list');
     try { AudioManager.playSFX('select'); } catch (e) {}
   }
@@ -5583,7 +5628,7 @@
     const adminUsers = $('btn-admin-users');
     if (adminUsers) adminUsers.addEventListener('click', () => {
       showAdminPage('users');
-      renderAdminUsers();
+      refreshAdminUsers();
       refreshProvStatsThrottled().then(renderAdminUsers);
     });
     ['btn-admin-hits-back', 'btn-admin-users-back'].forEach((id) => {
@@ -8849,6 +8894,14 @@
     renderAdmin: renderAdmin,
     renderAdminUsers: renderAdminUsers,
     serverUsers: collectServerUsers,
+    // 测试用：直接塞一份服务器账号名单，模拟 nl_users 回来之后的状态
+    setServerAccs: (list) => {
+      serverAccs = (Array.isArray(list) ? list : []).filter((u) => u && u.name).map((u) => ({
+        uid: String(u.uid || ''), name: String(u.name).trim() || 'x',
+        prov: String(u.prov || ''), score: 0, created: Number(u.created) || 0
+      }));
+      serverAccsAt = Date.now();
+    },
     userList: collectUserList,
     openUserList: openAdminUserList,
     openProvUserList: openProvUserList,

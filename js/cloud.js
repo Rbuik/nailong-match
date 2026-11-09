@@ -12,6 +12,7 @@
 //   nl_recover  {p_nick,p_uid,p_new}  -> {ok, token, nick, uid, slot}   忘记密码
 //   nl_rename   {p_token,p_nick}      -> {ok}
 //   nl_delete   {p_token}             -> {ok}        注销：服务器上整号删除
+//   nl_users    {p_key}               -> {ok,users:[{uid,name,created}]}  后台名单
 // 暴露 window.Cloud
 (function (global) {
   'use strict';
@@ -159,6 +160,12 @@
       });
   }
 
+  // 后台名单：服务器上建过档的账号（只在后台隐藏页用，回来后端只给名字/身份号码/注册时间）
+  function users() {
+    if (!sdkOk) return Promise.resolve({ ok: false, offline: true, reason: '云服务没配置' });
+    return call('nl_users', { p_key: 'nl-admin-7k2v' });
+  }
+
   global.Cloud = {
     ready: () => sdkOk,
     signedIn: () => !!token(),
@@ -173,6 +180,7 @@
     recover: recover,
     rename: rename,
     remove: remove,
+    users: users,
     lastSync: lastSync,
     setLastSync: setLastSync,
     config: CFG

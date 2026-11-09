@@ -414,6 +414,25 @@ function check(name, ok) {
   ulSearch.dispatch('input');
   check('清空搜索恢复全部', $('admin-ul-list').children.length === su2.users);
 
+  // 4e-2. 只在服务器建了档、既不在本机也没上过榜的号（林夕）也要进后台名单
+  sandbox.__nl_test.setServerAccs([{ uid: 'pLinxiTest01', name: '林夕', created: 0 }]);
+  check('服务器账号并进「用户数量」', sandbox.__nl_test.serverUsers().users === su2.users + 1);
+  const ulRows2 = sandbox.__nl_test.userList();
+  const linxi = ulRows2.filter((u) => u.name === '林夕')[0];
+  check('服务器账号进了名单（省份未知、0 分）', !!linxi && linxi.prov === '' && linxi.score === 0);
+  sandbox.__nl_test.renderUserList();
+  const ulHtml = Array.from($('admin-ul-list').children).map((r) => String(r.children[0].innerHTML));
+  const linxiAt = ulHtml.findIndex((h) => h.indexOf('林夕') >= 0);
+  check('名单里画出服务器账号（分数 —、省份未定位）', linxiAt >= 0 &&
+    ulHtml[linxiAt].indexOf('未定位') >= 0 && ulHtml[linxiAt].indexOf('—') >= 0);
+  check('服务器账号灰显、排在所有有分玩家后面', linxiAt === ulHtml.length - 1 &&
+    $('admin-ul-list').children[linxiAt].className.indexOf('none') >= 0);
+  check('标题人数跟着算上服务器账号', String($('admin-ul-title').textContent)
+    .indexOf('（' + (su2.users + 1) + '）') >= 0);
+  sandbox.__nl_test.setServerAccs([]);
+  sandbox.__nl_test.renderUserList();
+  check('拿掉服务器名单后恢复原样', $('admin-ul-list').children.length === su2.users);
+
   // 4f. 用户详情 / 省份详情：点击「用户数量 / 省份数量」进入
   check('用户详情 / 省份详情改为点击数量进入（按键和提示已删）', (() => {
     const iU = htmlSrc0.indexOf('id="admin-users-row"');

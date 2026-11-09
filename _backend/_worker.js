@@ -8,6 +8,7 @@
 //   POST /api/rpc/nl_rename   {p_token,p_nick}      -> {ok}
 //   POST /api/rpc/nl_recover  {p_nick,p_uid,p_new}  -> {ok,token,nick,uid,slot}  忘记密码
 //   POST /api/rpc/nl_delete   {p_token}             -> {ok}
+//   POST /api/rpc/nl_users    {p_key}               -> {ok,users:[{uid,name,created}]}  后台名单
 // 其它路径全部交给静态资源。密码 PBKDF2-SHA256 加盐，明文不落库。
 
 const CORS = {
@@ -22,6 +23,7 @@ const TOKEN_DAYS = 365;      // 令牌有效期
 const NICK_MAX = 8;
 const PASS_MIN = 4;
 const PASS_MAX = 24;
+const USERS_KEY = 'nl-admin-7k2v';   // 后台名单的轻口令（只防随手扫接口，名单本身不含任何私密信息）
 
 function json(obj, status) {
   return new Response(JSON.stringify(obj), {
@@ -258,6 +260,21 @@ async function doDelete(env, b) {
   return json({ ok: true, uid: row.id });
 }
 
+// 后台用户名单：服务器上真实建过档的账号（只回名字 / 身份号码 / 注册时间，
+// 不含密码和存档）。后台隐藏页的「全服」原来只合并「本机账号表 + 共享榜」，
+// 于是像林夕这种「在服务器建了号、但从没往榜单发过成绩、也不在这台设备上」
+// 的玩家就查不到，这里补一个只读名单把它补齐。
+async function doUsers(env, b) {
+  if (String(b.p_key || '') !== USERS_KEY) return json({ ok: false, reason: '没权限' }, 403);
+  const rs = await env.DB.prepare('SELECT id, nick, created_at FROM accounts ORDER BY created_at').all();
+  const users = ((rs && rs.results) || []).map((r) => ({
+    uid: String(r.id || ''),
+    name: String(r.nick || ''),
+    created: Number(r.created_at) || 0
+  })).filter((u) => u.uid && u.name);
+  return json({ ok: true, users: users });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -289,6 +306,7 @@ export default {
       case 'nl_rename':   return doRename(env, body);
       case 'nl_recover':  return doRecover(env, body);
       case 'nl_delete':   return doDelete(env, body);
+      case 'nl_users':    return doUsers(env, body);
       default:            return json({ ok: false, reason: '接口不存在' }, 404);
     }
   }
