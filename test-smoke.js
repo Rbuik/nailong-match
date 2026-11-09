@@ -1638,6 +1638,31 @@ function check(name, ok) {
     $('btn-clear-continue').textContent === '还有剩余秒数点击继续游戏' &&
     $('clear-moves-label').textContent === '剩余时间');
 
+  // 17f. 每日挑战结算逻辑与普通关不同：不显示历史最高；按键按三星与否变化
+  lsMap.delete('nl2:daily');
+  sandbox.__nl_test.start(9999, { def: { id: 9001, theme: 'ocean', moves: 20, goal: { type: 'score', target: 100 }, stars: [100, 200, 300] }, daily: true });
+  sandbox.__nl_test.state().moves = 7;
+  sandbox.__nl_test.win();
+  check('每日挑战过关没到三星：不显示历史最高，按键只有重新开始和返回主页',
+    $('clear-high-row').style.display === 'none' &&
+    $('btn-clear-continue').style.display === 'inline-block' &&
+    $('btn-clear-continue').textContent === '🔄 重新开始' &&
+    $('btn-next-level').style.display === 'none' &&
+    $('btn-clear-home').style.display !== 'none');
+  lsMap.delete('nl2:daily');
+  sandbox.__nl_test.start(9999, { def: { id: 9001, theme: 'ocean', moves: 20, goal: { type: 'score', target: 100 }, stars: [100, 200, 300] }, daily: true });
+  sandbox.__nl_test.state().moves = 19;
+  sandbox.__nl_test.state().score = 500;    // 三星分
+  sandbox.__nl_test.win();
+  check('每日挑战拿到三星：当天封盘，按键只有返回主页',
+    $('btn-clear-continue').style.display === 'none' &&
+    $('btn-next-level').style.display === 'none' &&
+    JSON.parse(lsMap.get('nl2:daily') || '{}').stars === 3);
+  check('每日挑战重开走 restartCurrentLevel（失败后点重新挑战不会再变成第 1 关）',
+    /const again = \$\('btn-restart'\);[\s\S]{0,400}restartCurrentLevel\(\);/.test(jsSrc) &&
+    /rt\.textContent = S\.daily \? '🔄 重新开始' : '重新挑战';/.test(jsSrc));
+  lsMap.delete('nl2:daily');   // 还原，别影响后面的用例
+
   // 18. 提示按钮：消耗次数并高亮（先开一局正常的，上面两局已经结算掉了）
   sandbox.__nl_test.start(1, { def: { id: 90, theme: 'candy', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
   const hintBefore = sandbox.__nl_test.state().hintLeft;
@@ -3317,8 +3342,8 @@ function check(name, ok) {
       /if \(!S\.daily\) \{\s*\n\s*coins = passed \?/.test(jsSrc);         // 步数耗尽结算：每日挑战不发
   })());
   check('每日挑战的两个结算画面都不显示「历史最高」那一行（普通关照常）',
-    /const hiRow = \$\('clear-high'\) \? \$\('clear-high'\)\.parentElement : null;\s*\n\s*if \(hiRow\) hiRow\.style\.display = S\.daily \? 'none' : '';/.test(jsSrc) &&
-    /const hiRow2 = \$\('final-high'\) \? \$\('final-high'\)\.parentElement : null;\s*\n\s*if \(hiRow2\) hiRow2\.style\.display = S\.daily \? 'none' : '';/.test(jsSrc));
+    /const hiRow = \$\('clear-high-row'\);\s*\n\s*if \(hiRow\) hiRow\.style\.display = S\.daily \? 'none' : '';/.test(jsSrc) &&
+    /const hiRow2 = \$\('final-high-row'\);\s*\n\s*if \(hiRow2\) hiRow2\.style\.display = S\.daily \? 'none' : '';/.test(jsSrc));
 
   check('每日任务 / 续命 在明细里也写明来由（哪个任务、第几关）', (() => {
     const tj = fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8');

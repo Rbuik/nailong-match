@@ -3182,7 +3182,7 @@
         ? Store.getDailyRecord().best
         : Store.getLevelRecord(S.level).score;
       // 每日挑战的结算不显示「历史最高」那一行（普通关照常显示）
-      const hiRow = $('clear-high') ? $('clear-high').parentElement : null;
+      const hiRow = $('clear-high-row');
       if (hiRow) hiRow.style.display = S.daily ? 'none' : '';
       // 限时关显示「剩余时间」，步数关显示「剩余步数」
       const mvLabel = $('clear-moves-label');
@@ -3194,13 +3194,19 @@
       // 每日挑战没有"下一关"
       const nxt = $('btn-next-level');
       if (nxt) nxt.style.display = S.daily ? 'none' : 'inline-block';
-      // 过关后还有剩余步数 / 剩余时间 → 给一个「继续游戏」的入口接着刷分
-      // （两套文案除了「步数 / 秒数」完全一致，每日挑战不给）
+      // 过关后还有剩余步数 / 剩余时间 → 给一个「继续游戏」的入口接着刷分（每日挑战没有）；
+      // 每日挑战没到三星时这里改成「🔄 重新开始」（三星封盘后只留「返回主页」）
       const cont = $('btn-clear-continue');
       if (cont) {
-        const canCont = !S.daily && (S.timerOn ? S.timeLeft > 0 : S.moves > 0);
-        cont.style.display = canCont ? 'inline-block' : 'none';
-        cont.textContent = S.timerOn ? '还有剩余秒数点击继续游戏' : '还有剩余步数点击继续游戏';
+        if (S.daily) {
+          const canRe = !dailyCompleted();
+          cont.style.display = canRe ? 'inline-block' : 'none';
+          cont.textContent = '🔄 重新开始';
+        } else {
+          const canCont = S.timerOn ? S.timeLeft > 0 : S.moves > 0;
+          cont.style.display = canCont ? 'inline-block' : 'none';
+          cont.textContent = S.timerOn ? '还有剩余秒数点击继续游戏' : '还有剩余步数点击继续游戏';
+        }
       }
       // 还有特效在播就先让它们播完（炸弹 / 线消 / 彩虹 / 彩带 / 双倍），别一刀切
       await waitForEffects();
@@ -3305,13 +3311,16 @@
         ? Store.getDailyRecord().best
         : Store.getLevelRecord(S.level).score;
       // 每日挑战的结算不显示「历史最高」那一行（普通关照常显示）
-      const hiRow2 = $('final-high') ? $('final-high').parentElement : null;
+      const hiRow2 = $('final-high-row');
       if (hiRow2) hiRow2.style.display = S.daily ? 'none' : '';
       $('final-level').textContent = S.daily ? '每日挑战' : S.level;
       $('final-coins').textContent = '+' + coins;
       // 限时关写「时间到了」，步数关写「步数耗尽」，机关炸了写具体原因
       $('game-over-title').textContent = passed ? '目标达成'
         : (S.failReason || (S.timerOn ? '时间到了' : '步数耗尽'));
+      // 每日挑战的重开键叫「重新开始」，普通关叫「重新挑战」
+      const rt = $('btn-restart');
+      if (rt) rt.textContent = S.daily ? '🔄 重新开始' : '重新挑战';
       $('final-new-record').style.display = 'none';
       // 步数 / 时间刚走完时可能还有特效在播：等播完再弹结算
       await waitForEffects();
@@ -6010,10 +6019,17 @@
       S.menuLevel = S.level + 1;
       playLevel(S.level + 1);
     });
-    // 过关后还剩步数 / 剩时间：点「继续游戏」回到棋盘，用剩下的步数或秒数接着刷分
+    // 过关结算的按键（每日挑战逻辑不同）：
+    //   · 普通：有剩余步数 / 秒数 → 「继续游戏」；还有「进入下一关」「返回主页」
+    //   · 每日挑战：没到三星 → 「🔄 重新开始」+「返回主页」；拿到三星 → 只留「返回主页」（当天封盘）
     const contBtn = $('btn-clear-continue');
     if (contBtn) contBtn.addEventListener('click', () => {
-      if (S.daily) return;
+      if (S.daily) {                      // 每日挑战的「重新开始」：整局重来（还是每日挑战）
+        if (dailyCompleted()) return;
+        $('level-clear').style.display = 'none';
+        restartCurrentLevel();
+        return;
+      }
       if (S.timerOn ? !(S.timeLeft > 0) : !(S.moves > 0)) return;
       $('level-clear').style.display = 'none';
       S.wonContinued = true;
@@ -6038,7 +6054,9 @@
     const again = $('btn-restart');
     if (again) again.addEventListener('click', () => {
       $('game-over').style.display = 'none';
-      startLevel(S.level);
+      // 必须走 restartCurrentLevel：每日挑战的 S.level 是 0，直接 startLevel(S.level)
+      // 会被夹成第 1 关（普通关规则），出现「通关奖励 第 1 关」、主页不变绿这些怪事
+      restartCurrentLevel();
     });
     const home2 = $('btn-home');
     if (home2) home2.addEventListener('click', () => {
