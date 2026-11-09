@@ -1120,8 +1120,11 @@ function check(name, ok) {
       !sec.includes('ledger-prev') && !sec.includes('ledger-next') &&
       sec.includes('id="ledger-list"') &&
       htmlSrc0.includes('id="menu-coins-row"') &&
-      // 主页金币：箭头紧跟「🪙 金币」文字右边（数字仍在最右）
-      /<span>🪙 金币<em class="menu-coins-more">›<\/em><\/span>/.test(htmlSrc0) &&
+      // 主页金币：金币图标单独一个可点元素（只有它进明细），箭头紧跟文字右边（数字仍在最右）
+      /<i id="menu-coins-ico" class="menu-coins-ico" title="查看金币明细">🪙<\/i> 金币<em class="menu-coins-more">›<\/em>/.test(htmlSrc0) &&
+      /menu-coins-ico/.test(jsSrc) &&                                    // 点击只绑在图标上
+      !/\.menu-coins-row\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&     // 整行不再可点
+      /\.menu-coins-ico\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&
       /\.ledger-list\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
       /\.ledger-list\s*\{[^}]*max-height:\s*64vh/.test(cssSrc) &&
       /\.ledger-bar\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
@@ -1154,8 +1157,12 @@ function check(name, ok) {
     rows.push({ t: lastYear, d: 80, m: '去年收入' });   // 去年同一个月，换年份后能直接看到
     lsMap.set('nl2:ledger', JSON.stringify(rows));
 
+    // 只有金币图标能进明细：点行里其它地方（金币两个字、›、右边的数字）都不跳
     $('menu-coins-row').dispatch('click');
-    const opened = $('coin-menu').style.display === 'flex';
+    $('menu-coins').dispatch('click');
+    const rowNoJump = $('coin-menu').style.display !== 'flex';
+    $('menu-coins-ico').dispatch('click');
+    const opened = rowNoJump && $('coin-menu').style.display === 'flex';
     const rowsAll = $('ledger-list').children.length;              // 本月只有 2 笔
     const allTxt = $('ledger-list').children.map((c) => String(c.innerHTML)).join('|');
 
@@ -1264,7 +1271,7 @@ function check(name, ok) {
     $('ledger-pop').children[1].dispatch('click');                 // 2 月
     $('ledger-type').dispatch('click');
     $('ledger-pop').children.filter((o) => String(o.textContent) === '收入')[0].dispatch('click');
-    $('menu-coins-row').dispatch('click');
+    $('menu-coins-ico').dispatch('click');
     const keepSel = String($('ledger-month').textContent) === '2 月' &&
       String($('ledger-type').textContent) === '收入' &&
       $('coin-menu').style.display === 'flex';

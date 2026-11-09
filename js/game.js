@@ -5728,10 +5728,12 @@
     const closePack = $('btn-close-backpack');
     if (closePack) closePack.addEventListener('click', () => $('backpack-menu').style.display = 'none');
 
-    // 金币明细：点主页「🪙 金币」那一行进去；年 / 月 / 类型三个下拉筛选
-    const coinsRow = $('menu-coins-row');
-    if (coinsRow) {
-      coinsRow.addEventListener('click', () => {
+    // 金币明细：只有点金币图标（🪙 阴影圆片）才进去；点行里其它地方（包括数字）不跳
+    // 年 / 月 / 类型三个下拉筛选
+    const coinsIco = $('menu-coins-ico');
+    if (coinsIco) {
+      coinsIco.addEventListener('click', (e) => {
+        e.stopPropagation();
         // 上次看到哪年哪月、哪个类型，再进来还是那一页（第一次打开才默认落到最近一笔的月份）
         closeLedgerPop();
         renderLedger();
