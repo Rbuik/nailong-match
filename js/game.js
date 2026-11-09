@@ -3095,14 +3095,14 @@
 
   // ==================== 结算 ====================
   // 每日挑战完成奖励（levelWin / endGame 两条结算路径共用）：
-  // 只有完成任务（过关）才发金币，用步越少给得越多，一天只发一次
+  // 只有拿到三星才发金币，用步越少给得越多，一天只发一次
   function dailySettle(starsNow, allowGrant) {
     let movesUsed = -1, bonus = 0;
     if (S.daily) {
       movesUsed = Math.max(0, (S.levelDef.moves || 20) - S.moves);
-      if (allowGrant && (starsNow || 0) >= 1 && !Store.getDailyRecord().coins) {
-        bonus = Math.max(0, 30 + (20 - movesUsed) * 4);   // 20 步打完 30 枚，每省 1 步 +4
-        Store.addCoins(bonus, '每日挑战奖励');
+      if (allowGrant && (starsNow || 0) >= 3 && !Store.getDailyRecord().coins) {
+        bonus = Math.max(0, 30 + (20 - movesUsed) * 4);   // 三星打底 30 枚，每省 1 步 +4
+        Store.addCoins(bonus, '通关奖励', '每日挑战');
       }
     }
     return { movesUsed: movesUsed, bonus: bonus };
@@ -3140,9 +3140,16 @@
     if (S.daily) refreshMenu();
     if (!S.daily) grantChapterMails();   // 这一关刚好是本章最后一关 → 发章节奖励
 
-    // 金币产出（§7）；续玩后的第二次结算也照发金币。明细里写清是哪一关
-    const coins = Math.max(10, Math.floor(S.score / 100));
-    Store.addCoins(coins, '通关奖励', S.daily ? '每日挑战' : ('第 ' + S.level + ' 关'));
+    // 金币产出（§7）：每日挑战只有三星才发（按用步算，已在 dailySettle 里发掉，
+    // 没通关 / 没三星都是 0，明细里也不再多一条）；普通关按分发。
+    // 续玩后的第二次结算也照发金币。明细里写清是哪一关
+    let coins = 0;
+    if (S.daily) {
+      coins = dailyBonus;   // 三星奖励；没三星为 0
+    } else {
+      coins = Math.max(10, Math.floor(S.score / 100));
+      Store.addCoins(coins, '通关奖励', '第 ' + S.level + ' 关');
+    }
     if (!again) {
       Tasks.report('play', 1);
       Tasks.report('win', 1);          // 每日任务：通过 1 关
@@ -3174,6 +3181,9 @@
       $('clear-high').textContent = S.daily
         ? Store.getDailyRecord().best
         : Store.getLevelRecord(S.level).score;
+      // 每日挑战的结算不显示「历史最高」那一行（普通关照常显示）
+      const hiRow = $('clear-high') ? $('clear-high').parentElement : null;
+      if (hiRow) hiRow.style.display = S.daily ? 'none' : '';
       // 限时关显示「剩余时间」，步数关显示「剩余步数」
       const mvLabel = $('clear-moves-label');
       if (mvLabel) mvLabel.textContent = S.timerOn ? '剩余时间' : '剩余步数';
@@ -3274,10 +3284,13 @@
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
     if (S.daily) refreshMenu();
-    const coins = passed ? Math.max(10, Math.floor(S.score / 100)) : Math.floor(S.score / 300);
-    // 过没过都标上是哪一关，免得明细里只看到「通关奖励」不知道打的是哪关
-    Store.addCoins(coins, passed ? '通关奖励' : '过关奖励',
-      S.daily ? '每日挑战' : ('第 ' + S.level + ' 关'));
+    // 没通关 / 没三星都不发金币：每日挑战的奖励已在 dailySettle 里按三星 + 用步发过
+    let coins = 0;
+    if (!S.daily) {
+      coins = passed ? Math.max(10, Math.floor(S.score / 100)) : Math.floor(S.score / 300);
+      // 过没过都标上是哪一关，免得明细里只看到「通关奖励」不知道打的是哪关
+      Store.addCoins(coins, passed ? '通关奖励' : '过关奖励', '第 ' + S.level + ' 关');
+    }
     Tasks.report('play', 1);
     Tasks.report('score', S.score);
     try { recordMyScore(); } catch (e) {}   // 没通关也刷一次局榜 / 总榜
@@ -3291,6 +3304,9 @@
       $('final-high').textContent = S.daily
         ? Store.getDailyRecord().best
         : Store.getLevelRecord(S.level).score;
+      // 每日挑战的结算不显示「历史最高」那一行（普通关照常显示）
+      const hiRow2 = $('final-high') ? $('final-high').parentElement : null;
+      if (hiRow2) hiRow2.style.display = S.daily ? 'none' : '';
       $('final-level').textContent = S.daily ? '每日挑战' : S.level;
       $('final-coins').textContent = '+' + coins;
       // 限时关写「时间到了」，步数关写「步数耗尽」，机关炸了写具体原因

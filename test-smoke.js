@@ -3296,11 +3296,21 @@ function check(name, ok) {
     return namesOk && noKaiJu && noSemi && twoLine && packInline && shopBr;
   })());
 
-  check('通关奖励 / 过关奖励在明细里写明是第几关', (() => {
+  check('通关奖励 / 过关奖励在明细里写明是第几关；每日挑战的奖励写「每日挑战」', (() => {
     const lv = jsSrc.split("'第 ' + S.level + ' 关'").length - 1;
-    return lv >= 3 && jsSrc.indexOf("'通关奖励', S.daily ? '每日挑战' : ('第 ' + S.level + ' 关')") >= 0 &&
-      /'过关奖励',[\s\S]{0,40}'每日挑战' : \('第 ' \+ S\.level \+ ' 关'\)/.test(jsSrc);
+    return lv >= 3 && jsSrc.indexOf("'通关奖励', '第 ' + S.level + ' 关'") >= 0 &&
+      /passed \? '通关奖励' : '过关奖励', '第 ' \+ S\.level \+ ' 关'/.test(jsSrc) &&
+      /addCoins\(bonus, '通关奖励', '每日挑战'\)/.test(jsSrc);
   })());
+  check('每日挑战：三星才发金币、步数越少给得越多；没通关 / 没三星一分不发', (() => {
+    return /allowGrant && \(starsNow \|\| 0\) >= 3 && !Store\.getDailyRecord\(\)\.coins/.test(jsSrc) &&
+      /30 \+ \(20 - movesUsed\) \* 4/.test(jsSrc) &&
+      /if \(S\.daily\) \{\s*\n\s*coins = dailyBonus;/.test(jsSrc) &&      // 通关结算：金额就是按步算的奖励
+      /if \(!S\.daily\) \{\s*\n\s*coins = passed \?/.test(jsSrc);         // 步数耗尽结算：每日挑战不发
+  })());
+  check('每日挑战的两个结算画面都不显示「历史最高」那一行（普通关照常）',
+    /const hiRow = \$\('clear-high'\) \? \$\('clear-high'\)\.parentElement : null;\s*\n\s*if \(hiRow\) hiRow\.style\.display = S\.daily \? 'none' : '';/.test(jsSrc) &&
+    /const hiRow2 = \$\('final-high'\) \? \$\('final-high'\)\.parentElement : null;\s*\n\s*if \(hiRow2\) hiRow2\.style\.display = S\.daily \? 'none' : '';/.test(jsSrc));
 
   check('每日任务 / 续命 在明细里也写明来由（哪个任务、第几关）', (() => {
     const tj = fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8');
