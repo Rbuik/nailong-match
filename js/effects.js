@@ -31,7 +31,8 @@
 
   const pPool = Pool(() => ({
     x: 0, y: 0, vx: 0, vy: 0, life: 0, max: 1, color: '#fff', size: 3,
-    kind: 'dot', rot: 0, vr: 0, w: 4, h: 7, sway: 0
+    kind: 'dot', rot: 0, vr: 0, w: 4, h: 7, sway: 0,
+    tx: 0, ty: 0          // attract 用：吸向的目标点
   }), 200);
   const tPool = Pool(() => ({ x: 0, y: 0, text: '', color: '#fff', life: 0, max: 1, dy: -3, size: 20 }), 20);
   const wPool = Pool(() => ({ x: 0, y: 0, r: 0, maxR: 0, life: 0, max: 1, color: '#fff' }), 16);
@@ -54,6 +55,24 @@
 
     getShakeOffset() {
       return { x: this.shakeX, y: this.shakeY };
+    },
+
+    // 磁吸：从 (x,y) 一圈颗粒被拽向目标点 (tx,ty)——加速飞过去，越近越小
+    attract(x, y, tx, ty, color, count) {
+      count = count || 3;
+      for (let i = 0; i < count; i++) {
+        const p = pPool.spawn();
+        const ang = Math.random() * Math.PI * 2;
+        const off = 5 + Math.random() * 16;
+        p.kind = 'attract';
+        p.x = x + Math.cos(ang) * off;
+        p.y = y + Math.sin(ang) * off;
+        p.tx = tx; p.ty = ty;
+        p.vx = 0; p.vy = 0;
+        p.color = color;
+        p.size = 3 + Math.random() * 3.5;
+        p.life = 0.34; p.max = 0.34;
+      }
     },
 
     burst(x, y, color, count) {
@@ -212,7 +231,18 @@
 
       for (let i = pPool.active.length - 1; i >= 0; i--) {
         const p = pPool.active[i];
-        if (p.kind === 'confetti') {
+        if (p.kind === 'attract') {
+          // 磁吸：先慢后快地拽向目标点（指数加速），快到时收得越紧
+          const pull = 0.10 + 0.16 * (1 - p.life / p.max);
+          p.vx += (p.tx - p.x) * pull * 0.5 * f;
+          p.vy += (p.ty - p.y) * pull * 0.5 * f;
+          p.vx *= Math.pow(0.90, f);
+          p.vy *= Math.pow(0.90, f);
+          p.x += p.vx * f;
+          p.y += p.vy * f;
+          p.life -= 0.038 * f;
+          if (p.life <= 0) pPool.recycle(i);
+        } else if (p.kind === 'confetti') {
           // 纸带：重力往下带、左右摆，边落边翻面
           p.vy = Math.min(p.vy + 0.16 * f, 4.5);
           p.vx *= Math.pow(0.94, f);

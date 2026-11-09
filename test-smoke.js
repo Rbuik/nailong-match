@@ -2615,9 +2615,9 @@ function check(name, ok) {
     /String\(provUlQuery \|\| ''\)\.trim\(\);/.test(jsSrc) &&
     !/adminUlQuery \|\| ''\)\.trim\(\)\.toLowerCase/.test(jsSrc) &&
     !/provUlQuery \|\| ''\)\.trim\(\)\.toLowerCase/.test(jsSrc));
-  // 39d. 提示停留 3 秒（原来 1.6 秒看不及）
-  // 提示条停留 3 秒（普通提示）；排队提示按传入的毫秒数播
-  check('提示条停留 3 秒', /paintToast\(msg, 3000\)/.test(jsSrc) && /remove\('show'\)/.test(jsSrc));
+  // 39d. 黑底播报 1 秒（不用等太久）
+  // 提示条停留 1 秒（普通提示）；排队提示按传入的毫秒数播
+  check('黑底播报停留 1 秒', /paintToast\(msg, 1000\)/.test(jsSrc) && /remove\('show'\)/.test(jsSrc));
   // 40. 白色页面撑满整屏高度：随手机屏幕高度自适应
   check('页面容器最小高度跟随整屏（vh + dvh 双写兼容地址栏）',
     cssSrc.includes('min-height: calc(100vh - 12px);') &&
@@ -3210,22 +3210,42 @@ function check(name, ok) {
     return shapes.length && shapes[0].size >= 7 && plan && plan.type === Sp.TYPE.PROPELLER;
   })());
 
-  check('磁铁吸同行同列同色 + 身边 3x3；螺旋桨斜扫两条对角线', (() => {
-    const b = [...Array(8)].map((_, r) => [...Array(8)].map((_, c) => ({ type: (r + c) % 2, special: 0 })));
+  check('磁铁吸身边 7×7 的同色方块；螺旋桨斜扫两条对角线', (() => {
+    const b = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 0, special: 0 })));
     b[3][4] = { type: 2, special: Sp.TYPE.MAGNET };
-    b[3][0] = { type: 2, special: 0 };   // 同行同色 → 吸
-    b[0][4] = { type: 2, special: 0 };   // 同列同色 → 吸
-    b[3][7] = { type: 1, special: 0 };   // 同行不同色（且不在 3x3）→ 不吸
-    b[4][5] = { type: 2, special: 0 };   // 斜下角 → 3x3 吸
-    b[6][6] = { type: 2, special: 0 };   // 远处（不在同行同列也不在 3x3）→ 不吸
+    b[1][2] = { type: 2, special: 0 };   // 7×7 内同色 → 吸
+    b[0][4] = { type: 2, special: 0 };   // 正上 3 格 → 吸
+    b[6][7] = { type: 2, special: 0 };   // 斜对角 3+3 → 吸
+    b[4][5] = { type: 1, special: 0 };   // 7×7 内但不同色 → 不吸
+    b[3][0] = { type: 2, special: 0 };   // 左边 4 格（出了 7×7）→ 不吸
+    b[0][0] = { type: 2, special: 0 };   // 横向出了 7×7 → 不吸
     const m = Sp.expandClears(b, 8, 8, new Set(['3,4']), {});
     const prop = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 1, special: 0 })));
     prop[2][2] = { type: 1, special: Sp.TYPE.PROPELLER };
     const pr = Sp.expandClears(prop, 8, 8, new Set(['2,2']), {});
-    return m.cells.has('3,0') && m.cells.has('0,4') && m.cells.has('4,5') &&
-      !m.cells.has('3,7') && !m.cells.has('6,6') &&
+    return m.cells.has('3,4') && m.cells.has('1,2') && m.cells.has('0,4') && m.cells.has('6,7') &&
+      !m.cells.has('4,5') && !m.cells.has('3,0') && !m.cells.has('0,0') &&
       pr.cells.has('0,0') && pr.cells.has('1,1') && pr.cells.has('3,3') &&
       pr.cells.has('0,4') && pr.cells.has('5,5') && !pr.cells.has('0,1');
+  })());
+  check('四个道具有专属音效 + 磁铁吸引特效（FX.attract），专属音效不再叠 match', (() => {
+    const ajq = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
+    const fx = fs.readFileSync(path.join(__dirname, 'js', 'effects.js'), 'utf8');
+    const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
+    return /case 'paint':/.test(ajq) && /case 'magnet':/.test(ajq) &&
+      /case 'propeller':/.test(ajq) && /case 'rainbow':/.test(ajq) &&
+      /attract\(x, y, tx, ty, color, count\)/.test(fx) && /kind === 'attract'/.test(fx) &&
+      /FX\.attract\(/.test(gjs) &&
+      /playSFX\('paint'\)/.test(gjs) && /playSFX\('magnet'\)/.test(gjs) &&
+      /playSFX\('propeller'\)/.test(gjs) && /playSFX\('rainbow'\)/.test(gjs) &&
+      /else if \(!dedicatedBoomSfx\) AudioManager\.playSFX\('match'/.test(gjs);
+  })());
+  check('音乐开关不再有延迟：BGM 走独立总线，关掉立即静音、打开先叫醒 ctx', (() => {
+    const ajq = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
+    return /_bgmGain = this\.ctx\.createGain\(\)/.test(ajq) &&
+      /this\._bgmBusOn\(false\);/.test(ajq) &&
+      /this\.resumeCtx\(\);[\s\S]{0,80}this\._bgmBusOn\(true\);/.test(ajq) &&
+      /g\.connect\(this\._bgmGain \|\| this\.ctx\.destination\)/.test(ajq);
   })());
 
   check('超级融合：彩虹+磁铁 = 磁力虹吸，炸弹+磁铁 = 磁力爆破，双磁铁 = 双磁十字，霜块组合带定格', (() => {
@@ -3399,9 +3419,10 @@ function check(name, ok) {
     jsSrc.includes("card.className = 'shop-card'") &&
     /id="backpack-list"/.test(htmlSrc) && /\.shop-list\s*\{[^}]*flex-direction:\s*column/.test(cssSrc));
 
-  check('放置类道具支持磁铁 / 颜料 / 螺旋桨 / 霜块，背包按钮与提示齐全', (() => {
-    return /startMagnet:\s*'放置'/.test(jsSrc) && /startPaint:\s*'放置'/.test(jsSrc) &&
-      /startPropeller:\s*'放置'/.test(jsSrc) && /startFrost:\s*'放置'/.test(jsSrc) &&
+  check('背包道具右边的按键统一写「使用」，放置类也在列', (() => {
+    return /startMagnet:\s*'使用'/.test(jsSrc) && /startPaint:\s*'使用'/.test(jsSrc) &&
+      /startPropeller:\s*'使用'/.test(jsSrc) && /startFrost:\s*'使用'/.test(jsSrc) &&
+      !/:\s*'放置'/.test(jsSrc) &&
       /'startMagnet'\s*\?\s*T\.MAGNET/.test(jsSrc) && /'startPaint'\s*\?\s*T\.PAINT/.test(jsSrc) &&
       /'startPropeller'\s*\?\s*T\.PROPELLER/.test(jsSrc) && /'startFrost'\s*\?\s*T\.FROST/.test(jsSrc) &&
       /已在随机位置放了一块磁铁/.test(jsSrc);

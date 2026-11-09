@@ -59,8 +59,27 @@
       if (this.ctx) return this.ctx;
       const AC = global.AudioContext || global.webkitAudioContext;
       if (!AC) return null;
-      try { this.ctx = new AC(); } catch (e) { this.ctx = null; }
+      try {
+        this.ctx = new AC();
+        // BGM 走独立总线：关音乐时把总线拉到 0，已经排进时间轴的音（最多提前 0.9 秒）
+        // 立刻静音——不然关了开关还要等排好的音播完，听着就是「关了还有延迟」
+        this._bgmGain = this.ctx.createGain();
+        this._bgmGain.gain.value = 1;
+        this._bgmGain.connect(this.ctx.destination);
+      } catch (e) { this.ctx = null; }
       return this.ctx;
+    },
+
+    // BGM 总线开关：on=true 恢复音量，false 立即静音（音效不走这条总线，不受影响）
+    _bgmBusOn(on) {
+      try {
+        if (!this.ctx || !this._bgmGain) return;
+        const t = this.ctx.currentTime;
+        const g = this._bgmGain.gain;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(Math.max(0.0001, g.value), t);
+        g.linearRampToValueAtTime(on ? 1 : 0.0001, t + (on ? 0.02 : 0.05));
+      } catch (e) {}
     },
 
     // 第一下触摸就把音频上下文叫醒：音效独立于背景音乐，
@@ -95,6 +114,7 @@
     // 场景级 BGM 开关：关掉时立即静音，且看门狗 / unlock 都不会再把音乐拉起来
     gateBGM(on) {
       this.bgmAllowed = !!on;
+      this._bgmBusOn(on);     // 关场景时总线也静音（登录页不许漏出排程里的音）
       if (!on) {
         try { if (this._custom) this._custom.pause(); } catch (e) {}
         if (this._bgmTimer) { clearInterval(this._bgmTimer); this._bgmTimer = null; }
@@ -481,6 +501,52 @@
           this._tone(200, 'sine', 0.5, 0.25, 0.5);
           this.vibrate([100, 50, 100]);
           break;
+        case 'paint': {
+          // 🎨 颜料「唰唰唰」：三连快速横扫的窄带嘶声（像刷子来回刷），
+          // 一声比一声亮，最后补一点高频「嚓」收尾
+          for (let i = 0; i < 3; i++) {
+            this._noise(0.09, 0.20, 900 + i * 600, 2.2, i * 0.085, 'bandpass');
+          }
+          this._noise(0.05, 0.12, 3600, 1.5, 0.26, 'bandpass');
+          this.vibrate(12);
+          break;
+        }
+        case 'magnet': {
+          // 🧲 磁铁「吸」：低频嗡→升上去的滑音（被拽过去的手感）+ 环绕嘶声，
+          // 收尾一记「啪」当吸住的爆点
+          this._tone(120, 'sine', 0.34, 0.30, 0, 480);        // 嗡——往上拽
+          this._tone(240, 'triangle', 0.30, 0.16, 0.03, 760);
+          this._noise(0.30, 0.10, 700, 1.4, 0.02, 'bandpass');
+          this._tone(880, 'sine', 0.10, 0.22, 0.34, 300);     // 吸住「啪」
+          this._noise(0.10, 0.16, 2400, 1.2, 0.34, 'bandpass');
+          this.vibrate([18, 30, 14]);
+          break;
+        }
+        case 'propeller': {
+          // 🛩️ 螺旋桨「飞机飞过」：低频引擎嗡嗡（锯齿波上下滑）+ 螺旋桨扑扑声
+          // （用快速重复的短噪声模拟桨叶拍打），由远及近再远去
+          this._tone(160, 'sawtooth', 0.16, 0.16, 0, 320);    // 引擎起转
+          this._tone(320, 'sawtooth', 0.42, 0.14, 0.14, 210); // 掠过头顶
+          this._tone(210, 'sawtooth', 0.30, 0.10, 0.54, 120); // 远去
+          for (let i = 0; i < 6; i++) {
+            this._noise(0.045, 0.10, 420, 1.0, 0.05 + i * 0.11, 'lowpass');  // 扑、扑、扑……
+          }
+          this.vibrate(14);
+          break;
+        }
+        case 'rainbow': {
+          // 🌈 彩虹爆炸：一记低频「轰」打底 + 一串快速上行琶音（七彩感）+
+          // 高频闪烁噪声，比炸弹「闷响」更亮更飘
+          this._tone(180, 'sine', 0.42, 0.34, 0, 60);         // 轰
+          this._noise(0.30, 0.14, 500, 1, 0, 'lowpass');
+          const seq = [523, 659, 784, 988, 1175, 1568];
+          for (let i = 0; i < seq.length; i++) {
+            this._tone(seq[i], 'triangle', 0.14, 0.14, 0.03 + i * 0.055);
+          }
+          this._noise(0.20, 0.08, 5200, 1.4, 0.10, 'highpass');
+          this.vibrate([30, 40, 30]);
+          break;
+        }
       }
     },
 
@@ -537,7 +603,7 @@
         g.gain.setValueAtTime(0.0001, t0);
         g.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_NOTE_PEAK * this.bgmVol), t0 + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
-        osc.connect(g); g.connect(this.ctx.destination);
+        osc.connect(g); g.connect(this._bgmGain || this.ctx.destination);
         osc.start(t0); osc.stop(t0 + 0.22);
 
         if (this._noteIndex % 2 === 0) {
@@ -548,7 +614,7 @@
           g2.gain.setValueAtTime(0.0001, t0);
           g2.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * this.bgmVol), t0 + 0.02);
           g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.27);
-          o2.connect(g2); g2.connect(this.ctx.destination);
+          o2.connect(g2); g2.connect(this._bgmGain || this.ctx.destination);
           o2.start(t0); o2.stop(t0 + 0.27);
         }
       } catch (e) {}
@@ -592,7 +658,7 @@
         g.gain.setValueAtTime(0.0001, t0);
         g.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * 0.8 * this.bgmVol), t0 + 0.008);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
-        osc.connect(g); g.connect(this.ctx.destination);
+        osc.connect(g); g.connect(this._bgmGain || this.ctx.destination);
         osc.start(t0); osc.stop(t0 + 0.13);
       } catch (e) {}
     },
@@ -799,11 +865,16 @@
     setMusicOn(on) {
       this.musicOn = on;
       if (!on) {
+        // 排进时间轴的音立即静音（修「音乐开关有延迟」：以前要等 0.9 秒排程播完）
+        this._bgmBusOn(false);
         if (this._custom) this._custom.pause();
         if (this._bgmTimer) { clearInterval(this._bgmTimer); this._bgmTimer = null; }
         this.setDrum(false);
       } else {
         if (!this.bgmAllowed) return;   // 登录页等场景不放音乐
+        // ctx 还挂着就先叫醒：不然音乐要等下一次触摸才有声，听起来像按键没反应
+        if (!this.ctx || this.ctx.state !== 'running') this.resumeCtx();
+        this._bgmBusOn(true);
         this._stopped = false;
         if (this._custom) this._custom.play().catch(() => {});
         else this.startBGM();

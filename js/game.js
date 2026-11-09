@@ -606,6 +606,7 @@
     if (n) {
       FX.flash('#ffd75c', 0.16, 0.18);
       FX.text(c * CELL + CELL / 2, r * CELL + CELL / 2, '刷成同色 🎨', '#ff9a3c', 16);
+      AudioManager.playSFX('paint');       // 唰唰唰
       toast('🎨 颜料把 ' + n + ' 格刷成了同一种颜色');
     }
     return n;
@@ -2157,6 +2158,7 @@
     updateHUD();
 
     // 3) 特效：每种特殊块都有自己的「使用效果」
+    let dedicatedBoomSfx = false;   // 彩虹 / 磁铁 / 颜料 / 螺旋桨已放各自的音效，结尾不再叠一声 match
     boomPoints.forEach((bp) => {
       const bx = bp.c * CELL + CELL / 2, by = bp.r * CELL + CELL / 2;
       if (bp.type === T.BOMB) {
@@ -2181,20 +2183,34 @@
         FX.shake(4, 0.25);
         // 彩虹被消触发全场同图案：补一条醒目提示
         FX.text(bx, by - CELL * 0.3, '同图案消除 🌈', '#c85cff', 18);
-        AudioManager.playSFX('line');
+        AudioManager.playSFX('rainbow');
         AudioManager.vibrate([30, 40, 30]);   // 彩虹全场扫：给它一串更长的手感
+        dedicatedBoomSfx = true;
       } else if (bp.type === T.MAGNET) {
-        // 🧲 磁铁：粉色冲击波 + 朝磁铁飞的颗粒（「被吸过来」的手感）
-        FX.explosion(bx, by, CELL * 1.2);
+        // 🧲 磁铁：7×7 里同色方块被「吸」过来——颗粒从各格飞向磁铁，边吸边爆
+        const mag = S.board[bp.r] && S.board[bp.r][bp.c];
+        const mc = mag ? mag.type : null;
+        clearSet.forEach((k) => {
+          const p = Specials.parse(k);
+          const b = S.board[p.r] && S.board[p.r][p.c];
+          if (!b) return;
+          if (Math.abs(p.r - bp.r) > 3 || Math.abs(p.c - bp.c) > 3) return;
+          if (mc != null && b.type !== mc && !(p.r === bp.r && p.c === bp.c)) return;
+          FX.attract(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2,
+            bx, by, FALLBACK_COLORS[b.type] || '#ff8ab0', 3);
+        });
+        FX.explosion(bx, by, CELL * 1.4);
         FX.flash('#ff8ab0', 0.18, 0.22);
         FX.shake(3, 0.18);
         FX.text(bx, by - CELL * 0.3, '磁吸同色 🧲', '#ff5c8a', 17);
+        AudioManager.playSFX('magnet');
         AudioManager.vibrate(20);
+        dedicatedBoomSfx = true;
       } else if (bp.type === T.PAINT) {
-        // 🎨 颜料：一片颜色被刷成同色
+        // 🎨 颜料：一片颜色被刷成同色（浮字 / 音效在 paintArea 里，只出一次）
         FX.flash('#ffd75c', 0.20, 0.22);
-        FX.text(bx, by - CELL * 0.3, '刷成同色 🎨', '#ff9a3c', 17);
         paintArea(bp.r, bp.c, 2);
+        dedicatedBoomSfx = true;
       } else if (bp.type === T.FROST) {
         // ❄️ 霜块：机关全部定格
         FX.flash('#bfe9ff', 0.22, 0.26);
@@ -2202,10 +2218,12 @@
         FX.text(bx, by - CELL * 0.3, '机关定格 ' + FROST_TURNS + ' 步 ❄️', '#2fa9e0', 17);
         toast('❄️ 霜块生效：' + FROST_TURNS + ' 步内所有机关暂停');
       } else if (bp.type === T.PROPELLER) {
-        // 🛩️ 螺旋桨：两条对角线一路扫
+        // 🛩️ 螺旋桨：两条对角线一路扫 + 飞机飞过的音效
         FX.flash('#b8fff4', 0.18, 0.22);
         FX.explosion(bx, by, CELL * 1.1);
         FX.text(bx, by - CELL * 0.3, '斜向扫场 🛩️', '#2fc7b8', 17);
+        AudioManager.playSFX('propeller');
+        dedicatedBoomSfx = true;
       } else {
         FX.explosion(bx, by, CELL);
       }
@@ -2223,7 +2241,7 @@
 
     if (boomPoints.some((b) => b.type === T.BOMB)) AudioManager.playSFX('bomb');
     else if (boomPoints.some((b) => b.type === T.LINE_H || b.type === T.LINE_V)) AudioManager.playSFX('line');
-    else AudioManager.playSFX('match', { combo: S.combo, beat: beatBonus() });
+    else if (!dedicatedBoomSfx) AudioManager.playSFX('match', { combo: S.combo, beat: beatBonus() });
 
     await animateClear(clearSet, S.combo);
 
@@ -3056,7 +3074,7 @@
   function toast(msg) {
     // 普通提示：立刻显示（顺手清掉还没播完的排队提示，免得过时信息挤在后面）
     toastQueue.length = 0;
-    paintToast(msg, 3000);
+    paintToast(msg, 1000);   // 黑底播报 1 秒就够了
   }
 
   // 排队提示：一条在显示时先把后面的排上，逐条在同一个位置展示
@@ -3633,18 +3651,18 @@
     }
   }
 
-  // 背包：展示买到的道具，并可在局内直接使用
+  // 背包：展示买到的道具，并可在局内直接使用（右边按键统一写「使用」）
   const ITEM_ACTION = {
     extraMoves: '使用',
     extraTime: '使用',
     shuffle: '使用',
     undo: '使用',
-    startBomb: '放置',
-    startLine: '放置',
-    startMagnet: '放置',
-    startPropeller: '放置',
-    startPaint: '放置',
-    startFrost: '放置',
+    startBomb: '使用',
+    startLine: '使用',
+    startMagnet: '使用',
+    startPropeller: '使用',
+    startPaint: '使用',
+    startFrost: '使用',
     rainbow: '使用'
   };
 

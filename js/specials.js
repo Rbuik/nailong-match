@@ -220,16 +220,15 @@
         for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) add(r + dr, c + dc);
       }
     } else if (type === TYPE.MAGNET) {
-      // 🧲 磁铁：把「同行 + 同列」里的同色方块吸过来一起消（外加身边 3x3）
-      for (let cc = 0; cc < C; cc++) {
-        const b = board[r][cc];
-        if (b && (color == null || b.type === color)) add(r, cc);
+      // 🧲 磁铁：把「身边 7×7」里的同色方块吸过来一起消（边吸边爆）
+      for (let dr = -3; dr <= 3; dr++) for (let dc = -3; dc <= 3; dc++) {
+        const rr = r + dr, cc = c + dc;
+        if (rr < 0 || rr >= R || cc < 0 || cc >= C) continue;
+        const b = board[rr][cc];
+        if (!b) continue;
+        // 同色才吸（磁铁自己那格照算）；没有颜色信息就全吸
+        if (color == null || b.type === color || (rr === r && cc === c)) add(rr, cc);
       }
-      for (let rr = 0; rr < R; rr++) {
-        const b = board[rr][c];
-        if (b && (color == null || b.type === color)) add(rr, c);
-      }
-      for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) add(r + dr, c + dc);
     } else if (type === TYPE.PAINT) {
       // 🎨 颜料：自身 5x5 一片（变色效果由 game.js 在消除后统一改色）
       for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) add(r + dr, c + dc);
