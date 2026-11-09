@@ -276,6 +276,7 @@
     // 等 resume 成功再补播，避免「刚进来没声音」。
     _pendingTones: [],
     _pendingNoise: [],
+    _pendingHum: [],
     _tone(freq, type, dur, vol, delay, to) {
       this.ensureCtx();
       if (!this.ctx) return;
@@ -305,6 +306,55 @@
         if (now - it.at > 900) return;
         this._noiseNow.apply(this, it.args);   // 碎冰这类噪声也要补播，否则前几声是哑的
       });
+      const hq = this._pendingHum.splice(0);
+      hq.forEach((it) => {
+        if (now - it.at > 900) return;
+        this._humNow.apply(this, it.args);
+      });
+    },
+
+    // 低通滤波的「闷响」音（引擎嗡嗡声专用）：锯齿波谐波多但被低通切掉高频，
+    // 只留下低沉的嗡嗡，不会像裸锯齿那样扎耳朵；包络慢慢起、一路渐隐
+    _hum(freq, dur, vol, delay, to, cutoff) {
+      this.ensureCtx();
+      if (!this.ctx) return;
+      if (this.ctx.state !== 'running') {
+        const now = Date.now();
+        this._pendingHum.push({ args: [freq, dur, vol, delay, to, cutoff], at: now });
+        if (this._pendingHum.length > 8) this._pendingHum.shift();
+        if (this._flushTimer) clearTimeout(this._flushTimer);
+        this._flushTimer = setTimeout(() => this._flushTones(), 140);
+        this.resumeCtx();
+        return;
+      }
+      this._humNow(freq, dur, vol, delay, to, cutoff);
+    },
+
+    _humNow(freq, dur, vol, delay, to, cutoff) {
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      try {
+        const t0 = this.ctx.currentTime + (delay || 0);
+        const osc = this.ctx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, t0);
+        if (to && to > 0 && to !== freq) {
+          osc.frequency.exponentialRampToValueAtTime(to, t0 + dur * 0.85);
+        }
+        const lp = this.ctx.createBiquadFilter();
+        lp.type = 'lowpass';
+        lp.frequency.setValueAtTime(cutoff || 260, t0);   // 只留低频：低沉、不尖锐
+        lp.Q.setValueAtTime(0.7, t0);
+        const g = this.ctx.createGain();
+        const peak = Math.max(0.0001, vol * this.sfxVol * this.SFX_PEAK_SCALE);
+        g.gain.setValueAtTime(0, t0);
+        g.gain.linearRampToValueAtTime(peak, t0 + 0.06);  // 慢慢起，不「啪」一下
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        osc.connect(lp);
+        lp.connect(g);
+        g.connect(this.ctx.destination);
+        osc.start(t0);
+        osc.stop(t0 + dur + 0.02);
+      } catch (e) {}
     },
 
     _toneNow(freq, type, dur, vol, delay, to) {
@@ -523,12 +573,11 @@
           break;
         }
         case 'propeller': {
-          // 🛩️ 螺旋桨飞机：低沉的引擎嗡嗡声——两层微失谐的低频锯齿波叠出拍频
-          // （嗡嗡声会自己「颤」），再垫一点低频气流声；整段音量一路渐隐，像飞机飞远
-          this._tone(92, 'sawtooth', 1.6, 0.22, 0, 78);      // 主引擎：嗡——渐渐远去
-          this._tone(94.5, 'sawtooth', 1.6, 0.13, 0, 80);    // 微失谐副层：拍频让嗡声发颤
-          this._tone(186, 'square', 1.2, 0.05, 0.04, 158);   // 极轻的谐波垫底
-          this._noise(1.1, 0.06, 260, 0.8, 0.05, 'lowpass'); // 淡淡的气流声，同样渐隐
+          // 🛩️ 螺旋桨飞机：只走低通滤波的「闷响」通道——低沉的引擎嗡嗡声，
+          // 高频全被切掉（不扎耳），两层微失谐叠出拍频发颤，整段慢慢渐隐飞远
+          this._hum(78, 1.9, 0.20, 0, 64, 230);                       // 主引擎：嗡——低低地渐渐远去
+          this._hum(80.5, 1.9, 0.09, 0, 66, 200);                     // 微失谐副层：拍频让嗡声发颤
+          this._noise(1.5, 0.05, 170, 0.6, 0.06, 'lowpass');          // 一层淡淡的气流声，同样渐隐
           this.vibrate(14);
           break;
         }

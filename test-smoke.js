@@ -3259,13 +3259,17 @@ function check(name, ok) {
       /playSFX\('propeller'\)/.test(gjs) && /playSFX\('rainbow'\)/.test(gjs) &&
       /else if \(!dedicatedBoomSfx\) AudioManager\.playSFX\('match'/.test(gjs);
   })());
-  check('飞机音效是低沉的嗡嗡声（双层低频锯齿波拍频）且整段渐隐，不再扑扑扑', (() => {
+  check('飞机音效是低沉不刺耳的嗡嗡声（低通滤波 78Hz 双层拍频）且整段渐隐，不再扑扑扑', (() => {
     const ajq = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
     const m = ajq.match(/case 'propeller': \{[\s\S]*?\n        \}/);
     if (!m) return false;
     const body = m[0];
-    return /92, 'sawtooth'/.test(body) && /94\.5, 'sawtooth'/.test(body) &&
-      body.indexOf('扑、扑、扑') < 0 && /嗡/.test(body);
+    // 必须走 _hum（带低通，高频被切掉才不会尖锐），不能再用裸锯齿 / 方波直接发声
+    return /this\._hum\(78, 1\.9, 0\.20, 0, 64, 230\)/.test(body) &&
+      /this\._hum\(80\.5, 1\.9, 0\.09, 0, 66, 200\)/.test(body) &&
+      !/this\._tone\(/.test(body) && body.indexOf('扑、扑、扑') < 0 &&
+      /_humNow\(freq, dur, vol, delay, to, cutoff\)/.test(ajq) &&
+      /lp\.type = 'lowpass'/.test(ajq);
   })());
   check('音乐开关不再有延迟：BGM 走独立总线，关掉立即静音、打开先叫醒 ctx', (() => {
     const ajq = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
