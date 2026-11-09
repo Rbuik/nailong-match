@@ -6715,11 +6715,11 @@
       else play.textContent = '🎮 开始游戏';
     }
 
-    // 每日挑战：今天已经三星 → 按钮变成「已完成今日挑战」
+    // 每日挑战：今天已经三星 → 按钮变成「已完成每日挑战」（绿色），点了也只看战绩不能再打
     const dailyBtn = $('btn-daily');
     if (dailyBtn) {
       const done = dailyCompleted();
-      dailyBtn.textContent = done ? '✅ 已完成今日挑战' : '📅 每日挑战';
+      dailyBtn.textContent = done ? '✅ 已完成每日挑战' : '📅 每日挑战';
       dailyBtn.classList.toggle('is-done', done);
     }
   }

@@ -579,6 +579,14 @@ function check(name, ok) {
       /Store\.addCoins\(30, '每日挑战补发'\);/.test(gjs) && /Store\.patchDaily\(\{ coins: 30 \}\);/.test(gjs) &&
       /function patchDaily\(patch\)/.test(sjs) && /patchDaily,/.test(sjs);
   })());
+  check('三星后每天封盘：主页按钮变「✅ 已完成每日挑战」并变绿，点了只看战绩', (() => {
+    const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8');
+    return /dailyBtn\.textContent = done \? '✅ 已完成每日挑战' : '📅 每日挑战';/.test(gjs) &&
+      /dailyBtn\.classList\.toggle\('is-done', done\)/.test(gjs) &&
+      /if \(dailyCompleted\(\)\) \{\s*\n\s*showDailyDone\(\);/.test(gjs) &&   // 三星后再点只看战绩，不能再打
+      /\.btn-mini\.is-done\s*\{[^}]*#1a8f4a/.test(css);                       // 按键变绿
+  })());
   check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，放在滚动区外面（下方右对齐）', (() => {
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="mail-list"'), htmlSrc0.indexOf('id="mail-view"'));
     return /class="mail-emoji-btn" id="btn-mail-read-all"[^>]*>✅</.test(sec) &&
