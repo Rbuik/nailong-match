@@ -2133,6 +2133,14 @@ function check(name, ok) {
   })());
   check('已绑定的号点「存到服务器」先真实推送验证（号被删过会自动解绑重弹窗口）',
     /pushCloud\(true\)\.then/.test(jsSrc) && !/已经存到服务器了/.test(jsSrc));
+  // 16c. 自动存档健壮性：开机拉取失败时每轮先补拉（不然整场都不会自动存）；令牌过期自动解绑重绑
+  check('自动存档：拉取没成功先补拉再推；令牌过期自动解绑并尝试重绑', (() => {
+    const accSrc = fs.readFileSync(path.join(__dirname, 'js', 'account.js'), 'utf8');
+    return /if \(!cloudPulled\) \{ pullCloud\(\); return; \}/.test(accSrc) &&
+      /function expireAcc\(acc\)/.test(accSrc) &&
+      /String\(r\.reason \|\| ''\)\.indexOf\('过期'\) >= 0\) \{\s*\n\s*expireAcc\(acc\);\s*\n\s*try \{ autoCloudSave\(\); \} catch \(e\) \{\}/.test(accSrc) &&
+      /String\(r\.reason \|\| ''\)\.indexOf\('过期'\) >= 0\) expireAcc\(acc\);/.test(accSrc);
+  })());
   check('上云窗口点背景可以关掉（进度仍在本机，之后在账号安全里再存）',
     /case 'cloud-menu':\s*\n\s*skipCloud\(\);/.test(jsSrc) &&
     /function skipCloud\(\)/.test(jsSrc) && /cloudOffered = true;/.test(jsSrc) &&
@@ -3007,7 +3015,7 @@ function check(name, ok) {
   check('云存档自动化：记着密码就系统自己存，不用玩家点',
     /function autoCloudSave/.test(jsSrc) && /autoCloudSave, rememberedPass/.test(jsSrc) &&
     /function rememberPass/.test(jsSrc) && /rememberPass\(acc, pass\)/.test(jsSrc) &&
-    /Account\.autoCloudSave\(\)/.test(jsSrc) && htmlSrc.includes('☁️ 云存档（自动）') &&
+    /Account\.autoCloudSave\(\)/.test(jsSrc) && htmlSrc.includes('☁️ 云存档') &&
     htmlSrc.includes('自动存到服务器'));
 
   // ==================== 80 关扩展：新特殊块 + 新机关 ====================

@@ -630,6 +630,17 @@
   // 防止「本机是空的（还没来得及拉/恢复失败）」把服务器上的好存档覆盖掉
   let cloudPulled = false;
 
+  // 令牌失效（服务器上这个号被重建 / 删过 / 会话到期）：解除绑定，
+  // 让「存到服务器」的提示能重新出现，玩家重输密码即可重新建档
+  function expireAcc(acc) {
+    try {
+      acc.ctoken = null; acc.cloud = 0;
+      const arr = list();
+      const i = arr.findIndex((x) => x.id === acc.id);
+      if (i >= 0) { arr[i].ctoken = null; arr[i].cloud = 0; saveList(arr); }
+    } catch (e) {}
+  }
+
   // 当前账号的存档推上服务器（cloud.js 自带 12 秒节流）
   function pushCloud(force) {
     if (!cloudOk()) return Promise.resolve(false);
@@ -642,16 +653,7 @@
     return global.Cloud.push(slot, !!force)
       .then((r) => {
         if (r && r.ok) { if (r.token) acc.ctoken = r.token; return true; }
-        if (r && !r.ok && String(r.reason || '').indexOf('过期') >= 0) {
-          // 令牌失效（比如服务器上这个号被重建 / 删过）：解除绑定，
-          // 让「存到服务器」的提示能重新出现，玩家重输密码即可重新建档
-          try {
-            acc.ctoken = null; acc.cloud = 0;
-            const arr = list();
-            const i = arr.findIndex((x) => x.id === acc.id);
-            if (i >= 0) { arr[i].ctoken = null; arr[i].cloud = 0; saveList(arr); }
-          } catch (e) {}
-        }
+        if (r && !r.ok && String(r.reason || '').indexOf('过期') >= 0) expireAcc(acc);
         return false;
       })
       .catch(() => false);
@@ -683,7 +685,14 @@
     const acc = current();
     if (!acc || !useAccToken(acc)) return Promise.resolve(false);
     return global.Cloud.pull().then((r) => {
-      if (!r || !r.ok) return false;
+      if (!r || !r.ok) {
+        // 令牌过期：解除绑定，然后用记住的密码自动重绑（重绑成功自动存档就恢复了）
+        if (r && String(r.reason || '').indexOf('过期') >= 0) {
+          expireAcc(acc);
+          try { autoCloudSave(); } catch (e) {}
+        }
+        return false;
+      }
       cloudPulled = true;
       adoptCreated(acc, r.created);      // 注册时间以服务器为准（老设备建错的自愈）
       const srv = r.slot && r.slot.keys ? r.slot : null;
@@ -880,7 +889,13 @@
         try { autoCloudSave(); } catch (e) {}
       });
     }, 1500);
-    setInterval(() => { pushCloud(false); }, 30e3);
+    // 每 30 秒自动推一次当前号的存档。开机那次拉取没成功（手机刚开页面网络没就绪
+    // 很常见）时 cloudPulled 一直是 false，推送会被安全闸挡住——所以每轮先补拉，
+    // 拉成功置位后下一轮恢复正常推送；令牌过期会在 pullCloud 里自动重绑
+    setInterval(() => {
+      if (!cloudPulled) { pullCloud(); return; }
+      pushCloud(false);
+    }, 30e3);
     global.addEventListener && global.addEventListener('pagehide', () => { pushCloud(true); });
   }
 
