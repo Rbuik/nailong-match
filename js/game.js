@@ -3137,7 +3137,14 @@
       : Store.recordLevel(S.level, S.score, starsNow);
     if (!S.daily) S.menuLevel = S.level;
     if (!S.daily) Store.markPlayed(S.level);
-    if (S.daily) refreshMenu();
+    if (S.daily) {
+      refreshMenu();
+      // 打完每日挑战（有星就算完成）把成绩发到「每日挑战榜单」：
+      // Board 里按「星星多 → 用步少 → 通关早」合并，只有更好才会覆盖
+      if (starsNow >= 1 && !again) {
+        try { publishDailyRecord(starsNow, dailyMovesUsed); } catch (e) {}
+      }
+    }
     if (!S.daily) grantChapterMails();   // 这一关刚好是本章最后一关 → 发章节奖励
 
     // 金币产出（§7）：每日挑战只有三星才发（按用步算，已在 dailySettle 里发掉，
@@ -3184,10 +3191,12 @@
       // 每日挑战的结算不显示「历史最高」那一行（普通关照常显示）
       const hiRow = $('clear-high-row');
       if (hiRow) hiRow.style.display = S.daily ? 'none' : '';
-      // 限时关显示「剩余时间」，步数关显示「剩余步数」
+      // 限时关显示「剩余时间」；每日挑战显示「使用步数」（这局一共用了几步）；
+      // 普通步数关照旧显示「剩余步数」
       const mvLabel = $('clear-moves-label');
-      if (mvLabel) mvLabel.textContent = S.timerOn ? '剩余时间' : '剩余步数';
-      $('clear-moves').textContent = S.timerOn ? Math.round(S.timeLeft) + 's' : S.moves;
+      if (mvLabel) mvLabel.textContent = S.timerOn ? '剩余时间' : (S.daily ? '使用步数' : '剩余步数');
+      $('clear-moves').textContent = S.timerOn ? Math.round(S.timeLeft) + 's'
+        : (S.daily ? Math.max(0, (S.levelDef.moves || 20) - S.moves) : S.moves);
       $('clear-coins').textContent = '+' + coins;
       // 「新纪录」等分数滚完再亮，别提前剧透
       $('clear-new-record').style.display = 'none';
@@ -3202,10 +3211,12 @@
           const canRe = !dailyCompleted();
           cont.style.display = canRe ? 'inline-block' : 'none';
           cont.textContent = '🔄 重新开始';
+          cont.classList.add('daily-restart');   // 蓝色、大小和「返回主页」一致
         } else {
           const canCont = S.timerOn ? S.timeLeft > 0 : S.moves > 0;
           cont.style.display = canCont ? 'inline-block' : 'none';
           cont.textContent = S.timerOn ? '还有剩余秒数点击继续游戏' : '还有剩余步数点击继续游戏';
+          cont.classList.remove('daily-restart');
         }
       }
       // 还有特效在播就先让它们播完（炸弹 / 线消 / 彩虹 / 彩带 / 双倍），别一刀切
@@ -3440,6 +3451,7 @@
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'save-menu',
+      'daily-menu', 'daily-lb',
       'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu',
       'ach-detail',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
@@ -3462,6 +3474,7 @@
     'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
+    'daily-menu', 'daily-lb',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'save-menu',
     'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu', 'ach-detail'];
 
@@ -5525,15 +5538,27 @@
     });
     const dailyBtn = $('btn-daily');
     if (dailyBtn) dailyBtn.addEventListener('click', () => {
-      // 今天已经拿到 3 星：不能再打，直接看今天战绩
-      if (dailyCompleted()) {
-        showDailyDone();
-        return;
-      }
+      // 点进去是「每日挑战」面板：开始挑战 / 查看榜单（当天已三星的话开始键变成「已完成今日挑战」）
+      syncDailyMenu();
+      showOverlay('daily-menu');
+    });
+    // 开始挑战：当天已满 3 星 → 只看今日战绩；否则照常开局（开局前先确认登录）
+    const dailyStart = $('btn-daily-start');
+    if (dailyStart) dailyStart.addEventListener('click', () => {
+      $('daily-menu').style.display = 'none';
+      if (dailyCompleted()) { showDailyDone(); return; }
       ensureAccount(() => {
         const d = Tasks.getDailyChallenge();
         startLevel(9999, { def: d, seed: d.seed, daily: true });
       });
+    });
+    // 查看榜单：按「星星多 → 用步少 → 通关早」排名（格式照排行榜）
+    const dailyLbBtn = $('btn-daily-lb');
+    if (dailyLbBtn) dailyLbBtn.addEventListener('click', () => {
+      $('daily-menu').style.display = 'none';
+      renderDailyLb();
+      showOverlay('daily-lb');
+      try { if (typeof Board !== 'undefined' && Board.sync) Board.sync(); } catch (e) {}
     });
     // 「返回主页」键已删：点面板外空白回主页（panelBack）
 
@@ -6505,6 +6530,8 @@
       'auth-forgot': 'auth-form', // 忘记密码：点背景回登录表单（名字已经填着的）
       // auth-menu 不在返回映射里放行：登录页不可退出（见返回处理里的 auth-menu 分支）
       'daily-done': 'main-menu', // 每日挑战结算页：点空白回主页
+      'daily-menu': 'main-menu', // 每日挑战面板：点空白回主页
+      'daily-lb': 'daily-menu',  // 每日挑战榜单：点空白回每日挑战面板
       'tasks-menu': 'main-menu',
       'chapters-menu': 'main-menu',
       'story-menu': 'chapters-menu',
@@ -6658,6 +6685,55 @@
     return (Store.getDailyRecord().stars || 0) >= 3;
   }
 
+  // 每日挑战面板的开始键：当天已满 3 星 → 绿色「✅ 已完成今日挑战」（点了只看战绩）
+  function syncDailyMenu() {
+    const btn = $('btn-daily-start');
+    if (!btn) return;
+    const done = dailyCompleted();
+    btn.textContent = done ? '✅ 已完成今日挑战' : '▶ 开始挑战';
+    btn.classList.toggle('is-done', done);
+  }
+
+  // 每日挑战榜单：星星多 → 用步少 → 通关早；格式照排行榜（名次 / 名字 / 星 / 用步）
+  function renderDailyLb() {
+    const box = $('daily-lb-list');
+    if (!box) return;
+    const meUid = Meta.myUid();
+    const raw = (typeof Board !== 'undefined' && Board.dailyList) ? Board.dailyList() : [];
+    if ((Store.getDailyRecord().stars || 0) >= 1 &&
+        !raw.some((r) => r.uid === meUid)) {
+      // 自己最新的一条（哪怕还没同步出去）也排进去，名次当场就能看到
+      const rec = Store.getDailyRecord();
+      raw.push({ uid: meUid, name: Meta.nickname(), stars: rec.stars || 0, moves: rec.moves || 0, ts: Date.now() });
+    }
+    raw.forEach((r) => { if (r.uid === meUid) r.me = true; });
+    raw.sort((a, b) => (b.stars - a.stars) ||
+      ((a.moves > 0 ? a.moves : 99999) - (b.moves > 0 ? b.moves : 99999)) ||
+      ((a.ts || 0) - (b.ts || 0)));
+    box.innerHTML = '';
+    raw.slice(0, 20).forEach((r, i) => {
+      const row = document.createElement('div');
+      row.className = 'lb-row' + (r.me ? ' me' : '');
+      const rank = i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1);
+      const stars = Math.max(0, r.stars || 0);
+      const inner = document.createElement('div');
+      inner.className = 'lb-swipe col4';
+      inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
+        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
+        (r.me ? '<i class="lb-me">我</i>' : '') + '</span>' +
+        (stars > 0 ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>' : '<span class="lb-stars"></span>') +
+        '<span class="lb-score">' + (r.moves > 0 ? r.moves + ' 步' : '—') + '</span>';
+      row.appendChild(inner);
+      box.appendChild(row);
+    });
+    if (!raw.length) {
+      const d = document.createElement('div');
+      d.className = 'lb-empty';
+      d.textContent = '还没有人上榜，完成每日挑战就会自动上榜';
+      box.appendChild(d);
+    }
+  }
+
   function showDailyDone() {
     const rec = Store.getDailyRecord();
     const row = $('daily-done-stars');
@@ -6734,11 +6810,11 @@
     }
 
     // 每日挑战：今天已经三星 → 按钮变成「已完成今日挑战」（绿色），点了也只看战绩不能再打
+    // 每日挑战主页按钮：常显「📅 每日挑战」；「已完成今日挑战」显示在面板的开始键上
     const dailyBtn = $('btn-daily');
     if (dailyBtn) {
-      const done = dailyCompleted();
-      dailyBtn.textContent = done ? '✅ 已完成今日挑战' : '📅 每日挑战';
-      dailyBtn.classList.toggle('is-done', done);
+      dailyBtn.textContent = '📅 每日挑战';
+      dailyBtn.classList.remove('is-done');
     }
   }
 
@@ -8048,6 +8124,18 @@
   }
 
   function recordMyScore() { publishMyScore(); }
+
+  // 每日挑战成绩发到榜单（星星 / 用步 / 通关时间；Board 里按「星多 → 步少 → 时间早」合并）
+  function publishDailyRecord(stars, moves) {
+    if (typeof Board === 'undefined' || !Board.publishDaily) return;
+    if (typeof Account !== 'undefined' && !Account.loggedIn()) return;
+    try {
+      Board.publishDaily({
+        uid: Meta.myUid(), name: Meta.nickname(), pv: myProvCode(),
+        stars: stars, moves: moves, ts: Date.now()
+      });
+    } catch (e) {}
+  }
 
   // 名字已被谁占用：全网榜 + 本机好友（自己的除外）
   function takenNickNames() {

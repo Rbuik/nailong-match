@@ -99,6 +99,7 @@ function getEl(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; }
   'playlist-menu', 'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu',
   'backpack-menu', 'pause-menu', 'logout-confirm', 'logout-confirm2', 'level-clear', 'game-over',
   'daily-done', 'game-complete', 'chapters-menu', 'story-menu', 'modes-menu', 'mode-over',
+  'daily-menu', 'daily-lb',
   'achievements-menu', 'ach-detail', 'collection-menu', 'welfare-menu', 'leaderboard-menu',
   'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'fix-menu', 'cloud-menu',
   'buy-confirm', 'use-confirm', 'reset-bgm-confirm', 'mail-delall-confirm', 'makeup-menu', 'coin-menu'
@@ -579,13 +580,38 @@ function check(name, ok) {
       /Store\.addCoins\(30, '每日挑战补发'\);/.test(gjs) && /Store\.patchDaily\(\{ coins: 30 \}\);/.test(gjs) &&
       /function patchDaily\(patch\)/.test(sjs) && /patchDaily,/.test(sjs);
   })());
-  check('三星后每天封盘：主页按钮变「✅ 已完成今日挑战」并变绿，点了只看战绩', (() => {
+  check('三星后封盘：「✅ 已完成今日挑战」出现在面板的开始键上（绿色），点了只看战绩', (() => {
     const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
     const css = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8');
-    return /dailyBtn\.textContent = done \? '✅ 已完成今日挑战' : '📅 每日挑战';/.test(gjs) &&
-      /dailyBtn\.classList\.toggle\('is-done', done\)/.test(gjs) &&
-      /if \(dailyCompleted\(\)\) \{\s*\n\s*showDailyDone\(\);/.test(gjs) &&   // 三星后再点只看战绩，不能再打
-      /\.btn-mini\.is-done\s*\{[^}]*#1a8f4a/.test(css);                       // 按键变绿
+    return /btn\.textContent = done \? '✅ 已完成今日挑战' : '▶ 开始挑战';/.test(gjs) &&
+      /btn\.classList\.toggle\('is-done', done\)/.test(gjs) &&
+      /if \(dailyCompleted\(\)\) \{ showDailyDone\(\); return; \}/.test(gjs) &&   // 三星后再点只看战绩，不能再打
+      /\.btn-primary\.is-done\s*\{[^}]*#1a8f4a/.test(css) &&                 // 开始键变绿
+      !/dailyBtn\.textContent = done \?/.test(gjs);                          // 主页按钮不再显示完成态
+  })());
+  check('每日挑战面板：开始挑战 / 查看榜单两个键，点空白回主页、榜单点空白回面板', (() => {
+    const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
+    return html.includes('id="daily-menu"') && html.includes('id="daily-lb"') &&
+      html.includes('id="btn-daily-start"') && html.includes('id="btn-daily-lb"') &&
+      html.indexOf('btn-daily-start') < html.indexOf('btn-daily-lb') &&
+      /'daily-menu': 'main-menu'/.test(gjs) && /'daily-lb': 'daily-menu'/.test(gjs) &&
+      /syncDailyMenu\(\);/.test(gjs) && /showOverlay\('daily-menu'\);/.test(gjs) &&
+      /function renderDailyLb/.test(gjs);
+  })());
+  check('每日挑战榜单数据层：dl 消息 / ds 快照 / 星多→步少→通关早 / 注销同步移除', (() => {
+    const bjs = fs.readFileSync(path.join(__dirname, 'js', 'board.js'), 'utf8');
+    return /t === 'dl'/.test(bjs) && /t === 'ds'/.test(bjs) &&
+      /publishDaily,/.test(bjs) && /dailyList:/.test(bjs) &&
+      /function dailyBetter\(a, b\)/.test(bjs) &&
+      /if \(a\.stars !== b\.stars\) return a\.stars > b\.stars;/.test(bjs) &&
+      /const di = findDailyIdx\(uid\);/.test(bjs) &&
+      /DLKEY = 'nl2:lbdaily'/.test(bjs);
+  })());
+  check('每日挑战成绩自动发榜（打完且拿到星才发）', (() => {
+    const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
+    return /publishDailyRecord\(starsNow, dailyMovesUsed\)/.test(gjs) &&
+      /function publishDailyRecord/.test(gjs) && /Board\.publishDaily\(/.test(gjs);
   })());
   check('邮箱底部只留 ✅ / 🗑️ 两个小圆钮，放在滚动区外面（下方右对齐）', (() => {
     const sec = htmlSrc0.slice(htmlSrc0.indexOf('id="mail-list"'), htmlSrc0.indexOf('id="mail-view"'));
@@ -719,6 +745,12 @@ function check(name, ok) {
     featsHtml.includes('📮 邮箱') && !featsHtml.includes('基本玩法') &&
     !featsHtml.includes('所有人同一局') &&
     /🎯 每日任务[\s\S]*?<\/p>\s*<p><b>📅 每日挑战/.test(featsHtml));
+  check('说明页文案按最新要求更新（金币 / 退出面板 / 称号分类 / 忘记密码 / 删「场上还剩」）',
+    featsHtml.includes('点<b>「金币」</b>可查看<b>金币明细</b>') && !featsHtml.includes('点右边的数字不跳转') &&
+    featsHtml.includes('<b>👆 退出面板</b>：点面板外的空白回上一层。</p>') && !featsHtml.includes('按游客玩') &&
+    featsHtml.includes('称号分为：学徒→新星→达人→高手→大师→宗师') &&
+    featsHtml.includes('需填写「名字 + 身份号码」') && !featsHtml.includes('同一台手机上直接设新密码') &&
+    !featsHtml.includes('场上还剩 N 件') && featsHtml.includes('同一天所有人打的都是'));
   $('features-menu').dispatch('click');
   check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
   $('btn-goto-play-rules').dispatch('click');
@@ -1643,12 +1675,20 @@ function check(name, ok) {
   sandbox.__nl_test.start(9999, { def: { id: 9001, theme: 'ocean', moves: 20, goal: { type: 'score', target: 100 }, stars: [100, 200, 300] }, daily: true });
   sandbox.__nl_test.state().moves = 7;
   sandbox.__nl_test.win();
-  check('每日挑战过关没到三星：不显示历史最高，按键只有重新开始和返回主页',
+  check('每日挑战过关没到三星：不显示历史最高，按键只有重新开始（蓝色、和返回主页一样大）和返回主页',
     $('clear-high-row').style.display === 'none' &&
     $('btn-clear-continue').style.display === 'inline-block' &&
     $('btn-clear-continue').textContent === '🔄 重新开始' &&
+    $('btn-clear-continue').classList.contains('daily-restart') &&
+    $('clear-moves-label').textContent === '使用步数' &&
+    String($('clear-moves').textContent) === '13' &&              // 20 步用了 13 步
     $('btn-next-level').style.display === 'none' &&
-    $('btn-clear-home').style.display !== 'none');
+    $('btn-clear-home').style.display !== 'none') &&
+  check('「重新开始」蓝色、大小与「返回主页」一致（180px / 14px / 17px）',
+    /#level-clear #btn-clear-continue\.daily-restart\s*\{[^}]*width:\s*180px/.test(cssSrc) &&
+    /#level-clear #btn-clear-continue\.daily-restart\s*\{[^}]*padding:\s*14px 0/.test(cssSrc) &&
+    /#level-clear #btn-clear-continue\.daily-restart\s*\{[^}]*font-size:\s*17px/.test(cssSrc) &&
+    /#level-clear #btn-clear-continue\.daily-restart\s*\{[^}]*#3a78ff/.test(cssSrc));
   lsMap.delete('nl2:daily');
   sandbox.__nl_test.start(9999, { def: { id: 9001, theme: 'ocean', moves: 20, goal: { type: 'score', target: 100 }, stars: [100, 200, 300] }, daily: true });
   sandbox.__nl_test.state().moves = 19;

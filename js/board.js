@@ -16,6 +16,8 @@
   // 并把 uid 记进本墓碑表，防止旧消息 / 别人手里的快照把已注销的人「复活」。
   // 存在独立的 key（nl2:lb-del）里，注销清档时不清掉它。
   const DELKEY = 'nl2:lb-del';
+  // 每日挑战榜单：独立的一份名单（星星多 → 用步少 → 通关早），存在单独的缓存里
+  const DLKEY = 'nl2:lbdaily';
   const DEL_MAX_AGE = 30 * 864e5;        // 墓碑保留 30 天（中转消息只留 12h，足够盖住）
   const MAX = 60;                        // 榜单最多保留 60 人
   const PUB_MIN_MS = 6e3;                // 自己的成绩最快 6 秒发一次
@@ -26,6 +28,7 @@
   //   pv = 省份代码（省榜用），lv = { 关卡号: 本关最高分 }（局榜用），
   //   st = { 关卡号: 星级 1~3 }（榜上星星用，老数据没有就按分数反推）
   let entries = [];
+  let dEntries = [];       // 每日挑战榜：[{ uid, name, stars, moves, ts }]，每人留最好的一条
   let status = 'idle';     // idle | syncing | live | offline
   let listeners = [];
   let es = null;           // EventSource
@@ -70,6 +73,79 @@
     try {
       if (global.localStorage) localStorage.setItem(CACHE, JSON.stringify({ ts: lastSync, list: entries }));
     } catch (e) {}
+  }
+
+  // ---------- 每日挑战榜（星星多 → 用步少 → 通关早，每人留最好的一条） ----------
+  function loadD() {
+    try {
+      const raw = global.localStorage && localStorage.getItem(DLKEY);
+      const j = raw ? JSON.parse(raw) : null;
+      if (j && Array.isArray(j.list)) dEntries = j.list.map(cleanDaily).filter(Boolean);
+    } catch (e) {}
+  }
+
+  function saveD() {
+    try {
+      if (global.localStorage) localStorage.setItem(DLKEY, JSON.stringify({ list: dEntries }));
+    } catch (e) {}
+  }
+
+  function cleanDaily(e) {
+    if (!e) return null;
+    const uid = String(e.uid || e.u || '');
+    if (!/^[A-Za-z0-9_-]{3,24}$/.test(uid)) return null;
+    if (deleted[uid]) return null;               // 已注销的人不进每日榜
+    const name = String(e.name || e.n || '玩家').replace(/[\r\n<>]/g, '').trim().slice(0, 8) || '玩家';
+    const stars = Math.round(Number(e.stars != null ? e.stars : e.s));
+    if (!(stars >= 1 && stars <= 3)) return null;  // 至少完成（拿到 1 星）才算成绩
+    const mv = Math.round(Number(e.moves != null ? e.moves : e.m));
+    const moves = (mv >= 0 && mv <= 9999) ? mv : 0; // 0 = 老档没记步数，排序垫底、显示「—」
+    const ts = Number(e.ts || e.t || 0) || Date.now();
+    return { uid: uid, name: name, stars: stars, moves: moves, ts: ts };
+  }
+
+  // 谁更靠前：星星多 → 用步少（没记步数的垫底）→ 通关时间早
+  function dailyBetter(a, b) {
+    if (a.stars !== b.stars) return a.stars > b.stars;
+    const am = a.moves > 0 ? a.moves : 99999;
+    const bm = b.moves > 0 ? b.moves : 99999;
+    if (am !== bm) return am < bm;
+    return a.ts < b.ts;
+  }
+
+  function findDailyIdx(uid) {
+    for (let i = 0; i < dEntries.length; i++) if (dEntries[i].uid === uid) return i;
+    return -1;
+  }
+
+  function mergeDaily(raw) {
+    const e = cleanDaily(raw);
+    if (!e) return false;
+    const i = findDailyIdx(e.uid);
+    if (i < 0) {
+      dEntries.push(e);
+      trimDaily();
+      return true;
+    }
+    const cur = dEntries[i];
+    let changed = false;
+    if (e.ts >= cur.ts && e.name !== cur.name) { cur.name = e.name; changed = true; }
+    if (dailyBetter(e, cur)) { dEntries[i] = e; changed = true; }
+    return changed;
+  }
+
+  function trimDaily() {
+    if (dEntries.length <= MAX) return;
+    dEntries.sort(dailyCmp);
+    dEntries = dEntries.slice(0, MAX);
+  }
+
+  function dailyCmp(a, b) {
+    if (a.stars !== b.stars) return b.stars - a.stars;
+    const am = a.moves > 0 ? a.moves : 99999;
+    const bm = b.moves > 0 ? b.moves : 99999;
+    if (am !== bm) return am - bm;
+    return (a.ts || 0) - (b.ts || 0);
   }
 
   // ---------- 注销墓碑 ----------
@@ -268,6 +344,15 @@
         if (!entries[i].lv) entries[i].lv = {};
         if (mergeLv(entries[i].lv, cleanLv(row[1]))) changed = true;
       });
+    } else if (msg.t === 'dl') {
+      // 每日挑战成绩：{ t:'dl', u, n, s:星星, m:用步, ts:通关时间 }
+      if (mergeDaily(msg)) changed = true;
+    } else if (msg.t === 'ds' && Array.isArray(msg.d)) {
+      // 每日挑战榜快照：[[uid, name, stars, moves, ts], ...]
+      msg.d.forEach((row) => {
+        if (!Array.isArray(row)) return;
+        if (mergeDaily({ uid: row[0], name: row[1], stars: row[2], moves: row[3], ts: row[4] })) changed = true;
+      });
     } else if (msg.t === 'd' && msg.u) {
       // 注销广播：把这个人从榜单拿掉，并记进墓碑表
       const uid = String(msg.u);
@@ -276,6 +361,8 @@
         if (ts > (deleted[uid] || 0)) { deleted[uid] = ts; saveDel(); }
         const i = findIdx(uid);
         if (i >= 0 && entries[i].ts <= ts) { entries.splice(i, 1); changed = true; }
+        const di = findDailyIdx(uid);
+        if (di >= 0) { dEntries.splice(di, 1); changed = true; saveD(); }
       }
     } else {
       if (mergeOne(msg)) changed = true;
@@ -355,7 +442,7 @@
   const SNAP_CHUNK = 10;
   let snapChunk = 0;
   function maybeSnapshot() {
-    if (entries.length < 2) return;
+    if (entries.length < 2 && dEntries.length < 2) return;
     if (Date.now() - lastSnap < SNAP_MIN_MS) return;
     lastSnap = Date.now();
     // 已注销的人不再写进快照，免得其他设备把他「复活」
@@ -378,6 +465,11 @@
       if (Object.keys(sub).length) rows.push([e.uid, sub]);
     });
     if (rows.length) post(JSON.stringify({ t: 'v', d: rows }));
+    // 每日挑战榜快照：跟着总分快照一起发，让老成绩也能撑过 12 小时
+    const dTop = dEntries.filter((e) => !deleted[e.uid]).sort(dailyCmp).slice(0, 30);
+    if (dTop.length) {
+      post(JSON.stringify({ t: 'ds', d: dTop.map((e) => [e.uid, e.name, e.stars, e.moves, e.ts]) }));
+    }
   }
 
   // ---------- 发自己的成绩 ----------
@@ -396,6 +488,21 @@
     post(JSON.stringify({
       t: 'e', u: e.uid, n: e.name, s: e.score, l: e.level, ts: now, pv: e.pv || '', lv: e.lv || {}, st: e.st || {}
     }));
+    return true;
+  }
+
+  // ---------- 发自己的每日挑战成绩 ----------
+  // 合并规则在 mergeDaily：星星多 → 用步少 → 通关早，只有更好才会覆盖旧成绩
+  function publishDaily(me, force) {
+    if (!canPublish()) return false;
+    const e = cleanDaily(me);
+    if (!e) return false;
+    const now = Date.now();
+    if (!force && now - lastPub < PUB_MIN_MS) return false;
+    lastPub = now;
+    mergeDaily({ uid: e.uid, name: e.name, stars: e.stars, moves: e.moves, ts: e.ts });
+    saveD();
+    post(JSON.stringify({ t: 'dl', u: e.uid, n: e.name, s: e.stars, m: e.moves, ts: e.ts }));
     return true;
   }
 
@@ -465,10 +572,13 @@
 
   load();
   loadDel();
+  loadD();
 
   global.Board = {
-    open, close, publish, sync, remove,
+    open, close, publish, sync, remove, publishDaily,
     list: () => entries.slice().sort(byScore),
+    dailyList: () => dEntries.slice().sort(dailyCmp),
+    dailyCount: () => dEntries.length,
     get: (uid) => { const i = findIdx(String(uid || '')); return i < 0 ? null : entries[i]; },
     count: () => entries.length,
     status: () => status,

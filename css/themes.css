@@ -141,6 +141,20 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   border-color: rgba(26, 143, 74, 0.4);
   background: rgba(92, 200, 143, 0.14);
 }
+/* 每日挑战面板的「开始挑战」键：当天已满三星变成绿色「✅ 已完成今日挑战」 */
+.btn-primary.is-done {
+  background: rgba(92, 200, 143, 0.14);
+  color: #1a8f4a;
+  border-color: rgba(26, 143, 74, 0.4);
+}
+/* 每日挑战面板里的一句小字说明 */
+.daily-menu-tip {
+  margin: 2px 0 18px;
+  font-size: 13px;
+  color: #666;
+  text-align: center;
+  line-height: 1.6;
+}
 
 /* ================= 每日任务（§6） ================= */
 
@@ -1694,6 +1708,16 @@ body.m-dragging .m-item { cursor: grabbing; }
   background: rgba(67, 197, 109, 0.12);
   color: #1a8f4a;
   border: 2px solid rgba(67, 197, 109, 0.6);
+  box-shadow: none;
+}
+/* 每日挑战的「🔄 重新开始」：蓝色、大小和「返回主页」完全一致 */
+#level-clear #btn-clear-continue.daily-restart {
+  width: 180px;
+  padding: 14px 0;
+  font-size: 17px;
+  background: rgba(92, 143, 255, 0.08);
+  color: #3a78ff;
+  border: 2px solid rgba(92, 143, 255, 0.55);
   box-shadow: none;
 }
 /* 后台「玩家」名单：省份贴在分数右边，榜一的分数与省份之间 ≈ 两个文字大小；
