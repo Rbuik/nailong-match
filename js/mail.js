@@ -56,6 +56,16 @@
       from: '系统',
       body: '· 📖 说明两页都精简了，功能介绍改成按按键位置一层层讲\n· 🏆 关卡记录右下角「结算」随时打开「消消乐大师」成绩单：称号、通关进度、总分、总星、三星关卡、成就\n· ☁️ 账号和进度现在自动存到服务器，不用再手动点\n· 🍬 成就新增「糖果爱好者」，关卡记录里能看出哪些关运送糖果',
       coins: 0
+    },
+    {
+      id: 'opengift-2026-11-09',
+      at: '2026-11-09 11:05',
+      icon: '🎁',
+      title: '欢迎成为开服玩家',
+      from: '系统',
+      before: '2026-11-09 11:05:00',   // 只发给这个时间点之前注册的玩家（含秒，精确到截止那一刻）
+      body: '谢谢你在开服期间就来到奶龙消消乐！这份 666 金币的开服礼，专门送给最早一起玩的老朋友。\n\n以后有活动、补偿、版本更新，都会发到这封信箱里，记得常来看看。',
+      coins: 666
     }
   ];
 
@@ -109,6 +119,7 @@
       ' ' + p2(d.getHours()) + ':' + p2(d.getMinutes());
   }
   // 建号时间：欢迎邮件的发送时间就用它；比它早的系统邮件玩家一律看不到
+  // raw：不抹掉秒的原始建号时间（「只发给某时刻之前注册的玩家」这种邮件要精确到秒）
   function registeredAt() {
     try {
       const acc = (global.Account && Account.current) ? Account.current() : null;
@@ -116,11 +127,11 @@
         const d = new Date(acc.created);
         if (!isNaN(d.getTime())) {
           d.setSeconds(0, 0);          // 只精确到分钟：建号同一分钟里发的邮件也算「注册之后」
-          return { ts: d.getTime(), text: fmtTime(d) };
+          return { ts: d.getTime(), text: fmtTime(d), raw: Number(acc.created) || 0 };
         }
       }
     } catch (e) {}
-    return { ts: 0, text: '' };
+    return { ts: 0, text: '', raw: 0 };
   }
   function atOf(m, reg) {
     if (m.atRegister) return reg.text || m.at || '';
@@ -169,11 +180,20 @@
       read: !!s.read[m.id],
       claimed: !!s.claimed[m.id],
       hasGift: !!(m.coins || m.items),
-      always: !!m.always
+      always: !!m.always,
+      before: m.before || ''
     }))
       // 建号之前的系统邮件不展示（老玩家不会有「你注册前就发过」的邮件）；
-      // 标了 always 的长期公告不受这个限制，什么时候注册都看得到
-      .filter((m) => m.always || !reg.ts || !atTime(m.at) || atTime(m.at) >= reg.ts)
+      // 标了 always 的长期公告不受这个限制，什么时候注册都看得到；
+      // 标了 before 的邮件只发给那个时间点之前注册的玩家（精确到秒，比如开服玩家礼）
+      .filter((m) => {
+        if (m.always) return true;
+        if (m.before) {
+          const bt = atTime(m.before);
+          if (bt && reg.raw && reg.raw >= bt) return false;
+        }
+        return !reg.ts || !atTime(m.at) || atTime(m.at) >= reg.ts;
+      })
       .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
   }
 

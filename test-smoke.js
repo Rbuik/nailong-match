@@ -2241,6 +2241,28 @@ function check(name, ok) {
   const giftMail = mailListAll.filter((m) => m.hasGift)[0];
   check('邮箱里有系统邮件（公告 + 带奖励的）',
     mailListAll.length >= 3 && !!giftMail && !!giftMail.coins);
+  // 34c. 开服玩家礼：只发给 2026-11-09 11:05:00 之前注册的玩家（精确到秒）
+  check('开服玩家邮件：截止前注册的能看到（666 金币），截止后注册的看不到', (() => {
+    const curId = sandbox.Account.current().id;
+    const accs = JSON.parse(lsMap.get('nl2:accounts'));
+    const me = accs.filter((a) => a.id === curId)[0];
+    const saved = me.created;
+    const setCreated = (ts) => { me.created = ts; lsMap.set('nl2:accounts', JSON.stringify(accs)); };
+    setCreated(new Date(2026, 10, 8, 20, 0, 0).getTime());    // 截止前 → 能看到
+    const got = sandbox.Mail.list().filter((m) => m.id === 'opengift-2026-11-09')[0];
+    const gotOk = !!got && got.coins === 666 && got.title === '欢迎成为开服玩家';
+    setCreated(new Date(2026, 10, 9, 11, 5, 30).getTime());   // 截止后（11:05:30）→ 看不到
+    const lateGone = sandbox.Mail.list().every((m) => m.id !== 'opengift-2026-11-09');
+    setCreated(new Date(2026, 10, 9, 11, 4, 59).getTime());   // 11:04:59（卡点前 1 秒）→ 能看到
+    const edgeOk = sandbox.Mail.list().some((m) => m.id === 'opengift-2026-11-09');
+    setCreated(saved);
+    lsMap.set('nl2:accounts', JSON.stringify(accs));
+    return gotOk && lateGone && edgeOk;
+  })());
+  check('邮件领取后的按钮是「已领取 xxx 金币」（不再是「奖励已领取」）',
+    /已领取 ' \+ m\.coins \+ ' 金币/.test(jsSrc) &&
+    /已领取 ' \+ r\.coins \+ ' 金币/.test(jsSrc) &&
+    !jsSrc.includes("'奖励已领取'"));
   check('未读数和已读状态初始正确', sandbox.Mail.get(giftMail.id).read === false);
   sandbox.__nl_test.refreshMenu();          // 刚补的那封要让角标重新算一遍
   $('main-menu').style.display = 'flex';

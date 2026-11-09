@@ -8820,7 +8820,9 @@
     if (claim) {
       claim.style.display = m.hasGift ? 'block' : 'none';
       claim.disabled = !!m.claimed;
-      claim.textContent = m.claimed ? '奖励已领取' : (m.coins ? '领取 ' + m.coins + ' 金币' : '领取奖励');
+      claim.textContent = m.claimed
+        ? (m.coins ? '已领取 ' + m.coins + ' 金币' : '已领取')
+        : (m.coins ? '领取 ' + m.coins + ' 金币' : '领取奖励');
     }
     $('mail-menu').style.display = 'none';
     showOverlay('mail-view');
@@ -8833,7 +8835,7 @@
     const r = Mail.claim(mailOpenId);
     if (!r.ok) { toast(r.reason || '领取失败'); return; }
     const claim = $('btn-mail-claim');
-    if (claim) { claim.disabled = true; claim.textContent = '奖励已领取'; }
+    if (claim) { claim.disabled = true; claim.textContent = r.coins ? '已领取 ' + r.coins + ' 金币' : '已领取'; }
     toast(r.coins ? '领取成功：+' + r.coins + ' 金币' : '领取成功');
     try { AudioManager.playSFX('coin'); } catch (e) {}
     renderMailList();
