@@ -1960,6 +1960,11 @@ function check(name, ok) {
   check('账号安全面板显示当前账号 + 注册时间（yy-MM-dd HH:mm:ss 补零，比如 26-11-06 19:18:22）', $('account-menu').style.display === 'flex' &&
     String($('account-cur-name').textContent) === '测试奶龙' &&
     /^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(String($('account-created').textContent)));
+  check('账号安全页右边的值和左边标签一样大（16px，身份号码也是）', (() => {
+    const css = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8');
+    return /#account-menu \.result-box b \{ font-size: 16px/.test(css) &&
+      /#account-uid \{[^}]*font-size: 16px/.test(css);
+  })());
   $('btn-goto-switch').dispatch('click');
   check('切换账号列表有当前账号', $('switch-menu').style.display === 'flex' &&
     $('acct-list').children.length >= 1);
@@ -2741,29 +2746,28 @@ function check(name, ok) {
     if (saved !== undefined) lsMap.set('nl2:tasks', saved); else lsMap.delete('nl2:tasks');
     return ok && ok2 && S2.SIGN_MILESTONE.coins === 200 && S2.SIGN_MILESTONE.every === 7;
   })());
-  check('登录 / 注册页点背景可以跳过登录（游客也能玩），并记住这个选择', (() => {
+  check('登录页不可退出：点背景跳不过去了，必须登录 / 注册 / 导入存档码（或本机账号）进入', (() => {
     const hadSkip = lsMap.get('nl2:authSkip');
     $('auth-menu').style.display = 'none';
     $('auth-form').style.display = 'flex';
     $('auth-form').dispatch('click');
     const formBack = $('auth-form').style.display === 'none' && $('auth-menu').style.display === 'flex';
     $('auth-menu').dispatch('click');
-    const guest = $('auth-menu').style.display === 'none' &&
-      $('main-menu').style.display === 'flex' && !!lsMap.get('nl2:authSkip');
-    // 源码：游客不再被拦在登录页；下次启动直接进主页；游客不会被自动认领成老账号；注册时进度顺延
-    const srcOk = /function skipAuth\(\)/.test(jsSrc) &&
+    const stuck = $('auth-menu').style.display === 'flex' &&
+      $('main-menu').style.display !== 'flex' && !lsMap.get('nl2:authSkip');
+    // 源码：skipAuth 已删；启动不再看 authSkip 标记；本机数据照样认领成账号（登录页卡片可进）
+    const srcOk = !/function skipAuth\(\)/.test(jsSrc) &&
       /AUTH_SKIP_KEY = 'nl2:authSkip'/.test(jsSrc) &&
-      /else if \(authSkipped\(\)\) \{/.test(jsSrc) &&
-      /case 'auth-menu':\s*\n\s*skipAuth\(\);/.test(jsSrc) &&
+      !/else if \(authSkipped\(\)\) \{/.test(jsSrc) &&
+      /case 'auth-menu':\s*\n\s*\/\/ 登录页不可退出/.test(jsSrc) &&
+      /if \(typeof Account !== 'undefined'\) Account\.ensure\(\)/.test(jsSrc) &&
       /'auth-form': 'auth-menu'/.test(jsSrc) &&
-      /!authSkipped\(\)\) Account\.ensure\(\)/.test(jsSrc) &&
-      /const guestKeys = loggedIn\(\) \? null : activeSnapshot\(\)/.test(jsSrc) &&
       /'nl2:authSkip': 1/.test(jsSrc) &&
       !/if \(!accountOk\(\)\) \{ showAuthScreen\(\); return false; \}/.test(jsSrc);
     // 还原：后面的用例都按「已登录」跑
     if (hadSkip === undefined) lsMap.delete('nl2:authSkip'); else lsMap.set('nl2:authSkip', hadSkip);
     $('main-menu').style.display = 'flex';
-    return formBack && guest && srcOk;
+    return formBack && stuck && srcOk;
   })());
   check('忘记密码：登录页有入口；本机有号直接重设，换设备用「名字 + 身份号码」核验后重设', (() => {
     const cloudSrc = fs.readFileSync(path.join(__dirname, 'js', 'cloud.js'), 'utf8');

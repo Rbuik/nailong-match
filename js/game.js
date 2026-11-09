@@ -6469,7 +6469,7 @@
       'playlist-menu': 'music-settings-menu',
       'auth-form': 'auth-menu',  // 登录 / 注册表单点背景回选择页
       'auth-forgot': 'auth-form', // 忘记密码：点背景回登录表单（名字已经填着的）
-      // auth-menu（选登录还是注册）点背景 = 不登录直接玩，见 skipAuth()
+      // auth-menu 不在返回映射里放行：登录页不可退出（见返回处理里的 auth-menu 分支）
       'daily-done': 'main-menu', // 每日挑战结算页：点空白回主页
       'tasks-menu': 'main-menu',
       'chapters-menu': 'main-menu',
@@ -6519,7 +6519,7 @@
           backupBack();           // 从哪进来就回哪去（设置 / 登录页）
           return true;
         case 'auth-menu':
-          skipAuth();             // 登录页点背景 = 不登录，按游客玩
+          // 登录页不可退出：必须登录 / 注册 / 导入存档码（或用本机账号进入）才能玩
           return true;
         case 'auth-forgot':
           hidePanel('auth-forgot');   // 回登录表单，名字还留着
@@ -6750,12 +6750,10 @@
 
   // ==================== 启动 ====================
   async function boot() {
-    // 账号：老版本的本机数据先认领成一个账号；没有登录会话的停在登录页
+    // 账号：老版本 / 游客期留下的本机数据先认领成一个账号（登录页「本机账号」卡片能直接进）；
     // 必须在任何启动期写 localStorage 之前跑，否则会把「启动缓存」误认成老用户数据
-    // 注意：玩家主动选了「先不登录，当游客玩」时不要自动建号，不然游客进度会被中途认领、
-    // 之后注册时又当成本机老号的数据清掉
     try {
-      if (typeof Account !== 'undefined' && !authSkipped()) Account.ensure();
+      if (typeof Account !== 'undefined') Account.ensure();
     } catch (e) {}
     try { if (typeof Account !== 'undefined' && Account.startCloudSync) Account.startCloudSync(); } catch (e) {}
     // 身份号码被换成服务器码时，旧榜单条目已经撤掉：用新码补发一次成绩，
@@ -6847,10 +6845,8 @@
       setTimeout(() => { try { maybeAccountGate(); } catch (e) {} }, 400);
       // 本机账号还没存到服务器 → 进主页后提示一次（改名 / 补密码优先，所以晚一点）
       setTimeout(() => { try { maybeCloudOffer(); } catch (e) {} }, 1600);
-    } else if (authSkipped()) {
-      // 玩家上次主动关掉了登录页：直接当游客进主页（进度只存本机），别再拦一次
-      showOverlay('main-menu');
     } else {
+      // 登录页不可退出：没登录就停在这，必须登录 / 注册 / 导入存档码（或本机账号进入）
       AudioManager.gateBGM(false);   // 登录页不放背景音乐
       showAuthScreen();
     }
@@ -8207,33 +8203,15 @@
     setView('menu');
   }
 
-  // ==================== 登录页 / 云存档页都可以关掉 ====================
-  // 关掉登录页 = 当游客玩（进度只存这台设备，不上榜、不跨设备同步）；
-  // 记一个标记，下次启动直接进主页，不再被拦在登录页。登录成功后自动清掉。
+  // ==================== 登录页不可退出 ====================
+  // 登录页没有「当游客玩」的口子了：必须登录 / 注册 / 导入存档码（或用本机账号进入）。
+  // 旧的 nl2:authSkip 标记不再放行，只在登录成功后清掉。
   const AUTH_SKIP_KEY = 'nl2:authSkip';
   function authSkipped() {
     try { return !!localStorage.getItem(AUTH_SKIP_KEY); } catch (e) { return false; }
   }
   function clearAuthSkip() {
     try { localStorage.removeItem(AUTH_SKIP_KEY); } catch (e) {}
-  }
-  function skipAuth() {
-    const menu = $('auth-menu');
-    if (menu) menu.style.display = 'none';
-    const form = $('auth-form');
-    if (form) form.style.display = 'none';
-    const fix = $('fix-menu');
-    if (fix) fix.style.display = 'none';
-    const bk = $('backup-menu');
-    if (bk) bk.style.display = 'none';
-    const bki = $('backup-import-menu');
-    if (bki) bki.style.display = 'none';
-    try { localStorage.setItem(AUTH_SKIP_KEY, String(Date.now())); } catch (e) {}
-    AudioManager.gateBGM(true);        // 游客也要有背景音乐
-    try { AudioManager.unlock(); } catch (e) {}
-    showOverlay('main-menu');
-    refreshMenu();
-    toast('未登录：进度只存这台设备、不上排行榜，随时可在 设置 → 账号安全 登录');
   }
 
   function openAuthForm(mode) {
