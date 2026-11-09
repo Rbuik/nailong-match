@@ -2,7 +2,7 @@
 
 纯前端三消小游戏。
 
-在线玩：https://nailong-match.pages.dev
+在线玩：https://rbuik.github.io/nailong-match/
 
 ## 目录
 
