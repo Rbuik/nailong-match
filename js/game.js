@@ -5043,7 +5043,7 @@
       serverAccs = r.users.filter((u) => u && u.name).map((u) => ({
         uid: String(u.uid || ''),
         name: String(u.name).trim(),
-        prov: '',
+        prov: String(u.pv || '').toLowerCase(),
         score: 0,
         created: Number(u.created) || 0
       }));
@@ -6755,6 +6755,15 @@
       if (typeof Account !== 'undefined' && !authSkipped()) Account.ensure();
     } catch (e) {}
     try { if (typeof Account !== 'undefined' && Account.startCloudSync) Account.startCloudSync(); } catch (e) {}
+    // 身份号码被换成服务器码时，旧榜单条目已经撤掉：用新码补发一次成绩，
+    // 不然分数不变的话这个人就一直从榜上消失了
+    try {
+      if (typeof Account !== 'undefined' && Account.onUidChange) {
+        Account.onUidChange(() => setTimeout(() => { try { publishMyScore(true); } catch (e) {} }, 600));
+      }
+    } catch (e) {}
+    // 开机补发：上次退出前可能没发出去（或换码时掉的），有成绩就重发一次
+    setTimeout(() => { try { publishMyScore(true); } catch (e) {} }, 2000);
     const loggedIn = (typeof Account !== 'undefined') && Account.loggedIn();
 
     // 老档补发：更新前完成的每日挑战没发过完成奖励，按基础 30 枚补进钱包（步数未知，结算页显示 —）
@@ -7706,6 +7715,8 @@
       return p ? p.code : '';
     } catch (e) { return ''; }
   }
+  // 给 cloud.js 用：注册 / 登录 / 存档时把省一起传到服务器（后台名单要显示省）
+  try { window.NL_PROV = myProvCode; } catch (e) {}
 
   // 每一关的榜单：全网 + 本机好友 + 自己，同一个人只留一条（取最高）
   function levelRows(lv) {
@@ -8898,7 +8909,7 @@
     setServerAccs: (list) => {
       serverAccs = (Array.isArray(list) ? list : []).filter((u) => u && u.name).map((u) => ({
         uid: String(u.uid || ''), name: String(u.name).trim() || 'x',
-        prov: String(u.prov || ''), score: 0, created: Number(u.created) || 0
+        prov: String(u.pv || u.prov || '').toLowerCase(), score: 0, created: Number(u.created) || 0
       }));
       serverAccsAt = Date.now();
     },

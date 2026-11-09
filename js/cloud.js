@@ -39,6 +39,15 @@
 
   function token() { return ls(TOKEN_KEY) || ''; }
   function setToken(t) { ls(TOKEN_KEY, t || null); }
+
+  // 本机定位到的省（game.js 把 myProvCode 挂到 window.NL_PROV 上）。
+  // 注册 / 登录 / 存档时随手带上去：服务器存进账号，后台名单才显示得出省，
+  // 不然只有「发过成绩的人」才有省，建了号没上过榜的就是「未定位」。
+  function myProv() {
+    try {
+      return typeof global.NL_PROV === 'function' ? String(global.NL_PROV() || '') : '';
+    } catch (e) { return ''; }
+  }
   function lastSync() { return Number(ls(SYNC_KEY) || 0) || 0; }
   function setLastSync(ts) { ls(SYNC_KEY, String(ts || Date.now())); }
 
@@ -78,7 +87,7 @@
   }
 
   function register(nick, pass, uid) {
-    return call('nl_register', { p_nick: String(nick || ''), p_pass: String(pass || ''), p_uid: String(uid || '') })
+    return call('nl_register', { p_nick: String(nick || ''), p_pass: String(pass || ''), p_uid: String(uid || ''), p_pv: myProv() })
       .then((r) => {
         if (r && r.ok && r.token) setToken(r.token);
         return r;
@@ -86,7 +95,7 @@
   }
 
   function login(nick, pass) {
-    return call('nl_login', { p_nick: String(nick || ''), p_pass: String(pass || '') })
+    return call('nl_login', { p_nick: String(nick || ''), p_pass: String(pass || ''), p_pv: myProv() })
       .then((r) => {
         if (r && r.ok && r.token) setToken(r.token);
         return r;
@@ -107,7 +116,7 @@
     if (pushing) return Promise.resolve({ ok: false, busy: true });
     if (!force && Date.now() - lastSync() < PUSH_MIN_MS) return Promise.resolve({ ok: false, throttled: true });
     pushing = true;
-    return call('nl_save', { p_token: token(), p_slot: slot })
+    return call('nl_save', { p_token: token(), p_slot: slot, p_pv: myProv() })
       .then((r) => {
         pushing = false;
         if (r && r.ok) setLastSync(Date.now());

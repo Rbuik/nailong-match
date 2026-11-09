@@ -596,6 +596,15 @@
     try { localStorage.removeItem(PWX + id); } catch (e) {}
   }
 
+  // 身份号码换过之后要干的事（由游戏层挂）：换码时旧码那条榜单记录已经被撤掉，
+  // 得用新码把当前成绩补发一次，不然榜上这个人就凭空消失了
+  // （来一吨 就是这样：本机码换成服务器码后没再涨分，榜上就一直空着）
+  const uidHooks = [];
+  function onUidChange(fn) { if (typeof fn === 'function') uidHooks.push(fn); }
+  function fireUidChange(oldId, uid) {
+    uidHooks.forEach((fn) => { try { fn(oldId, uid); } catch (e) {} });
+  }
+
   // 把账号 id 迁成服务器身份号码（快照跟着搬家）
   function migrateAccId(acc, uid) {
     if (!/^[A-Za-z0-9_-]{3,24}$/.test(String(uid || '')) ||
@@ -617,6 +626,8 @@
     if (oldId && /^[A-Za-z0-9_-]{3,24}$/.test(oldId) && oldId !== uid) {
       try { if (global.Board && Board.remove) Board.remove(oldId); } catch (e2) {}
     }
+    // 旧条目撤掉了，让游戏层用新码补发一次成绩（不补的话榜上就少了这个人）
+    fireUidChange(oldId, uid);
     return true;
   }
 
@@ -1095,6 +1106,7 @@
     saveCurrent, checkName, checkPass,
     exportBackup, importBackup,
     cloudLogin, pushCloud, pullCloud, pushAccountToCloud, startCloudSync, cloudOk,
-    autoCloudSave, rememberedPass, forgetPass
+    autoCloudSave, rememberedPass, forgetPass,
+    onUidChange
   };
 })(window);

@@ -429,6 +429,16 @@ function check(name, ok) {
     $('admin-ul-list').children[linxiAt].className.indexOf('none') >= 0);
   check('标题人数跟着算上服务器账号', String($('admin-ul-title').textContent)
     .indexOf('（' + (su2.users + 1) + '）') >= 0);
+  // 服务器账号带定位（注册/登录/存档时上传的省）就直接显示省，不再「未定位」
+  sandbox.__nl_test.setServerAccs([{ uid: 'pLinxiTest01', name: '林夕', pv: 'sichuan', created: 0 }]);
+  sandbox.__nl_test.renderUserList();
+  check('服务器账号有定位时显示省份', (() => {
+    const rows = Array.from($('admin-ul-list').children);
+    const hit = rows.filter((r) => String(r.children[0].innerHTML).indexOf('林夕') >= 0)[0];
+    return !!hit && String(hit.children[0].innerHTML).indexOf('四川') >= 0 &&
+      String(hit.children[0].innerHTML).indexOf('未定位') < 0;
+  })());
+  sandbox.__nl_test.setServerAccs([]);
   sandbox.__nl_test.setServerAccs([]);
   sandbox.__nl_test.renderUserList();
   check('拿掉服务器名单后恢复原样', $('admin-ul-list').children.length === su2.users);

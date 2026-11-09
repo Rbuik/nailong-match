@@ -25,6 +25,11 @@ const PASS_MIN = 4;
 const PASS_MAX = 24;
 const USERS_KEY = 'nl-admin-7k2v';   // 后台名单的轻口令（只防随手扫接口，名单本身不含任何私密信息）
 
+// 省份代码（和前端 PROVINCES 里的代码一致）：注册 / 登录 / 存档时由客户端带上来。
+// 省只存在账号上，后台名单才显示得出来；以前只在发成绩时随榜单消息走，
+// 于是「建了号但从没发过成绩」的玩家（林夕 / 来一吨）在后台就是「未定位」。
+function pvOk(v) { return /^[a-z]{2,20}$/.test(String(v || '')); }
+
 function json(obj, status) {
   return new Response(JSON.stringify(obj), {
     status: status || 200,
@@ -141,9 +146,10 @@ async function doRegister(env, b) {
 
   const now = Date.now();
   const id = 'p' + randHex(7);
+  const pv = pvOk(b.p_pv) ? String(b.p_pv).toLowerCase() : null;
   await env.DB.prepare(
-    'INSERT INTO accounts (id, nick_key, nick, pass, slot, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, ?, ?)'
-  ).bind(id, key, nick, await makePass(pass), now, now).run();
+    'INSERT INTO accounts (id, nick_key, nick, pass, slot, pv, created_at, updated_at) VALUES (?, ?, ?, ?, NULL, ?, ?, ?)'
+  ).bind(id, key, nick, await makePass(pass), pv, now, now).run();
 
   const token = await issueToken(env, id);
   return json({ ok: true, token: token, nick: nick, uid: id, created: now, slot: null });
@@ -154,24 +160,29 @@ async function doLogin(env, b) {
   const pass = String(b.p_pass || '');
   if (!nick || !pass) return json({ ok: false, reason: '名字或密码不对' });
   const row = await env.DB.prepare(
-    'SELECT id, nick, pass, slot, created_at FROM accounts WHERE nick_key = ?'
+    'SELECT id, nick, pass, slot, pv, created_at FROM accounts WHERE nick_key = ?'
   ).bind(nickKey(nick)).first();
   // 登录兜底：精确匹配不到时，允许大小写不同（只有一个候选才认）——
   // 老玩家当年注册写的是「Yone」，今天顺手输「yone」不该直接查无此人
   let acc = row;
   if (!acc) {
     const rs = await env.DB.prepare(
-      'SELECT id, nick, pass, slot, created_at FROM accounts WHERE lower(nick_key) = lower(?)'
+      'SELECT id, nick, pass, slot, pv, created_at FROM accounts WHERE lower(nick_key) = lower(?)'
     ).bind(nickKey(nick)).all();
     const hits = (rs && rs.results) || [];
     if (hits.length === 1) acc = hits[0];
   }
   if (!acc) return json({ ok: false, reason: '没有找到这个玩家' });
   if (!await checkPass(pass, acc.pass)) return json({ ok: false, reason: '密码不对' });
+  // 这次登录带了定位、和库里不一样就顺手更新（老账号补上省，后台名单才显示得出）
+  const pv = pvOk(b.p_pv) ? String(b.p_pv).toLowerCase() : '';
+  if (pv && pv !== String(acc.pv || '')) {
+    await env.DB.prepare('UPDATE accounts SET pv = ? WHERE id = ?').bind(pv, acc.id).run();
+  }
   const token = await issueToken(env, acc.id);
   // created：账号真实的注册时间（客户端换设备建本地账号时要用它，不能当成「今天刚注册」）
   return json({ ok: true, token: token, nick: acc.nick, uid: acc.id,
-    created: Number(acc.created_at) || 0, slot: parseSlot(acc.slot) });
+    created: Number(acc.created_at) || 0, pv: pv || String(acc.pv || ''), slot: parseSlot(acc.slot) });
 }
 
 async function doLoad(env, b) {
@@ -187,8 +198,9 @@ async function doSave(env, b) {
   if (!slot || typeof slot !== 'object' || !slot.keys) return json({ ok: false, reason: '存档格式不对' });
   const text = JSON.stringify(slot);
   if (text.length > 900000) return json({ ok: false, reason: '存档太大' });
-  await env.DB.prepare('UPDATE accounts SET slot = ?, updated_at = ? WHERE id = ?')
-    .bind(text, Date.now(), row.id).run();
+  const pv = pvOk(b.p_pv) ? String(b.p_pv).toLowerCase() : null;
+  await env.DB.prepare('UPDATE accounts SET slot = ?, pv = COALESCE(?, pv), updated_at = ? WHERE id = ?')
+    .bind(text, pv, Date.now(), row.id).run();
   return json({ ok: true });
 }
 
@@ -266,10 +278,11 @@ async function doDelete(env, b) {
 // 的玩家就查不到，这里补一个只读名单把它补齐。
 async function doUsers(env, b) {
   if (String(b.p_key || '') !== USERS_KEY) return json({ ok: false, reason: '没权限' }, 403);
-  const rs = await env.DB.prepare('SELECT id, nick, created_at FROM accounts ORDER BY created_at').all();
+  const rs = await env.DB.prepare('SELECT id, nick, pv, created_at FROM accounts ORDER BY created_at').all();
   const users = ((rs && rs.results) || []).map((r) => ({
     uid: String(r.id || ''),
     name: String(r.nick || ''),
+    pv: String(r.pv || ''),
     created: Number(r.created_at) || 0
   })).filter((u) => u.uid && u.name);
   return json({ ok: true, users: users });
