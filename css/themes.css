@@ -1962,11 +1962,11 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 }
 
 /* 账号安全页的身份码：等宽字体，点一下复制 */
-/* 账号安全页：右边的值（账号名 / 注册时间 / 身份号码）和左边标签一样大 */
+/* 账号安全页：右边的值（账号名 / 注册时间）和左边标签一样大；身份号码只是号码本身小一号 */
 #account-menu .result-box b { font-size: 16px; }
 #account-uid {
   font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 16px;
+  font-size: 13px;
   color: #7c5cff;
   cursor: pointer;
 }

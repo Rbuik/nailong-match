@@ -1960,10 +1960,10 @@ function check(name, ok) {
   check('账号安全面板显示当前账号 + 注册时间（yy-MM-dd HH:mm:ss 补零，比如 26-11-06 19:18:22）', $('account-menu').style.display === 'flex' &&
     String($('account-cur-name').textContent) === '测试奶龙' &&
     /^\d{2}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(String($('account-created').textContent)));
-  check('账号安全页右边的值和左边标签一样大（16px，身份号码也是）', (() => {
+  check('账号安全页右边的值和左边标签一样大（16px），身份号码本身小一号（13px）', (() => {
     const css = fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8');
     return /#account-menu \.result-box b \{ font-size: 16px/.test(css) &&
-      /#account-uid \{[^}]*font-size: 16px/.test(css);
+      /#account-uid \{[^}]*font-size: 13px/.test(css);
   })());
   $('btn-goto-switch').dispatch('click');
   check('切换账号列表有当前账号', $('switch-menu').style.display === 'flex' &&
@@ -2181,6 +2181,18 @@ function check(name, ok) {
       /function expireAcc\(acc\)/.test(accSrc) &&
       /String\(r\.reason \|\| ''\)\.indexOf\('过期'\) >= 0\) \{\s*\n\s*expireAcc\(acc\);\s*\n\s*try \{ autoCloudSave\(\); \} catch \(e\) \{\}/.test(accSrc) &&
       /String\(r\.reason \|\| ''\)\.indexOf\('过期'\) >= 0\) expireAcc\(acc\);/.test(accSrc);
+  })());
+  // 16d. 每次退出都要上传：切后台（visibilitychange → hidden）普通推；关页面（pagehide）keepalive 兜底
+  check('每次退出都上传服务器：切后台立即推，关闭页面用 keepalive 兜底', (() => {
+    const accSrc = fs.readFileSync(path.join(__dirname, 'js', 'account.js'), 'utf8');
+    const cloudSrc = fs.readFileSync(path.join(__dirname, 'js', 'cloud.js'), 'utf8');
+    return /visibilitychange'[\s\S]{0,200}visibilityState === 'hidden'[\s\S]{0,120}onLeave\(false\)/.test(accSrc) &&
+      /addEventListener\('pagehide', \(\) => onLeave\(true\)\)/.test(accSrc) &&
+      /function pushCloud\(force, urgent\)/.test(accSrc) &&
+      /Cloud\.push\(slot, !!force, !!urgent\)/.test(accSrc) &&
+      /function push\(slot, force, urgent\)/.test(cloudSrc) &&
+      /keepalive: ka/.test(cloudSrc) &&
+      /pushing && !urgent/.test(cloudSrc);   // 退出推送不被「正在推送」挡掉
   })());
   check('上云窗口点背景可以关掉（进度仍在本机，之后在账号安全里再存）',
     /case 'cloud-menu':\s*\n\s*skipCloud\(\);/.test(jsSrc) &&

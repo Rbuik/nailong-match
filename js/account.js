@@ -653,7 +653,8 @@
   }
 
   // 当前账号的存档推上服务器（cloud.js 自带 12 秒节流）
-  function pushCloud(force) {
+  // urgent：退出页面时的最后一次推送（keepalive，浏览器卸载中也发得出去）
+  function pushCloud(force, urgent) {
     if (!cloudOk()) return Promise.resolve(false);
     const acc = current();
     if (!acc || !useAccToken(acc)) return Promise.resolve(false);
@@ -661,7 +662,7 @@
     saveCurrent();
     const slot = slotOf(acc.id);
     if (!slot) return Promise.resolve(false);
-    return global.Cloud.push(slot, !!force)
+    return global.Cloud.push(slot, !!force, !!urgent)
       .then((r) => {
         if (r && r.ok) { if (r.token) acc.ctoken = r.token; return true; }
         if (r && !r.ok && String(r.reason || '').indexOf('过期') >= 0) expireAcc(acc);
@@ -907,7 +908,18 @@
       if (!cloudPulled) { pullCloud(); return; }
       pushCloud(false);
     }, 30e3);
-    global.addEventListener && global.addEventListener('pagehide', () => { pushCloud(true); });
+    // 每次「退出」都要把存档送上服务器：
+    //   · 切后台 / 来电（visibilitychange → hidden）：页面还活着，普通请求就够
+    //   · 真正关闭页面（pagehide）：页面正在卸载，普通 fetch 会被浏览器掐掉，
+    //     用 keepalive 请求兜底（urgent 不吃 busy 挡板）
+    const onLeave = function (urgent) {
+      try { pushCloud(true, urgent); } catch (e) {}
+    };
+    global.document && global.document.addEventListener &&
+      global.document.addEventListener('visibilitychange', () => {
+        try { if (global.document.visibilityState === 'hidden') onLeave(false); } catch (e) {}
+      });
+    global.addEventListener && global.addEventListener('pagehide', () => onLeave(true));
   }
 
   // ---------- 资料是否完整（缺名字 / 缺密码 / 含敏感词） ----------

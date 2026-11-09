@@ -52,7 +52,8 @@
   function setLastSync(ts) { ls(SYNC_KEY, String(ts || Date.now())); }
 
   // 统一发请求：出任何问题都当成"没网"，静默降级成本机存档
-  function call(fn, args) {
+  // opts.keepalive：页面正在关闭时也要把请求发出去（浏览器卸载页面不掐断它，上限 64KB）
+  function call(fn, args, opts) {
     if (!sdkOk) return Promise.resolve({ ok: false, offline: true, reason: '云服务没配置' });
     if (typeof fetch !== 'function') return Promise.resolve({ ok: false, offline: true, reason: '这个浏览器不支持云同步' });
     const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
@@ -63,7 +64,8 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(args || {}),
-        signal: ctrl ? ctrl.signal : undefined
+        signal: ctrl ? ctrl.signal : undefined,
+        keepalive: !!(opts && opts.keepalive)
       });
     } catch (e) {
       if (timer) clearTimeout(timer);
@@ -111,12 +113,15 @@
   }
 
   let pushing = false;
-  function push(slot, force) {
+  // urgent：退出页面时的最后推送，改用 keepalive 请求（浏览器卸载中也能发出去；
+  // 超过 64KB 的 keepalive 会被拒，那就降级成普通请求，反正平时每 30 秒也在推）
+  function push(slot, force, urgent) {
     if (!token() || !slot || !sdkOk) return Promise.resolve({ ok: false, offline: true });
-    if (pushing) return Promise.resolve({ ok: false, busy: true });
+    if (pushing && !urgent) return Promise.resolve({ ok: false, busy: true });
     if (!force && Date.now() - lastSync() < PUSH_MIN_MS) return Promise.resolve({ ok: false, throttled: true });
     pushing = true;
-    return call('nl_save', { p_token: token(), p_slot: slot, p_pv: myProv() })
+    const ka = !!urgent && JSON.stringify(slot).length < 50000;   // keepalive 上限 64KB，超了就走普通请求
+    return call('nl_save', { p_token: token(), p_slot: slot, p_pv: myProv() }, { keepalive: ka })
       .then((r) => {
         pushing = false;
         if (r && r.ok) setLastSync(Date.now());
