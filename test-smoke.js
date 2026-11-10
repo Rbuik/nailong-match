@@ -3323,11 +3323,14 @@ function check(name, ok) {
     /\.history-item \.lock-tag\s*\{\s*font-size:\s*10px/.test(cssSrc) &&
     /: \(locked \? '<span class="h-score"><\/span>'/.test(jsSrc) &&
     /'<span class="h-score not-start">未开始<\/span>'/.test(jsSrc));
-  check('玩家名单省份列固定宽（间距不变），8 个中文名靠 12px 字号完整显示；榜单不再显示「我」',
+  check('玩家名单省份列固定宽（间距不变），8 个中文名靠 12px 字号完整显示；榜单不显示「我」「好友」，自己的行是黑色高亮',
     /grid-template-columns: 20px minmax\(0, 1fr\) 8px 34px 6ch 48px;/.test(cssSrc) &&
     /\.lb-swipe\.col5 \.lb-name\s*\{\s*font-size:\s*12px;\s*letter-spacing:\s*-0\.2px;/.test(cssSrc) &&
     !/lb-me">我/.test(jsSrc) &&
-    /r\.friend \? '<i>好友<\/i>'/.test(jsSrc) &&
+    !/'<i>好友<\/i>'/.test(jsSrc) &&
+    /\.lb-row\.me \{ border-color: #2b2440; \}/.test(cssSrc) &&
+    /\.lb-row\.me \.lb-swipe \{ background: rgba\(0, 0, 0, 0\.07\); \}/.test(cssSrc) &&
+    /\.lb-row\.me \.lb-rank \{ color: #2b2440; \}/.test(cssSrc) &&
     !/6ch minmax\(0, max-content\)/.test(cssSrc) &&
     /hiddenNames = new Set\(Array\.isArray\(r\.hidden\)/.test(jsSrc) &&
     /if \(isHiddenName\(n\)\) return;/.test(jsSrc) &&

@@ -8186,8 +8186,7 @@
           ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>'
           : '<span class="lb-stars"><i class="lb-star-ico">★</i><b>' + stars + '</b></span>');
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
-        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
-        (r.friend ? '<i>好友</i>' : '') + '</span>' +
+        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) + '</span>' +
         starHtml +
         '<span class="lb-score' + (onBoard ? '' : ' none') + '">' + (onBoard ? r.score : '未上榜') + '</span>';
       row.appendChild(inner);
