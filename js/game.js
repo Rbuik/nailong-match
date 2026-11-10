@@ -542,7 +542,7 @@
 
   // 🚄 每 4 步整行滑一格（只挪方块，果冻 / 机关留在原地）：
   // 每局每次都随机挑一排滑（避开首尾两行）；滑动有「慢慢推过去」的动画 + 石头摩擦声
-  function shiftTrack() {
+  async function shiftTrack() {
     if (!S.trackRows.length) return 0;
     const r = 1 + randInt(ROWS - 2);   // 每次随机一排：1 ~ ROWS-2，绝不碰首尾行
     const row = S.board[r];
@@ -557,13 +557,12 @@
     toast('🚄 轨道滑动，整行挪了一格');
     // 滑动动画：整行内容从「滑动前的位置」慢慢推到新位置（缓出，约 0.5 秒）
     S.busy = true;
-    tween(500, (p) => {
+    await tween(500, (p) => {
       const e = 1 - Math.pow(1 - p, 3);
       drawTrackSlide(r, e);
-    }).then(() => {
-      S.busy = false;
-      drawStatic();
     });
+    S.busy = false;
+    drawStatic();
     return 1;
   }
 
@@ -701,7 +700,7 @@
   }
 
   // 每步结束后的机关结算（在 afterTurn 里调；霜块定格期间一律跳过）
-  function tickHazards() {
+  async function tickHazards() {
     S.turnCount++;
     const frozen = S.frostTurns > 0;
     if (frozen) S.frostTurns--;
@@ -717,7 +716,7 @@
       }
       if (S.turnCount % IVY_EVERY === 0) growIvy();
       if (S.turnCount % SAND_EVERY === 0) burySand();
-      if (S.turnCount % TRACK_EVERY === 0) shiftTrack();
+      if (S.turnCount % TRACK_EVERY === 0) await shiftTrack();
       if (S.turnCount % FROST_EVERY === 0 && S.hazardLevel) spawnFrost();
     }
     updateHazardBar();
@@ -2654,8 +2653,21 @@
 
     // 机关按「本局走了几步」推进：炸弹倒计时 / 藤蔓蔓延 / 流沙下沉 / 轨道滑动 / 霜块生成
     // （霜块 ❄️ 定格期间这些全部暂停；判定失败会直接进结算，所以放在判胜之后）
-    tickHazards();
+    await tickHazards();
     if (!S.playing) return;
+
+    // 轨道滑动会把整行推一格，可能推出新的三连 —— 再兜底补消一轮，
+    // 绝不把「该消没消」的方块留给下一回合（修复：三连了却不自动消）
+    safety = 0;
+    while (findMatches().size && safety++ < 24) {
+      await resolveBoard(null);
+    }
+    // 补消可能送出货物 / 完成目标：再判一次胜
+    if (!S.wonContinued && S.goal && Goals.isComplete(S.goal)) {
+      await sleep(220);
+      levelWin();
+      return;
+    }
 
     if (!hasPossibleMove()) {
       toast('无可用步，已重排');
@@ -3172,9 +3184,9 @@
     if (S.daily) {
       movesUsed = Math.max(0, (S.levelDef.moves || 20) - S.moves);
       if (allowGrant && (starsNow || 0) >= 3 && !Store.getDailyRecord().coins) {
-        // 三星奖励 = 100 打底 + max(30×剩余步数, 总分/10 + 100)
+        // 三星奖励 = max(30×剩余步数, 总分/10)
         const movesLeft = Math.max(0, (S.levelDef.moves || 20) - movesUsed);
-        bonus = 100 + Math.max(30 * movesLeft, Math.floor(S.score / 10) + 100);
+        bonus = Math.max(30 * movesLeft, Math.floor(S.score / 10));
         Store.addCoins(bonus, '通关奖励', '每日挑战');
       }
     }
@@ -3551,7 +3563,7 @@
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'save-menu',
-      'daily-menu', 'daily-lb',
+      'daily-menu', 'daily-lb', 'skin-menu',
       'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu',
       'ach-detail',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
@@ -3574,7 +3586,7 @@
     'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
-    'daily-menu', 'daily-lb',
+    'daily-menu', 'daily-lb', 'skin-menu',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'save-menu',
     'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu', 'ach-detail'];
 
@@ -5274,6 +5286,21 @@
     return hiddenNames.has(String(name || '').trim().toLowerCase());
   }
 
+  // 服务器（D1）的今日每日挑战榜缓存：榜单一点开就先画它，立刻能看到所有人
+  let serverDailyRows = [];
+  let serverDailyAt = 0;
+  function fetchServerDaily(force) {
+    if (typeof Cloud === 'undefined' || !Cloud.dailyGet) return;
+    if (!force && Date.now() - serverDailyAt < 4000) return;   // 4 秒内不重复拉
+    serverDailyAt = Date.now();
+    Cloud.dailyGet().then((r) => {
+      if (!r || !r.ok || !Array.isArray(r.rows)) return;
+      serverDailyRows = r.rows;
+      const dlb = $('daily-lb');
+      if (dlb && dlb.style.display === 'flex') renderDailyLb();   // 榜单开着就当场重绘
+    }).catch(() => {});
+  }
+
   function collectServerUsers() {
     const names = Object.create(null);
     const provs = Object.create(null);
@@ -5747,6 +5774,7 @@
       $('daily-menu').style.display = 'none';
       renderDailyLb();
       showOverlay('daily-lb');
+      fetchServerDaily(true);   // 服务器（D1）立刻拉一次：一点开就能看到所有人
       try { if (typeof Board !== 'undefined' && Board.sync) Board.sync(); } catch (e) {}
       // 榜单开着时每 4 秒拉一次 + 数据一到 onChange 就重绘：
       // 别人刚发的成绩几秒内就上榜，不再「只有自己，过一会才冒出别人」
@@ -5757,6 +5785,7 @@
           if (dailyLbTimer) { clearInterval(dailyLbTimer); dailyLbTimer = null; }
           return;
         }
+        fetchServerDaily(true);
         try { if (typeof Board !== 'undefined' && Board.sync) Board.sync(); } catch (e) {}
       }, 4000);
     });
@@ -5928,11 +5957,10 @@
     if (globalSec) globalSec.addEventListener('click', openProvStats);
     // 全服用户名单入口：改到「👥 全服」页的「用户详情」按键（原来是隐藏手势）
 
-    // 省份统计页：搜索框 + 返回（市级视图先回省份列表，列表再关闭页面）
+    // 省份统计页：搜索框（返回键已删，点面板外空白回上一层：市级视图先回省份列表，
+    // 列表再关掉页面露出底下的后台，不会一路退回主页）
     const provSearch = $('prov-search');
     if (provSearch) provSearch.addEventListener('input', () => renderProvList(provSearch.value));
-    const provBackBtn = $('btn-prov-back');
-    if (provBackBtn) provBackBtn.addEventListener('click', provBack);
 
     // 主页提示条：点左侧 ✕ 只是本次隐藏，下次进主页会再出现
     const loadTip = $('load-tip');
@@ -6349,6 +6377,45 @@
       $('music-settings-menu').style.display = 'none';
       showOverlay('settings-menu');
     });
+
+    // ==================== 主题颜色 ====================
+    // 跟随系统 = 跟着微信走（微信深色就是深色，浅色就是浅色）；默认跟随系统。
+    // 深色实现：整页反色（invert + hue-rotate），棋盘画布和图片再反转回来，游戏画面保持原样。
+    function applySkin() {
+      const skin = Store.getSettings().skin || 'auto';
+      let dark = false;
+      try {
+        dark = skin === 'dark' ||
+          (skin === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+      } catch (e) {}
+      try { document.documentElement.setAttribute('data-skin', dark ? 'dark' : 'light'); } catch (e) {}
+    }
+    try {
+      if (window.matchMedia) {
+        const mq = matchMedia('(prefers-color-scheme: dark)');
+        const onScheme = () => { if ((Store.getSettings().skin || 'auto') === 'auto') applySkin(); };
+        if (mq.addEventListener) mq.addEventListener('change', onScheme);
+        else if (mq.addListener) mq.addListener(onScheme);   // 老微信内核
+      }
+    } catch (e) {}
+    applySkin();
+    on('btn-goto-skin', () => {
+      $('settings-menu').style.display = 'none';
+      syncSkinMenu();
+      showOverlay('skin-menu');
+    });
+    function syncSkinMenu() {
+      const cur = Store.getSettings().skin || 'auto';
+      [['btn-skin-auto', 'auto'], ['btn-skin-light', 'light'], ['btn-skin-dark', 'dark']].forEach(([id, v]) => {
+        const b = $(id);
+        if (!b) return;
+        b.classList.toggle('skin-cur', cur === v);
+        b.textContent = (v === 'auto' ? '跟随系统' : v === 'light' ? '浅色背景' : '深色背景') + (cur === v ? ' ✓' : '');
+      });
+    }
+    on('btn-skin-auto', () => { Store.setSettings({ skin: 'auto' }); applySkin(); syncSkinMenu(); });
+    on('btn-skin-light', () => { Store.setSettings({ skin: 'light' }); applySkin(); syncSkinMenu(); });
+    on('btn-skin-dark', () => { Store.setSettings({ skin: 'dark' }); applySkin(); syncSkinMenu(); });
 
     // ==================== 账号安全 ====================
     // 注册时间：yy-MM-dd HH:mm:ss（个位数前面补 0），比如 26-11-06 19:18:22
@@ -6832,6 +6899,11 @@
           showAdminPage('users');
           renderAdminUsers();
           return true;
+        case 'prov-page':
+          // 省份统计：市级视图（四川 / 海外…）点空白先回省份列表；
+          // 列表再点空白才关掉页面，露出底下的后台（不会直接跳回主页）
+          provBack();
+          return true;
         case 'coin-menu':
           if (ledgerPop) { closeLedgerPop(); return true; }   // 先收起下拉，再点一次才回主页
           hidePanel('coin-menu'); showOverlay('main-menu'); refreshMenu();
@@ -6902,27 +6974,53 @@
   }
 
   // 每日挑战榜单：星星多 → 用步少 → 通关早；格式照排行榜（名次 / 名字 / 星 / 用步）
+  // 同一人的两条每日成绩谁更好：星星多 → 用步少 → 通关早
+  function dailyEntryBetter(a, b) {
+    if ((a.stars || 0) !== (b.stars || 0)) return (a.stars || 0) > (b.stars || 0);
+    const am = (a.moves || 0) > 0 ? a.moves : 99999;
+    const bm = (b.moves || 0) > 0 ? b.moves : 99999;
+    if (am !== bm) return am < bm;
+    return (a.ts || 0) < (b.ts || 0);
+  }
+
   function renderDailyLb() {
     const box = $('daily-lb-list');
     if (!box) return;
     const meUid = Meta.myUid();
     const raw = (typeof Board !== 'undefined' && Board.dailyList) ? Board.dailyList() : [];
+    // 并上服务器（D1）的今日榜：一点开榜单立刻能看到所有人
+    (serverDailyRows || []).forEach((r) => {
+      if (r && r.uid) raw.push(r);
+    });
+    fetchServerDaily();   // 顺手刷新一次（4 秒内只发一次），数据回来重绘
     if ((Store.getDailyRecord().stars || 0) >= 1 &&
         !raw.some((r) => r.uid === meUid)) {
       // 自己最新的一条（哪怕还没同步出去）也排进去，名次当场就能看到
       const rec = Store.getDailyRecord();
       raw.push({ uid: meUid, name: Meta.nickname(), stars: rec.stars || 0, moves: rec.moves || 0, ts: Date.now() });
     }
-    raw.forEach((r) => { if (r.uid === meUid) r.me = true; });
+    const byUid = {};
+    const merged = [];
+    raw.forEach((r) => {
+      if (!r || !r.uid) return;
+      const cur = byUid[r.uid];
+      if (!cur) { byUid[r.uid] = r; merged.push(r); return; }
+      // 同一人留更好的一条：星星多 → 用步少 → 通关早
+      if (dailyEntryBetter(r, cur)) {
+        merged.splice(merged.indexOf(cur), 1, r);
+        byUid[r.uid] = r;
+      }
+    });
+    merged.forEach((r) => { if (r.uid === meUid) r.me = true; });
     // 服务器已注销 / 隐藏的名字：每日榜同样不展示
-    for (let i = raw.length - 1; i >= 0; i--) {
-      if (raw[i].uid !== meUid && isHiddenName(raw[i].name)) raw.splice(i, 1);
+    for (let i = merged.length - 1; i >= 0; i--) {
+      if (merged[i].uid !== meUid && isHiddenName(merged[i].name)) merged.splice(i, 1);
     }
-    raw.sort((a, b) => (b.stars - a.stars) ||
+    merged.sort((a, b) => (b.stars - a.stars) ||
       ((a.moves > 0 ? a.moves : 99999) - (b.moves > 0 ? b.moves : 99999)) ||
       ((a.ts || 0) - (b.ts || 0)));
     box.innerHTML = '';
-    raw.slice(0, 20).forEach((r, i) => {
+    merged.slice(0, 20).forEach((r, i) => {
       const row = document.createElement('div');
       row.className = 'lb-row' + (r.me ? ' me' : '');
       const rank = i < 3 ? ['🥇', '🥈', '🥉'][i] : String(i + 1);
@@ -6936,7 +7034,7 @@
       row.appendChild(inner);
       box.appendChild(row);
     });
-    if (!raw.length) {
+    if (!merged.length) {
       const d = document.createElement('div');
       d.className = 'lb-empty';
       d.textContent = '还没有人上榜，完成每日挑战就会自动上榜';
@@ -7089,6 +7187,8 @@
     setTimeout(() => { try { publishMyScore(true); } catch (e) {} }, 2000);
     // 开机拉一次「已注销 / 隐藏」名单：后台删掉的人，所有设备的榜单 / 名单上都不再出现
     setTimeout(() => { try { loadServerAccs().catch(() => {}); } catch (e) {} }, 900);
+    // 开机预取一次服务器每日榜：点开「查看榜单」第一眼就是所有人的成绩
+    setTimeout(() => { try { fetchServerDaily(true); } catch (e) {} }, 1100);
     const loggedIn = (typeof Account !== 'undefined') && Account.loggedIn();
 
     // 老档补发：更新前完成的每日挑战没发过完成奖励，按基础 30 枚补进钱包（步数未知，结算页显示 —）
@@ -8269,11 +8369,21 @@
   function publishDailyRecord(stars, moves) {
     if (typeof Board === 'undefined' || !Board.publishDaily) return;
     if (typeof Account !== 'undefined' && !Account.loggedIn()) return;
+    const entry = {
+      uid: Meta.myUid(), name: Meta.nickname(), pv: myProvCode(),
+      stars: stars, moves: moves, ts: Date.now()
+    };
     try {
       Board.publishDaily({
-        uid: Meta.myUid(), name: Meta.nickname(), pv: myProvCode(),
-        stars: stars, moves: moves, ts: Date.now()
+        uid: entry.uid, name: entry.name, pv: entry.pv,
+        stars: stars, moves: moves, ts: entry.ts
       }, true);   // 强制发出：和总榜发布共用节流时每日成绩会被静默丢掉，谁也看不到谁
+    } catch (e) {}
+    // 同时上报到服务器（D1）：榜单一点开就直接读库，立刻能看到所有人
+    try {
+      if (typeof Cloud !== 'undefined' && Cloud.dailyPub) {
+        Cloud.dailyPub({ u: entry.uid, n: entry.name, s: stars, m: moves, ts: entry.ts });
+      }
     } catch (e) {}
   }
 

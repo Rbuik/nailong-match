@@ -17,3 +17,18 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_sessions_acc ON sessions(acc_id);
+
+-- 每日挑战榜单（服务端）：每天 00:00（北京时间）清场，每人只留最好的一条
+CREATE TABLE IF NOT EXISTS daily_board (
+  uid   TEXT PRIMARY KEY,
+  name  TEXT NOT NULL,
+  stars INTEGER NOT NULL,
+  moves INTEGER NOT NULL,
+  ts    INTEGER NOT NULL,
+  day   TEXT NOT NULL
+);
+
+-- 已注销 / 隐藏的名字（客户端上报，服务端不下发这些人）
+CREATE TABLE IF NOT EXISTS hidden_names (
+  nick_key TEXT PRIMARY KEY
+);

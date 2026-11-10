@@ -532,7 +532,9 @@ function check(name, ok) {
   check('海外行点开显示国家/地区统计页',
     String($('prov-title').textContent).indexOf('海外') >= 0 &&
     String($('prov-sub').textContent).length > 0);
-  $('btn-prov-back').dispatch('click');   // 回到省份列表
+  $('prov-page').dispatch('click');   // 返回键已删：点面板外空白回上一层（回省份列表）
+  check('后台省份统计没有返回键（点面板外空白回上一层）',
+    !htmlSrc0.includes('id="btn-prov-back"'));
   check('历史导入蓝键 / 恢复默认音乐红键',
     htmlSrc0.includes('class="btn-primary" id="btn-goto-history-music"') &&
     htmlSrc0.includes('class="btn-primary btn-danger" id="btn-reset-bgm"'));
@@ -595,7 +597,7 @@ function check(name, ok) {
       /id="daily-done-star-num"[\s\S]*id="daily-done-moves"[\s\S]*id="daily-done-coins"/.test(sec) &&
       gjs.includes("'daily-done': 'main-menu'") &&
       /recordDaily\(S\.score, starsNow, dailyMovesUsed, dailyBonus\)/.test(gjs) &&
-      /bonus = 100 \+ Math\.max\(30 \* movesLeft, Math\.floor\(S\.score \/ 10\) \+ 100\);/.test(gjs) &&
+      /bonus = Math\.max\(30 \* movesLeft, Math\.floor\(S\.score \/ 10\)\);/.test(gjs) &&
       /function recordDaily\(score, stars, movesUsed, bonusCoins\)/.test(sjs) &&
       /moves: moves,/.test(sjs) && /coins: bonusCoins \? bonusCoins/.test(sjs);
   })());
@@ -3504,10 +3506,10 @@ function check(name, ok) {
       /passed \? '通关奖励' : '过关奖励', '第 ' \+ S\.level \+ ' 关'/.test(jsSrc) &&
       /addCoins\(bonus, '通关奖励', '每日挑战'\)/.test(jsSrc);
   })());
-  check('每日挑战：三星才发金币；奖励 = 100 + max(30×剩余步数, 总分/10+100)；没通关 / 没三星一分不发', (() => {
+  check('每日挑战：三星才发金币；奖励 = max(30×剩余步数, 总分/10)；没通关 / 没三星一分不发', (() => {
     return /allowGrant && \(starsNow \|\| 0\) >= 3 && !Store\.getDailyRecord\(\)\.coins/.test(jsSrc) &&
       /const movesLeft = Math\.max\(0, \(S\.levelDef\.moves \|\| 20\) - movesUsed\);/.test(jsSrc) &&
-      /bonus = 100 \+ Math\.max\(30 \* movesLeft, Math\.floor\(S\.score \/ 10\) \+ 100\);/.test(jsSrc) &&
+      /bonus = Math\.max\(30 \* movesLeft, Math\.floor\(S\.score \/ 10\)\);/.test(jsSrc) &&
       /if \(S\.daily\) \{\s*\n\s*coins = dailyBonus;/.test(jsSrc) &&      // 通关结算：金额就是按步算的奖励
       /if \(!S\.daily\) \{\s*\n\s*coins = passed \?/.test(jsSrc);         // 步数耗尽结算：每日挑战不发
   })());
@@ -3680,6 +3682,39 @@ function check(name, ok) {
   check('每日挑战榜单实时同步：开着就轮询拉取 + 数据一到就重绘',
     jsSrc.includes('dailyLbTimer') &&
     /dlb && dlb\.style\.display === 'flex'\) renderDailyLb\(\)/.test(jsSrc));
+
+  // 每日榜单走服务器（D1）：上报 + 拉取 + 榜单并上服务器行
+  const cloudJs = fs.readFileSync(path.join(__dirname, 'js', 'cloud.js'), 'utf8');
+  const workerJs = fs.readFileSync(path.join(__dirname, '_backend', '_worker.js'), 'utf8');
+  const schemaSql = fs.readFileSync(path.join(__dirname, '_backend', 'schema.sql'), 'utf8');
+  check('每日榜单服务端化：通关上报 nl_daily_pub、开榜立刻拉 nl_daily_get（服务器行并进榜单）',
+    cloudJs.includes("call('nl_daily_pub'") && cloudJs.includes("call('nl_daily_get'") &&
+    workerJs.includes('nl_daily_pub') && workerJs.includes('nl_daily_get') &&
+    workerJs.includes('DELETE FROM daily_board WHERE day != ?') &&
+    workerJs.includes('new Date(Date.now() + 8 * 3600 * 1000)') &&
+    jsSrc.includes('fetchServerDaily(true)') && jsSrc.includes('Cloud.dailyPub(') &&
+    /serverDailyRows \|\| \[\]\)\.forEach/.test(jsSrc) &&
+    schemaSql.includes('daily_board'));
+
+  // 轨道滑动后补消：tickHazards 变异步 + afterTurn 在机关结算后再兜底补消一轮
+  check('轨道滑动推出的三连会自动消掉（afterTurn 在机关结算后再补消一轮）',
+    /await tickHazards\(\)/.test(jsSrc) &&
+    /await shiftTrack\(\)/.test(jsSrc) &&
+    /轨道滑动会把整行推一格，可能推出新的三连[\s\S]*?while \(findMatches\(\)\.size && safety\+\+ < 24\) \{[\s\S]*?await resolveBoard\(null\);/.test(jsSrc));
+
+  // 主题颜色：设置里「🎨 主题颜色」在「🎵 音乐设置」上面；三选一；默认跟随系统；深色用整页反色
+  const skinIdx = htmlSrc0.indexOf('id="btn-goto-skin"');
+  const musicIdx = htmlSrc0.indexOf('id="btn-goto-music-settings"');
+  const stgJs = fs.readFileSync(path.join(__dirname, 'js', 'storage.js'), 'utf8');
+  check('设置里新增「🎨 主题颜色」（在音乐设置上面，三选一，默认跟随系统）',
+    skinIdx >= 0 && skinIdx < musicIdx &&
+    htmlSrc0.includes('id="btn-skin-auto"') && htmlSrc0.includes('id="btn-skin-light"') &&
+    htmlSrc0.includes('id="btn-skin-dark"') &&
+    /skin: 'auto'/.test(stgJs) &&
+    jsSrc.includes('applySkin') &&
+    jsSrc.includes("matchMedia('(prefers-color-scheme: dark)')") &&
+    jsSrc.includes("data-skin', dark ? 'dark' : 'light'") &&
+    /html\[data-skin="dark"\] \{ filter: invert\(1\) hue-rotate\(180deg\);/.test(cssSrc));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

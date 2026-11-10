@@ -180,6 +180,18 @@
     return call('nl_users', { p_key: 'nl-admin-7k2v' });
   }
 
+  // 每日挑战榜单（服务端 D1）：一点开榜单立刻能看到所有人
+  //   dailyPub({u,n,s,m,ts})  通关后上报（星星 / 用步）
+  //   dailyGet()              拉今天的榜（星星多 → 用步少 → 通关早）
+  function dailyPub(e) {
+    if (!sdkOk) return Promise.resolve({ ok: false, offline: true });
+    return call('nl_daily_pub', { u: e.u, n: e.n, s: e.s, m: e.m, ts: e.ts || Date.now() });
+  }
+  function dailyGet() {
+    if (!sdkOk) return Promise.resolve({ ok: false, offline: true });
+    return call('nl_daily_get', {});
+  }
+
   global.Cloud = {
     ready: () => sdkOk,
     signedIn: () => !!token(),
@@ -195,6 +207,8 @@
     rename: rename,
     remove: remove,
     users: users,
+    dailyPub: dailyPub,
+    dailyGet: dailyGet,
     lastSync: lastSync,
     setLastSync: setLastSync,
     config: CFG

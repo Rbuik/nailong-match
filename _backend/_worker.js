@@ -297,6 +297,66 @@ async function doUsers(env, b) {
 }
 
 // 定位放在客户端做（ipip 国内库最准）；服务端问腾讯只会拿到 Cloudflare 机房位置，所以不在这做。
+
+// 每日挑战榜单（服务端 D1）：一点开榜单立刻看到所有人，不再依赖中转消息慢慢传。
+//   POST /api/rpc/nl_daily_pub  {u,n,s,m,ts} -> {ok}   通关后上报（星星/用步）
+//   POST /api/rpc/nl_daily_get  {}           -> {ok,rows:[{uid,name,stars,moves,ts}]}
+// 按「星星多 → 用步少 → 通关早」排名；每人留最好的一条；按北京时间（UTC+8）每日 00:00 重置。
+function dailyDayKey() {
+  return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);
+}
+
+async function doDailyPub(env, b) {
+  const uid = String(b.u || '');
+  if (!/^[A-Za-z0-9_-]{3,24}$/.test(uid)) return json({ ok: false, reason: 'uid 不合法' }, 400);
+  const name = String(b.n || '玩家').replace(/[\r\n<>]/g, '').trim().slice(0, 8) || '玩家';
+  const stars = Math.round(Number(b.s));
+  if (!(stars >= 1 && stars <= 3)) return json({ ok: false, reason: 'stars 不合法' }, 400);
+  const mv = Math.round(Number(b.m));
+  const moves = (mv >= 0 && mv <= 9999) ? mv : 0;
+  const ts = Number(b.ts) || Date.now();
+  const day = dailyDayKey();
+  try {
+    // 跨天清场（每日 00:00 重置）+ 每人只留更好的一条（星星多 → 用步少）
+    await env.DB.prepare('DELETE FROM daily_board WHERE day != ?').bind(day).run();
+    await env.DB.prepare(
+      'INSERT INTO daily_board (uid,name,stars,moves,ts,day) VALUES (?,?,?,?,?,?) ' +
+      'ON CONFLICT(uid) DO UPDATE SET name=excluded.name, stars=excluded.stars, moves=excluded.moves, ts=excluded.ts, day=excluded.day ' +
+      'WHERE daily_board.day != excluded.day OR excluded.stars > daily_board.stars ' +
+      'OR (excluded.stars = daily_board.stars AND excluded.moves < daily_board.moves)'
+    ).bind(uid, name, stars, moves, ts, day).run();
+    return json({ ok: true });
+  } catch (e) {
+    return json({ ok: false, reason: '表还没建' });
+  }
+}
+
+async function doDailyGet(env) {
+  const day = dailyDayKey();
+  try {
+    const rs = await env.DB.prepare('SELECT uid,name,stars,moves,ts FROM daily_board WHERE day = ?').bind(day).all();
+    let rows = ((rs && rs.results) || []).map((r) => ({
+      uid: String(r.uid || ''),
+      name: String(r.name || ''),
+      stars: Number(r.stars) || 0,
+      moves: Number(r.moves) || 0,
+      ts: Number(r.ts) || 0
+    })).filter((r) => r.uid && r.name);
+    // 已注销 / 隐藏的名字不在榜单里出现
+    let hidden = [];
+    try {
+      const hr = await env.DB.prepare('SELECT nick_key FROM hidden_names').all();
+      hidden = ((hr && hr.results) || []).map((r) => String(r.nick_key || '').toLowerCase());
+    } catch (e) {}
+    rows = rows.filter((r) => !hidden.includes(r.name.toLowerCase()));
+    rows.sort((a, b) => (b.stars - a.stars) ||
+      ((a.moves > 0 ? a.moves : 99999) - (b.moves > 0 ? b.moves : 99999)) ||
+      ((a.ts || 0) - (b.ts || 0)));
+    return json({ ok: true, rows: rows.slice(0, 50) });
+  } catch (e) {
+    return json({ ok: false, reason: '表还没建' });
+  }
+}
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -329,6 +389,8 @@ export default {
       case 'nl_recover':  return doRecover(env, body);
       case 'nl_delete':   return doDelete(env, body);
       case 'nl_users':    return doUsers(env, body);
+      case 'nl_daily_pub': return doDailyPub(env, body);
+      case 'nl_daily_get': return doDailyGet(env, body);
       default:            return json({ ok: false, reason: '接口不存在' }, 404);
     }
   }
