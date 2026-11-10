@@ -3324,7 +3324,7 @@ function check(name, ok) {
     /: \(locked \? '<span class="h-score"><\/span>'/.test(jsSrc) &&
     /'<span class="h-score not-start">未开始<\/span>'/.test(jsSrc));
   check('玩家名单省份列固定宽、名字列放得下 7 个中文字：「未定位」不再把分数列挤歪',
-    /grid-template-columns: 26px minmax\(0, 1fr\) 22px 34px 6ch 56px;/.test(cssSrc) &&
+    /grid-template-columns: 20px minmax\(0, 1fr\) 8px 34px 6ch 48px;/.test(cssSrc) &&
     !/6ch minmax\(0, max-content\)/.test(cssSrc) &&
     /hiddenNames = new Set\(Array\.isArray\(r\.hidden\)/.test(jsSrc) &&
     /if \(isHiddenName\(n\)\) return;/.test(jsSrc) &&

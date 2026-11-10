@@ -1559,10 +1559,10 @@ body.m-dragging .m-item { cursor: grabbing; }
   display: grid;
   /* 省份列固定宽：以前是 max-content，「未定位」（3 个字）比「四川」（2 个字）宽，
      会把每行 1fr 的名字列挤窄 → 分数「—」一列左一位右一位不齐。
-     固定 56px（12px 字号装得下 3 个字 + 10px 内边距）后每行分数列起点是同一条线。
-     空档/星星列在原基础上各收 12px、4px，把宽度让给名字列：7 个中文字也放得下 */
-  grid-template-columns: 26px minmax(0, 1fr) 22px 34px 6ch 56px;
-  column-gap: 6px;
+     固定 48px（12px 字号装得下 3 个字 + 10px 内边距）后每行分数列起点是同一条线。
+     名次 / 空档 / 间距再各收一点，把宽度让给名字列：窄屏下 7 个中文字也完整显示 */
+  grid-template-columns: 20px minmax(0, 1fr) 8px 34px 6ch 48px;
+  column-gap: 5px;
 }
 .lb-swipe.col4 .lb-stars,
 .lb-swipe.col5 .lb-stars { grid-column: 4; }
