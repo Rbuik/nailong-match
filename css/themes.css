@@ -1149,14 +1149,14 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 .level-chip.locked b { color: #9a93ad; }
 .level-chip.locked i { color: #b8b3c4; }
-/* 当前关卡：和主页「开始游戏」键同一套黑色风格（淡黑底 + 黑描边 + 黑字） */
+/* 当前关卡：紫色高亮（和以前一样：淡紫底 + 紫描边 + 紫光晕） */
 .level-chip.current {
-  border-color: rgba(0, 0, 0, 0.65);
+  border-color: #7c5cff;
   border-width: 2px;
-  background: rgba(0, 0, 0, 0.08);
-  box-shadow: none;
+  background: rgba(124, 92, 255, 0.12);
+  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.22);
 }
-.level-chip.current b { color: #222; }
+.level-chip.current b { color: #4a2fa8; }
 .level-chip.current i { color: #ffb400; }
 .level-chip:active { transform: scale(0.94); }
 .chapter-lock { margin-top: 8px; font-size: 12px; color: #9a93ad; text-align: center; }
