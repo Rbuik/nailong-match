@@ -1560,7 +1560,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   /* 省份列固定宽：以前是 max-content，「未定位」（3 个字）比「四川」（2 个字）宽，
      会把每行 1fr 的名字列挤窄 → 分数「—」一列左一位右一位不齐。
      固定 48px（12px 字号装得下 3 个字 + 10px 内边距）后每行分数列起点是同一条线。
-     名次 / 空档 / 间距再各收一点，把宽度让给名字列：窄屏下 7 个中文字也完整显示 */
+     名次 / 空档 / 间距保持原样；名字列在窄屏下约 97px，靠 12px 字号 + 轻微负字距放完整 8 个字（不再出现「…」） */
   grid-template-columns: 20px minmax(0, 1fr) 8px 34px 6ch 48px;
   column-gap: 5px;
 }
@@ -1576,6 +1576,9 @@ body.m-dragging .m-item { cursor: grabbing; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* 玩家名单的名字最长 8 个字：列宽保持原样不动，只把字号收到 12px + 轻微负字距，
+   8 个中文字 ≈ 94px 正好放得下，不会再变成「…」 */
+.lb-swipe.col5 .lb-name { font-size: 12px; letter-spacing: -0.2px; }
 .lb-swipe.col4 .lb-stars,
 .lb-swipe.col5 .lb-stars {
   margin-left: 0;

@@ -1038,7 +1038,7 @@ function check(name, ok) {
     const pick = ($('lb-picker').children || []).filter((b) => String(b.textContent) === '第 1 关')[0];
     if (pick) pick.dispatch('click');
     const rows = ($('lb-list').children || []);
-    let sawLow = false, sawMe = false, ok = true;
+    let sawLow = false, sawMyRow = false, ok = true;
     rows.forEach((row) => {
       const cls = String(row.className || '');
       const inner = (row.children || [])[0];
@@ -1049,15 +1049,15 @@ function check(name, ok) {
         if (cls.indexOf('none') < 0 || h.indexOf('lb-rank">—') < 0 ||
           !/lb-score">[0-9]+<\/span>/.test(h)) ok = false;
       }
-      if (h.indexOf('我') >= 0) {
-        sawMe = true;
-        // 我 1200 ≥ 目标 1000：正常名次 + 金牌
-        if (cls.indexOf('none') >= 0 || h.indexOf('🥇') < 0) ok = false;
+      if (cls.indexOf('me') >= 0) {
+        sawMyRow = true;
+        // 榜单不再显示「我」字标（高亮底色还在），自己的行也要有正常名次 + 金牌
+        if (h.indexOf('lb-me">我') >= 0 || cls.indexOf('none') >= 0 || h.indexOf('🥇') < 0) ok = false;
       }
     });
     $('lb-view').dispatch('click');
     $('leaderboard-menu').dispatch('click');
-    return sawLow && sawMe && ok;
+    return sawLow && sawMyRow && ok;
   })());
   check('局榜以「这一关有没有通关」为准：星级 > 0 才算通关，没通关灰显垫底不排名', (() => {
     return /r\.pass = \(r\.stars \|\| 0\) > 0/.test(jsSrc) &&
@@ -3056,13 +3056,13 @@ function check(name, ok) {
     /\.ul-prov\s*\{[^}]*margin-left: 21px/.test(cssSrc) &&
     /\.ul-score\s*\{[^}]*text-align: left/.test(cssSrc));
   check('结算画面总星数与总分同时长滚动', /countUp\(st, totalStars, 900\)/.test(jsSrc));
-  check('名字长度只能 1-7 个字符（一个字母或符号都算一个）', (() => {
+  check('名字长度只能 1-8 个字符（一个字母或符号都算一个）', (() => {
     const v1 = sandbox.Meta.validateNick('a');
-    const v7 = sandbox.Meta.validateNick('abcdefg');
     const v8 = sandbox.Meta.validateNick('abcdefgh');
-    return v1.ok && v7.ok && !v8.ok && /NICK_MAX = 7;/.test(workerSrc) &&
-      workerSrc.includes('1-7 个字符') && !/NICK_MAX = 12/.test(workerSrc) &&
-      /maxlength="7"/.test(htmlSrc) && !/maxlength="8"/.test(htmlSrc);
+    const v9 = sandbox.Meta.validateNick('abcdefghi');
+    return v1.ok && v8.ok && !v9.ok && /NICK_MAX = 8;/.test(workerSrc) &&
+      workerSrc.includes('1-8 个字符') && !/NICK_MAX = 12/.test(workerSrc) &&
+      /maxlength="8"/.test(htmlSrc) && !/maxlength="7"/.test(htmlSrc);
   })());
   check('结算音效和结算画面同一拍出来（通关 / 失败都是）',
     /box\.style\.display = 'flex';\s*\n\s*winSfx\(\);/.test(jsSrc) &&
@@ -3323,8 +3323,11 @@ function check(name, ok) {
     /\.history-item \.lock-tag\s*\{\s*font-size:\s*10px/.test(cssSrc) &&
     /: \(locked \? '<span class="h-score"><\/span>'/.test(jsSrc) &&
     /'<span class="h-score not-start">未开始<\/span>'/.test(jsSrc));
-  check('玩家名单省份列固定宽、名字列放得下 7 个中文字：「未定位」不再把分数列挤歪',
+  check('玩家名单省份列固定宽（间距不变），8 个中文名靠 12px 字号完整显示；榜单不再显示「我」',
     /grid-template-columns: 20px minmax\(0, 1fr\) 8px 34px 6ch 48px;/.test(cssSrc) &&
+    /\.lb-swipe\.col5 \.lb-name\s*\{\s*font-size:\s*12px;\s*letter-spacing:\s*-0\.2px;/.test(cssSrc) &&
+    !/lb-me">我/.test(jsSrc) &&
+    /r\.friend \? '<i>好友<\/i>'/.test(jsSrc) &&
     !/6ch minmax\(0, max-content\)/.test(cssSrc) &&
     /hiddenNames = new Set\(Array\.isArray\(r\.hidden\)/.test(jsSrc) &&
     /if \(isHiddenName\(n\)\) return;/.test(jsSrc) &&

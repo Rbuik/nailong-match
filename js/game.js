@@ -5360,7 +5360,7 @@
         ? '<span class="lb-stars ul-stars"><i class="lb-star-ico">★</i><b>' + st + '</b></span>'
         : '<span class="lb-stars ul-stars"></span>';
       inner.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
-        '<span class="lb-name">' + escHtml(String(u.name).slice(0, 7)) + '</span>' +
+        '<span class="lb-name">' + escHtml(String(u.name).slice(0, 8)) + '</span>' +
         starHtml +
         '<span class="lb-score ul-score">' + (u.score > 0 ? String(u.score) : '—') + '</span>' +
         (byProv ? '' : '<span class="lb-score ul-prov">' + escHtml(p) + '</span>');
@@ -6826,8 +6826,7 @@
       const inner = document.createElement('div');
       inner.className = 'lb-swipe col4';
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
-        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 7)) +
-        (r.me ? '<i class="lb-me">我</i>' : '') + '</span>' +
+        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) + '</span>' +
         (stars > 0 ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>' : '<span class="lb-stars"></span>') +
         '<span class="lb-score">' + (r.moves > 0 ? r.moves + ' 步' : '—') + '</span>';
       row.appendChild(inner);
@@ -8187,8 +8186,8 @@
           ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>'
           : '<span class="lb-stars"><i class="lb-star-ico">★</i><b>' + stars + '</b></span>');
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
-        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 7)) +
-        (r.me ? '<i class="lb-me">我</i>' : r.friend ? '<i>好友</i>' : '') + '</span>' +
+        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
+        (r.friend ? '<i>好友</i>' : '') + '</span>' +
         starHtml +
         '<span class="lb-score' + (onBoard ? '' : ' none') + '">' + (onBoard ? r.score : '未上榜') + '</span>';
       row.appendChild(inner);
@@ -8291,8 +8290,8 @@
     if (hint) {
       // 两行显示：规则一行，「不能和别人重名」另起一行
       hint.innerHTML = forced
-        ? '「奶龙玩家」是默认昵称，不能直接用<br>1-7 个字符，特殊符号只能用 - . _'
-        : '1-7 个字符（一个字母或符号都算一个）<br>中文 / 字母 / 数字，特殊符号只能用 . - _，不能重名';
+        ? '「奶龙玩家」是默认昵称，不能直接用<br>1-8 个字符，特殊符号只能用 - . _'
+        : '1-8 个字符（一个字母或符号都算一个）<br>中文 / 字母 / 数字，特殊符号只能用 . - _，不能重名';
     }
     // 强制改名时输入框一律留空：预填旧名字会让人以为点一下就过了
     if ($('nick-input')) $('nick-input').value = forced ? '' : (Meta.isDefaultNick() ? '' : Meta.nickname());
@@ -8454,7 +8453,7 @@
     const tip = $('auth-tip');
     if (tip) {
       tip.innerHTML = authMode === 'register'
-        ? '1-7 个字符，特殊符号只能用 - . _<br>密码 4~24 位，不能有空格'
+        ? '1-8 个字符，特殊符号只能用 - . _<br>密码 4~24 位，不能有空格'
         : '';
     }
     ['auth-name', 'auth-pass'].forEach((id) => {

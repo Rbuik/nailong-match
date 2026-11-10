@@ -110,7 +110,7 @@
     const uid = String(e.uid || e.u || '');
     if (!/^[A-Za-z0-9_-]{3,24}$/.test(uid)) return null;
     if (deleted[uid]) return null;               // 已注销的人不进每日榜
-    const name = String(e.name || e.n || '玩家').replace(/[\r\n<>]/g, '').trim().slice(0, 7) || '玩家';
+    const name = String(e.name || e.n || '玩家').replace(/[\r\n<>]/g, '').trim().slice(0, 8) || '玩家';
     const stars = Math.round(Number(e.stars != null ? e.stars : e.s));
     if (!(stars >= 1 && stars <= 3)) return null;  // 至少完成（拿到 1 星）才算成绩
     const mv = Math.round(Number(e.moves != null ? e.moves : e.m));
@@ -247,7 +247,7 @@
     if (!e) return null;
     const uid = String(e.uid || e.u || '');
     if (!/^[A-Za-z0-9_-]{3,24}$/.test(uid)) return null;
-    const name = String(e.name || e.n || '玩家').replace(/[\r\n<>]/g, '').trim().slice(0, 7) || '玩家';
+    const name = String(e.name || e.n || '玩家').replace(/[\r\n<>]/g, '').trim().slice(0, 8) || '玩家';
     const score = Math.round(Number(e.score != null ? e.score : e.s));
     if (!isFinite(score) || score < 0 || score > 5e7) return null;
     const level = Math.max(0, Math.min(9999, Math.round(Number(e.level != null ? e.level : e.l) || 0)));
