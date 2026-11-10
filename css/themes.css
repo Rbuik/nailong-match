@@ -1409,9 +1409,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* ================= 排行榜 ================= */
 .lb-list {
   width: 90%;
-  max-height: 66vh;          /* 和成就页的滚动区一样高 */
-  flex: 1 1 auto;            /* 屏幕放不下时自动让位，不把整页顶出屏幕 */
-  min-height: 0;
+  height: 66vh;              /* 和成就页的滚动区一样高（内容少也撑满，内容多就内部滚动） */
   overflow-y: auto;
   display: flex;
   flex-direction: column;

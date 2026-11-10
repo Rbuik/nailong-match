@@ -540,22 +540,61 @@
     return n;
   }
 
-  // 🚄 每 4 步整行滑一格（只挪方块，果冻 / 机关留在原地）
+  // 🚄 每 4 步整行滑一格（只挪方块，果冻 / 机关留在原地）：
+  // 每次随机挑一行滑（不再固定那几行轮流来）；滑动有「慢慢推过去」的动画 + 石头摩擦声
   function shiftTrack() {
     if (!S.trackRows.length) return 0;
-    S.trackRows.forEach((r) => {
-      const row = S.board[r];
-      if (!row) return;
-      const last = row[COLS - 1];
-      for (let c = COLS - 1; c > 0; c--) row[c] = row[c - 1];
-      row[0] = last;
-      for (let c = 0; c < COLS; c++) {
-        if (row[c]) FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#7cc2ff', 2);
-      }
-    });
-    AudioManager.playSFX('swap');
+    const r = S.trackRows[randInt(S.trackRows.length)];
+    const row = S.board[r];
+    if (!row) return 0;
+    const last = row[COLS - 1];
+    for (let c = COLS - 1; c > 0; c--) row[c] = row[c - 1];
+    row[0] = last;
+    for (let c = 0; c < COLS; c++) {
+      if (row[c]) FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#7cc2ff', 2);
+    }
+    AudioManager.playSFX('stone');   // 石头被推着走的摩擦声
     toast('🚄 轨道滑动，整行挪了一格');
+    // 滑动动画：整行内容从「滑动前的位置」慢慢推到新位置（缓出，约 0.5 秒）
+    S.busy = true;
+    tween(500, (p) => {
+      const e = 1 - Math.pow(1 - p, 3);
+      drawTrackSlide(r, e);
+    }).then(() => {
+      S.busy = false;
+      drawStatic();
+    });
     return 1;
+  }
+
+  // 轨道滑动动画的单帧：整行向右推 t 格；最右那格从画布右缘滑出、同时从左缘滑进来
+  function drawTrackSlide(r, t) {
+    if (!ctx) return;
+    ctx.clearRect(0, 0, VIEW_W, VIEW_H);
+    ctx.save();
+    roundRect(0, 0, VIEW_W, VIEW_H, 12);
+    ctx.clip();
+    const shake = FX.getShakeOffset();
+    ctx.translate(shake.x, shake.y);
+    drawJellyLayer();
+    const skip = {};
+    for (let c = 0; c < COLS; c++) skip[kOf(r, c)] = 1;   // 轨道行的覆盖层（冰/锁链/货物）滑动期间先不画
+    for (let rr = 0; rr < ROWS; rr++) {
+      for (let cc = 0; cc < COLS; cc++) {
+        const b = S.board[rr] && S.board[rr][cc];
+        if (!b) continue;
+        if (rr !== r) {
+          drawBlock(cc * CELL, rr * CELL, b, jellyAt(rr, cc) ? { scale: JELLY_BLOCK_SCALE } : null);
+          continue;
+        }
+        const opts = jellyAt(rr, cc) ? { scale: JELLY_BLOCK_SCALE } : null;
+        drawBlock((cc + t - 1) * CELL, rr * CELL, b, opts);
+        if (cc === 0) drawBlock((COLS - 1 + t) * CELL, rr * CELL, b, opts);   // 绕回格从右缘滑出
+      }
+    }
+    drawCellOverlays({ skip });
+    FX.render(ctx);
+    ctx.restore();
   }
 
   // ❄️ 霜块主动生成：每 6 步在空位长一个（正面向：消掉它就能定格机关 3 步）
@@ -2806,6 +2845,7 @@
     S.maxCombo = 0;
     S.lastClearAt = 0;
     S.history = [];
+    S.lastWinCoins = null;   // 新局清掉上一局的「待撤回奖励」标记
     S.playing = true;
     S.paused = false;
     S.autoPausePending = false;
@@ -3170,13 +3210,21 @@
 
     // 金币产出（§7）：每日挑战只有三星才发（按用步算，已在 dailySettle 里发掉，
     // 没通关 / 没三星都是 0，明细里也不再多一条）；普通关按分发。
-    // 续玩后的第二次结算也照发金币。明细里写清是哪一关
+    // 一局只发一次金币：第一次结算如果还有剩余步数 / 时间可以继续刷分，这笔先记在
+    // S.lastWinCoins；玩家真的继续了，第二次结算把这笔撤回、只发最后那条（分数更高
+    // 所以金额只会更大）；玩家不继续（进下一关 / 回主页），这笔就照常留在钱包里。
     let coins = 0;
     if (S.daily) {
       coins = dailyBonus;   // 三星奖励；没三星为 0
     } else {
       coins = Math.max(10, Math.floor(S.score / 100));
+      if (again && S.lastWinCoins) {
+        try { Store.cancelReward(S.lastWinCoins.coins, S.lastWinCoins.memo, S.lastWinCoins.detail); } catch (e) {}
+        S.lastWinCoins = null;
+      }
       Store.addCoins(coins, '通关奖励', '第 ' + S.level + ' 关');
+      const canCont = S.timerOn ? S.timeLeft > 0 : S.moves > 0;
+      S.lastWinCoins = canCont ? { coins: coins, memo: '通关奖励', detail: '第 ' + S.level + ' 关' } : null;
     }
     if (!again) {
       Tasks.report('play', 1);
@@ -5678,6 +5726,17 @@
       renderDailyLb();
       showOverlay('daily-lb');
       try { if (typeof Board !== 'undefined' && Board.sync) Board.sync(); } catch (e) {}
+      // 榜单开着时每 4 秒拉一次 + 数据一到 onChange 就重绘：
+      // 别人刚发的成绩几秒内就上榜，不再「只有自己，过一会才冒出别人」
+      if (dailyLbTimer) clearInterval(dailyLbTimer);
+      dailyLbTimer = setInterval(() => {
+        const p = $('daily-lb');
+        if (!p || p.style.display !== 'flex') {
+          if (dailyLbTimer) { clearInterval(dailyLbTimer); dailyLbTimer = null; }
+          return;
+        }
+        try { if (typeof Board !== 'undefined' && Board.sync) Board.sync(); } catch (e) {}
+      }, 4000);
     });
     // 「返回主页」键已删：点面板外空白回主页（panelBack）
 
@@ -6974,8 +7033,10 @@
       if (!S.busy) drawStatic();
     }
     // 棋盘上有钥匙/奶龙时重绘：货物才会真的呼吸（放大缩小 + 发光起伏）。
-    // 呼吸节奏很慢，降到 ~20fps 就够顺滑，省下大半 GPU/CPU（低端机卡顿主因）。
-    if (!S.busy && boardHasCargo() && (S.frameNo = (S.frameNo || 0) + 1) % 3 === 0) drawStatic();
+    // 棋盘上有传送门时也重绘：🌀 漩涡的旋转角度跟着时间走，必须持续重绘才不会「转一下就停」。
+    // 都是很慢的动画，降到 ~20fps 就够顺滑，省下大半 GPU/CPU（低端机卡顿主因）。
+    S.frameNo = (S.frameNo || 0) + 1;
+    if (!S.busy && (boardHasCargo() || (S.portals && S.portals.length)) && S.frameNo % 3 === 0) drawStatic();
     updateComboBar();
 
     // 落地挤压（§14）
@@ -7069,6 +7130,8 @@
       Board.onChange(() => {
         const view = $('lb-view');
         if (view && view.style.display === 'flex') renderLeaderboard();
+        const dlb = $('daily-lb');
+        if (dlb && dlb.style.display === 'flex') renderDailyLb();   // 每日榜单开着：数据一到立刻重绘
         if (!S.playing) { try { refreshMenu(); } catch (e) {} }
       });
       publishMyScore();
@@ -7240,6 +7303,7 @@
   }
 
   let storyCb = null;
+  let dailyLbTimer = null;   // 每日挑战榜单开着时的实时轮询（几秒一拉）
   function showStory(chId, cb) {
     const ch = chapters()[chId - 1];
     storyCb = cb || null;
@@ -7758,7 +7822,7 @@
     const r = Meta.signIn();
     if (r.ok) {
       toast('签到成功：+' + r.reward.coins + ' 金币' + (r.reward.item ? ' +彩虹道具' : ''));
-      // 连续签到每满 7 天（7/14/21/28…）：额外 200 金币发到邮箱
+      // 连续签到每满 7 天（7/14/21/28…）：额外 100 金币发到邮箱
       if (r.milestone && typeof Mail !== 'undefined' && Mail.sendMail) {
         try {
           const id = 'signin-milestone-' + r.streak;

@@ -277,6 +277,26 @@
     return w.coins;
   }
 
+  // 撤回一笔刚发的奖励（续玩二次结算时把第一次的金币撤回，一局只留最后一条奖励）：
+  // 从明细尾部往前找「金额 / 说明 / 具体说明」都对上的最新一条，删掉并把金币扣回
+  function cancelReward(amount, memo, detail) {
+    if (!amount) return false;
+    const arr = readLedger();
+    const m = String(memo || ''), x = String(detail || '');
+    for (let i = arr.length - 1; i >= 0; i--) {
+      const it = arr[i];
+      if (it && it.d === amount && it.m === m && (it.x || '') === x) {
+        arr.splice(i, 1);
+        write(K.ledger, arr);
+        const w = getWallet();
+        w.coins = Math.max(0, w.coins - amount);
+        setWallet(w);
+        return true;
+      }
+    }
+    return false;
+  }
+
   function spendCoins(n, memo, detail) {
     const w = getWallet();
     if (w.coins < n) return false;
@@ -325,8 +345,8 @@
     { coins: 50 }, { coins: 50 }, { coins: 50 }, { coins: 50 },
     { coins: 50 }, { coins: 50 }, { coins: 50 }
   ];
-  // 连续签到每满 7 天（7/14/21/28…），额外 200 金币发到邮箱
-  const SIGN_MILESTONE = { every: 7, coins: 200 };
+  // 连续签到每满 7 天（7/14/21/28…），额外 100 金币发到邮箱
+  const SIGN_MILESTONE = { every: 7, coins: 100 };
 
   // 补签：一次补 1 天，花 50 金币（只补连续天数，不发当日奖励）
   const MAKEUP_COST = 50;
@@ -563,7 +583,7 @@
     K, VERSION, SIGN_REWARDS, SIGN_MILESTONE,
     getProgress, getLevelRecord, recordLevel, getDailyRecord, recordDaily, patchDaily, totalStars, maxUnlockedLevel,
     markPlayed, hasPlayed,
-    getWallet, onWallet, addCoins, spendCoins, addItem, useItem, getLedger, LEDGER_MAX,
+    getWallet, onWallet, addCoins, cancelReward, spendCoins, addItem, useItem, getLedger, LEDGER_MAX,
     getTaskState, setTaskState, signIn, makeupSign, signStats, canSignIn, MAKEUP_COST, todayKey, dayIndex, signCycleStart, signStart,
     getSettings, setSettings, getVisits, recordVisit, resetVisits, getNet, patchNet, countStart,
     COUNT_START,

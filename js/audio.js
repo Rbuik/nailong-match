@@ -476,6 +476,15 @@
           this._tone(400, 'triangle', 0.1, 0.15);
           this.vibrate(15);
           break;
+        case 'stone': {
+          // 石头推动：低频摩擦的隆隆声 —— 低通噪声拖尾 + 沉闷的哼鸣下滑，
+          // 像重物在石槽里被慢慢推着走（移动轨道滑动专用）
+          this._noise(0.5, 0.20, 300, 1.2, 0, 'lowpass');
+          this._noise(0.32, 0.10, 900, 1.0, 0.10, 'bandpass');
+          this._hum(95, 0.5, 0.13, 0, 55, 160);
+          this.vibrate(22);
+          break;
+        }
         case 'invalid':
           this._tone(200, 'sawtooth', 0.15, 0.1);
           this.vibrate([20, 50, 20]);

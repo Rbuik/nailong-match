@@ -163,9 +163,8 @@
       return `目标：${state.hasCandy ? '运送货物' : '运送钥匙'} ${Math.min(state.cargoGot, state.target)} / ${state.target}`;
     }
     if (state.type === 'rescue') {
-      const left = Math.max(0, state.target - (state.rescueGot || 0));
-      return `目标：护送奶龙 ${Math.min(state.rescueGot, state.target)} / ${state.target}` +
-        (left > 0 ? ` · 场上还剩 ${left} 只` : '');
+      // 目标栏只显示进度，不显示「场上还剩 N 只」（用户要求，和运送关一致）
+      return `目标：护送奶龙 ${Math.min(state.rescueGot, state.target)} / ${state.target}`;
     }
     if (state.type === 'timed') {
       return `目标：限时 ${state.timeLimit}s 内得 ${state.current} / ${state.target} 分`;

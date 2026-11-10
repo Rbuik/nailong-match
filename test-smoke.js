@@ -2069,10 +2069,12 @@ function check(name, ok) {
   check('设置只有音乐设置 / 账号安全两个入口',
     htmlSrc.includes('btn-goto-music-settings') && htmlSrc.includes('btn-goto-account') &&
     !htmlSrc.includes('id="btn-recover"'));
-  check('音乐设置里装音量 / 播放列表 / 导入 / 恢复默认',
-    ['btn-goto-volume', 'btn-goto-playlist', 'btn-goto-import'].every((id) =>
+  check('音乐设置里装音量 / 播放列表 / 恢复默认（导入音频入口已删，代码保留）',
+    ['btn-goto-volume', 'btn-goto-playlist'].every((id) =>
       htmlSrc.indexOf(id) > htmlSrc.indexOf('id="music-settings-menu"')) &&
-    htmlSrc.indexOf('id="btn-reset-bgm"') > htmlSrc.indexOf('id="music-settings-menu"'));
+    htmlSrc.indexOf('id="btn-reset-bgm"') > htmlSrc.indexOf('id="music-settings-menu"') &&
+    !htmlSrc.includes('id="btn-goto-import"') &&
+    jsSrc.includes("on('btn-goto-import'"));   // 代码不删，只是入口藏掉
   check('账号安全里装修改密码 + 切换账号（修改密码在上面）',
     htmlSrc.indexOf('id="btn-goto-password"') > 0 &&
     htmlSrc.indexOf('id="btn-goto-password"') < htmlSrc.indexOf('id="btn-goto-switch"'));
@@ -2888,20 +2890,20 @@ function check(name, ok) {
       /exponentialRampToValueAtTime[^;]*t0 \+ 0\.02\)/.test(bgm) &&
       /setValueAtTime\(0\.0001, t0\)/.test(drum);
   })());
-  check('签到：每天固定 50 金币；连续满 7 天额外 200 金币走邮箱', (() => {
+  check('签到：每天固定 50 金币；连续满 7 天额外 100 金币走邮箱', (() => {
     const S2 = sandbox.Store;
     const saved = lsMap.get('nl2:tasks');
     const dates = [];
     for (let i = 6; i >= 1; i--) dates.push(S2.todayKey(new Date(Date.now() - i * 86400000)));
     lsMap.set('nl2:tasks', JSON.stringify({ dates: dates, streak: 6, cycleStart: dates[0], signDate: dates[5] }));
     const r = S2.signIn();
-    const ok = r.ok && r.reward.coins === 50 && r.streak === 7 && r.milestone === 200;
+    const ok = r.ok && r.reward.coins === 50 && r.streak === 7 && r.milestone === 100;
     const yesterday2 = S2.todayKey(new Date(Date.now() - 86400000));
     lsMap.set('nl2:tasks', JSON.stringify({ dates: [yesterday2], streak: 1, cycleStart: yesterday2, signDate: yesterday2 }));
     const r2 = S2.signIn();
     const ok2 = r2.ok && r2.reward.coins === 50 && r2.milestone === 0;
     if (saved !== undefined) lsMap.set('nl2:tasks', saved); else lsMap.delete('nl2:tasks');
-    return ok && ok2 && S2.SIGN_MILESTONE.coins === 200 && S2.SIGN_MILESTONE.every === 7;
+    return ok && ok2 && S2.SIGN_MILESTONE.coins === 100 && S2.SIGN_MILESTONE.every === 7;
   })());
   check('登录页不可退出：点背景跳不过去了，必须登录 / 注册 / 导入存档码（或本机账号）进入', (() => {
     const hadSkip = lsMap.get('nl2:authSkip');
@@ -3632,6 +3634,36 @@ function check(name, ok) {
       String($('chapters-menu').style.display) === 'none' &&
       String($('main-menu').style.display) !== 'none';
   })());
+
+  // 一局只发一次金币：cancelReward 撤回第一次结算那笔，明细里只剩最后一条（金额更大）
+  check('一局只发一次金币：cancelReward 撤回第一条后只剩最后一条奖励', (() => {
+    const S2 = sandbox.Store;
+    const savedW = lsMap.get('nl2:wallet'), savedL = lsMap.get('nl2:ledger');
+    const sameKind = () => S2.getLedger().filter((x) => x.m === '通关奖励' && x.x === '第 1 关');
+    const before = sameKind().length;
+    S2.addCoins(20, '通关奖励', '第 1 关');          // 第一次结算（还有剩余步数可继续）
+    const okCancel = S2.cancelReward(20, '通关奖励', '第 1 关');
+    const mid = sameKind().length;                   // 撤回后回到原有条数
+    S2.addCoins(30, '通关奖励', '第 1 关');          // 续玩后的第二次结算（分数更高）
+    const final = sameKind();
+    if (savedW !== undefined) lsMap.set('nl2:wallet', savedW); else lsMap.delete('nl2:wallet');
+    if (savedL !== undefined) lsMap.set('nl2:ledger', savedL); else lsMap.delete('nl2:ledger');
+    return okCancel && mid === before && final.length === before + 1 && final[final.length - 1].d === 30;
+  })());
+  check('一局只发一次金币：续玩二次结算会撤回第一次那笔（结算2金额≥结算1）',
+    jsSrc.includes('Store.cancelReward(S.lastWinCoins.coins') &&
+    jsSrc.includes('S.lastWinCoins = canCont') && jsSrc.includes('S.lastWinCoins = null;'));
+
+  // 轨道滑动：每次随机一行 + 石头推动音效 + 慢慢推的滑动动画；传送门持续旋转
+  check('轨道滑动：随机一行 + 石头音 + 滑动动画；传送门持续旋转',
+    jsSrc.includes('randInt(S.trackRows.length)') &&
+    jsSrc.includes("playSFX('stone')") && jsSrc.includes('function drawTrackSlide') &&
+    jsSrc.includes('(boardHasCargo() || (S.portals && S.portals.length))'));
+
+  // 每日挑战榜单实时同步：开着榜单就定时拉取，数据一到立刻重绘
+  check('每日挑战榜单实时同步：开着就轮询拉取 + 数据一到就重绘',
+    jsSrc.includes('dailyLbTimer') &&
+    /dlb && dlb\.style\.display === 'flex'\) renderDailyLb\(\)/.test(jsSrc));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
