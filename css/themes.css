@@ -1608,27 +1608,9 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 /* 分数是 6 位数时也不会挤到省份 */
 .lb-swipe.col5 .ul-score { white-space: nowrap; }
-.lb-del {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 68px;
-  border: none;
-  border-radius: 0;
-  background: #ff5c5c;
-  color: #fff;
-  font-size: 13px;
-  font-weight: 800;
-  z-index: 0;
-  cursor: pointer;
-}
-.lb-del:active { background: #e54848; }
 .lb-rank { width: 22px; text-align: center; font-weight: 800; color: #b0a9c0; }
 .lb-row.me .lb-rank { color: #2b2440; }
 .lb-name { flex: 1; color: #3d3556; }
-.lb-name i { font-style: normal; font-size: 10px; color: #8a7fb5; margin-left: 5px; }
-.lb-name i.lb-me { color: #7c5cff; font-weight: 700; }
 /* 分数左边的星星：局榜是这一局的星（★★★），总榜 / 省榜是总星数（★87）
    整格固定宽度 → ★ 一列对齐；数字紧跟 ★ 后面不拉开 */
 .lb-stars {
@@ -1754,7 +1736,6 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* 整行灰显：0 分没上榜的人（名次 / 名字也跟着变灰） */
 .lb-row.none .lb-rank,
 .lb-row.none .lb-name { color: #b0a9c0; }
-.lb-row.none .lb-name .lb-me { background: rgba(176, 169, 192, 0.25); }
 /* 局榜里没通关这一关的人：星星和分数也一起变灰（分数数字照常显示） */
 .lb-row.none .lb-stars,
 .lb-row.none .lb-stars b,

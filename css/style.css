@@ -141,6 +141,9 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
   box-shadow: none;
 }
 .btn-primary:hover { background: rgba(92, 143, 255, 0.16); }
+/* 主页中间的「🎮 开始游戏 / 🕹️ 继续游戏 / 🔄 重新开始」：实心黑键 + 白字，和别的蓝键区分开 */
+#btn-play { background: #1f1f1f; color: #fff; border: 2px solid #1f1f1f; }
+#btn-play:hover { background: #303030; }
 .btn-primary:disabled { opacity: 0.6; cursor: wait; transform: none; }
 /* 普通键统一黑色描边：黑字 + 黑描边 + 淡黑底 */
 .btn-secondary { background: rgba(0, 0, 0, 0.05); color: #222; border: 2px solid rgba(0, 0, 0, 0.65); box-shadow: none; }

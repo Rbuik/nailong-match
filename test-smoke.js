@@ -86,6 +86,14 @@ lsMap.set('nl2:wallet', JSON.stringify({ coins: 500, items: { shuffle: 2, undo: 
 lsMap.set('nl2:progress', JSON.stringify({ 1: { score: 1200, stars: 3 } }));
 // 预置昵称：默认「奶龙玩家」会被改名闸拦住，测试里先改好
 lsMap.set('nl2:mnick', JSON.stringify('测试奶龙'));
+// 预置榜单缓存：一个正常玩家 + 一个已被后台注销的「L」（验证「已注销名单」在榜单上也被过滤）
+lsMap.set('nl2:lbshare2', JSON.stringify({
+  ts: Date.now(),
+  list: [
+    { uid: 'p12345678abcdef', name: '阿呆', score: 1500, level: 3, ts: Date.now() - 60000, pv: 'sichuan' },
+    { uid: 'p98765432abcdef', name: 'L', score: 900, level: 2, ts: Date.now() - 50000, pv: 'sichuan' }
+  ]
+}));
 
 // ---------- 元素注册表 ----------
 const els = {};
@@ -916,29 +924,27 @@ function check(name, ok) {
   $('btn-lb-hub-all').dispatch('click');
   check('点总榜才进排行榜列表', $('lb-view').style.display === 'flex' && $('lb-list').children.length >= 1);
 
-  // 14b. 好友：自己的码加不进 / 好友永久保留 / 同 uid 更新不重复 / 左滑删除按钮
+  // 14b. 好友 / 成绩码那套已彻底删除；服务器标记「已注销」的名字在榜单上也不出现
   const M = sandbox.Meta;
-  const myCode = M.makeCode({ name: M.nickname(), score: 1234, level: 1 });
-  check('自己的成绩码加不进', M.addFriend(myCode).ok === false);
-  const mk = (uid, name, score) => 'NL1-' + btoa(unescape(encodeURIComponent(JSON.stringify({ v: 2, u: uid, n: name, s: score, w: M.weekKey() })))).replace(/=+$/, '');
-  check('加入好友', M.addFriend(mk('t-f1', '阿呆', 900)).ok === true && M.friends().length === 1);
-  check('好友改名重新发码只更新同一条', (() => {
-    const r = M.addFriend(mk('t-f1', '阿呆2号', 1300));
-    return r.updated === true && M.friends().length === 1 && M.friends()[0].name === '阿呆2号';
-  })());
-  M.removeFriend('t-f1');
-  check('好友删干净', M.friends().length === 0);
-  check('好友行渲染删除按钮', (() => {
-    M.addFriend(mk('t-f2', '阿呆3号', 700));
-    sandbox.__nl_test.refreshMenu();
+  check('好友 / 成绩码功能已彻底移除（meta 没有 friends / makeCode，榜单里没有「好友」标与删除按钮）',
+    typeof M.friends === 'undefined' && typeof M.addFriend === 'undefined' &&
+    typeof M.makeCode === 'undefined' && typeof M.removeFriend === 'undefined' &&
+    jsSrc.indexOf('<i>好友</i>') < 0 && jsSrc.indexOf("className = 'lb-del'") < 0 &&
+    !/\.lb-del\s*\{/.test(cssSrc) && !/Meta\.friends\(\)/.test(jsSrc));
+  check('已注销名单（hidden）在总榜上生效：L 不出现，正常玩家还在', (() => {
+    sandbox.__nl_test.setServerAccs([], ['l']);
     $('btn-lb-hub-all').dispatch('click');
-    let dels = 0, meRow = false;
+    const names = [];
     ($('lb-list').children || []).forEach((row) => {
-      if (String(row.className || '').split(' ').indexOf('me') >= 0) meRow = true;
-      (row.children || []).forEach((ch) => { if (ch.className === 'lb-del') dels++; });
+      const inner = (row.children || [])[0];
+      const h = String((inner && inner.innerHTML) || '');
+      const m = h.match(/class="lb-name">([^<]*)</);
+      if (m) names.push(m[1].trim());
     });
-    return dels >= 1 && meRow;
+    const hasL = names.some((n) => n.toLowerCase() === 'l');
+    return !hasL && names.indexOf('阿呆') >= 0;
   })());
+  sandbox.__nl_test.setServerAccs([], []);
   $('lb-view').dispatch('click');
   $('leaderboard-menu').dispatch('click');
 

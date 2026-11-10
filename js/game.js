@@ -5157,7 +5157,23 @@
   //     既没在本机登录过、也没往共享榜发过成绩（比如林夕），只并前两处就会漏人
   let serverAccs = [];      // [{ uid, name, prov, score, created }]
   let serverAccsAt = 0;     // 上次拉取时间（30 秒内不重复拉）
-  let hiddenNames = null;   // 服务器下发的「已注销 / 隐藏」名字表（小写），名单里不再出现
+  let hiddenNames = null;   // 服务器下发的「已注销 / 隐藏」名字表（小写），名单和榜单里都不再出现
+  const HIDDEN_KEY = 'nl2:hidden';   // 隐藏名单缓存：拉过一次就存本机，断网 / 没开过后台也能过滤
+
+  function loadHiddenCache() {
+    try {
+      const raw = localStorage.getItem(HIDDEN_KEY);
+      const arr = raw ? JSON.parse(raw) : null;
+      hiddenNames = new Set(Array.isArray(arr)
+        ? arr.map((n) => String(n || '').trim().toLowerCase()).filter(Boolean) : []);
+    } catch (e) { hiddenNames = new Set(); }
+  }
+  function saveHiddenCache() {
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(Array.from(hiddenNames || [])));
+    } catch (e) {}
+  }
+  loadHiddenCache();
 
   // 拉一次服务器账号名单：只回名字 / 身份号码 / 注册时间，没有密码和存档
   function loadServerAccs() {
@@ -5175,6 +5191,7 @@
       // 服务器标记为「已注销 / 隐藏」的名字：名单（本机 / 榜单 / 服务器三处并集）里全部过滤
       hiddenNames = new Set(Array.isArray(r.hidden)
         ? r.hidden.map((n) => String(n || '').trim().toLowerCase()).filter(Boolean) : []);
+      saveHiddenCache();
       serverAccsAt = Date.now();
       return true;
     }).catch(() => false);
@@ -6814,6 +6831,10 @@
       raw.push({ uid: meUid, name: Meta.nickname(), stars: rec.stars || 0, moves: rec.moves || 0, ts: Date.now() });
     }
     raw.forEach((r) => { if (r.uid === meUid) r.me = true; });
+    // 服务器已注销 / 隐藏的名字：每日榜同样不展示
+    for (let i = raw.length - 1; i >= 0; i--) {
+      if (raw[i].uid !== meUid && isHiddenName(raw[i].name)) raw.splice(i, 1);
+    }
     raw.sort((a, b) => (b.stars - a.stars) ||
       ((a.moves > 0 ? a.moves : 99999) - (b.moves > 0 ? b.moves : 99999)) ||
       ((a.ts || 0) - (b.ts || 0)));
@@ -6981,6 +7002,8 @@
     } catch (e) {}
     // 开机补发：上次退出前可能没发出去（或换码时掉的），有成绩就重发一次
     setTimeout(() => { try { publishMyScore(true); } catch (e) {} }, 2000);
+    // 开机拉一次「已注销 / 隐藏」名单：后台删掉的人，所有设备的榜单 / 名单上都不再出现
+    setTimeout(() => { try { loadServerAccs().catch(() => {}); } catch (e) {} }, 900);
     const loggedIn = (typeof Account !== 'undefined') && Account.loggedIn();
 
     // 老档补发：更新前完成的每日挑战没发过完成奖励，按基础 30 枚补进钱包（步数未知，结算页显示 —）
@@ -7933,7 +7956,7 @@
   // 给 cloud.js 用：注册 / 登录 / 存档时把省一起传到服务器（后台名单要显示省）
   try { window.NL_PROV = myProvCode; } catch (e) {}
 
-  // 每一关的榜单：全网 + 本机好友 + 自己，同一个人只留一条（取最高）
+  // 每一关的榜单：全网 + 自己，同一个人只留一条（取最高）
   function levelRows(lv) {
     const key = String(lv);
     const mine = Meta.myUid();
@@ -7961,11 +7984,6 @@
         push(e.uid, e.name, e.lv[key], e.ts, e.pv, st, entryPassed(e, lv, st));
       });
     }
-    Meta.friends().forEach((f) => {
-      if (!f.lv) return;
-      const st = starsOf(f, lv);
-      push(f.uid, f.name, f.lv[key], f.ts, f.pv, st, entryPassed(f, lv, st));
-    });
     // 自己：星级直接按本机进度取（进度表里没这一关 = 没过），别拿失败局的分数反推
     const myStars = myStarMap()[key] || 0;
     push(mine, Meta.nickname(), myLevelMap()[key], Date.now(), myProvCode(), myStars, myStars > 0);
@@ -7975,7 +7993,8 @@
       // 局榜以「这一关有没有通关」为准：没通关的分数再高也不进排名
       if (typeof r.pass !== 'boolean') r.pass = (r.stars || 0) > 0;
       return r;
-    }).sort((a, b) => b.score - a.score);
+    }).filter((r) => r.me || !isHiddenName(r.name))   // 服务器已注销 / 隐藏的名字：榜单上也不出现
+      .sort((a, b) => b.score - a.score);
   }
 
   // 我在这一局排第几（1 起；没通关这一关就不参与排名，返回 0）
@@ -7995,59 +8014,6 @@
     const r = levelRank(lv);
     if (!r || r > 3) return '';
     return ['🥇', '🥈', '🥉'][r - 1];
-  }
-
-  let lbOpenRow = null;
-
-  function closeLbOpenRow(except) {
-    if (lbOpenRow && lbOpenRow !== except) {
-      const inner = lbOpenRow.querySelector('.lb-swipe');
-      if (inner) inner.style.transform = 'translateX(0)';
-      lbOpenRow.classList.remove('open');
-      lbOpenRow = null;
-    }
-  }
-
-  // 好友行左滑露出「删除」：按住往左拖，松手吸附
-  function bindLbSwipe(row, inner) {
-    const W = 68;
-    let startX = 0, dx = 0, base = 0, dragging = false;
-    const setX = (v) => { inner.style.transform = 'translateX(' + v + 'px)'; };
-    row.addEventListener('pointerdown', (e) => {
-      if (e.target && e.target.classList && e.target.classList.contains('lb-del')) return;
-      startX = e.clientX;
-      dx = 0;
-      base = row.classList.contains('open') ? -W : 0;
-      dragging = true;
-      inner.style.transition = 'none';
-      try { row.setPointerCapture(e.pointerId); } catch (err) {}
-    });
-    row.addEventListener('pointermove', (e) => {
-      if (!dragging) return;
-      dx = e.clientX - startX;
-      let v = base + dx;
-      if (v > 0) v = 0;
-      if (v < -W) v = -W;
-      setX(v);
-    });
-    const finish = () => {
-      if (!dragging) return;
-      dragging = false;
-      inner.style.transition = 'transform 0.18s ease';
-      const open = (base + dx) < -W / 2;
-      if (open) {
-        closeLbOpenRow(row);
-        row.classList.add('open');
-        lbOpenRow = row;
-        setX(-W);
-      } else {
-        row.classList.remove('open');
-        if (lbOpenRow === row) lbOpenRow = null;
-        setX(0);
-      }
-    };
-    row.addEventListener('pointerup', finish);
-    row.addEventListener('pointercancel', finish);
   }
 
   // ⇄ 弹出的选择面板：列出全部省份 / 关卡，点一个直接切换
@@ -8111,12 +8077,9 @@
           : '🏆 总榜';
     }
 
-    // 总榜：三份数据合并（全网 + 本机好友 + 自己），同 uid 只留一条
-    const friendUids = {};
-    Meta.friends().forEach((f) => { friendUids[f.uid] = true; });
+    // 总榜：两份数据合并（全网 + 自己），同 uid 只留一条
     const raw = [];
     if (typeof Board !== 'undefined') raw.push.apply(raw, Board.list());
-    Meta.friends().forEach((f) => raw.push({ uid: f.uid, name: f.name, score: f.score, ts: f.ts, pv: f.pv }));
     raw.push(me);
 
     const byId = {};
@@ -8145,8 +8108,7 @@
       return {
         uid: r.uid, name: r.name, score: r.score, pv: r.pv || '',
         stars: r.stars || 0,
-        me: r.uid === me.uid,
-        friend: !!friendUids[r.uid] && r.uid !== me.uid
+        me: r.uid === me.uid
       };
     }).sort((a, b) => b.score - a.score);
 
@@ -8155,7 +8117,7 @@
     if (lbTab === 'level') {
       // 局榜以「这一关有没有通关」为准：通关的（星星 > 0）按分数排名，
       // 没通关的灰显垫底、名次写「—」（分数照常显示，不参与排名）
-      shown = levelRows(lbLevel).map((r) => Object.assign({ friend: false }, r));
+      shown = levelRows(lbLevel);
       shown.sort((a, b) => ((b.pass ? 1 : 0) - (a.pass ? 1 : 0)) || (b.score - a.score));
     } else if (lbTab === 'prov') {
       shown = totalRows.filter((r) => r.pv === lbProv);
@@ -8164,7 +8126,8 @@
     }
 
     box.innerHTML = '';
-    lbOpenRow = null;
+    // 服务器已注销 / 隐藏的名字：总榜、省榜、局榜一律不展示（榜单条目存在别人设备上，删账号删不掉）
+    shown = shown.filter((r) => r.me || !isHiddenName(r.name));
     shown.slice(0, 20).forEach((r, i) => {
       const row = document.createElement('div');
       // 0 分不上榜：整行灰显（名次留空、分数位置写「未上榜」）
@@ -8190,20 +8153,6 @@
         starHtml +
         '<span class="lb-score' + (onBoard ? '' : ' none') + '">' + (onBoard ? r.score : '未上榜') + '</span>';
       row.appendChild(inner);
-      if (r.friend) {
-        const del = document.createElement('button');
-        del.className = 'lb-del';
-        del.textContent = '删除';
-        del.addEventListener('click', (e) => {
-          e.stopPropagation();
-          Meta.removeFriend(r.uid);
-          toast('已删除好友 ' + r.name);
-          AudioManager.playSFX('invalid');
-          renderLeaderboard();
-        });
-        row.appendChild(del);
-        bindLbSwipe(row, inner);
-      }
       box.appendChild(row);
     });
     if (!shown.length) {
@@ -8242,7 +8191,7 @@
     } catch (e) {}
   }
 
-  // 名字已被谁占用：全网榜 + 本机好友（自己的除外）
+  // 名字已被谁占用：全网榜（自己的除外）
   function takenNickNames() {
     const mine = Meta.myUid();
     const taken = [];
@@ -8253,7 +8202,6 @@
         if (e.uid !== mine && /^p[0-9a-f]{8,}$/i.test(String(e.uid || ''))) taken.push(e.name);
       });
     }
-    Meta.friends().forEach((f) => { taken.push(f.name); });
     return taken;
   }
 
@@ -9127,6 +9075,7 @@
       }));
       hiddenNames = new Set((Array.isArray(hidden) ? hidden : [])
         .map((n) => String(n || '').trim().toLowerCase()).filter(Boolean));
+      saveHiddenCache();
       serverAccsAt = Date.now();
     },
     userList: collectUserList,
