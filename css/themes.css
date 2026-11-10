@@ -730,9 +730,9 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 }
 
 .history-item.current {
-  border-color: #7c5cff;
-  background: rgba(124, 92, 255, 0.08);
-  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.18);
+  border-color: #2b2440;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.12);
 }
 
 .history-item.locked { opacity: 0.62; }
@@ -1132,20 +1132,21 @@ body.m-dragging .m-item { cursor: grabbing; }
   gap: 2px;
   padding: 7px 0 5px;
   border-radius: 10px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1.5px solid rgba(0, 0, 0, 0.65);
   background: #fff;
   cursor: pointer;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
 }
-.level-chip b { font-size: 14px; color: #3d3556; }
+.level-chip b { font-size: 14px; color: #222; }
 .level-chip i { font-size: 9px; font-style: normal; color: #ffb400; letter-spacing: -1px; }
-.level-chip.done { border-color: rgba(255, 180, 0, 0.55); background: rgba(255, 246, 224, 0.9); }
+.level-chip.done { border-color: rgba(0, 0, 0, 0.65); background: #fff; }
 .level-chip.locked { opacity: 0.45; cursor: default; }
-/* 当前关卡：和关卡记录的「current」同款紫色高亮 */
+/* 当前关卡：黑圈加粗 + 淡黑光晕（原来是紫色高亮） */
 .level-chip.current {
-  border-color: #7c5cff;
-  background: rgba(124, 92, 255, 0.1);
-  box-shadow: 0 0 0 2px rgba(124, 92, 255, 0.22);
+  border-color: #2b2440;
+  border-width: 2px;
+  background: #fff;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.12);
 }
 .level-chip:active { transform: scale(0.94); }
 .chapter-lock { margin-top: 8px; font-size: 12px; color: #9a93ad; text-align: center; }
@@ -1438,13 +1439,25 @@ body.m-dragging .m-item { cursor: grabbing; }
 .lb-hub-btn b { font-size: 15px; color: #3d3556; }
 .lb-hub-btn i { font-style: normal; font-size: 11px; color: #8b84a0; }
 
-/* 奖牌（主页本关最高分 / 关卡记录）：放在分数左边 */
+/* 奖牌（主页本关最高分 / 关卡记录）：黑圈白底的小圆牌，里面写名次数字 */
 .lb-medal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #2b2440;
+  color: #2b2440;
   font-style: normal;
-  font-size: 15px;
+  font-size: 10px;
+  font-weight: 800;
   line-height: 1;
+  box-sizing: border-box;
   margin-right: 3px;
   vertical-align: middle;
+  flex: 0 0 auto;
 }
 .menu-high-wrap { display: inline-flex; align-items: center; gap: 2px; }
 
@@ -1452,7 +1465,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 .history-item { grid-template-columns: minmax(0, 1fr) 78px 46px; }
 .history-item .h-stars { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
 .history-item .h-score { display: inline-flex; align-items: center; justify-content: flex-end; gap: 2px; }
-.history-item .h-stars .lb-medal { font-size: 13px; margin-right: 1px; }
+.history-item .h-stars .lb-medal { width: 15px; height: 15px; font-size: 9px; margin-right: 1px; }
 
 /* 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：只有一个符号，没有圆圈底 */
 /* 「省榜 XX省 / 局榜 第X关」右边的 ⇄ 更换符号：跟标题文字同行、纵向居中，间距贴文字 */

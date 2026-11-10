@@ -8013,7 +8013,7 @@
   function medalForLevel(lv) {
     const r = levelRank(lv);
     if (!r || r > 3) return '';
-    return ['🥇', '🥈', '🥉'][r - 1];
+    return String(r);   // 黑圈白底的小圆牌，里面写名次数字（样式在 .lb-medal）
   }
 
   // ⇄ 弹出的选择面板：列出全部省份 / 关卡，点一个直接切换
