@@ -1418,18 +1418,19 @@ body.m-dragging .m-item { cursor: grabbing; }
   /* 内部滚动的板块：底色比周围深一点（和「关卡记录」同款） */
   background: rgba(0, 0, 0, 0.04);
   border-radius: 12px;
-  padding: 10px;
+  padding: 6px;
   box-sizing: border-box;
 }
-/* 排行榜 / 每日榜的滚动窗口：人数不够 10 个就跟内容收缩，人数多了最多刚好放下
-   10 名用户（行高钉死 37px：10 行 + 9 个间隙 + 上下各 10px 内边距 = 444px），
-   第一个和最后一个用户离上下边界各 10px，两边相等 */
+/* 排行榜 / 每日榜 / 后台用户页的滚动窗口：行高钉死 38px、间隙 6px、上下内边距 6px，
+   窗口最高 446px（10 行 × 38 + 9 个间隙 × 6 + 上下各 6 = 446），
+   刚好放下 10 名用户，第一个和最后一个用户离上下边界各 6px，两边相等；
+   人数不够 10 个时窗口跟着内容收缩 */
 #lb-list,
-#daily-lb-list {
+#daily-lb-list,
+.admin-ul-list {
   height: auto;
-  max-height: 444px;
+  max-height: 446px;
 }
-.admin-ul-list { height: 66vh; }
 .lb-list::-webkit-scrollbar { display: none; }
 
 /* 排行榜入口：先选榜单（总榜 / 省榜 / 局榜），再进列表 */
@@ -1548,7 +1549,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   border: 1px solid rgba(0, 0, 0, 0.06);
   font-size: 13px;
   flex: 0 0 auto;
-  height: 37px;               /* 行高钉死：各设备字体渲染不同，不钉死窗口就凑不齐整 10 行 */
+  height: 38px;               /* 行高钉死：各设备字体渲染不同，不钉死窗口就凑不齐整 10 行 */
 }
 .lb-row.me { border-color: #2b2440; }
 .lb-swipe {
