@@ -507,7 +507,7 @@
   // ---------- 设置 ----------
   function getSettings() {
     return Object.assign(
-      { music: true, bgm: 0.5, sfx: 0.5, theme: 'grass', dragSwap: true, ghostPreview: true, skin: 'auto' },
+      { music: true, bgm: 0.5, sfx: 0.5, theme: 'grass', dragSwap: true, ghostPreview: true },
       read(K.settings, {})
     );
   }

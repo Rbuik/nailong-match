@@ -1073,20 +1073,6 @@ body.m-dragging .m-item { cursor: grabbing; }
   box-shadow: none;
 }
 
-/* ================= 主题颜色（跟随系统 / 浅色背景 / 深色背景） ================= */
-/* 选中项：紫色描边 + 淡紫底，一眼看出现在用的是哪个 */
-#skin-menu .skin-cur {
-  border-color: #7c5cff;
-  color: #6b4fd8;
-  background: rgba(124, 92, 255, 0.08);
-}
-/* 深色 = 整页反色再转回色相（白底黑字 → 黑底白字，颜色色相基本不变）；
-   棋盘画布 / 图片 / 视频再反转回来，游戏画面保持原来的样子 */
-html[data-skin="dark"] { filter: invert(1) hue-rotate(180deg); background: #fff; }
-html[data-skin="dark"] canvas,
-html[data-skin="dark"] img,
-html[data-skin="dark"] video { filter: invert(1) hue-rotate(180deg); }
-
 /* ================= 主页：两列小按钮（新增玩法入口） ================= */
 .menu-grid {
   display: grid;

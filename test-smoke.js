@@ -3702,19 +3702,15 @@ function check(name, ok) {
     /await shiftTrack\(\)/.test(jsSrc) &&
     /轨道滑动会把整行推一格，可能推出新的三连[\s\S]*?while \(findMatches\(\)\.size && safety\+\+ < 24\) \{[\s\S]*?await resolveBoard\(null\);/.test(jsSrc));
 
-  // 主题颜色：设置里「🎨 主题颜色」在「🎵 音乐设置」上面；三选一；默认跟随系统；深色用整页反色
-  const skinIdx = htmlSrc0.indexOf('id="btn-goto-skin"');
-  const musicIdx = htmlSrc0.indexOf('id="btn-goto-music-settings"');
+  // 主题颜色已整个删除：设置里不再有「🎨 主题颜色」，skin-menu / applySkin / data-skin 反色样式都不许残留
   const stgJs = fs.readFileSync(path.join(__dirname, 'js', 'storage.js'), 'utf8');
-  check('设置里新增「🎨 主题颜色」（在音乐设置上面，三选一，默认跟随系统）',
-    skinIdx >= 0 && skinIdx < musicIdx &&
-    htmlSrc0.includes('id="btn-skin-auto"') && htmlSrc0.includes('id="btn-skin-light"') &&
-    htmlSrc0.includes('id="btn-skin-dark"') &&
-    /skin: 'auto'/.test(stgJs) &&
-    jsSrc.includes('applySkin') &&
-    jsSrc.includes("matchMedia('(prefers-color-scheme: dark)')") &&
-    jsSrc.includes("data-skin', dark ? 'dark' : 'light'") &&
-    /html\[data-skin="dark"\] \{ filter: invert\(1\) hue-rotate\(180deg\);/.test(cssSrc));
+  check('「🎨 主题颜色」已删除（设置里只剩音乐设置 / 账号安全，深色反色样式不残留）',
+    !htmlSrc0.includes('btn-goto-skin') && !htmlSrc0.includes('skin-menu') &&
+    !htmlSrc0.includes('btn-skin-auto') && !htmlSrc0.includes('主题颜色') &&
+    !jsSrc.includes('btn-goto-skin') && !jsSrc.includes("'skin-menu'") &&
+    jsSrc.includes('Meta.applySkin') && !/function applySkin\(\)/.test(jsSrc) &&
+    !/skin: 'auto'/.test(stgJs) &&
+    !cssSrc.includes('html[data-skin="dark"]') && !cssSrc.includes('#skin-menu'));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);

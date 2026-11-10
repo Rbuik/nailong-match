@@ -3563,7 +3563,7 @@
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
       'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'save-menu',
-      'daily-menu', 'daily-lb', 'skin-menu',
+      'daily-menu', 'daily-lb',
       'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu',
       'ach-detail',
       'level-clear', 'game-over', 'game-complete', 'daily-done'].forEach((id) => {
@@ -3586,7 +3586,7 @@
     'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view', 'admin-menu', 'admin-user-list',
     'chapters-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
     'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'story-menu', 'daily-done', 'nick-menu',
-    'daily-menu', 'daily-lb', 'skin-menu',
+    'daily-menu', 'daily-lb',
     'account-menu', 'password-menu', 'switch-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'save-menu',
     'backup-menu', 'backup-import-menu', 'prov-user-list', 'fix-menu', 'cloud-menu', 'ach-detail'];
 
@@ -6377,45 +6377,6 @@
       $('music-settings-menu').style.display = 'none';
       showOverlay('settings-menu');
     });
-
-    // ==================== 主题颜色 ====================
-    // 跟随系统 = 跟着微信走（微信深色就是深色，浅色就是浅色）；默认跟随系统。
-    // 深色实现：整页反色（invert + hue-rotate），棋盘画布和图片再反转回来，游戏画面保持原样。
-    function applySkin() {
-      const skin = Store.getSettings().skin || 'auto';
-      let dark = false;
-      try {
-        dark = skin === 'dark' ||
-          (skin === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
-      } catch (e) {}
-      try { document.documentElement.setAttribute('data-skin', dark ? 'dark' : 'light'); } catch (e) {}
-    }
-    try {
-      if (window.matchMedia) {
-        const mq = matchMedia('(prefers-color-scheme: dark)');
-        const onScheme = () => { if ((Store.getSettings().skin || 'auto') === 'auto') applySkin(); };
-        if (mq.addEventListener) mq.addEventListener('change', onScheme);
-        else if (mq.addListener) mq.addListener(onScheme);   // 老微信内核
-      }
-    } catch (e) {}
-    applySkin();
-    on('btn-goto-skin', () => {
-      $('settings-menu').style.display = 'none';
-      syncSkinMenu();
-      showOverlay('skin-menu');
-    });
-    function syncSkinMenu() {
-      const cur = Store.getSettings().skin || 'auto';
-      [['btn-skin-auto', 'auto'], ['btn-skin-light', 'light'], ['btn-skin-dark', 'dark']].forEach(([id, v]) => {
-        const b = $(id);
-        if (!b) return;
-        b.classList.toggle('skin-cur', cur === v);
-        b.textContent = (v === 'auto' ? '跟随系统' : v === 'light' ? '浅色背景' : '深色背景') + (cur === v ? ' ✓' : '');
-      });
-    }
-    on('btn-skin-auto', () => { Store.setSettings({ skin: 'auto' }); applySkin(); syncSkinMenu(); });
-    on('btn-skin-light', () => { Store.setSettings({ skin: 'light' }); applySkin(); syncSkinMenu(); });
-    on('btn-skin-dark', () => { Store.setSettings({ skin: 'dark' }); applySkin(); syncSkinMenu(); });
 
     // ==================== 账号安全 ====================
     // 注册时间：yy-MM-dd HH:mm:ss（个位数前面补 0），比如 26-11-06 19:18:22
