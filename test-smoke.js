@@ -3329,7 +3329,7 @@ function check(name, ok) {
     !/lb-me">我/.test(jsSrc) &&
     !/'<i>好友<\/i>'/.test(jsSrc) &&
     /\.lb-row\.me \{ border-color: #2b2440; \}/.test(cssSrc) &&
-    /\.lb-row\.me \.lb-swipe \{ background: rgba\(0, 0, 0, 0\.07\); \}/.test(cssSrc) &&
+    /\.lb-row\.me \.lb-swipe \{ background: #fff; \}/.test(cssSrc) &&
     /\.lb-row\.me \.lb-rank \{ color: #2b2440; \}/.test(cssSrc) &&
     !/6ch minmax\(0, max-content\)/.test(cssSrc) &&
     /hiddenNames = new Set\(Array\.isArray\(r\.hidden\)/.test(jsSrc) &&

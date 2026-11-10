@@ -1539,7 +1539,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   will-change: transform;
   touch-action: pan-y;
 }
-.lb-row.me .lb-swipe { background: rgba(0, 0, 0, 0.07); }
+.lb-row.me .lb-swipe { background: #fff; }
 /* 榜单 / 后台名单：用「固定列宽」的表格布局，不是 flex。
    这样每一行的「星星列」「分数列」起点都是同一条竖线，
    名字多长、星星几位数、分数几位数都不会把后面的列挤偏。
