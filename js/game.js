@@ -4039,6 +4039,8 @@
     Store.setSettings({ menuLevel: S.menuLevel });
     const hm = $('history-menu');
     if (hm) hm.style.display = 'none';
+    const cm = $('chapters-menu');
+    if (cm) cm.style.display = 'none';
     S.playing = false;
     showOverlay('main-menu');
     refreshMenu();
@@ -7222,10 +7224,8 @@
           (lv === (S.menuLevel || 0) ? ' current' : '');
         b.innerHTML = '<b>' + lv + '</b><i>' + (open ? ('★★★'.slice(0, rec.stars || 0) || '·') : '🔒') + '</i>';
         if (open) {
-          b.addEventListener('click', () => {
-            $('chapters-menu').style.display = 'none';
-            playLevel(lv);
-          });
+          // 和关卡记录一样：只切到这一关并回主页，不直接开局
+          b.addEventListener('click', () => selectMenuLevel(lv));
         }
         grid.appendChild(b);
       }
@@ -8013,7 +8013,7 @@
   function medalForLevel(lv) {
     const r = levelRank(lv);
     if (!r || r > 3) return '';
-    return String(r);   // 黑圈白底的小圆牌，里面写名次数字（样式在 .lb-medal）
+    return ['', '🥇', '🥈', '🥉'][r];   // 直接挂奖牌 emoji（样式在 .lb-medal）
   }
 
   // ⇄ 弹出的选择面板：列出全部省份 / 关卡，点一个直接切换

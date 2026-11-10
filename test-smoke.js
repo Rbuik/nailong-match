@@ -1015,14 +1015,14 @@ function check(name, ok) {
     let rowsWithMedal = 0, medalLeftOfStars = false;
     ($('history-list').children || []).forEach((r) => {
       const h = String(r.innerHTML || '');
-      if (/lb-medal">1<\/em>/.test(h)) {
+      if (/lb-medal">🥇<\/em>/.test(h)) {
         rowsWithMedal++;
         // 奖牌必须夹在星星列里、且在星星左边
         if (h.indexOf('h-stars') >= 0 && h.indexOf('lb-medal') < h.indexOf('star-on')) medalLeftOfStars = true;
       }
     });
     $('history-menu').dispatch('click');
-    return medal === '1' && rowsWithMedal >= 1 && medalLeftOfStars;
+    return medal === '🥇' && rowsWithMedal >= 1 && medalLeftOfStars;
   })());
 
   // 14d2. 局榜上只有我一个人，也要挂奖牌
@@ -1033,7 +1033,7 @@ function check(name, ok) {
     const shown = getEl('menu-high-medal').style.display !== 'none';
     $('btn-prev-level').dispatch('click');
     sandbox.__nl_test.refreshMenu();
-    return m === '1' && shown;
+    return m === '🥇' && shown;
   })());
 
   // 14d2b. 局榜：没通过这一关的玩家灰显、不参与排名（第 1 关目标 1000 分）
@@ -3605,6 +3605,32 @@ function check(name, ok) {
   check('新特殊块在棋盘上有专属画法（emoji + 光晕）', (() => {
     const seg = jsSrc.slice(jsSrc.indexOf('function drawSpecialOverlay'), jsSrc.indexOf('function tileBaseColor'));
     return seg.includes("'🧲'") && seg.includes("'🎨'") && seg.includes("'❄️'") && seg.includes("'🛩️'");
+  })());
+
+  // 章节地图点某一关：只切到那一关并回主页（不直接开局），逻辑和关卡记录一样
+  check('章节地图点关卡只回主页并切到那一关，不直接开局', (() => {
+    sandbox.__nl_test.start(1, {});   // 先让游戏处于「局内」，确认点击后不会继续在局内
+    $('btn-chapters').dispatch('click');
+    const cards = $('chapters-list').children || [];
+    let chip = null;
+    cards.forEach((c) => {
+      (c.children || []).forEach((g) => {
+        if (!chip && String(g.className || '') === 'chapter-grid') {
+          (g.children || []).forEach((b) => {
+            if (String(b.className || '').indexOf('locked') < 0) chip = b;   // 取最后一个已解锁的关卡
+          });
+        }
+      });
+    });
+    if (!chip) return false;
+    const mm = String(chip.innerHTML).match(/<b>(\d+)<\/b>/);
+    if (!mm) return false;
+    const target = Number(mm[1]);
+    chip.dispatch('click');
+    const st = sandbox.__nl_test.state();
+    return st.playing === false && st.menuLevel === target &&
+      String($('chapters-menu').style.display) === 'none' &&
+      String($('main-menu').style.display) !== 'none';
   })());
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');

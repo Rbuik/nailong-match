@@ -292,8 +292,9 @@ input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
 }
 
 /* ================= 毕业结算面板专属样式 ================= */
+/* 背景：跟成就详情页彩杯那种柔和彩虹渐变（粉→黄→绿→蓝→紫） */
 #game-complete {
-  background: radial-gradient(circle at 50% 30%, #fffdf5, #ffefd6 80%);
+  background: linear-gradient(165deg, #ffe7f3 0%, #fff2dd 24%, #e9fbea 48%, #e3f0ff 72%, #f1e7ff 100%);
 }
 
 .complete-badge {
