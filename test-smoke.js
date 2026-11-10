@@ -255,11 +255,14 @@ function check(name, ok) {
   lockedRow.dispatch('click');
   check('点击未解锁关卡不跳转（记录页未关闭）', $('history-menu').style.display === 'flex');
   check('未解锁提示 toast', $('toast').textContent.includes('未解锁'));
-  check('没玩过 / 未解锁的关卡分数位是灰色「未开始」（不再是 0 分）',
-    String(lockedRow.innerHTML).indexOf('not-start') >= 0 &&
-    String(lockedRow.innerHTML).indexOf('未开始') >= 0 &&
+  check('未解锁的关卡分数位直接空着（不是「未开始」，也不是 0 分）',
+    String(lockedRow.innerHTML).indexOf('未开始') < 0 &&
     String(lockedRow.innerHTML).indexOf('未解锁') >= 0 &&
+    String(lockedRow.innerHTML).indexOf('not-start') < 0 &&
     !/>0<\/span>/.test(String(lockedRow.innerHTML)));
+  check('已解锁但还没打的关卡才显示灰色「未开始」',
+    String(rows[1].innerHTML).indexOf('not-start') >= 0 &&
+    String(rows[1].innerHTML).indexOf('未开始') >= 0);
   // 已解锁的第 1 关可以点
   rows[0].dispatch('click');
   check('点击已解锁关卡回到主页', $('main-menu').style.display === 'flex');
@@ -3053,12 +3056,13 @@ function check(name, ok) {
     /\.ul-prov\s*\{[^}]*margin-left: 21px/.test(cssSrc) &&
     /\.ul-score\s*\{[^}]*text-align: left/.test(cssSrc));
   check('结算画面总星数与总分同时长滚动', /countUp\(st, totalStars, 900\)/.test(jsSrc));
-  check('名字长度只能 1~8 个字符（一个字母或符号都算一个）', (() => {
+  check('名字长度只能 1-7 个字符（一个字母或符号都算一个）', (() => {
     const v1 = sandbox.Meta.validateNick('a');
+    const v7 = sandbox.Meta.validateNick('abcdefg');
     const v8 = sandbox.Meta.validateNick('abcdefgh');
-    const v9 = sandbox.Meta.validateNick('abcdefghi');
-    return v1.ok && v8.ok && !v9.ok && /NICK_MAX = 8;/.test(workerSrc) &&
-      workerSrc.includes('1~8 个字符') && !/NICK_MAX = 12/.test(workerSrc);
+    return v1.ok && v7.ok && !v8.ok && /NICK_MAX = 7;/.test(workerSrc) &&
+      workerSrc.includes('1-7 个字符') && !/NICK_MAX = 12/.test(workerSrc) &&
+      /maxlength="7"/.test(htmlSrc) && !/maxlength="8"/.test(htmlSrc);
   })());
   check('结算音效和结算画面同一拍出来（通关 / 失败都是）',
     /box\.style\.display = 'flex';\s*\n\s*winSfx\(\);/.test(jsSrc) &&
@@ -3313,16 +3317,24 @@ function check(name, ok) {
     /classList\.toggle\('empty', !\(S\.shuffleLeft > 0\)\)/.test(jsSrc) &&
     /classList\.toggle\('empty', !\(S\.undoLeft > 0\)\)/.test(jsSrc) &&
     /\.tool-btn \.badge\.empty\s*\{[^}]*background:\s*#b8b2c4/.test(cssSrc));
-  check('关卡记录：0 分的关卡显示灰色「未开始」（字号与分数一致）',
+  check('关卡记录：未解锁空着、已解锁没打过显示灰色「未开始」（字号同「未解锁」小标签）',
     /\.history-item \.h-score\.not-start\s*\{[^}]*#b0a9c0/.test(cssSrc) &&
-    /rec\.score > 0\s*\n\s*\? '<span class="h-score'/.test(jsSrc) &&
+    /\.history-item \.h-score\.not-start\s*\{[^}]*font-size:\s*10px/.test(cssSrc) &&
+    /\.history-item \.lock-tag\s*\{\s*font-size:\s*10px/.test(cssSrc) &&
+    /: \(locked \? '<span class="h-score"><\/span>'/.test(jsSrc) &&
     /'<span class="h-score not-start">未开始<\/span>'/.test(jsSrc));
-  check('玩家名单省份列固定宽（64px）：「未定位」不再把每行分数列挤得不一样齐',
-    /grid-template-columns: 26px minmax\(0, 1fr\) 34px 38px 6ch 64px;/.test(cssSrc) &&
+  check('玩家名单省份列固定宽、名字列放得下 7 个中文字：「未定位」不再把分数列挤歪',
+    /grid-template-columns: 26px minmax\(0, 1fr\) 22px 34px 6ch 56px;/.test(cssSrc) &&
     !/6ch minmax\(0, max-content\)/.test(cssSrc) &&
     /hiddenNames = new Set\(Array\.isArray\(r\.hidden\)/.test(jsSrc) &&
     /if \(isHiddenName\(n\)\) return;/.test(jsSrc) &&
     workerSrc.includes('hidden_names') && /hidden: hidden \}/.test(workerSrc));
+  check('IP 定位：同源 Worker 问腾讯（真实客户端 IP），客户端加 ipip 国内源兜底',
+    workerSrc.includes('CF-Connecting-IP') && /doGeo/.test(workerSrc) &&
+    workerSrc.includes('r.inews.qq.com/api/ip2city') &&
+    /case 'nl_geo':/.test(workerSrc) &&
+    /fetchOwnGeo/.test(jsSrc) && /'\/api\/nl_geo'/.test(jsSrc) &&
+    jsSrc.includes('myip.ipip.net/json') && /const GEO_VER = 3;/.test(jsSrc));
 
   check('超级融合：彩虹+磁铁 = 磁力虹吸，炸弹+磁铁 = 磁力爆破，双磁铁 = 双磁十字，霜块组合带定格', (() => {
     const b = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 1, special: 0 })));

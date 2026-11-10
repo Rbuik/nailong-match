@@ -4158,11 +4158,12 @@
         const candyCls = levelHasCandy(i, def) ? ' candy-tag' : '';
         tag = modeName ? ' <small class="mode-tag' + candyCls + '">' + modeName + '</small>' : '';
       }
-      // 没玩过（0 分）的关卡：分数位置显示灰色的「未开始」，字号与分数一致
-      // （未解锁的下一关同样显示「未开始」，不再显示 0 分）
+      // 分数位置：未解锁的关卡直接空着；已解锁但还没打的写灰色「未开始」
+      // （「未开始」的字号跟左边「未解锁」那个小标签一样大）
       const scoreHtml = rec.score > 0
         ? '<span class="h-score' + (rec.stars === 0 ? ' fail' : '') + '">' + rec.score + '</span>'
-        : '<span class="h-score not-start">未开始</span>';
+        : (locked ? '<span class="h-score"></span>'
+          : '<span class="h-score not-start">未开始</span>');
       row.innerHTML =
         '<span class="h-name"><span class="h-lv">第 ' + i + ' 关</span>' + tag + '</span>' +
         '<span class="h-stars">' + starStr + '</span>' +
@@ -4248,6 +4249,19 @@
       pick: (j) => (j && j.success !== false && j.country
         ? { countryCode: j.country_code || '', country: j.country || '', region: j.region || '', city: j.city || '', ip: j.ip || '' }
         : null)
+    },
+    {
+      // ipip：国内源，对移动 4G/5G 的 IPv6 定位准（带 CORS，可以直接在浏览器里调）
+      name: 'ipip', url: 'https://myip.ipip.net/json',
+      pick: (j) => {
+        const d = j && j.data;
+        const loc = d && d.location;
+        if (!Array.isArray(loc) || !loc.length) return null;
+        return {
+          countryCode: loc[0] === '中国' ? 'CN' : '',
+          country: loc[0] || '', region: loc[1] || '', city: loc[2] || '', ip: d.ip || ''
+        };
+      }
     }
   ];
 
@@ -4935,9 +4949,40 @@
   // 主源 ipinfo / ipapi.is 并发，1 秒没结果就用 ipwho 兜底；全失败就沿用上次的定位，
   // 绝不因为一次接口抖动把这次点击丢掉（之前用的 ipwho.is 经常超时 → 数字对不上）。
   let geoFetchAt = 0;
+
+  // 同源定位：Worker 拿真实客户端 IP 去问腾讯（国内手机网最准，也不受 CORS 限制）。
+  // 本地 / 没部署 Worker 时这个请求 404，直接返回 null 走公开源，不影响别的逻辑。
+  function fetchOwnGeo() {
+    if (typeof fetch !== 'function') return Promise.resolve(null);
+    return new Promise((resolve) => {
+      let done = false;
+      const timer = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 2600);
+      fetch('/api/nl_geo', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}',
+        cache: 'no-store'
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((j) => {
+          if (done) return;
+          done = true; clearTimeout(timer);
+          resolve(j && j.ok && j.region
+            ? {
+              countryCode: /中国/.test(String(j.country || '')) || j.src === 'qq' ? 'CN' : '',
+              country: j.country || '中国',
+              region: j.region || '', city: j.city || '', ip: j.ip || ''
+            }
+            : null);
+        })
+        .catch(() => { if (!done) { done = true; clearTimeout(timer); resolve(null); } });
+    });
+  }
+
   function fetchGeo(force) {
     // 定位缓存版本：早期 ipwho 把移动 IPv6 误判成北京，旧缓存一律作废一次
-    const GEO_VER = 2;
+    // v3：改用「Worker 问腾讯 + ipip」的新链路，旧的不准缓存再作废一次
+    const GEO_VER = 3;
     try {
       if (Number(localStorage.getItem('nl2:geoV') || 0) !== GEO_VER) {
         localStorage.setItem('nl2:geoV', String(GEO_VER));
@@ -4976,15 +5021,27 @@
         });
       };
 
-      primary.forEach((src) => {
-        fetchWithTimeout(src.url, 2200).then((j) => {
-          const g = j ? src.pick(j) : null;
-          primaryLeft--;
-          if (g) { g.src = src.name; finish(g); return; }
-          if (!primaryLeft) askFallback();
+      // 先问同源接口（Worker 用真实 IP 问腾讯，最准）；1.2 秒没回来就同时开公开源，谁先回用谁
+      let publicStarted = false;
+      const startPublic = () => {
+        if (publicStarted || settled) return;
+        publicStarted = true;
+        primary.forEach((src) => {
+          fetchWithTimeout(src.url, 2200).then((j) => {
+            const g = j ? src.pick(j) : null;
+            primaryLeft--;
+            if (g) { g.src = src.name; finish(g); return; }
+            if (!primaryLeft) askFallback();
+          });
         });
+        setTimeout(askFallback, 900);
+      };
+      fetchOwnGeo().then((g) => {
+        if (settled) return;
+        if (g) { g.src = 'nl'; finish(g); return; }
+        startPublic();
       });
-      setTimeout(askFallback, 900);
+      setTimeout(startPublic, 1200);
     });
   }
 
@@ -5309,7 +5366,7 @@
         ? '<span class="lb-stars ul-stars"><i class="lb-star-ico">★</i><b>' + st + '</b></span>'
         : '<span class="lb-stars ul-stars"></span>';
       inner.innerHTML = '<span class="lb-rank">' + (i + 1) + '</span>' +
-        '<span class="lb-name">' + escHtml(String(u.name).slice(0, 8)) + '</span>' +
+        '<span class="lb-name">' + escHtml(String(u.name).slice(0, 7)) + '</span>' +
         starHtml +
         '<span class="lb-score ul-score">' + (u.score > 0 ? String(u.score) : '—') + '</span>' +
         (byProv ? '' : '<span class="lb-score ul-prov">' + escHtml(p) + '</span>');
@@ -6775,7 +6832,7 @@
       const inner = document.createElement('div');
       inner.className = 'lb-swipe col4';
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
-        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
+        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 7)) +
         (r.me ? '<i class="lb-me">我</i>' : '') + '</span>' +
         (stars > 0 ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>' : '<span class="lb-stars"></span>') +
         '<span class="lb-score">' + (r.moves > 0 ? r.moves + ' 步' : '—') + '</span>';
@@ -8136,7 +8193,7 @@
           ? '<span class="lb-stars">' + '★'.repeat(stars) + '</span>'
           : '<span class="lb-stars"><i class="lb-star-ico">★</i><b>' + stars + '</b></span>');
       inner.innerHTML = '<span class="lb-rank">' + rank + '</span>' +
-        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 8)) +
+        '<span class="lb-name">' + escHtml(String(r.name || '玩家').slice(0, 7)) +
         (r.me ? '<i class="lb-me">我</i>' : r.friend ? '<i>好友</i>' : '') + '</span>' +
         starHtml +
         '<span class="lb-score' + (onBoard ? '' : ' none') + '">' + (onBoard ? r.score : '未上榜') + '</span>';
@@ -8240,8 +8297,8 @@
     if (hint) {
       // 两行显示：规则一行，「不能和别人重名」另起一行
       hint.innerHTML = forced
-        ? '「奶龙玩家」是默认昵称，不能直接用<br>1~8 个字符，特殊符号只能用 - . _'
-        : '1~8 个字符（一个字母或符号都算一个）<br>中文 / 字母 / 数字，特殊符号只能用 . - _，不能重名';
+        ? '「奶龙玩家」是默认昵称，不能直接用<br>1-7 个字符，特殊符号只能用 - . _'
+        : '1-7 个字符（一个字母或符号都算一个）<br>中文 / 字母 / 数字，特殊符号只能用 . - _，不能重名';
     }
     // 强制改名时输入框一律留空：预填旧名字会让人以为点一下就过了
     if ($('nick-input')) $('nick-input').value = forced ? '' : (Meta.isDefaultNick() ? '' : Meta.nickname());
@@ -8403,7 +8460,7 @@
     const tip = $('auth-tip');
     if (tip) {
       tip.innerHTML = authMode === 'register'
-        ? '1~8 个字符，特殊符号只能用 - . _<br>密码 4~24 位，不能有空格'
+        ? '1-7 个字符，特殊符号只能用 - . _<br>密码 4~24 位，不能有空格'
         : '';
     }
     ['auth-name', 'auth-pass'].forEach((id) => {

@@ -370,7 +370,7 @@
     return nickname() === '奶龙玩家';
   }
 
-  // 昵称规则：1~8 字；中文 / 字母 / 数字 + 特殊符号只允许 - . _；不能重名（taken 由调用方收集）
+  // 昵称规则：1~7 字；中文 / 字母 / 数字 + 特殊符号只允许 - . _；不能重名（taken 由调用方收集）
   // 敏感词：命中就不许用（忽略大小写 / 空格 / - . _，「黄君丽」是点名要屏蔽的）
   const SENSITIVE = [
     '黄君丽',
@@ -392,7 +392,7 @@
     const s = String(v || '').trim();
     if (!s) return { ok: false, reason: '昵称不能为空' };
     if (s === '奶龙玩家') return { ok: false, reason: '不能再用「奶龙玩家」，换一个吧' };
-    if (s.length > 8) return { ok: false, reason: '昵称要 1~8 个字符（一个字母或符号都算一个）' };
+    if (s.length > 7) return { ok: false, reason: '昵称要 1-7 个字符（一个字母或符号都算一个）' };
     if (!/^[\u4e00-\u9fa5A-Za-z0-9._\-]+$/.test(s)) return { ok: false, reason: '特殊符号只能用 - . _ 三个' };
     if (hasSensitive(s)) return { ok: false, reason: '改名字含敏感词，请重新输入', sensitive: true };
     if (taken && taken.indexOf(s) >= 0) return { ok: false, reason: '这个名字已经被别人用了' };
@@ -400,7 +400,7 @@
   }
 
   function setNickname(n) {
-    const v = String(n || '').trim().slice(0, 8);
+    const v = String(n || '').trim().slice(0, 7);
     write(K.nick, v || '奶龙玩家');
     return nickname();
   }
@@ -431,7 +431,7 @@
       const old = read(K.board, { list: [] });
       list = (Array.isArray(old.list) ? old.list : []).map((x, i) => ({
         uid: x.uid || ('old' + i),
-        name: String(x.name || '好友').slice(0, 8),
+        name: String(x.name || '好友').slice(0, 7),
         score: Math.max(0, x.score || 0),
         level: x.level || 0,
         ts: x.ts || Date.now()
@@ -470,7 +470,7 @@
       if (!p || typeof p.s !== 'number') return null;
       return {
         uid: String(p.u || ''),
-        name: String(p.n || '好友').slice(0, 8),
+        name: String(p.n || '好友').slice(0, 7),
         score: Math.max(0, Math.round(p.s)),
         level: p.l || 0,
         pv: /^[a-z]{2,20}$/.test(String(p.p || '').toLowerCase()) ? String(p.p).toLowerCase() : '',
@@ -515,7 +515,7 @@
     const list = friends();
     list.push({
       uid: entry.uid || ('n' + Date.now()),
-      name: String(entry.name || '好友').slice(0, 8),
+      name: String(entry.name || '好友').slice(0, 7),
       score: Math.max(0, entry.score || 0),
       level: entry.level || 0,
       ts: Date.now()

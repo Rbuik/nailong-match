@@ -20,7 +20,7 @@ const CORS = {
 
 const ITER = 12000;          // PBKDF2 迭代（兼顾免费版 CPU 限额）
 const TOKEN_DAYS = 365;      // 令牌有效期
-const NICK_MAX = 8;
+const NICK_MAX = 7;
 const PASS_MIN = 4;
 const PASS_MAX = 24;
 const USERS_KEY = 'nl-admin-7k2v';   // 后台名单的轻口令（只防随手扫接口，名单本身不含任何私密信息）
@@ -138,7 +138,7 @@ function parseSlot(raw) {
 async function doRegister(env, b) {
   const nick = String(b.p_nick || '').trim();
   const pass = String(b.p_pass || '');
-  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1~8 个字符（一个字母或符号都算一个），不能有空格' });
+  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1-7 个字符（一个字母或符号都算一个），不能有空格' });
   if (!passOk(pass)) return json({ ok: false, reason: '密码要 4-24 位，不能有空格' });
   const key = nickKey(nick);
   const exist = await env.DB.prepare('SELECT id FROM accounts WHERE nick_key = ?').bind(key).first();
@@ -219,7 +219,7 @@ async function doRename(env, b) {
   const row = await accByToken(env, String(b.p_token || ''));
   if (!row) return json({ ok: false, reason: '登录已过期，请重新登录' });
   const nick = String(b.p_nick || '').trim();
-  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1~8 个字符（一个字母或符号都算一个），不能有空格' });
+  if (!nickOk(nick)) return json({ ok: false, reason: '名字要 1-7 个字符（一个字母或符号都算一个），不能有空格' });
   const key = nickKey(nick);
   const exist = await env.DB.prepare('SELECT id FROM accounts WHERE nick_key = ?').bind(key).first();
   if (exist && exist.id !== row.id) return json({ ok: false, reason: '这个名字已经被别人用了' });
@@ -296,6 +296,43 @@ async function doUsers(env, b) {
   return json({ ok: true, users: users, hidden: hidden });
 }
 
+// 定位：客户端只调自己的同源接口，由 Worker 拿真实客户端 IP 去问国内源。
+// 之前客户端直连 ipinfo / ipwho，国内移动 IPv6 常被误判（四川 → 北京 / 湖南 → 海南），
+// 腾讯这个接口支持 ?ip= 且对国内手机网络准，放服务端调还能绕开 CORS。
+async function doGeo(env, request) {
+  const ip = String(request.headers.get('CF-Connecting-IP') || '').trim();
+  if (!ip) return json({ ok: false, reason: '没有 IP' });
+  const ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36';
+
+  // 1) 腾讯 ip2city：国内手机网最准，IPv6 也支持
+  try {
+    const r = await fetch('https://r.inews.qq.com/api/ip2city?ip=' + encodeURIComponent(ip), {
+      headers: { 'User-Agent': ua, Accept: 'application/json' }
+    });
+    if (r.ok) {
+      const j = await r.json();
+      if (j && Number(j.ret) === 0 && j.province) {
+        return json({ ok: true, ip: ip, country: j.country || '中国', region: j.province || '', city: j.city || '', src: 'qq' });
+      }
+    }
+  } catch (e) {}
+
+  // 2) ipwho（对国内不够准，但至少能给出国家和省名，兜底用）
+  try {
+    const r = await fetch('https://ipwho.is/' + encodeURIComponent(ip) + '?lang=zh-CN', {
+      headers: { 'User-Agent': ua, Accept: 'application/json' }
+    });
+    if (r.ok) {
+      const j = await r.json();
+      if (j && j.success !== false && j.country) {
+        return json({ ok: true, ip: ip, country: j.country || '', region: j.region || '', city: j.city || '', src: 'ipwho' });
+      }
+    }
+  } catch (e) {}
+
+  return json({ ok: false, ip: ip, reason: '定位失败' });
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -328,6 +365,7 @@ export default {
       case 'nl_recover':  return doRecover(env, body);
       case 'nl_delete':   return doDelete(env, body);
       case 'nl_users':    return doUsers(env, body);
+      case 'nl_geo':      return doGeo(env, request);
       default:            return json({ ok: false, reason: '接口不存在' }, 404);
     }
   }

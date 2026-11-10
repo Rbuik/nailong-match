@@ -156,7 +156,7 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .history-item .h-stars { text-align: right; white-space: nowrap; }
 .history-item .h-score { text-align: right; color: #1a8f4a; font-weight: bold; font-variant-numeric: tabular-nums; }
 .history-item .h-score.fail { color: #c0392b !important; }
-.history-item .h-score.not-start { color: #b0a9c0; }   /* 没玩过的关卡：灰色「未开始」，字号与分数一致 */
+.history-item .h-score.not-start { color: #b0a9c0; font-size: 10px; font-weight: normal; }   /* 已解锁没打过：灰色「未开始」，字号同「未解锁」小标签 */
 
 /* 左上角 📮 邮箱：排在 🏠 下面，未读数用红角标贴在图标右上角 */
 #main-menu #btn-mail { position: relative; }

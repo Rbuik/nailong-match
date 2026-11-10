@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261110a">
-<link rel="stylesheet" href="./css/themes.css?v=20261110a">
+<link rel="stylesheet" href="./css/style.css?v=20261110b">
+<link rel="stylesheet" href="./css/themes.css?v=20261110b">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -333,7 +333,7 @@
 
       <section class="rule-sec">
         <h3>账号与云存档</h3>
-        <p>注册只要<b>名字 + 密码</b>（4~24 位），名字 <b>1~8 个字符</b>、唯一且区分大小写，特殊符号只能用 <b>- . _</b>。</p>
+        <p>注册只要<b>名字 + 密码</b>（4~24 位），名字 <b>1-7 个字符</b>、唯一且区分大小写，特殊符号只能用 <b>- . _</b>。</p>
         <p>账号和进度<b>自动存到服务器</b>，换手机 / 清缓存用名字 + 密码登录就能找回；「💾 存档码」可以整份搬家。</p>
         <p><b>🔓 忘记密码</b>：登录页点「忘记密码」。需填写「名字 + 身份号码」（身份号码在 <b>设置 → 账号安全</b> 里）。</p>
         <p>注销 = <b>彻底删除</b>本机和服务器上的全部数据，无法恢复。</p>
@@ -567,7 +567,7 @@
     <h2 class="title small" id="auth-form-title">登录</h2>
     <div class="auth-box">
       <label class="auth-label" for="auth-name">名字</label>
-      <input class="auth-input" type="text" id="auth-name" maxlength="8" placeholder="输入名字" autocomplete="off">
+      <input class="auth-input" type="text" id="auth-name" maxlength="7" placeholder="输入名字" autocomplete="off">
       <label class="auth-label" for="auth-pass">密码</label>
       <input class="auth-input" type="password" id="auth-pass" maxlength="24" placeholder="输入密码" autocomplete="off">
       <p class="auth-err" id="auth-err"></p>
@@ -582,7 +582,7 @@
     <h2 class="title small">重设密码</h2>
     <div class="auth-box">
       <label class="auth-label" for="forgot-name">名字</label>
-      <input class="auth-input" type="text" id="forgot-name" maxlength="8" placeholder="输入你的名字" autocomplete="off">
+      <input class="auth-input" type="text" id="forgot-name" maxlength="7" placeholder="输入你的名字" autocomplete="off">
       <label class="auth-label" for="forgot-uid">身份号码</label>
       <input class="auth-input" type="text" id="forgot-uid" maxlength="12" placeholder="p 开头的一串字母数字" autocomplete="off">
       <label class="auth-label" for="forgot-pass">新密码</label>
@@ -601,7 +601,7 @@
     <p class="history-hint" id="fix-tip">名字和密码都填好才能继续游戏</p>
     <div class="auth-box">
       <label class="auth-label" for="fix-name" id="fix-name-label">名字</label>
-      <input class="auth-input" type="text" id="fix-name" maxlength="8" placeholder="输入名字" autocomplete="off">
+      <input class="auth-input" type="text" id="fix-name" maxlength="7" placeholder="输入名字" autocomplete="off">
       <div id="fix-pass-rows">
         <label class="auth-label" for="fix-pass">密码</label>
         <input class="auth-input" type="password" id="fix-pass" maxlength="24" placeholder="设置一个密码（4~24 位）" autocomplete="off">
@@ -1011,9 +1011,9 @@
   <!-- 改名：昵称还是「奶龙玩家」时必须改，窗口不能关闭（没有返回键，点外面也不关） -->
   <div class="overlay" id="nick-menu" style="display:none;">
     <h2 class="title small" id="nick-title">✏️ 先起个昵称</h2>
-    <p class="history-hint" id="nick-hint">「奶龙玩家」是默认昵称，不能直接用<br>1~8 个字符，特殊符号只能用 - . _</p>
+    <p class="history-hint" id="nick-hint">「奶龙玩家」是默认昵称，不能直接用<br>1-7 个字符，特殊符号只能用 - . _</p>
     <div class="lb-form">
-      <input type="text" id="nick-input" maxlength="8" placeholder="输入你的昵称">
+      <input type="text" id="nick-input" maxlength="7" placeholder="输入你的昵称">
     </div>
     <p class="auth-err" id="nick-err"></p>
     <button class="btn-primary nick-save" id="btn-nick-save">确定</button>
@@ -1045,22 +1045,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261110a"></script>
-<script src="./js/storage.js?v=20261110a"></script>
-<script src="./js/audio.js?v=20261110a"></script>
-<script src="./js/effects.js?v=20261110a"></script>
-<script src="./js/specials.js?v=20261110a"></script>
-<script src="./js/goals.js?v=20261110a"></script>
-<script src="./js/tasks.js?v=20261110a"></script>
-<script src="./js/mail.js?v=20261110a"></script>
-<script src="./js/input.js?v=20261110a"></script>
-<script src="./js/builtin-music.js?v=20261110a"></script>
-<script src="./js/music.js?v=20261110a"></script>
-<script src="./js/meta.js?v=20261110a"></script>
-<script src="./js/cloud-config.js?v=20261110a"></script>
-<script src="./js/cloud.js?v=20261110a"></script>
-<script src="./js/account.js?v=20261110a"></script>
-<script src="./js/board.js?v=20261110a"></script>
-<script src="./js/game.js?v=20261110a"></script>
+<script src="./js/rng.js?v=20261110b"></script>
+<script src="./js/storage.js?v=20261110b"></script>
+<script src="./js/audio.js?v=20261110b"></script>
+<script src="./js/effects.js?v=20261110b"></script>
+<script src="./js/specials.js?v=20261110b"></script>
+<script src="./js/goals.js?v=20261110b"></script>
+<script src="./js/tasks.js?v=20261110b"></script>
+<script src="./js/mail.js?v=20261110b"></script>
+<script src="./js/input.js?v=20261110b"></script>
+<script src="./js/builtin-music.js?v=20261110b"></script>
+<script src="./js/music.js?v=20261110b"></script>
+<script src="./js/meta.js?v=20261110b"></script>
+<script src="./js/cloud-config.js?v=20261110b"></script>
+<script src="./js/cloud.js?v=20261110b"></script>
+<script src="./js/account.js?v=20261110b"></script>
+<script src="./js/board.js?v=20261110b"></script>
+<script src="./js/game.js?v=20261110b"></script>
 </body>
 </html>
