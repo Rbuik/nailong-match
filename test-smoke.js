@@ -3329,12 +3329,11 @@ function check(name, ok) {
     /hiddenNames = new Set\(Array\.isArray\(r\.hidden\)/.test(jsSrc) &&
     /if \(isHiddenName\(n\)\) return;/.test(jsSrc) &&
     workerSrc.includes('hidden_names') && /hidden: hidden \}/.test(workerSrc));
-  check('IP 定位：同源 Worker 问腾讯（真实客户端 IP），客户端加 ipip 国内源兜底',
-    workerSrc.includes('CF-Connecting-IP') && /doGeo/.test(workerSrc) &&
-    workerSrc.includes('r.inews.qq.com/api/ip2city') &&
-    /case 'nl_geo':/.test(workerSrc) &&
-    /fetchOwnGeo/.test(jsSrc) && /'\/api\/nl_geo'/.test(jsSrc) &&
-    jsSrc.includes('myip.ipip.net/json') && /const GEO_VER = 3;/.test(jsSrc));
+  check('IP 定位：ipip（国内库）优先单独问，其它源只在它失败时兜底；不再抢跑定错省',
+    jsSrc.includes('myip.ipip.net/json') && /const GEO_VER = 4;/.test(jsSrc) &&
+    /pickGeoSource\('ipip'\)/.test(jsSrc) && /onlyForeign/.test(jsSrc) &&
+    /if \(src\.name === 'ipip'\) return;/.test(jsSrc) &&
+    !/fetchOwnGeo/.test(jsSrc) && !/'\/api\/nl_geo'/.test(jsSrc));
 
   check('超级融合：彩虹+磁铁 = 磁力虹吸，炸弹+磁铁 = 磁力爆破，双磁铁 = 双磁十字，霜块组合带定格', (() => {
     const b = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 1, special: 0 })));

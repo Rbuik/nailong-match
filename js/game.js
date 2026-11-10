@@ -4950,39 +4950,19 @@
   // 绝不因为一次接口抖动把这次点击丢掉（之前用的 ipwho.is 经常超时 → 数字对不上）。
   let geoFetchAt = 0;
 
-  // 同源定位：Worker 拿真实客户端 IP 去问腾讯（国内手机网最准，也不受 CORS 限制）。
-  // 本地 / 没部署 Worker 时这个请求 404，直接返回 null 走公开源，不影响别的逻辑。
-  function fetchOwnGeo() {
-    if (typeof fetch !== 'function') return Promise.resolve(null);
-    return new Promise((resolve) => {
-      let done = false;
-      const timer = setTimeout(() => { if (!done) { done = true; resolve(null); } }, 2600);
-      fetch('/api/nl_geo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: '{}',
-        cache: 'no-store'
-      })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((j) => {
-          if (done) return;
-          done = true; clearTimeout(timer);
-          resolve(j && j.ok && j.region
-            ? {
-              countryCode: /中国/.test(String(j.country || '')) || j.src === 'qq' ? 'CN' : '',
-              country: j.country || '中国',
-              region: j.region || '', city: j.city || '', ip: j.ip || ''
-            }
-            : null);
-        })
-        .catch(() => { if (!done) { done = true; clearTimeout(timer); resolve(null); } });
-    });
+  // 当前最准的源：ipip（国内库，手机 4G/5G 的 IPv6 也能正确定位，且带 CORS）
+  // 之前用的 ipinfo / ipwho 对国内移动网络常把四川判成北京、湖南判成海南。
+  function pickGeoSource(name) {
+    for (let i = 0; i < GEO_SOURCES.length; i++) {
+      if (GEO_SOURCES[i].name === name) return GEO_SOURCES[i];
+    }
+    return null;
   }
 
   function fetchGeo(force) {
     // 定位缓存版本：早期 ipwho 把移动 IPv6 误判成北京，旧缓存一律作废一次
-    // v3：改用「Worker 问腾讯 + ipip」的新链路，旧的不准缓存再作废一次
-    const GEO_VER = 3;
+    // v4：改成 ipip 优先（v3 曾走 Worker，拿到的是 Cloudflare 机房所在省，作废）
+    const GEO_VER = 4;
     try {
       if (Number(localStorage.getItem('nl2:geoV') || 0) !== GEO_VER) {
         localStorage.setItem('nl2:geoV', String(GEO_VER));
@@ -5021,7 +5001,8 @@
         });
       };
 
-      // 先问同源接口（Worker 用真实 IP 问腾讯，最准）；1.2 秒没回来就同时开公开源，谁先回用谁
+      // 先只问 ipip（国内库最准）：2.2 秒没结果再开其它公开源，谁先回用谁。
+      // 之前几个源一起抢，ipinfo / ipwho 反而更快回来，把省定错了。
       let publicStarted = false;
       const startPublic = () => {
         if (publicStarted || settled) return;
@@ -5036,12 +5017,25 @@
         });
         setTimeout(askFallback, 900);
       };
-      fetchOwnGeo().then((g) => {
-        if (settled) return;
-        if (g) { g.src = 'nl'; finish(g); return; }
-        startPublic();
-      });
-      setTimeout(startPublic, 1200);
+      const best = pickGeoSource('ipip');
+      const onlyForeign = () => {
+        publicStarted = true;
+        primary.forEach((src) => {
+          if (src.name === 'ipip') return;
+          fetchWithTimeout(src.url, 2200).then((j) => {
+            const g = j ? src.pick(j) : null;
+            if (g) { g.src = src.name; finish(g); }
+          });
+        });
+        setTimeout(askFallback, 900);
+      };
+      if (!best) { startPublic(); } else {
+        fetchWithTimeout(best.url, 2600).then((j) => {
+          const g = j ? best.pick(j) : null;
+          if (g) { g.src = best.name; finish(g); return; }
+          if (!settled) onlyForeign();
+        });
+      }
     });
   }
 
