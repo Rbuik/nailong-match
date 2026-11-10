@@ -285,7 +285,15 @@ async function doUsers(env, b) {
     pv: String(r.pv || ''),
     created: Number(r.created_at) || 0
   })).filter((u) => u.uid && u.name);
-  return json({ ok: true, users: users });
+  // 已注销 / 隐藏的名字：客户端的「玩家名单」会把它们过滤掉
+  // （账号行已删，但各设备的本机缓存 / 榜单缓存里可能还留着名字）
+  let hidden = [];
+  try {
+    const hr = await env.DB.prepare('SELECT nick_key FROM hidden_names').all();
+    hidden = ((hr && hr.results) || []).map((r) => String(r.nick_key || ''))
+      .filter((n) => n).map((n) => n.toLowerCase());
+  } catch (e) {}   // 表还没建（老库）就不下发
+  return json({ ok: true, users: users, hidden: hidden });
 }
 
 export default {

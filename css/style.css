@@ -89,6 +89,7 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .tool-btn:disabled { opacity: 0.4; filter: grayscale(1); cursor: not-allowed; transform: none; }
 .tool-btn .icon { font-size: 16px; }
 .tool-btn .badge { background: #ff5c5c; color: #fff; font-size: 12px; padding: 2px 7px; border-radius: 10px; margin-left: 4px; box-shadow: inset 0 1px 3px rgba(0,0,0,0.3); }
+.tool-btn .badge.empty { background: #b8b2c4; }   /* 次数用完：红变灰 */
 
 /* 音乐与设置按钮样式 */
 .music-btn { display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; background: linear-gradient(135deg, #ffffff, #e8e8ef); border: 1px solid rgba(0,0,0,0.12); box-shadow: 0 2px 6px rgba(0,0,0,0.12); position: relative; padding: 8px; border-radius: 50%; width: 38px; height: 38px; transition: transform 0.1s; }
@@ -155,6 +156,7 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .history-item .h-stars { text-align: right; white-space: nowrap; }
 .history-item .h-score { text-align: right; color: #1a8f4a; font-weight: bold; font-variant-numeric: tabular-nums; }
 .history-item .h-score.fail { color: #c0392b !important; }
+.history-item .h-score.not-start { color: #b0a9c0; }   /* 没玩过的关卡：灰色「未开始」，字号与分数一致 */
 
 /* 左上角 📮 邮箱：排在 🏠 下面，未读数用红角标贴在图标右上角 */
 #main-menu #btn-mail { position: relative; }

@@ -70,7 +70,8 @@
       return this.ctx;
     },
 
-    // BGM 总线开关：on=true 恢复音量，false 立即静音（音效不走这条总线，不受影响）
+    // BGM 总线开关：on=true 恢复到当前 BGM 音量，false 立即静音
+    // （音效不走这条总线，不受影响）
     _bgmBusOn(on) {
       try {
         if (!this.ctx || !this._bgmGain) return;
@@ -78,7 +79,22 @@
         const g = this._bgmGain.gain;
         g.cancelScheduledValues(t);
         g.setValueAtTime(Math.max(0.0001, g.value), t);
-        g.linearRampToValueAtTime(on ? 1 : 0.0001, t + (on ? 0.02 : 0.05));
+        g.linearRampToValueAtTime(on ? Math.max(0.0001, this.bgmVol) : 0.0001, t + (on ? 0.02 : 0.05));
+      } catch (e) {}
+    },
+
+    // 拖「音量」滑条时实时改总线增益：合成 BGM 的音量全走这一条总线，
+    // 滑到哪儿声音立刻变到哪儿（以前音量是每个音符排程时算死的，
+    // 要等最多 0.9 秒前排好的音播完才变 —— 这就是「音量反馈有延迟」的根因）
+    applyBgmVolume() {
+      try {
+        if (!this.ctx || !this._bgmGain) return;
+        const t = this.ctx.currentTime;
+        const g = this._bgmGain.gain;
+        const target = this.musicOn ? Math.max(0.0001, this.bgmVol) : 0.0001;
+        g.cancelScheduledValues(t);
+        g.setValueAtTime(Math.max(0.0001, g.value), t);
+        g.linearRampToValueAtTime(target, t + 0.03);
       } catch (e) {}
     },
 
@@ -204,7 +220,8 @@
         // 滑块一动立即生效（iOS 上 element.volume 无效，走 WebAudio gain）
         // 顺手把可能挂起的上下文叫醒，保证第一次拖动就能听到变化
         if (this.ctx && this.ctx.state !== 'running') this.resumeCtx();
-        this.applyCustomVolume();
+        this.applyBgmVolume();       // 合成 BGM：总线增益实时跟手
+        this.applyCustomVolume();    // 自定义歌：gain 节点 / element.volume 实时跟手
       }
       if (typeof sfx === 'number') this.sfxVol = sfx;
     },
@@ -613,6 +630,7 @@
       // 而已排进 WebAudio 时间轴的旧音取消不掉 → 几层旋律叠在一起「乱弹钢琴」。
       if (this._bgmTimer) return;
       this._bgmNext = 0;
+      this.applyBgmVolume();   // 起播前把总线音量对齐到当前设置（音符本身不再带音量）
       this._bgmNote();
       this._bgmTimer = setInterval(() => this._bgmNote(), 150);
     },
@@ -648,7 +666,8 @@
         // 关键：起音用 20ms 的快速爬坡，别让增益从 0 直接跳到峰值——
         // 正弦波在非零相位突然出声会「咔哒」一下，整条 BGM 听着发脏
         g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_NOTE_PEAK * this.bgmVol), t0 + 0.02);
+        // 音量全走 _bgmGain 总线（拖滑条实时变），这里不再乘 bgmVol
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_NOTE_PEAK), t0 + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.22);
         osc.connect(g); g.connect(this._bgmGain || this.ctx.destination);
         osc.start(t0); osc.stop(t0 + 0.22);
@@ -659,7 +678,7 @@
           o2.type = 'triangle';
           o2.frequency.setValueAtTime(f / 2, t0);
           g2.gain.setValueAtTime(0.0001, t0);
-          g2.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * this.bgmVol), t0 + 0.02);
+          g2.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK), t0 + 0.02);
           g2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.27);
           o2.connect(g2); g2.connect(this._bgmGain || this.ctx.destination);
           o2.start(t0); o2.stop(t0 + 0.27);
@@ -703,7 +722,7 @@
         osc.frequency.exponentialRampToValueAtTime(38, t0 + 0.09);
         // 起音同样走 8ms 爬坡，去掉鼓点头上的「啪」声
         g.gain.setValueAtTime(0.0001, t0);
-        g.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * 0.8 * this.bgmVol), t0 + 0.008);
+        g.gain.exponentialRampToValueAtTime(Math.max(0.0001, this.BGM_BASS_PEAK * 0.8), t0 + 0.008);
         g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.12);
         osc.connect(g); g.connect(this._bgmGain || this.ctx.destination);
         osc.start(t0); osc.stop(t0 + 0.13);

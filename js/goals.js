@@ -158,12 +158,9 @@
       return `目标：敲碎冰块 ${Math.min(state.iceCleared, state.target)} / ${state.target} 块`;
     }
     if (state.type === 'drop') {
-      // 关键：后半句「场上还剩 N 件」永远等于棋盘上实际的货物数
-      //（目标总数 = 已送达 + 场上剩的，每次结算都会按场上实际数量校准），
-      // 玩家数棋盘上的货物就能对上，不会再有「要送的数量和棋盘对不上」的感觉
-      const left = Math.max(0, state.target - (state.cargoGot || 0));
-      return `目标：${state.hasCandy ? '运送货物' : '运送钥匙'} ${Math.min(state.cargoGot, state.target)} / ${state.target}` +
-        (left > 0 ? ` · 场上还剩 ${left} 件` : '');
+      // 目标总数 = 已送达 + 场上剩的，每次结算都会按场上实际数量校准；
+      // 目标栏只显示进度，不再显示「场上还剩 N 件」（用户要求删掉）
+      return `目标：${state.hasCandy ? '运送货物' : '运送钥匙'} ${Math.min(state.cargoGot, state.target)} / ${state.target}`;
     }
     if (state.type === 'rescue') {
       const left = Math.max(0, state.target - (state.rescueGot || 0));

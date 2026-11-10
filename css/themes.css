@@ -1557,7 +1557,10 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 .lb-swipe.col5 {
   display: grid;
-  grid-template-columns: 26px minmax(0, 1fr) 34px 38px 6ch minmax(0, max-content);
+  /* 省份列固定宽：以前是 max-content，「未定位」（3 个字）比「四川」（2 个字）宽，
+     会把每行 1fr 的名字列挤窄 → 分数「—」一列左一位右一位不齐。
+     固定 64px（装得下 3 个字 + 20px 内边距）后每行分数列起点是同一条线 */
+  grid-template-columns: 26px minmax(0, 1fr) 34px 38px 6ch 64px;
   column-gap: 6px;
 }
 .lb-swipe.col4 .lb-stars,

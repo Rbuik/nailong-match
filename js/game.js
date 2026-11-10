@@ -2975,7 +2975,7 @@
       : S.mode === 'rhythm' ? '节奏'
       : S.level;
     const hintEl = $('hint-count');
-    if (hintEl) hintEl.textContent = S.hintLeft;
+    if (hintEl) { hintEl.textContent = S.hintLeft; hintEl.classList.toggle('empty', !(S.hintLeft > 0)); }
     const mv = $('moves');
     if (mv) mv.textContent = S.timerOn ? Math.ceil(S.timeLeft) + 's' : S.moves;
     const mc = $('moves-container');
@@ -2986,10 +2986,11 @@
     if (sc) sc.textContent = S.score;
 
     // 徽章只显示本局剩余次数（背包里的数量在背包面板看，避免「以为能自动补」）
+    // 次数用完（0）时徽章从红色变灰色，一眼能看出用完了
     const sh = $('shuffle-count');
-    if (sh) sh.textContent = S.shuffleLeft;
+    if (sh) { sh.textContent = S.shuffleLeft; sh.classList.toggle('empty', !(S.shuffleLeft > 0)); }
     const un = $('undo-count');
-    if (un) un.textContent = S.undoLeft;
+    if (un) { un.textContent = S.undoLeft; un.classList.toggle('empty', !(S.undoLeft > 0)); }
 
     checkMovesWarning();
   }
@@ -4157,10 +4158,15 @@
         const candyCls = levelHasCandy(i, def) ? ' candy-tag' : '';
         tag = modeName ? ' <small class="mode-tag' + candyCls + '">' + modeName + '</small>' : '';
       }
+      // 没玩过（0 分）的关卡：分数位置显示灰色的「未开始」，字号与分数一致
+      // （未解锁的下一关同样显示「未开始」，不再显示 0 分）
+      const scoreHtml = rec.score > 0
+        ? '<span class="h-score' + (rec.stars === 0 ? ' fail' : '') + '">' + rec.score + '</span>'
+        : '<span class="h-score not-start">未开始</span>';
       row.innerHTML =
         '<span class="h-name"><span class="h-lv">第 ' + i + ' 关</span>' + tag + '</span>' +
         '<span class="h-stars">' + starStr + '</span>' +
-        '<span class="h-score' + (rec.score > 0 && rec.stars === 0 ? ' fail' : '') + '">' + rec.score + '</span>';
+        scoreHtml;
       row.addEventListener('click', () => {
         // 未解锁的关卡不能跳转
         if (locked) {
@@ -5100,6 +5106,7 @@
   //     既没在本机登录过、也没往共享榜发过成绩（比如林夕），只并前两处就会漏人
   let serverAccs = [];      // [{ uid, name, prov, score, created }]
   let serverAccsAt = 0;     // 上次拉取时间（30 秒内不重复拉）
+  let hiddenNames = null;   // 服务器下发的「已注销 / 隐藏」名字表（小写），名单里不再出现
 
   // 拉一次服务器账号名单：只回名字 / 身份号码 / 注册时间，没有密码和存档
   function loadServerAccs() {
@@ -5114,9 +5121,17 @@
         score: 0,
         created: Number(u.created) || 0
       }));
+      // 服务器标记为「已注销 / 隐藏」的名字：名单（本机 / 榜单 / 服务器三处并集）里全部过滤
+      hiddenNames = new Set(Array.isArray(r.hidden)
+        ? r.hidden.map((n) => String(n || '').trim().toLowerCase()).filter(Boolean) : []);
       serverAccsAt = Date.now();
       return true;
     }).catch(() => false);
+  }
+
+  function isHiddenName(name) {
+    if (!hiddenNames || !hiddenNames.size) return false;
+    return hiddenNames.has(String(name || '').trim().toLowerCase());
   }
 
   function collectServerUsers() {
@@ -5130,7 +5145,7 @@
         Account.list().forEach((a) => {
           if (!a || !a.name || !a.pass) return;
           const k = String(a.name).trim().toLowerCase();
-          if (!k) return;
+          if (!k || isHiddenName(k)) return;
           names[k] = true;
           if (localProv) provs[localProv] = true;
         });
@@ -5141,7 +5156,7 @@
       if (typeof Board !== 'undefined' && Board.list) {
         Board.list().forEach((e) => {
           const n = String((e && e.name) || '').trim();
-          if (!n) return;
+          if (!n || isHiddenName(n)) return;
           names[n.toLowerCase()] = true;
           const pv = String((e && e.pv) || '').toLowerCase();
           if (pv) provs[pv] = true;
@@ -5151,7 +5166,7 @@
     // 服务器上建档的号（本机和榜单都没有的那些，比如林夕）
     serverAccs.forEach((a) => {
       const k = String(a.name || '').trim().toLowerCase();
-      if (!k) return;
+      if (!k || isHiddenName(k)) return;
       names[k] = true;
     });
     return { users: Object.keys(names).length, provs: Object.keys(provs).length };
@@ -5186,6 +5201,7 @@
     const add = (name, pv, entry) => {
       const n = String(name || '').trim();
       if (!n) return;
+      if (isHiddenName(n)) return;   // 服务器已注销 / 隐藏的名字：名单不显示
       const k = n.toLowerCase();
       const p = String(pv || '').toLowerCase();
       const st = entry ? totalStarsOf(entry) : 0;
@@ -8429,7 +8445,8 @@
       if (tip) { tip.innerHTML = '本机认出了「' + a.name + '」：设个新密码就行，进度不会动。'; tip.style.display = ''; }
     } else {
       if (uidEl) { uidEl.readOnly = false; if (/^p/i.test(String(uidEl.value || '')) && !uidEl.dataset.touched) uidEl.value = ''; }
-      if (tip) { tip.innerHTML = '本机没有这个名字：换设备 / 清了缓存时，要用身份号码证明这个号是你的<br>身份号码在 设置 → 账号安全 里，点一下能复制'; tip.style.display = ''; }
+      // 「本机没有这个名字……」的说明已按要求删掉：不再显示这行提示
+      if (tip) { tip.innerHTML = ''; tip.style.display = 'none'; }
     }
   }
 
@@ -9053,11 +9070,14 @@
     renderAdminUsers: renderAdminUsers,
     serverUsers: collectServerUsers,
     // 测试用：直接塞一份服务器账号名单，模拟 nl_users 回来之后的状态
-    setServerAccs: (list) => {
+    // （第二参：服务器下发的「已注销 / 隐藏」名字表，名单要过滤）
+    setServerAccs: (list, hidden) => {
       serverAccs = (Array.isArray(list) ? list : []).filter((u) => u && u.name).map((u) => ({
         uid: String(u.uid || ''), name: String(u.name).trim() || 'x',
         prov: String(u.pv || u.prov || '').toLowerCase(), score: 0, created: Number(u.created) || 0
       }));
+      hiddenNames = new Set((Array.isArray(hidden) ? hidden : [])
+        .map((n) => String(n || '').trim().toLowerCase()).filter(Boolean));
       serverAccsAt = Date.now();
     },
     userList: collectUserList,

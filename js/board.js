@@ -82,6 +82,21 @@
       const j = raw ? JSON.parse(raw) : null;
       if (j && Array.isArray(j.list)) dEntries = j.list.map(cleanDaily).filter(Boolean);
     } catch (e) {}
+    if (pruneDaily()) saveD();   // 隔天的旧成绩读进来就丢（每日 00:00 重置）
+  }
+
+  // 每日挑战榜每天 00:00 整榜重置：只留「今天」（本地时间零点之后）通关的成绩。
+  // 棋盘种子本来就按日期换（seedFromDate），本机纪录也是按天记的，这里把榜单也对齐。
+  function todayStart() {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  }
+  function pruneDaily() {
+    const t0 = todayStart();
+    const keep = dEntries.filter((e) => (e.ts || 0) >= t0);
+    if (keep.length === dEntries.length) return false;
+    dEntries = keep;
+    return true;
   }
 
   function saveD() {
@@ -119,6 +134,7 @@
   }
 
   function mergeDaily(raw) {
+    pruneDaily();                // 跨天收到的旧成绩不进今天的榜
     const e = cleanDaily(raw);
     if (!e) return false;
     const i = findDailyIdx(e.uid);
@@ -466,6 +482,7 @@
     });
     if (rows.length) post(JSON.stringify({ t: 'v', d: rows }));
     // 每日挑战榜快照：跟着总分快照一起发，让老成绩也能撑过 12 小时
+    pruneDaily();                // 快照里只发今天的（隔天的不再广播）
     const dTop = dEntries.filter((e) => !deleted[e.uid]).sort(dailyCmp).slice(0, 30);
     if (dTop.length) {
       post(JSON.stringify({ t: 'ds', d: dTop.map((e) => [e.uid, e.name, e.stars, e.moves, e.ts]) }));
@@ -577,8 +594,8 @@
   global.Board = {
     open, close, publish, sync, remove, publishDaily,
     list: () => entries.slice().sort(byScore),
-    dailyList: () => dEntries.slice().sort(dailyCmp),
-    dailyCount: () => dEntries.length,
+    dailyList: () => { pruneDaily(); return dEntries.slice().sort(dailyCmp); },
+    dailyCount: () => { pruneDaily(); return dEntries.length; },
     get: (uid) => { const i = findIdx(String(uid || '')); return i < 0 ? null : entries[i]; },
     count: () => entries.length,
     status: () => status,

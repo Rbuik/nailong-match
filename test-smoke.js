@@ -255,6 +255,11 @@ function check(name, ok) {
   lockedRow.dispatch('click');
   check('点击未解锁关卡不跳转（记录页未关闭）', $('history-menu').style.display === 'flex');
   check('未解锁提示 toast', $('toast').textContent.includes('未解锁'));
+  check('没玩过 / 未解锁的关卡分数位是灰色「未开始」（不再是 0 分）',
+    String(lockedRow.innerHTML).indexOf('not-start') >= 0 &&
+    String(lockedRow.innerHTML).indexOf('未开始') >= 0 &&
+    String(lockedRow.innerHTML).indexOf('未解锁') >= 0 &&
+    !/>0<\/span>/.test(String(lockedRow.innerHTML)));
   // 已解锁的第 1 关可以点
   rows[0].dispatch('click');
   check('点击已解锁关卡回到主页', $('main-menu').style.display === 'flex');
@@ -439,6 +444,13 @@ function check(name, ok) {
     return !!hit && String(hit.children[0].innerHTML).indexOf('四川') >= 0 &&
       String(hit.children[0].innerHTML).indexOf('未定位') < 0;
   })());
+  // 4e-3. 服务器下发的「已注销 / 隐藏」名字（hix / i）：名单与用户数量都不再出现
+  sandbox.__nl_test.setServerAccs(
+    [{ uid: 'pLinxiTest01', name: '林夕', created: 0 }, { uid: 'pHixTest00001', name: 'hix', created: 0 }],
+    ['hix', 'I']);
+  check('服务器隐藏名单（hix / i，不区分大小写）不再进「玩家名单」与「用户数量」',
+    !sandbox.__nl_test.userList().some((u) => String(u.name).toLowerCase() === 'hix') &&
+    sandbox.__nl_test.serverUsers().users === su2.users + 1);   // 林夕还在，hix 被滤掉
   sandbox.__nl_test.setServerAccs([]);
   sandbox.__nl_test.setServerAccs([]);
   sandbox.__nl_test.renderUserList();
@@ -609,6 +621,15 @@ function check(name, ok) {
       /const di = findDailyIdx\(uid\);/.test(bjs) &&
       /DLKEY = 'nl2:lbdaily'/.test(bjs);
   })());
+  check('每日挑战榜每天 00:00 重置：隔天成绩自动丢弃（pruneDaily 按本地零点过滤），快照也不广播隔天条目',
+    (() => {
+      const bjs = fs.readFileSync(path.join(__dirname, 'js', 'board.js'), 'utf8');
+      return /function todayStart\(\)/.test(bjs) && /function pruneDaily\(\)/.test(bjs) &&
+        /new Date\(d\.getFullYear\(\), d\.getMonth\(\), d\.getDate\(\)\)\.getTime\(\)/.test(bjs) &&
+        /function mergeDaily\(raw\) \{\s*\n\s*pruneDaily\(\);/.test(bjs) &&
+        /if \(pruneDaily\(\)\) saveD\(\);/.test(bjs) &&
+        /pruneDaily\(\); return dEntries\.slice\(\)\.sort\(dailyCmp\);/.test(bjs);
+    })());
   check('每日挑战成绩自动发榜（打完且拿到星才发）', (() => {
     const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
     return /publishDailyRecord\(starsNow, dailyMovesUsed\)/.test(gjs) &&
@@ -751,7 +772,8 @@ function check(name, ok) {
     featsHtml.includes('<b>👆 退出面板</b>：点面板外的空白回上一层。</p>') && !featsHtml.includes('按游客玩') &&
     featsHtml.includes('称号分为：学徒→新星→达人→高手→大师→宗师') &&
     featsHtml.includes('需填写「名字 + 身份号码」') && !featsHtml.includes('同一台手机上直接设新密码') &&
-    !featsHtml.includes('场上还剩 N 件') && featsHtml.includes('同一天所有人打的都是'));
+    !featsHtml.includes('场上还剩 N 件') && featsHtml.includes('同一天所有人的') &&
+    featsHtml.includes('棋盘与榜单都在<b>每日00:00重置</b>'));
   $('features-menu').dispatch('click');
   check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
   $('btn-goto-play-rules').dispatch('click');
@@ -1548,9 +1570,9 @@ function check(name, ok) {
     }
   }
   const bar0 = sandbox.Goals.barText(st.goal);
-  check('第四章运送关钥匙 + 糖果混装（数量和目标一致，目标栏写「运送货物 · 场上还剩 10 件」）',
+  check('第四章运送关钥匙 + 糖果混装（数量和目标一致；目标栏只写「运送货物 x/y」，不再有「场上还剩」）',
     candyCnt === 5 && keyCnt === 5 && st.goal.hasCandy === true && st.goal.target === 10 &&
-    bar0.indexOf('运送货物') >= 0 && bar0.indexOf('场上还剩 10 件') >= 0 &&
+    bar0.indexOf('运送货物') >= 0 && bar0.indexOf('场上还剩') < 0 &&
     bar0.indexOf('运送糖果') < 0);
   // 第三章（id < 31）仍是纯钥匙
   sandbox.__nl_test.start(1, { def: { id: 21, chapter: 3, theme: 'ocean', moves: 30, goal: { type: 'drop', target: 7 }, cargo: 7, stars: [1, 2, 3] } });
@@ -3278,6 +3300,29 @@ function check(name, ok) {
       /this\.resumeCtx\(\);[\s\S]{0,80}this\._bgmBusOn\(true\);/.test(ajq) &&
       /g\.connect\(this\._bgmGain \|\| this\.ctx\.destination\)/.test(ajq);
   })());
+  check('音量滑条实时生效：合成 BGM 音量走总线 applyBgmVolume，音符排程不再乘 bgmVol', (() => {
+    const ajq = fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8');
+    return /applyBgmVolume\(\) \{/.test(ajq) &&
+      /this\.applyBgmVolume\(\);\s*\/\/ 合成 BGM/.test(ajq) &&
+      !/BGM_NOTE_PEAK \* this\.bgmVol/.test(ajq) && !/BGM_BASS_PEAK \* this\.bgmVol/.test(ajq) &&
+      /g\.linearRampToValueAtTime\(on \? Math\.max\(0\.0001, this\.bgmVol\) : 0\.0001/.test(ajq) &&
+      /this\.applyBgmVolume\(\);\s*\/\/ 起播前把总线音量对齐到当前设置/.test(ajq);
+  })());
+  check('提示 / 洗牌 / 撤回次数用完（0）时徽章变灰（badge.empty）',
+    /classList\.toggle\('empty', !\(S\.hintLeft > 0\)\)/.test(jsSrc) &&
+    /classList\.toggle\('empty', !\(S\.shuffleLeft > 0\)\)/.test(jsSrc) &&
+    /classList\.toggle\('empty', !\(S\.undoLeft > 0\)\)/.test(jsSrc) &&
+    /\.tool-btn \.badge\.empty\s*\{[^}]*background:\s*#b8b2c4/.test(cssSrc));
+  check('关卡记录：0 分的关卡显示灰色「未开始」（字号与分数一致）',
+    /\.history-item \.h-score\.not-start\s*\{[^}]*#b0a9c0/.test(cssSrc) &&
+    /rec\.score > 0\s*\n\s*\? '<span class="h-score'/.test(jsSrc) &&
+    /'<span class="h-score not-start">未开始<\/span>'/.test(jsSrc));
+  check('玩家名单省份列固定宽（64px）：「未定位」不再把每行分数列挤得不一样齐',
+    /grid-template-columns: 26px minmax\(0, 1fr\) 34px 38px 6ch 64px;/.test(cssSrc) &&
+    !/6ch minmax\(0, max-content\)/.test(cssSrc) &&
+    /hiddenNames = new Set\(Array\.isArray\(r\.hidden\)/.test(jsSrc) &&
+    /if \(isHiddenName\(n\)\) return;/.test(jsSrc) &&
+    workerSrc.includes('hidden_names') && /hidden: hidden \}/.test(workerSrc));
 
   check('超级融合：彩虹+磁铁 = 磁力虹吸，炸弹+磁铁 = 磁力爆破，双磁铁 = 双磁十字，霜块组合带定格', (() => {
     const b = [...Array(8)].map(() => [...Array(8)].map(() => ({ type: 1, special: 0 })));
