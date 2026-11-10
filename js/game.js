@@ -541,10 +541,10 @@
   }
 
   // 🚄 每 4 步整行滑一格（只挪方块，果冻 / 机关留在原地）：
-  // 每次随机挑一行滑（不再固定那几行轮流来）；滑动有「慢慢推过去」的动画 + 石头摩擦声
+  // 每局每次都随机挑一排滑（避开首尾两行）；滑动有「慢慢推过去」的动画 + 石头摩擦声
   function shiftTrack() {
     if (!S.trackRows.length) return 0;
-    const r = S.trackRows[randInt(S.trackRows.length)];
+    const r = 1 + randInt(ROWS - 2);   // 每次随机一排：1 ~ ROWS-2，绝不碰首尾行
     const row = S.board[r];
     if (!row) return 0;
     const last = row[COLS - 1];
@@ -2379,22 +2379,34 @@
     return n;
   }
 
-  // 🌀 传送门：落在传送门上的货直接跳到对面那扇门（用来跨列送货 / 绕开流沙）
+  // 🌀 传送门：落在传送门上的货 / 奶龙 / 道具（特殊块）直接跳到对面那扇门
+  // （用来跨列送货 / 绕开流沙）
   function teleportCargo() {
     if (!S.portals || !S.portals.length) return 0;
     let moved = 0;
     S.portals.forEach((p) => {
       const from = S.board[p.r] && S.board[p.r][p.c];
-      const list = cargoList(from);
-      if (!list.length) return;
+      if (!from) return;
       const to = S.board[p.to.r] && S.board[p.to.r][p.to.c];
       if (!to) return;
-      from.cargo = null;
-      list.forEach((cg) => addCargo(to, cg));
-      moved += list.length;
-      FX.flash('#b58cff', 0.16, 0.2);
-      FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '传送 🌀', '#8a5cff', 15);
-      AudioManager.playSFX('swap');
+      const list = cargoList(from);
+      if (list.length) {
+        from.cargo = null;
+        list.forEach((cg) => addCargo(to, cg));
+        moved += list.length;
+      }
+      // 道具（特殊块）落到传送门上也传走：把 special 挪到对面那块上
+      // （对面那块必须还是普通块，不抢已经有道具的格子的东西）
+      if (from.special != null && from.special !== T.NORMAL && to.special === T.NORMAL) {
+        to.special = from.special;
+        from.special = T.NORMAL;
+        moved++;
+      }
+      if (moved) {
+        FX.flash('#b58cff', 0.16, 0.2);
+        FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '传送 🌀', '#8a5cff', 15);
+        AudioManager.playSFX('swap');
+      }
     });
     if (moved) drawStatic();
     return moved;
@@ -3213,18 +3225,28 @@
     // 一局只发一次金币：第一次结算如果还有剩余步数 / 时间可以继续刷分，这笔先记在
     // S.lastWinCoins；玩家真的继续了，第二次结算把这笔撤回、只发最后那条（分数更高
     // 所以金额只会更大）；玩家不继续（进下一关 / 回主页），这笔就照常留在钱包里。
+    // 页面 2 的金币显示是「在页面 1 之上加的」：+43 再加 +16 就显示成 +43+16，
+    // 但金币明细里始终只有最终那条（+59）。
     let coins = 0;
+    let coinText = null;   // 「+43+16」这种累加显示；普通结算为 null 显示「+金额」
     if (S.daily) {
       coins = dailyBonus;   // 三星奖励；没三星为 0
     } else {
       coins = Math.max(10, Math.floor(S.score / 100));
+      let parts = null;
       if (again && S.lastWinCoins) {
-        try { Store.cancelReward(S.lastWinCoins.coins, S.lastWinCoins.memo, S.lastWinCoins.detail); } catch (e) {}
+        const prev = S.lastWinCoins;
+        try { Store.cancelReward(prev.coins, prev.memo, prev.detail); } catch (e) {}
+        const delta = coins - prev.coins;   // 分数只增不减，delta 不会是负数
+        parts = (prev.parts || [prev.coins]).slice();
+        if (delta > 0) parts.push(delta);
+        if (!parts.length) parts = [coins];
         S.lastWinCoins = null;
+        coinText = parts.map((c) => '+' + c).join('');
       }
       Store.addCoins(coins, '通关奖励', '第 ' + S.level + ' 关');
       const canCont = S.timerOn ? S.timeLeft > 0 : S.moves > 0;
-      S.lastWinCoins = canCont ? { coins: coins, memo: '通关奖励', detail: '第 ' + S.level + ' 关' } : null;
+      S.lastWinCoins = canCont ? { coins: coins, memo: '通关奖励', detail: '第 ' + S.level + ' 关', parts: parts || [coins] } : null;
     }
     if (!again) {
       Tasks.report('play', 1);
@@ -3266,7 +3288,7 @@
       if (mvLabel) mvLabel.textContent = S.timerOn ? '剩余时间' : (S.daily ? '使用步数' : '剩余步数');
       $('clear-moves').textContent = S.timerOn ? Math.round(S.timeLeft) + 's'
         : (S.daily ? Math.max(0, (S.levelDef.moves || 20) - S.moves) : S.moves);
-      $('clear-coins').textContent = '+' + coins;
+      $('clear-coins').textContent = coinText || ('+' + coins);
       // 「新纪录」等分数滚完再亮，别提前剧透
       $('clear-new-record').style.display = 'none';
       // 每日挑战没有"下一关"

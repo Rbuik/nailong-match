@@ -526,9 +526,9 @@ function check(name, ok) {
     String($('prov-title').textContent).indexOf('海外') >= 0 &&
     String($('prov-sub').textContent).length > 0);
   $('btn-prov-back').dispatch('click');   // 回到省份列表
-  check('历史导入 / 恢复默认音乐都是蓝键',
+  check('历史导入蓝键 / 恢复默认音乐红键',
     htmlSrc0.includes('class="btn-primary" id="btn-goto-history-music"') &&
-    htmlSrc0.includes('class="btn-primary" id="btn-reset-bgm"'));
+    htmlSrc0.includes('class="btn-primary btn-danger" id="btn-reset-bgm"'));
   check('蓝键统一为注销那种描边效果（蓝色版）',
     cssSrc.includes('.btn-primary {') &&
     cssSrc.includes('background: rgba(92, 143, 255, 0.08);') &&
@@ -2750,10 +2750,11 @@ function check(name, ok) {
     /Math\.abs\(Math\.cos\(p\.rot\)\)/.test(fxSrc) && /kind = 'confetti'/.test(fxSrc));
   // 41f-3. 连击窗口改短：停手一拍连击就断
   check('连击窗口缩到 1600ms', /const COMBO_WINDOW = 1600;/.test(jsSrc));
-  // 41f-4. 结算「继续游戏」按钮：绿色、宽度刚好包住文字
-  check('继续游戏按钮绿色且宽度自适应文字',
+  // 41f-4. 结算「继续游戏」按钮：实心绿底白字、宽度刚好包住文字
+  check('继续游戏按钮实心绿底白字且宽度自适应文字',
     /#level-clear #btn-clear-continue\s*\{[^}]*fit-content/.test(cssSrc) &&
-    /#level-clear #btn-clear-continue\s*\{[^}]*#1a8f4a/.test(cssSrc) &&
+    /#level-clear #btn-clear-continue\s*\{[^}]*background: #43c56d/.test(cssSrc) &&
+    /#level-clear #btn-clear-continue\s*\{[^}]*color: #fff/.test(cssSrc) &&
     /class="btn-secondary" id="btn-clear-continue"/.test(htmlSrc));
   // 41f-5. 钥匙换样式：银蓝「菱形柄」古堡钥匙
   check('钥匙用 🔑 emoji 样式（剪影黑描边，蓝光保留）',
@@ -3650,15 +3651,23 @@ function check(name, ok) {
     if (savedL !== undefined) lsMap.set('nl2:ledger', savedL); else lsMap.delete('nl2:ledger');
     return okCancel && mid === before && final.length === before + 1 && final[final.length - 1].d === 30;
   })());
-  check('一局只发一次金币：续玩二次结算会撤回第一次那笔（结算2金额≥结算1）',
-    jsSrc.includes('Store.cancelReward(S.lastWinCoins.coins') &&
-    jsSrc.includes('S.lastWinCoins = canCont') && jsSrc.includes('S.lastWinCoins = null;'));
+  check('一局只发一次金币：续玩二次结算会撤回第一次那笔（结算2金额≥结算1，页面2累加显示）',
+    jsSrc.includes('Store.cancelReward(prev.coins, prev.memo, prev.detail)') &&
+    jsSrc.includes('S.lastWinCoins = canCont') && jsSrc.includes('S.lastWinCoins = null;') &&
+    jsSrc.includes("parts.map((c) => '+' + c).join('')") &&
+    jsSrc.includes("coinText || ('+' + coins)"));
 
-  // 轨道滑动：每次随机一行 + 石头推动音效 + 慢慢推的滑动动画；传送门持续旋转
-  check('轨道滑动：随机一行 + 石头音 + 滑动动画；传送门持续旋转',
-    jsSrc.includes('randInt(S.trackRows.length)') &&
+  // 轨道滑动：每局每次随机一排 + 石头推动音效 + 慢慢推的滑动动画；传送门持续旋转
+  check('轨道滑动：每局每次随机一排 + 石头音 + 滑动动画；传送门持续旋转',
+    jsSrc.includes('randInt(ROWS - 2)') &&
     jsSrc.includes("playSFX('stone')") && jsSrc.includes('function drawTrackSlide') &&
     jsSrc.includes('(boardHasCargo() || (S.portals && S.portals.length))'));
+
+  // 传送门：货 / 奶龙 / 道具（特殊块）落到门上都传到对面
+  check('传送门传送货物 / 奶龙 / 道具',
+    jsSrc.includes('function teleportCargo') &&
+    jsSrc.includes('to.special = from.special') &&
+    jsSrc.includes('from.special = T.NORMAL'));
 
   // 每日挑战榜单实时同步：开着榜单就定时拉取，数据一到立刻重绘
   check('每日挑战榜单实时同步：开着就轮询拉取 + 数据一到就重绘',

@@ -1409,7 +1409,6 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* ================= 排行榜 ================= */
 .lb-list {
   width: 90%;
-  height: 66vh;              /* 和成就页的滚动区一样高（内容少也撑满，内容多就内部滚动） */
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -1422,6 +1421,15 @@ body.m-dragging .m-item { cursor: grabbing; }
   padding: 10px;
   box-sizing: border-box;
 }
+/* 排行榜 / 每日榜的滚动窗口：人数不够 10 个就跟内容收缩，人数多了最多刚好放下
+   10 名用户（实测行高 37px：10 行 + 9 个间隙 + 上下各 10px 内边距 = 444px），
+   第一个和最后一个用户离上下边界各 10px，两边相等 */
+#lb-list,
+#daily-lb-list {
+  height: auto;
+  max-height: 444px;
+}
+.admin-ul-list { height: 66vh; }
 .lb-list::-webkit-scrollbar { display: none; }
 
 /* 排行榜入口：先选榜单（总榜 / 省榜 / 局榜），再进列表 */
@@ -1702,16 +1710,16 @@ body.m-dragging .m-item { cursor: grabbing; }
   box-shadow: none;
 }
 /* 结算画面（关卡完成）里的「还有剩余步数/秒数点击继续游戏」：
-   绿色、宽度刚好包住文字，不再固定 180px */
+   实心绿底白字，宽度刚好包住文字，不再固定 180px */
 #level-clear #btn-clear-continue {
   width: -moz-fit-content;
   width: fit-content;
   max-width: 92%;
   padding: 11px 24px;
   font-size: 15px;
-  background: rgba(67, 197, 109, 0.12);
-  color: #1a8f4a;
-  border: 2px solid rgba(67, 197, 109, 0.6);
+  background: #43c56d;
+  color: #fff;
+  border: 2px solid #43c56d;
   box-shadow: none;
 }
 /* 每日挑战的「🔄 重新开始」：蓝色、大小和「返回主页」完全一致 */
