@@ -19,3 +19,4 @@ _legacy/
 # 临时测试
 _smoke.test.js
 _tmp/
+.wrangler/

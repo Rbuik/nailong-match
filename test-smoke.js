@@ -1015,14 +1015,14 @@ function check(name, ok) {
     let rowsWithMedal = 0, medalLeftOfStars = false;
     ($('history-list').children || []).forEach((r) => {
       const h = String(r.innerHTML || '');
-      if (h.indexOf('🥇') >= 0) {
+      if (/lb-medal">1<\/em>/.test(h)) {
         rowsWithMedal++;
         // 奖牌必须夹在星星列里、且在星星左边
         if (h.indexOf('h-stars') >= 0 && h.indexOf('lb-medal') < h.indexOf('star-on')) medalLeftOfStars = true;
       }
     });
     $('history-menu').dispatch('click');
-    return medal === '🥇' && rowsWithMedal >= 1 && medalLeftOfStars;
+    return medal === '1' && rowsWithMedal >= 1 && medalLeftOfStars;
   })());
 
   // 14d2. 局榜上只有我一个人，也要挂奖牌
@@ -1033,7 +1033,7 @@ function check(name, ok) {
     const shown = getEl('menu-high-medal').style.display !== 'none';
     $('btn-prev-level').dispatch('click');
     sandbox.__nl_test.refreshMenu();
-    return m === '🥇' && shown;
+    return m === '1' && shown;
   })());
 
   // 14d2b. 局榜：没通过这一关的玩家灰显、不参与排名（第 1 关目标 1000 分）
