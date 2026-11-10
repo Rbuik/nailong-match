@@ -292,6 +292,13 @@ function check(name, ok) {
   const jsSrc = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8') +
     fs.readFileSync(path.join(__dirname, 'js', 'music.js'), 'utf8') +
     fs.readFileSync(path.join(__dirname, 'js', 'account.js'), 'utf8');
+  const boardSrc = fs.readFileSync(path.join(__dirname, 'js', 'board.js'), 'utf8');
+  // 每日挑战成绩必须强制发布：总榜 / 每日榜发布共用节流，不强制就把别人的每日成绩静默丢掉
+  check('每日挑战成绩强制发布（不被总榜节流挤掉，本地合并照常）',
+    /Board\.publishDaily\(\{[^}]*\}, true\)/.test(jsSrc) &&
+    /recordMyScore\(\) \{ publishMyScore\(true\); \}/.test(jsSrc) &&
+    /const throttled = !force && now - lastPub < PUB_MIN_MS;/.test(boardSrc) &&
+    /mergeDaily\(\{ uid: e\.uid, name: e\.name, stars: e\.stars, moves: e\.moves, ts: e\.ts \}\);[\s\S]*?if \(throttled\) return false;/.test(boardSrc));
   check('主页不再有注销按钮，右下角是 📮 邮箱键',
     htmlSrc0.includes('id="btn-mail"') && htmlSrc0.indexOf('id="btn-mail"') < htmlSrc0.indexOf('id="home-menu"'));
   check('注销账号在账号安全面板里、切换账号下面（面板没有返回键）',

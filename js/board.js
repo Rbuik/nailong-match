@@ -509,16 +509,20 @@
   }
 
   // ---------- 发自己的每日挑战成绩 ----------
-  // 合并规则在 mergeDaily：星星多 → 用步少 → 通关早，只有更好才会覆盖旧成绩
+  // 合并规则在 mergeDaily：星星多 → 用步少 → 通关早，只有更好才会覆盖旧成绩。
+  // 节流只限「网络发送」：本地合并永远执行，保证自己的成绩一定先上自己的榜。
+  // 打完每日挑战时总榜 / 每日榜两个发布紧挨着执行，共享 6 秒节流会把其中一个
+  // 静默丢掉——所以调用方对每日成绩传 force=true，绝不能不发。
   function publishDaily(me, force) {
     if (!canPublish()) return false;
     const e = cleanDaily(me);
     if (!e) return false;
     const now = Date.now();
-    if (!force && now - lastPub < PUB_MIN_MS) return false;
-    lastPub = now;
+    const throttled = !force && now - lastPub < PUB_MIN_MS;
+    if (!throttled) lastPub = now;
     mergeDaily({ uid: e.uid, name: e.name, stars: e.stars, moves: e.moves, ts: e.ts });
     saveD();
+    if (throttled) return false;
     post(JSON.stringify({ t: 'dl', u: e.uid, n: e.name, s: e.stars, m: e.moves, ts: e.ts }));
     return true;
   }

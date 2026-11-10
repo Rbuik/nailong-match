@@ -8263,7 +8263,7 @@
     try { Board.publish(me, force); } catch (e) {}
   }
 
-  function recordMyScore() { publishMyScore(); }
+  function recordMyScore() { publishMyScore(true); }   // 强制发出：每次过关只发一次，不该被每日成绩的发布挤掉
 
   // 每日挑战成绩发到榜单（星星 / 用步 / 通关时间；Board 里按「星多 → 步少 → 时间早」合并）
   function publishDailyRecord(stars, moves) {
@@ -8273,7 +8273,7 @@
       Board.publishDaily({
         uid: Meta.myUid(), name: Meta.nickname(), pv: myProvCode(),
         stars: stars, moves: moves, ts: Date.now()
-      });
+      }, true);   // 强制发出：和总榜发布共用节流时每日成绩会被静默丢掉，谁也看不到谁
     } catch (e) {}
   }
 
