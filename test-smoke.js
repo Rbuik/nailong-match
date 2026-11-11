@@ -3732,6 +3732,12 @@ function check(name, ok) {
     !/skin: 'auto'/.test(stgJs) &&
     !cssSrc.includes('html[data-skin="dark"]') && !cssSrc.includes('#skin-menu'));
 
+  const mailJs = fs.readFileSync(path.join(__dirname, 'js', 'mail.js'), 'utf8');
+  check('邮件附件在金币明细里写明是哪封邮件（detail 传邮件标题）',
+    /Store\.addCoins\(coins, '邮件附件', m\.title\)/.test(mailJs) &&
+    /pushLedger\(n, memo, detail\)/.test(stgJs) &&
+    /<small class="ledger-detail">' \+ escHtml\(x\.x\)/.test(jsSrc));
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });
