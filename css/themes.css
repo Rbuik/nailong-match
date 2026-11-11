@@ -262,8 +262,8 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   display: flex;
   align-items: center;
   gap: 6px;
-  margin: 2px 0 12px;
-  min-height: 8px;
+  margin: -6px 0 6px;
+  min-height: 28px; touch-action: none; -webkit-user-select: none; user-select: none;
 }
 .shop-dot {
   width: 6px;
@@ -2812,3 +2812,6 @@ body[data-skin="black"] .target-bar {
 .shop-row .shop-info b,
 .shop-row .shop-info small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .shop-row .shop-buy { padding: 6px 8px; font-size: 11px; }
+
+/* 手指拖小圆点时让商品连续跟手，不吸附；松手恢复 */
+.shop-stage.shop-dragging { scroll-snap-type: none; }

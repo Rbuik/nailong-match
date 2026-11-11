@@ -3668,13 +3668,44 @@
   }
 
   // 商店：横向卡片，一次看一张，左右滑动看其余（和成就详情一样的节奏）
-  // 记住停在第几张：退出商店再进来，卡片位置和下面的小圆点都还原
+  // 记住停在第几张：退出商店再进来，卡片位置和小圆点都还原。
+  // 首尾各垫一张同款卡片，滑过头就等量平移回真实区 → 第一件和最后一件连成闭环；
+  // 商品下面的小圆点也支持手指左右拖动，商品跟着一起滑。
   let shopIdx = 0;
+  let shopDrag = null;
+  let shopJumping = false;
 
+  function shopCount() {
+    return (typeof Tasks !== 'undefined' && Tasks.SHOP && Tasks.SHOP.length) || 0;
+  }
+  function shopCards() {
+    const stage = $('shop-stage');
+    return (stage && stage.querySelectorAll) ? stage.querySelectorAll('.shop-card') : [];
+  }
   function shopStepOf(cards) {
     const w = (cards && cards[0] && cards[0].offsetWidth) || 0;
     return (w + 10) || 1;
   }
+  // 用卡片在滚动内容里的真实坐标算步长和基准，和 scroll-snap 的吸附点严格对齐
+  // （offsetLeft 会受 offsetParent 影响，getBoundingClientRect 换算回来最稳）
+  function shopGeom() {
+    const cards = shopCards();
+    const stage = $('shop-stage');
+    const fallback = shopStepOf(cards);
+    if (cards && cards.length > 2 && stage && stage.getBoundingClientRect && cards[1].getBoundingClientRect) {
+      const sRect = stage.getBoundingClientRect();
+      const sl = stage.scrollLeft || 0;
+      const left1 = cards[1].getBoundingClientRect().left - sRect.left + sl;
+      const left2 = cards[2].getBoundingClientRect().left - sRect.left + sl;
+      const step = (left2 - left1) || fallback;
+      const base = left1 - ((stage.clientWidth || sRect.width) - (cards[1].offsetWidth || 0)) / 2;
+      return { step: step, base: base };
+    }
+    return { step: fallback, base: fallback };
+  }
+  function shopStep() { return shopGeom().step; }
+  // 真实第 idx 张卡片居中时的 scrollLeft（前面垫着一张「最后一件」的副本）
+  function shopScrollFor(idx) { const geo = shopGeom(); return geo.base + idx * geo.step; }
 
   function applyShopDot(idx) {
     const dots = $('shop-dots');
@@ -3688,21 +3719,94 @@
     const stage = $('shop-stage');
     const dots = $('shop-dots');
     if (!stage || !dots) return;
-    const cards = stage.querySelectorAll ? stage.querySelectorAll('.shop-card') : [];
-    if (!cards || !cards.length) return;
-    const idx = Math.max(0, Math.min(cards.length - 1, Math.round(stage.scrollLeft / shopStepOf(cards))));
+    const n = shopCount();
+    if (!n) return;
+    const geo = shopGeom();
+    const raw = Math.round(((stage.scrollLeft || 0) - geo.base) / geo.step);
+    const idx = ((raw % n) + n) % n;
     shopIdx = idx;
     applyShopDot(idx);
+    // 滚进两端的副本区：等量平移回真实区，显示的是同一件商品，看不出接缝
+    if (!shopJumping && !shopDrag && (raw < 0 || raw >= n)) {
+      shopJumping = true;
+      try { stage.scrollLeft = shopScrollFor(idx); } catch (e) {}
+      shopJumping = false;
+    }
   }
 
   // 面板收起时浏览器会把 scrollLeft 清零，所以要等它重新显示后再按记录的序号滚回去
   function restoreShopScroll() {
     const stage = $('shop-stage');
-    if (!stage) return;
-    const cards = stage.querySelectorAll ? stage.querySelectorAll('.shop-card') : [];
-    if (!cards || !cards.length) return;
-    stage.scrollLeft = shopIdx * shopStepOf(cards);
+    if (!stage || !shopCount()) return;
+    stage.scrollLeft = shopScrollFor(shopIdx);
     applyShopDot(shopIdx);
+  }
+
+  // 小圆点拖动：手指滑过几个圆点，商品就跟着滑几张（松手吸附到最近一张）
+  function shopDotStart(x) {
+    const stage = $('shop-stage');
+    if (!stage || !shopCount()) return;
+    const geo = shopGeom();
+    shopDrag = { x: x, scroll: stage.scrollLeft || shopScrollFor(shopIdx), step: geo.step, base: geo.base, n: shopCount() };
+    if (stage.classList) stage.classList.add('shop-dragging');
+  }
+  function shopDotMove(x) {
+    if (!shopDrag) return;
+    const stage = $('shop-stage');
+    if (!stage) return;
+    const d = shopDrag;
+    const dots = $('shop-dots');
+    let w = 0;
+    try { w = (dots && dots.getBoundingClientRect && dots.getBoundingClientRect().width) || 0; } catch (e) {}
+    const dotSpan = Math.max(1, (w || d.n * 12) / d.n);
+    let rel = (d.scroll - (x - d.x) * (d.step / dotSpan)) - d.base;
+    const span = d.n * d.step;
+    if (span > 0) {
+      if (rel < -d.step) rel += span;
+      else if (rel > d.n * d.step) rel -= span;
+    }
+    const target = d.base + rel;
+    try { stage.scrollLeft = target; } catch (e) {}
+    syncShopDot();          // 拖动时圆点同步跟着亮，不等异步 scroll 事件
+  }
+  function shopDotEnd() {
+    if (!shopDrag) return;
+    shopDrag = null;
+    const stage = $('shop-stage');
+    if (!stage) return;
+    if (stage.classList) stage.classList.remove('shop-dragging');
+    const geo = shopGeom();
+    try {
+      stage.scrollLeft = geo.base + Math.round(((stage.scrollLeft || 0) - geo.base) / geo.step) * geo.step;
+    } catch (e) {}
+    syncShopDot();
+  }
+
+  function bindShopDots() {
+    const dots = $('shop-dots');
+    if (!dots || !dots.addEventListener || dots._shopDragBound) return;
+    dots._shopDragBound = true;
+    const touchX = (e) => (e && e.touches && e.touches[0] && e.touches[0].clientX) || 0;
+    dots.addEventListener('touchstart', (e) => shopDotStart(touchX(e)), { passive: true });
+    dots.addEventListener('touchmove', (e) => {
+      if (e && e.preventDefault) e.preventDefault();
+      shopDotMove(touchX(e));
+    }, { passive: false });
+    dots.addEventListener('touchend', shopDotEnd);
+    dots.addEventListener('touchcancel', shopDotEnd);
+    dots.addEventListener('mousedown', (e) => shopDotStart((e && e.clientX) || 0));
+    if (typeof document !== 'undefined' && document.addEventListener) {
+      document.addEventListener('mousemove', (e) => { if (shopDrag) shopDotMove((e && e.clientX) || 0); });
+      document.addEventListener('mouseup', shopDotEnd);
+    }
+  }
+
+  function shopCardHTML(item, wallet) {
+    return '<span class="shop-card-ico">' + item.icon + '</span>' +
+      '<b class="shop-card-name">' + item.name + '</b>' +
+      '<small class="shop-card-desc">' + item.desc.replace(/\n/g, '<br>') + '</small>' +
+      '<span class="shop-card-own">持有 ' + (wallet.items[item.key] || 0) + '</span>' +
+      '<button class="shop-buy" ' + (wallet.coins < item.price ? 'disabled' : '') + '>🪙 ' + item.price + '</button>';
   }
 
   function renderShop() {
@@ -3711,33 +3815,46 @@
     const wallet = Store.getWallet();
     $('shop-coins').textContent = wallet.coins;
     const stage = $('shop-stage');
+    const items = Tasks.SHOP;
     list.innerHTML = '';
-    Tasks.SHOP.forEach((item) => {
+    function addCard(item, clone) {
       const card = document.createElement('div');
       card.className = 'shop-card';
-      card.innerHTML =
-        '<span class="shop-card-ico">' + item.icon + '</span>' +
-        '<b class="shop-card-name">' + item.name + '</b>' +
-        '<small class="shop-card-desc">' + item.desc.replace(/\n/g, '<br>') + '</small>' +
-        '<span class="shop-card-own">持有 ' + (wallet.items[item.key] || 0) + '</span>' +
-        '<button class="shop-buy" ' + (wallet.coins < item.price ? 'disabled' : '') + '>🪙 ' + item.price + '</button>';
-      card.querySelector('.shop-buy').addEventListener('click', () => {
-        openBuyConfirm(item);
-      });
+      if (clone && card.classList) card.classList.add('shop-clone');
+      if (card.setAttribute) card.setAttribute('data-key', item.key);
+      card.innerHTML = shopCardHTML(item, wallet);
       list.appendChild(card);
-    });
-
+      return card;
+    }
+    // 首尾各垫一张同款卡片：最后一件再往右就是第一件，第一件往左就是最后一件
+    if (items.length > 1) addCard(items[items.length - 1], true);
+    items.forEach((item) => addCard(item, false));
+    if (items.length > 1) addCard(items[0], true);
+    // 购买按钮统一委托到列表上（首尾副本卡片上的按钮也照样能买）
+    if (!list._shopBuyBound && list.addEventListener) {
+      list._shopBuyBound = true;
+      list.addEventListener('click', (e) => {
+        const t = e && e.target;
+        const btn = (t && t.closest) ? t.closest('.shop-buy') : null;
+        if (!btn) return;
+        const card = btn.closest ? btn.closest('.shop-card') : null;
+        const key = (card && card.getAttribute) ? card.getAttribute('data-key') : null;
+        const item = items.filter((x) => x.key === key)[0];
+        if (item) openBuyConfirm(item);
+      });
+    }
     const dots = $('shop-dots');
     if (dots) {
       dots.innerHTML = '';
-      Tasks.SHOP.forEach((item, i) => {
+      items.forEach((item, i) => {
         const d = document.createElement('i');
         d.className = 'shop-dot' + (i === shopIdx ? ' on' : '');
         dots.appendChild(d);
       });
+      bindShopDots();
     }
     if (stage) {
-      stage.scrollLeft = shopIdx * shopStepOf(stage.querySelectorAll ? stage.querySelectorAll('.shop-card') : []);
+      stage.scrollLeft = shopScrollFor(shopIdx);
       if (!stage._shopBound && stage.addEventListener) {
         stage.addEventListener('scroll', syncShopDot, { passive: true });
         stage._shopBound = true;

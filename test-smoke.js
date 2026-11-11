@@ -3471,7 +3471,7 @@ function check(name, ok) {
     return /let shopIdx = 0/.test(jsSrc) &&
       /shopIdx = idx/.test(jsSrc) &&
       /function restoreShopScroll/.test(jsSrc) &&
-      /stage\.scrollLeft = shopIdx \* shopStepOf/.test(jsSrc) &&
+      /stage\.scrollLeft = shopScrollFor\(shopIdx\)/.test(jsSrc) &&
       /i === shopIdx \? ' on' : ''/.test(jsSrc) &&
       /applyShopDot\(shopIdx\)/.test(jsSrc) &&
       /restoreShopScroll\(\);\s*\n\s*if \(typeof requestAnimationFrame/.test(jsSrc) &&
@@ -3522,6 +3522,22 @@ function check(name, ok) {
     const tj = fs.readFileSync(path.join(__dirname, 'js', 'tasks.js'), 'utf8');
     return /Store\.addCoins\(t\.reward, '每日任务', t\.desc\)/.test(tj) &&
       /Store\.spendCoins\(REVIVE_COST, '续命', S\.daily \? '每日挑战' : \('第 ' \+ S\.level \+ ' 关'\)\)/.test(jsSrc);
+  })());
+
+  check('商店圆点可拖动 + 首尾闭环（副本卡片、滚动平移、拖动关吸附）', (() => {
+    return /function bindShopDots/.test(jsSrc) &&
+      /function shopDotMove/.test(jsSrc) && /function shopDotEnd/.test(jsSrc) &&
+      /dots\.addEventListener\('touchmove'/.test(jsSrc) &&
+      /dots\.addEventListener\('touchstart'/.test(jsSrc) &&
+      /classList\.add\('shop-dragging'\)/.test(jsSrc) &&
+      /if \(rel < -d\.step\) rel \+= span/.test(jsSrc) &&
+      /function shopGeom\(\)/.test(jsSrc) &&
+      /addCard\(items\[items\.length - 1\], true\)/.test(jsSrc) &&
+      /addCard\(items\[0\], true\)/.test(jsSrc) &&
+      /raw < 0 \|\| raw >= n/.test(jsSrc) &&
+      /\.shop-stage\.shop-dragging \{ scroll-snap-type: none; \}/.test(cssSrc) &&
+      /\.shop-dots[^}]*touch-action: none/.test(cssSrc) &&
+      htmlSrc.includes('小圆点上左右滑动') && /## 玩法补充/.test(fs.readFileSync(path.join(__dirname, 'README.md'), 'utf8'));
   })());
 
   check('商店做成横滑卡片（一次一张 + 圆点指示），背包仍是竖排列表',
