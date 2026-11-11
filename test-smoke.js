@@ -3532,6 +3532,9 @@ function check(name, ok) {
       /classList\.add\('shop-dragging'\)/.test(jsSrc) &&
       /if \(rel < -d\.step\) rel \+= span/.test(jsSrc) &&
       /function shopGeom\(\)/.test(jsSrc) &&
+      /d\.scroll \+ \(x - d\.x\) \* \(d\.step \/ d\.dotStep\)/.test(jsSrc) &&
+      /function shopDotHit/.test(jsSrc) &&
+      /stage\.scrollLeft = shopScrollFor\(hit\)/.test(jsSrc) &&
       /addCard\(items\[items\.length - 1\], true\)/.test(jsSrc) &&
       /addCard\(items\[0\], true\)/.test(jsSrc) &&
       /raw < 0 \|\| raw >= n/.test(jsSrc) &&

@@ -3742,12 +3742,43 @@
     applyShopDot(shopIdx);
   }
 
-  // 小圆点拖动：手指滑过几个圆点，商品就跟着滑几张（松手吸附到最近一张）
+  // 小圆点几何：用真实圆心坐标，手指按在哪个圆点上就是哪一件，滑过一个圆点就滑一张
+  function shopDotGeom() {
+    const dots = $('shop-dots');
+    const g = { centers: [], step: 12 };
+    try {
+      const kids = (dots && dots.children) || [];
+      for (let i = 0; i < kids.length; i++) {
+        const r = kids[i].getBoundingClientRect ? kids[i].getBoundingClientRect() : null;
+        g.centers.push(r ? (r.left + r.right) / 2 : 0);
+      }
+    } catch (e) {}
+    if (g.centers.length > 1 && g.centers[1] - g.centers[0] > 0) {
+      g.step = g.centers[1] - g.centers[0];
+    }
+    return g;
+  }
+  function shopDotHit(x, g) {
+    let hit = -1, best = Infinity;
+    for (let i = 0; i < g.centers.length; i++) {
+      const d = Math.abs(x - g.centers[i]);
+      if (d < best) { best = d; hit = i; }
+    }
+    return best <= g.step * 0.6 ? hit : -1;
+  }
   function shopDotStart(x) {
     const stage = $('shop-stage');
     if (!stage || !shopCount()) return;
     const geo = shopGeom();
-    shopDrag = { x: x, scroll: stage.scrollLeft || shopScrollFor(shopIdx), step: geo.step, base: geo.base, n: shopCount() };
+    const dg = shopDotGeom();
+    shopDrag = { x: x, scroll: stage.scrollLeft || shopScrollFor(shopIdx), step: geo.step, base: geo.base, n: shopCount(), dotStep: dg.step };
+    // 手指落在圆点上：立刻定位到那一件（手指在哪，圆点就在哪）
+    const hit = shopDotHit(x, dg);
+    if (hit >= 0) {
+      try { stage.scrollLeft = shopScrollFor(hit); } catch (e) {}
+      shopDrag.scroll = stage.scrollLeft || shopScrollFor(hit);
+      syncShopDot();
+    }
     if (stage.classList) stage.classList.add('shop-dragging');
   }
   function shopDotMove(x) {
@@ -3755,11 +3786,8 @@
     const stage = $('shop-stage');
     if (!stage) return;
     const d = shopDrag;
-    const dots = $('shop-dots');
-    let w = 0;
-    try { w = (dots && dots.getBoundingClientRect && dots.getBoundingClientRect().width) || 0; } catch (e) {}
-    const dotSpan = Math.max(1, (w || d.n * 12) / d.n);
-    let rel = (d.scroll - (x - d.x) * (d.step / dotSpan)) - d.base;
+    // 方向跟手：手指向右滑，圆点往右亮、商品往后翻一张；位移按真实圆点间距换算
+    let rel = (d.scroll + (x - d.x) * (d.step / d.dotStep)) - d.base;
     const span = d.n * d.step;
     if (span > 0) {
       if (rel < -d.step) rel += span;
