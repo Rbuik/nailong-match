@@ -1314,7 +1314,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   border: 1px solid rgba(0, 0, 0, 0.07);
   cursor: pointer;
 }
-.skin-row.active { border-color: #222; background: transparent; }
+.skin-row.active { border-color: #222; background: #fff; }
 .skin-row.locked { opacity: 0.55; }
 /* 色块图标：对应颜色的小方块 */
 .skin-icon {

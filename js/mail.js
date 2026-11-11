@@ -84,10 +84,20 @@
   function state() {
     const s = read(KEY, null);
     if (!s || typeof s !== 'object') return { read: {}, claimed: {}, extra: [], hidden: {} };
+    const extra = Array.isArray(s.extra) ? s.extra : [];
+    // 旧版签到邮件正文里的「请前往邮箱领取。」已废弃：已经发出去的存量邮件也一次性清掉
+    let dirty = false;
+    extra.forEach((m) => {
+      if (m && typeof m.body === 'string' && m.body.includes('请前往邮箱领取。')) {
+        m.body = m.body.replace(/\n?请前往邮箱领取。/g, '');
+        dirty = true;
+      }
+    });
+    if (dirty) write(KEY, s);
     return {
       read: s.read && typeof s.read === 'object' ? s.read : {},
       claimed: s.claimed && typeof s.claimed === 'object' ? s.claimed : {},
-      extra: Array.isArray(s.extra) ? s.extra : [],
+      extra: extra,
       hidden: s.hidden && typeof s.hidden === 'object' ? s.hidden : {}
     };
   }
