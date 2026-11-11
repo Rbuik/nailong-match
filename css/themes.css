@@ -1314,7 +1314,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   border: 1px solid rgba(0, 0, 0, 0.07);
   cursor: pointer;
 }
-.skin-row.active { border-color: #7c5cff; background: rgba(124, 92, 255, 0.08); }
+.skin-row.active { border-color: #222; background: transparent; }
 .skin-row.locked { opacity: 0.55; }
 /* 色块图标：对应颜色的小方块 */
 .skin-icon {
@@ -1334,7 +1334,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 .skin-main { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .skin-main b { font-size: 13px; color: #3d3556; }
 .skin-main i { font-size: 11px; font-style: normal; color: #8b84a0; }
-.skin-mark { font-size: 11px; color: #7c5cff; font-weight: 700; }
+.skin-mark { font-size: 11px; color: #222; font-weight: 700; }
 
 /* ================= 签到入口 ================= */
 /* 日期条：横向滑动，一次看不全、左右滑看其余的日子 */
@@ -1911,6 +1911,10 @@ body[data-skin="black"]   { --skin-target-bg: rgba(255, 143, 171, 0.22); }
 
 /* 目标栏底色由 updateTargetBar 用这个变量上色 */
 .target-bar { background: var(--skin-target-bg, rgba(255, 205, 60, 0.25)); }
+/* 「彩色」配色：目标栏也上柔彩虹（和其他配色同一位置，只改这一处） */
+body[data-skin="black"] .target-bar {
+  background: linear-gradient(90deg, rgba(245, 160, 107, 0.38), rgba(255, 210, 60, 0.38), rgba(159, 232, 168, 0.38), rgba(134, 204, 245, 0.38), rgba(199, 140, 232, 0.38));
+}
 
 /* ================= 账号：登录 / 注册 / 补全资料 ================= */
 .auth-box {

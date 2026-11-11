@@ -3066,7 +3066,7 @@
       const best = Meta.getBest();
       const bv = best[S.mode] || 0;
       if (S.mode === 'rhythm') {
-        bar.textContent = '节奏关 · 踩拍子消除 1.5 倍分　本局 ' + S.score + '　最佳 ' + bv;
+        bar.textContent = '节奏关卡　本局 ' + S.score + '　最佳 ' + bv;
       } else if (S.mode === 'sprint') {
         bar.textContent = '60 秒冲刺　本局 ' + S.score + '　最佳 ' + bv;
       } else {
@@ -7916,12 +7916,12 @@
               icon: '🎉',
               title: '恭喜连续签到 ' + r.streak + ' 天',
               from: '系统',
-              body: '🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n请前往邮箱领取。\n\n点下面的「领取」直接进钱包，明天继续加油～',
+              body: '🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n点下面的「领取」直接进钱包，明天继续加油～',
               coins: r.milestone
             });
           }
         } catch (e) {}
-        setTimeout(() => toast('🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n请前往邮箱领取'), 400);
+        setTimeout(() => toast('🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！'), 400);
       }
       AudioManager.playSFX('coin');
       renderWelfare();
