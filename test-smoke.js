@@ -1207,7 +1207,7 @@ function check(name, ok) {
       !/\.menu-coins-row\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&     // 整行不再可点
       /\.menu-coins-btn\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&
       /\.ledger-list\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
-      /\.ledger-list\s*\{[^}]*max-height:\s*64vh/.test(cssSrc) &&
+      /\.ledger-list\s*\{[^}]*max-height:\s*calc\(64vh \+ 17px\)/.test(cssSrc) &&
       /\.ledger-bar\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
       /\.ledger-bar\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*1fr\)/.test(cssSrc) &&
       /\.ledger-detail\s*\{[^}]*font-size:\s*11px[^}]*font-weight:\s*400/.test(cssSrc) &&
