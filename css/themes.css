@@ -281,7 +281,9 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   flex-direction: column;
   gap: 8px;
   margin-bottom: 14px;
-}
+
+  max-height: 456px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 8px 10px; box-sizing: border-box;}
 
 .shop-row {
   display: flex;
