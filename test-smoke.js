@@ -601,7 +601,7 @@ function check(name, ok) {
       /function recordDaily\(score, stars, movesUsed, bonusCoins\)/.test(sjs) &&
       /moves: moves,/.test(sjs) && /coins: bonusCoins \? bonusCoins/.test(sjs);
   })());
-  check('每日挑战两条结算路径都发完成奖励（最后一步达标走 endGame 也照发），老档补发 30 枚', (() => {
+  check('每日挑战两条结算路径都发完成奖励（最后一步达标走 endGame 也照发），老档补发逻辑已删除', (() => {
     const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
     const sjs = fs.readFileSync(path.join(__dirname, 'js', 'storage.js'), 'utf8');
     return /function dailySettle\(starsNow, allowGrant\)/.test(gjs) &&
@@ -609,8 +609,7 @@ function check(name, ok) {
       /const ds = S\.daily \? dailySettle\(stars, true\) : \{ movesUsed: -1, bonus: 0 \};/.test(gjs) &&
       /recordDaily\(S\.score, stars, ds\.movesUsed, ds\.bonus\)/.test(gjs) &&
       /rec\.stars >= 1 && !rec\.moves\) \? '—'/.test(gjs) &&
-      /Store\.addCoins\(30, '每日挑战补发'\);/.test(gjs) && /Store\.patchDaily\(\{ coins: 30 \}\);/.test(gjs) &&
-      /function patchDaily\(patch\)/.test(sjs) && /patchDaily,/.test(sjs);
+      !gjs.includes('每日挑战补发') && !sjs.includes('patchDaily');
   })());
   check('三星后封盘：「✅ 已完成今日挑战」出现在面板的开始键上（绿色），点了只看战绩', (() => {
     const gjs = fs.readFileSync(path.join(__dirname, 'js', 'game.js'), 'utf8');
@@ -886,7 +885,7 @@ function check(name, ok) {
   check('玩家栏省份列三个字宽靠右、省份详情人数贴最右',
     cssSrc.includes('width: 42px;') && cssSrc.includes('.ul-prov') &&
     cssSrc.includes('#prov-ul-list .ul-prov'));
-  check('成就面板可视区加大（66vh、更密排列）', cssSrc.includes('max-height: 66vh;') && cssSrc.includes('gap: 6px;'));
+  check('成就面板可视区（520px、间隙 8px）', cssSrc.includes('max-height: 520px;') && cssSrc.includes('gap: 8px;'));
   check('彩虹特殊块还是 emoji（游戏棋盘），「彩色」配色图标用彩虹图',
     jsSrc.includes("ctx.fillText('🌈'") && !jsSrc.includes('RAINBOW_IMG') &&
     fs.existsSync(path.join(__dirname, 'assets', 'rainbow.jpg')) &&
@@ -1207,7 +1206,7 @@ function check(name, ok) {
       !/\.menu-coins-row\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&     // 整行不再可点
       /\.menu-coins-btn\s*\{[^}]*cursor:\s*pointer/.test(cssSrc) &&
       /\.ledger-list\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
-      /\.ledger-list\s*\{[^}]*max-height:\s*calc\(64vh \+ 17px\)/.test(cssSrc) &&
+      cssSrc.includes('max-height: 456px;') &&
       /\.ledger-bar\s*\{[^}]*width:\s*90%/.test(cssSrc) &&
       /\.ledger-bar\s*\{[^}]*grid-template-columns:\s*repeat\(3,\s*1fr\)/.test(cssSrc) &&
       /\.ledger-detail\s*\{[^}]*font-size:\s*11px[^}]*font-weight:\s*400/.test(cssSrc) &&
@@ -2807,7 +2806,7 @@ function check(name, ok) {
     const h = pick('history-list');
     const a = pick('ach-list');
     const w = (s) => (s.match(/width:\s*([\d.]+)%/) || [null, ''])[1];
-    return w(h) === w(a) && /max-height:\s*64vh/.test(h) && /max-height:\s*66vh/.test(a);
+    return w(h) === w(a) && h.includes('max-height: 494px') && a.includes('max-height: 520px');
   })());
   // 41h. 一格只放一样东西：货物 / 冰 / 锁链 / 特殊块上不再叠新东西
   sandbox.__nl_test.start(1, { def: { id: 96, theme: 'candy', moves: 20, goal: { type: 'score', target: 5000 }, stars: [1, 2, 3] } });

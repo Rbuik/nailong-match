@@ -150,9 +150,9 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 .btn-secondary:hover { background: rgba(0, 0, 0, 0.1); }
 .btn-primary:active, .btn-secondary:active { transform: scale(0.95); }
 
-.history-list { width: 90%; max-height: 64vh; overflow-y: auto; -webkit-overflow-scrolling: touch; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
+.history-list { width: 90%; max-height: 494px; overflow-y: auto; -webkit-overflow-scrolling: touch; background: rgba(0,0,0,0.04); border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; box-sizing: border-box; }
 /* 三列：关卡+模式名 | 星星 | 分数；后两列右对齐并贴右，整列看下去仍是齐的 */
-.history-item { display: grid; grid-template-columns: minmax(0, 1fr) 54px 52px; column-gap: 6px; align-items: center; padding: 12px 6px 12px 12px; background: rgba(255,255,255,0.9); border-radius: 8px; cursor: pointer; transition: background 0.2s; border: 1px solid rgba(0,0,0,0.06); }
+.history-item { display: grid; grid-template-columns: minmax(0, 1fr) 54px 52px; column-gap: 6px; align-items: center; padding: 12px 6px 12px 12px; height: 46px; flex: 0 0 auto; box-sizing: border-box; background: rgba(255,255,255,0.9); border-radius: 8px; cursor: pointer; transition: background 0.2s; border: 1px solid rgba(0,0,0,0.06); }
 .history-item:hover { background: #fff; }
 .history-item span { font-size: 15px; }
 .history-item .h-name { text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

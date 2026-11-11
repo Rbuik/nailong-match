@@ -7152,15 +7152,6 @@
     setTimeout(() => { try { fetchServerDaily(true); } catch (e) {} }, 1100);
     const loggedIn = (typeof Account !== 'undefined') && Account.loggedIn();
 
-    // 老档补发：更新前完成的每日挑战没发过完成奖励，按基础 30 枚补进钱包（步数未知，结算页显示 —）
-    try {
-      const drec = Store.getDailyRecord();
-      if ((drec.stars || 0) >= 1 && !(drec.coins || 0)) {
-        Store.addCoins(30, '每日挑战补发');
-        Store.patchDaily({ coins: 30 });
-      }
-    } catch (e) {}
-
     // 读关卡数据（§20）
     try {
       const res = await fetch('js/levels.json', { cache: 'no-store' });

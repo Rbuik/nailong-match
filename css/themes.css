@@ -1208,16 +1208,16 @@ body.m-dragging .m-item { cursor: grabbing; }
 .sub-count { font-size: 12px; color: #9a93ad; font-weight: 700; }
 .ach-list {
   width: 90%;
-  max-height: 66vh;
+  max-height: 520px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin: 6px 0 12px;
   /* 内部滚动的板块：底色比周围深一点（和「关卡记录」同款） */
   background: rgba(0, 0, 0, 0.04);
   border-radius: 12px;
-  padding: 10px;
+  padding: 8px 10px;
   box-sizing: border-box;
 }
 .ach-row {
@@ -1225,6 +1225,9 @@ body.m-dragging .m-item { cursor: grabbing; }
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
+  height: 56px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
   border-radius: 12px;
   background: #fff;
   border: 1px solid rgba(0, 0, 0, 0.07);
@@ -2770,12 +2773,12 @@ body[data-skin="black"] .target-bar {
 /* 明细窗口：和关卡记录 / 成就一样宽，可上下滚动 */
 .ledger-list {
   width: 90%;
-  max-height: calc(64vh + 17px);
+  max-height: 456px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: rgba(0, 0, 0, 0.04);
   border-radius: 12px;
-  padding: 10px;
+  padding: 8px 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2787,6 +2790,9 @@ body[data-skin="black"] .target-bar {
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
+  height: 56px;
+  flex: 0 0 auto;
+  box-sizing: border-box;
   background: rgba(255, 255, 255, 0.9);
   border: 1px solid rgba(0, 0, 0, 0.06);
   border-radius: 8px;
