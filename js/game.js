@@ -7339,8 +7339,7 @@
     if (!box) return;
     const maxU = Store.maxUnlockedLevel(maxMainLevel());
     box.innerHTML = '';
-    // 只显示「已经玩到」的章节：一章都没进去过的章节不提前露出来，
-    // 底部统一用一行「更多章节等待解锁…」带过，不让玩家一眼数出总共几章
+    // 只显示「已经玩到」的章节：一章都没进去过的章节不提前露出来
     chapters().filter((ch) => maxU >= ch.from).forEach((ch) => {
       const p = chapterProgress(ch);
       const card = document.createElement('div');
@@ -7369,11 +7368,6 @@
       card.appendChild(grid);
       box.appendChild(card);
     });
-    // 底部的「还有更多」提示（章节 / 关卡总数不再告诉玩家）
-    const more = document.createElement('p');
-    more.className = 'chapter-more';
-    more.textContent = '更多章节等待解锁…';
-    box.appendChild(more);
   }
 
   let storyCb = null;

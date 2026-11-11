@@ -661,7 +661,7 @@ function check(name, ok) {
       !sec.includes('一键已读') && !sec.includes('一键删除') &&
       !htmlSrc0.includes('<div class="mail-list-wrap">') &&
       /<div class="mail-list" id="mail-list"><\/div>\s*<div class="mail-tools">/.test(htmlSrc0) &&
-      /\.mail-list\s*\{[^}]*max-height:\s*62vh/.test(cssSrc) &&
+      /\.mail-list\s*\{[^}]*max-height:\s*484px/.test(cssSrc) &&
       /\.mail-tools\s*\{[^}]*justify-content:\s*flex-end/.test(cssSrc) &&
       !/\.mail-tools\s*\{[^}]*position:\s*absolute/.test(cssSrc) &&
       /\.mail-emoji-btn\s*\{[^}]*width:\s*34px[^}]*height:\s*34px/.test(cssSrc);
@@ -849,13 +849,12 @@ function check(name, ok) {
   const chJson = JSON.parse(fs.readFileSync(path.join('js', 'levels.json'), 'utf8'));
   const chKids = $('chapters-list').children;
   const countCh = () => chKids.filter((c) => String(c.className || '').indexOf('chapter-card') === 0).length;
-  const moreOf = () => chKids.filter((c) => String(c.className || '') === 'chapter-more')[0];
   const maxU0 = sandbox.Store.maxUnlockedLevel(40);
   check('章节地图只显示已解锁的章节（未玩到的章节不提前露出）',
     countCh() === chJson.chapters.filter((c) => maxU0 >= c.from).length && countCh() < chJson.chapters.length);
-  check('章节地图最底下写「更多章节等待解锁…」',
-    !!moreOf() && String(moreOf().textContent).indexOf('更多章节等待解锁') >= 0 &&
-    chKids[chKids.length - 1] === moreOf());
+  check('章节地图已删除「更多章节等待解锁…」提示',
+    !jsSrc.includes('更多章节等待解锁') && !cssSrc.includes('.chapter-more') &&
+    !htmlSrc0.includes('chapter-more'));
   // 打通第一章之后，第二章才会出现在地图上
   for (let i = 1; i <= 10; i++) sandbox.Store.recordLevel(i, 900, 1);
   $('btn-chapters').dispatch('click');
@@ -3066,7 +3065,10 @@ function check(name, ok) {
     !htmlSrc.includes('btn-complete-home') && !jsSrc.includes('btn-complete-home') &&
     /\$\('game-complete'\)/.test(jsSrc) && /completePanel\.addEventListener\('click'/.test(jsSrc) &&
     /showOverlay\('history-menu'\)/.test(jsSrc));
-  check('排行榜列表加高到 52vh', /max-height: 52vh/.test(cssSrc));
+  check('省份统计滚动区刚好放下 10 个省份（390px、行高 37px、首行也有虚线）',
+    /\.prov-list\s*\{[^}]*max-height:\s*390px/.test(cssSrc) &&
+    /\.prov-list li\s*\{[^}]*height:\s*37px/.test(cssSrc) &&
+    /\.prov-list li:first-child\s*\{[^}]*border-top:\s*1px dashed/.test(cssSrc));
   check('分数列固定宽度左对齐（榜一定边界，后台省份间隔 21px）',
     /\.lb-score\s*\{[^}]*text-align: left/.test(cssSrc) &&
     /\.lb-score\s*\{[^}]*min-width: 3\.6em/.test(cssSrc) &&

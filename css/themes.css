@@ -282,25 +282,27 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   gap: 8px;
   margin-bottom: 14px;
 
-  max-height: 456px; overflow-y: auto; -webkit-overflow-scrolling: touch;
-  padding: 8px 10px; box-sizing: border-box;}
+  max-height: 484px; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding: 8px 10px; box-sizing: border-box;
+  background: rgba(0, 0, 0, 0.04); border-radius: 12px; align-items: center;}
 
 .shop-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
+  gap: 6px;
+  padding: 8px;
   background: #fff;
   border-radius: 12px;
   border: 1px solid rgba(0, 0, 0, 0.07);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-}
 
-.shop-icon { font-size: 22px; }
+  width: 200px; height: 60px; box-sizing: border-box; flex: 0 0 auto;}
+
+.shop-icon { font-size: 18px; }
 .shop-info { flex: 1; min-width: 0; }
 .shop-info b { font-size: 14px; display: block; color: #333; }
 .shop-info small { font-size: 11px; color: #999; }
-.shop-own { font-size: 16px; font-weight: 800; color: #4a3f66; white-space: nowrap; }
+.shop-own { font-size: 13px; font-weight: 800; color: #4a3f66; white-space: nowrap; }
 
 .shop-buy {
   flex: 0 0 auto;
@@ -625,7 +627,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 .prov-card {
   width: 88%;
   max-width: 420px;
-  max-height: 88vh;
+  max-height: max(88vh, 530px);
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -674,7 +676,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   border-radius: 12px;
   padding: 10px;
   box-sizing: border-box;
-  max-height: 52vh;
+  max-height: 390px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
@@ -686,7 +688,9 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
   border-bottom: 1px dashed #e6e9f4;
   font-size: 14px;
   color: #3a4160;
-}
+
+  height: 37px; box-sizing: border-box;}
+.prov-list li:first-child { border-top: 1px dashed #e6e9f4; }
 .prov-list li b { color: #7c5cff; font-size: 14px; }
 .prov-list .prov-empty { justify-content: center; color: #a5abc2; font-size: 12px; padding: 18px 0; }
 /* 市级页里「IP 只到省、没到市」的差额行（不可点，颜色弱化） */
@@ -1093,7 +1097,7 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* ================= 章节地图 ================= */
 .chapters-list {
   width: 90%;
-  max-height: 478px;
+  max-height: 452px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   /* 和「关卡记录」同款：内列表自己滚，底色比周围深一点 */
@@ -1165,17 +1169,6 @@ body.m-dragging .m-item { cursor: grabbing; }
 .level-chip.current i { color: #ffb400; }
 .level-chip:active { transform: scale(0.94); }
 .chapter-lock { margin-top: 8px; font-size: 12px; color: #9a93ad; text-align: center; }
-/* 章节地图最底下：后面还有章节，数量不剧透 */
-.chapter-more {
-  margin: 0;
-  padding: 0; line-height: 18px;
-  font-size: 12px;
-  font-weight: 700;
-  color: #9a93ad;
-  text-align: center;
-  letter-spacing: 0.5px;
-}
-
 /* ================= 剧情过场 ================= */
 .story-card {
   width: 84%;
@@ -2123,7 +2116,7 @@ body[data-skin="black"] .target-bar {
 .mail-list {
   width: 88%;
   max-width: 380px;
-  max-height: 62vh;
+  max-height: 484px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   display: flex;
@@ -2133,7 +2126,7 @@ body[data-skin="black"] .target-bar {
   /* 内部滚动的板块：底色比周围深一点（和「关卡记录」同款） */
   background: rgba(0, 0, 0, 0.04);
   border-radius: 12px;
-  padding: 10px;
+  padding: 8px 10px;
   box-sizing: border-box;
 }
 
@@ -2152,7 +2145,8 @@ body[data-skin="black"] .target-bar {
   text-align: left;
   box-shadow: 0 2px 8px rgba(80, 60, 140, 0.06);
   transition: transform 0.1s ease, border-color 0.15s ease;
-}
+
+  height: 60px; flex: 0 0 auto;}
 
 .mail-row:active { transform: scale(0.985); }
 .mail-row.unread { border-color: rgba(124, 92, 255, 0.5); background: #f7f4ff; }
@@ -2811,3 +2805,9 @@ body[data-skin="black"] .target-bar {
 .ledger-amt.up { color: #1a8f4a; }
 .ledger-amt.down { color: #c0392b; }
 .ledger-empty { text-align: center; color: #9d97ad; font-size: 13px; padding: 26px 0; }
+
+/* 背包条目 200px 宽：名称与描述单行省略，使用键收紧 */
+.shop-row .shop-info { overflow: hidden; }
+.shop-row .shop-info b,
+.shop-row .shop-info small { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.shop-row .shop-buy { padding: 6px 8px; font-size: 11px; }
