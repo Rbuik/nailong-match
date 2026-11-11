@@ -2770,7 +2770,7 @@ body[data-skin="black"] .target-bar {
 /* 明细窗口：和关卡记录 / 成就一样宽，可上下滚动 */
 .ledger-list {
   width: 90%;
-  max-height: 64vh;
+  max-height: calc(64vh + 17px);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: rgba(0, 0, 0, 0.04);
