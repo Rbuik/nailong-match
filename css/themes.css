@@ -1091,13 +1091,13 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* ================= 章节地图 ================= */
 .chapters-list {
   width: 90%;
-  max-height: 510px;
+  max-height: 478px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   /* 和「关卡记录」同款：内列表自己滚，底色比周围深一点 */
   background: rgba(0, 0, 0, 0.04);
   border-radius: 12px;
-  padding: 10px;
+  padding: 8px 10px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -1106,18 +1106,18 @@ body.m-dragging .m-item { cursor: grabbing; }
 }
 .chapter-card {
   border-radius: 14px;
-  padding: 6px 8px;
+  padding: 7px 8px;
   background: rgba(124, 92, 255, 0.06);
   border: 1px solid rgba(124, 92, 255, 0.16);
 
-  height: 130px; box-sizing: border-box; flex: 0 0 auto;
+  height: 140px; box-sizing: border-box; flex: 0 0 auto;
   display: flex; flex-direction: column; overflow: hidden;}
 .chapter-card.locked { opacity: 0.55; }
 .chapter-head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 0; height: 18px; flex: 0 0 18px; line-height: 18px;
+  margin-bottom: 8px; height: 18px; flex: 0 0 18px; line-height: 18px;
 }
 .chapter-emoji { font-size: 16px; line-height: 18px; }
 .chapter-name { font-size: 14px; line-height: 18px; font-weight: 800; color: #3d3556; flex: 1; }
@@ -1165,8 +1165,8 @@ body.m-dragging .m-item { cursor: grabbing; }
 .chapter-lock { margin-top: 8px; font-size: 12px; color: #9a93ad; text-align: center; }
 /* 章节地图最底下：后面还有章节，数量不剧透 */
 .chapter-more {
-  margin: 2px 0 0;
-  padding: 10px 0 2px;
+  margin: 0;
+  padding: 0; line-height: 18px;
   font-size: 12px;
   font-weight: 700;
   color: #9a93ad;
