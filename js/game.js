@@ -3068,7 +3068,7 @@
       if (S.mode === 'rhythm') {
         bar.textContent = '节奏关卡　本局 ' + S.score + '　最佳 ' + bv;
       } else if (S.mode === 'sprint') {
-        bar.textContent = '60 秒冲刺　本局 ' + S.score + '　最佳 ' + bv;
+        bar.textContent = '60s冲刺　本局 ' + S.score + '　最佳 ' + bv;
       } else {
         bar.textContent = '无尽模式　本局 ' + S.score + '　最佳 ' + bv;
       }
@@ -7528,7 +7528,7 @@
   // ---------- 无尽 / 冲刺 / 节奏 ----------
   const MODES = {
     endless: { name: '无尽模式', theme: 'star', moves: 40, time: 0, desc: '40 步自由发挥，连击越猛分越高' },
-    sprint: { name: '60 秒冲刺', theme: 'candy', moves: 0, time: 60, desc: '60 秒内能刷出多少分' },
+    sprint: { name: '60s冲刺', theme: 'candy', moves: 0, time: 60, desc: '60 秒内能刷出多少分' },
     rhythm: { name: '节奏关卡', theme: 'ocean', moves: 0, time: 90, desc: '踩在节拍上消除，额外 1.5 倍分' }
   };
 
@@ -7569,7 +7569,7 @@
     const mode = S.mode === 'main' ? 'endless' : S.mode;
     const r = Meta.recordBest(mode, S.score);
     const coins = Math.max(5, Math.floor(S.score / 200));
-    Store.addCoins(coins, '模式奖励');
+    Store.addCoins(coins, '模式奖励 · ' + (MODES[mode] || {}).name);
     Meta.bump('modes', 1);
     Meta.setMax('maxCombo', S.maxCombo);
     const got = Meta.check();

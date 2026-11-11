@@ -77,7 +77,7 @@
     { id: 'jelly200', icon: '🟪', name: '果冻清道夫', desc: '累计清除果冻',     key: 'jelly',     tiers: [50, 200, 400, 800] },
     { id: 'perfect10',icon: '👑', name: '十全十美',   desc: '累计三星通关',     key: 'perfect',   tiers: [3, 10, 25, 50] },
     { id: 'endless',  icon: '♾️', name: '无尽旅人',   desc: '无尽模式最高分',   key: 'endless',   tiers: [5000, 20000, 50000, 100000] },
-    { id: 'sprint',   icon: '⏱️', name: '冲刺高手',   desc: '60 秒冲刺最高分',  key: 'sprint',    tiers: [2000, 8000, 20000, 40000] },
+    { id: 'sprint',   icon: '⏱️', name: '冲刺高手',   desc: '60s冲刺最高分',  key: 'sprint',    tiers: [2000, 8000, 20000, 40000] },
     { id: 'rhythm',   icon: '🎧', name: '节拍感',     desc: '节奏关最高分',     key: 'rhythm',    tiers: [1500, 6000, 15000, 30000] },
     { id: 'checkin7', icon: '📅', name: '签到达人',   desc: '累计签到天数',     key: 'checkin',   tiers: [1, 3, 7, 14] },
     { id: 'checkin30',icon: '🗓️', name: '签到铁人',   desc: '累计签到天数',     key: 'checkin',   tiers: [30, 60, 100, 180] },
