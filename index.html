@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261111v">
-<link rel="stylesheet" href="./css/themes.css?v=20261111v">
+<link rel="stylesheet" href="./css/style.css?v=20261111w">
+<link rel="stylesheet" href="./css/themes.css?v=20261111w">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -100,6 +100,16 @@
     <div>
       <button class="btn-primary btn-danger" id="btn-use-yes">确认</button>
       <button class="btn-primary btn-success" id="btn-use-no">取消</button>
+    </div>
+  </div>
+
+  <!-- 洗牌 / 撤回确认 -->
+  <div class="overlay confirm-overlay" id="tool-confirm" style="display:none;">
+    <h2 class="title small" id="tool-confirm-title">洗牌</h2>
+    <p class="confirm-text" id="tool-confirm-text">要洗牌吗？</p>
+    <div>
+      <button class="btn-primary btn-danger" id="btn-tool-yes">确认</button>
+      <button class="btn-primary btn-success" id="btn-tool-no">取消</button>
     </div>
   </div>
 
@@ -319,7 +329,7 @@
         <h3>局内按键</h3>
         <p><b>关卡 / 步数 / 得分 / ⏸️ 暂停</b>；</p>
         <p><b>NEXT / 🎵 音乐 / 🎒 背包 / 🛒 商店 / 📖 说明 / ⚙️ 设置</b>；</p>
-        <p><b>💡 提示 / 🔄 洗牌 / ↩️ 撤回</b>；</p>
+        <p><b>💡 提示 / 🔄 洗牌 / ↩️ 撤回</b>；点洗牌或撤回会先弹确认窗口，按「确认」才执行并消耗 1 次，按「取消」或点窗口外的空白即可取消，什么都不会消耗；次数用完时只提示，不再弹窗；</p>
         <p>退出或切后台会自动暂停。</p>
       </section>
 
@@ -1043,22 +1053,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261111v"></script>
-<script src="./js/storage.js?v=20261111v"></script>
-<script src="./js/audio.js?v=20261111v"></script>
-<script src="./js/effects.js?v=20261111v"></script>
-<script src="./js/specials.js?v=20261111v"></script>
-<script src="./js/goals.js?v=20261111v"></script>
-<script src="./js/tasks.js?v=20261111v"></script>
-<script src="./js/mail.js?v=20261111v"></script>
-<script src="./js/input.js?v=20261111v"></script>
-<script src="./js/builtin-music.js?v=20261111v"></script>
-<script src="./js/music.js?v=20261111v"></script>
-<script src="./js/meta.js?v=20261111v"></script>
-<script src="./js/cloud-config.js?v=20261111v"></script>
-<script src="./js/cloud.js?v=20261111v"></script>
-<script src="./js/account.js?v=20261111v"></script>
-<script src="./js/board.js?v=20261111v"></script>
-<script src="./js/game.js?v=20261111v"></script>
+<script src="./js/rng.js?v=20261111w"></script>
+<script src="./js/storage.js?v=20261111w"></script>
+<script src="./js/audio.js?v=20261111w"></script>
+<script src="./js/effects.js?v=20261111w"></script>
+<script src="./js/specials.js?v=20261111w"></script>
+<script src="./js/goals.js?v=20261111w"></script>
+<script src="./js/tasks.js?v=20261111w"></script>
+<script src="./js/mail.js?v=20261111w"></script>
+<script src="./js/input.js?v=20261111w"></script>
+<script src="./js/builtin-music.js?v=20261111w"></script>
+<script src="./js/music.js?v=20261111w"></script>
+<script src="./js/meta.js?v=20261111w"></script>
+<script src="./js/cloud-config.js?v=20261111w"></script>
+<script src="./js/cloud.js?v=20261111w"></script>
+<script src="./js/account.js?v=20261111w"></script>
+<script src="./js/board.js?v=20261111w"></script>
+<script src="./js/game.js?v=20261111w"></script>
 </body>
 </html>

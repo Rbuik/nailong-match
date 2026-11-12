@@ -726,6 +726,32 @@ function check(name, ok) {
   check('使用「洗牌」转入本局次数', (sandbox.Store.getWallet().items.shuffle || 0) === 0);
   check('洗牌徽章 +1（只算本局次数）', Number($('shuffle-count').textContent) === shuffleBefore + 1);
 
+  // 7b. 局内工具键：洗牌 / 撤回先弹确认窗，取消不消耗、确认才执行
+  const toolOpen = () => $('tool-confirm').style.display === 'flex';
+  const S7 = sandbox.__nl_test.state();
+  const shufLeft7 = S7.shuffleLeft;
+  $('btn-shuffle').dispatch('click');
+  check('点「洗牌」先弹确认窗口', toolOpen() && $('tool-confirm-title').textContent === '洗牌' &&
+    $('tool-confirm-text').innerHTML.includes('确认后消耗 1 次'));
+  $('btn-tool-no').dispatch('click');
+  check('取消洗牌不消耗次数', !toolOpen() && S7.shuffleLeft === shufLeft7);
+  $('btn-shuffle').dispatch('click');
+  $('btn-tool-yes').dispatch('click');
+  check('确认后洗牌消耗 1 次', !toolOpen() && S7.shuffleLeft === shufLeft7 - 1);
+  const undoLeft7 = S7.undoLeft;
+  $('btn-undo').dispatch('click');
+  check('点「撤回」先弹确认窗口', toolOpen() && $('tool-confirm-title').textContent === '撤回');
+  $('btn-tool-no').dispatch('click');
+  check('取消撤回不消耗次数', !toolOpen() && S7.undoLeft === undoLeft7);
+  $('btn-undo').dispatch('click');
+  $('btn-tool-yes').dispatch('click');
+  check('确认后撤回消耗 1 次', !toolOpen() && S7.undoLeft === undoLeft7 - 1);
+  const cssSrc7 = fs.readFileSync(path.join(__dirname, 'css', 'style.css'), 'utf8');
+  check('新确认窗已纳入统一按钮尺寸规则',
+    htmlSrc0.includes('id="tool-confirm"') &&
+    /#tool-confirm > div/.test(cssSrc7) && /#tool-confirm \.btn-primary/.test(cssSrc7) &&
+    htmlSrc0.includes('点洗牌或撤回会先弹确认窗口'));
+
   packRows2 = $('backpack-list').children;
   packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置，弹确认）
   $('btn-use-yes').dispatch('click');
@@ -821,7 +847,10 @@ function check(name, ok) {
   if ($('story-menu').style.display === 'flex') $('btn-story-go').dispatch('click');
   await sleep(10);
   const walletShuffle = sandbox.Store.getWallet().items.shuffle || 0;
-  for (let i = 0; i < 4; i++) $('btn-shuffle').dispatch('click');
+  for (let i = 0; i < 6; i++) {
+    $('btn-shuffle').dispatch('click');
+    if ($('tool-confirm').style.display === 'flex') $('btn-tool-yes').dispatch('click');
+  }
   check('洗牌用完后提示去背包补充', $('toast').textContent.includes('用完了'));
   check('洗牌不再自动扣背包', (sandbox.Store.getWallet().items.shuffle || 0) === walletShuffle);
 

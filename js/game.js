@@ -3607,7 +3607,7 @@
     ['main-menu', 'settings-menu', 'music-settings-menu', 'volume-menu', 'custom-music-menu', 'music-history-menu', 'playlist-menu',
       'music-library-menu', 'rename-menu', 'tasks-menu', 'shop-menu', 'history-menu', 'backpack-menu',
       'rules-menu', 'features-menu', 'play-rules-menu', 'mail-menu', 'mail-view',
-      'logout-confirm', 'logout-confirm2', 'pause-menu',
+      'logout-confirm', 'logout-confirm2', 'tool-confirm', 'pause-menu',
       'chapters-menu', 'story-menu', 'achievements-menu', 'collection-menu', 'welfare-menu',
       'leaderboard-menu', 'lb-view', 'home-menu', 'modes-menu', 'revive-menu', 'mode-over',
       'admin-user-list', 'prov-page',
@@ -4305,6 +4305,29 @@
     const box = $('use-confirm');
     if (box) box.style.display = 'none';
     pendingUse = null;
+  }
+
+  // 洗牌 / 撤回确认：点工具键先弹确认窗，按「确认」才消耗次数并执行
+  let pendingTool = null;
+  function openToolConfirm(kind) {
+    const act = kind === 'undo' ? undo : shuffleBoard;
+    if (S.busy || !S.playing || S.paused) return;
+    const left = kind === 'undo' ? S.undoLeft : S.shuffleLeft;
+    // 次数用完 / 没有可撤回的局面：直接走原来的提示，不弹一个没用的空窗
+    if (left <= 0 || (kind === 'undo' && !S.history.length)) { act(); return; }
+    const box = $('tool-confirm');
+    if (!box) { act(); return; }
+    pendingTool = kind;
+    const title = $('tool-confirm-title'), txt = $('tool-confirm-text');
+    if (title) title.textContent = kind === 'undo' ? '撤回' : '洗牌';
+    if (txt) txt.innerHTML = (kind === 'undo' ? '要撤回上一步吗？' : '要重新洗牌吗？') +
+      '<br><small>本局还剩 ' + left + ' 次，确认后消耗 1 次</small>';
+    box.style.display = 'flex';
+  }
+  function closeToolConfirm() {
+    const box = $('tool-confirm');
+    if (box) box.style.display = 'none';
+    pendingTool = null;
   }
 
   // 关卡记录：点任意一关 → 回主页，并把主页当前关卡切到这一关
@@ -5842,9 +5865,9 @@
 
     // 工具按钮
     const sh = $('btn-shuffle');
-    if (sh) sh.addEventListener('click', shuffleBoard);
+    if (sh) sh.addEventListener('click', () => openToolConfirm('shuffle'));
     const un = $('btn-undo');
-    if (un) un.addEventListener('click', undo);
+    if (un) un.addEventListener('click', () => openToolConfirm('undo'));
     // 暂停
     const pauseBtn = $('btn-pause');
     if (pauseBtn) pauseBtn.addEventListener('click', pauseGame);
@@ -6065,6 +6088,17 @@
     });
     const useNo = $('btn-use-no');
     if (useNo) useNo.addEventListener('click', closeUseConfirm);
+
+    // 洗牌 / 撤回：确认 / 取消
+    const toolYes = $('btn-tool-yes');
+    if (toolYes) toolYes.addEventListener('click', () => {
+      const kind = pendingTool;
+      closeToolConfirm();
+      if (kind === 'undo') undo();
+      else if (kind === 'shuffle') shuffleBoard();
+    });
+    const toolNo = $('btn-tool-no');
+    if (toolNo) toolNo.addEventListener('click', closeToolConfirm);
 
     // ==================== 隐藏后台：同时按住奶龙图案 + 注销键 3 秒 ====================
     const adminMascot = (typeof document.querySelector === 'function')
@@ -6994,6 +7028,9 @@
     // 返回上一层：先做这一层的收尾，再显示上一层（没有上一层就只关掉自己）
     function panelBack(id) {
       switch (id) {
+        case 'tool-confirm':
+          closeToolConfirm();        // 点窗口外空白 = 取消，不消耗次数
+          return true;
         case 'rules-menu':
           hidePanel('rules-menu');
           if (quietPaused) quietResumeGame(); else showOverlay('main-menu');
