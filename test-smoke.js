@@ -1706,6 +1706,19 @@ function check(name, ok) {
     st.board[3][0].cargo[1].kind === 'nailong' &&
     !(st.board[7][0] && st.board[7][0].cargo));
 
+  // 17c-1b. 保险箱：只有相邻消除敲得动，一轮最多 1 下，两下才开
+  sandbox.__nl_test.start(1, { def: { id: 93, theme: 'candy', moves: 20, goal: { type: 'score', target: 100 }, stars: [100, 200, 300] } });
+  st = sandbox.__nl_test.state();
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) st.board[r][c] = { type: (r + c * 2) % 6, special: 0 };
+  for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) st.box[r][c] = 0;
+  st.box[3][3] = 2;
+  await sandbox.__nl_test.resolveClear(new Set(['3,2', '2,3', '4,3']), []);
+  check('保险箱：旁边三格一起消也只敲 1 下（2 → 1，圆点剩 1 个）', st.box[3][3] === 1);
+  await sandbox.__nl_test.resolveClear(new Set(['3,2']), []);
+  const boxCargo = st.board[3][3] && st.board[3][3].cargo;
+  check('保险箱：再消一次才敲开，掉出糖果', st.box[3][3] === 0 &&
+    !!boxCargo && (Array.isArray(boxCargo) ? boxCargo.some((x) => x.kind === 'candy') : boxCargo.kind === 'candy'));
+
   // 17c-2. 洗牌：钥匙 / 奶龙钉在原位，只有底下的方块参与洗牌
   sandbox.__nl_test.start(1, { def: { id: 95, theme: 'ocean', moves: 20, goal: { type: 'rescue', target: 2 }, rescue: 2, drop: 1, stars: [1, 2, 3] } });
   st = sandbox.__nl_test.state();
@@ -3647,6 +3660,13 @@ function check(name, ok) {
       /IVY_FAIL/.test(jsSrc) && /S\.sand\[ROWS - 1\] && S\.sand\[ROWS - 1\]\[c\]/.test(jsSrc) &&
       /ivy: S\.ivy,/.test(jsSrc) && /fog: S\.fog,/.test(jsSrc) &&
       /frostTurns: S\.frostTurns \|\| 0/.test(jsSrc);
+  })());
+
+  check('保险箱：相邻消除才敲、一轮只敲 1 下、圆点数 = 还差几下', (() => {
+    const rc = jsSrc.slice(jsSrc.indexOf('async function resolveClear'), jsSrc.indexOf('function dropAndFill'));
+    return /const addBox = \(r, c\) =>/.test(rc) && /if \(seenBox\[key\]\) return;/.test(rc) &&
+      /addBox\(p\.r - 1, p\.c\)/.test(rc) && /boxHitList\.forEach\(\(p\) => chipBox/.test(rc) &&
+      /const hp = S\.box\[r\]\[c\]/.test(jsSrc) && /for \(let i = 0; i < hp; i\+\+\)/.test(jsSrc);
   })());
 
   check('颜料刷成的颜色取「颜料块底下」那格自己的颜色；生成特殊块时黑底提示条也报一声', (() => {

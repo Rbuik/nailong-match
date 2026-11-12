@@ -673,7 +673,7 @@
     AudioManager.playSFX('ice', { final: S.box[r][c] <= 0 });
     FX.burst(c * CELL + CELL / 2, r * CELL + CELL / 2, '#d9a44c', 5);
     if (S.box[r][c] > 0) {
-      FX.text(c * CELL + CELL / 2, r * CELL + CELL / 2, '箱子裂开 📦', '#c08a35', 13);
+      FX.text(c * CELL + CELL / 2, r * CELL + CELL / 2, '还差 ' + S.box[r][c] + ' 下 📦', '#c08a35', 13);
       return true;
     }
     S.box[r][c] = 0;
@@ -1509,11 +1509,24 @@
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText('📦', x + CELL / 2, y + CELL / 2);
-          for (let i = 0; i < S.box[r][c]; i++) {
+          // 还剩几下就显示几个点：开局 2 个，敲过一次变 1 个，敲开就没了
+          const hp = S.box[r][c];
+          const dotR = Math.max(3.2, CELL * 0.085);
+          const dotGap = dotR * 2.8;
+          for (let i = 0; i < hp; i++) {
+            const dx = x + CELL / 2 + (i - (hp - 1) / 2) * dotGap;
+            const dy = y + CELL - dotR - 5;
             ctx.beginPath();
-            ctx.fillStyle = '#fff6de';
-            ctx.arc(x + CELL - 8 - i * 6, y + 8, 2.2, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(84,48,12,0.9)';
+            ctx.arc(dx, dy, dotR + 2.2, 0, Math.PI * 2);
             ctx.fill();
+            ctx.beginPath();
+            ctx.fillStyle = '#ffe34d';
+            ctx.arc(dx, dy, dotR, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#fffdf2';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
           }
           ctx.restore();
         }
@@ -2142,6 +2155,8 @@
     const clearSet = new Set();
     const iceHitList = [];
     const seenIce = {};
+    const boxHitList = [];
+    const seenBox = {};
     let chainBroken = 0;
     let sandDug = false;   // 一轮消除里不管挖掉几格沙，只播一次沙子音效
 
@@ -2152,13 +2167,22 @@
       seenIce[key] = 1;
       iceHitList.push({ r, c });
     };
+    // 📦 箱子格被锁住，永远不会被三连消到；只有「相邻消除」才敲得动它。
+    // 一轮消除里同一个箱子最多敲 1 下，多点数的相邻格不会一次把它敲开。
+    const addBox = (r, c) => {
+      if (!inB(r, c) || !isBoxed(r, c)) return;
+      const key = kOf(r, c);
+      if (seenBox[key]) return;
+      seenBox[key] = 1;
+      boxHitList.push({ r, c });
+    };
 
     cells.forEach((k) => {
       const p = Specials.parse(k);
       if (isIced(p.r, p.c)) { addIce(p.r, p.c); return; }
       // 📦 保险箱：先敲箱子，箱子开着之前里面的东西拿不到
       if (isBoxed(p.r, p.c)) {
-        chipBox(p.r, p.c);
+        addBox(p.r, p.c);
         return;
       }
       if (isChained(p.r, p.c)) {
@@ -2176,13 +2200,16 @@
       }
       clearSet.add(k);
     });
-    // 相邻消除顺带砸冰
+    // 相邻消除顺带砸冰、敲箱子
     clearSet.forEach((k) => {
       const p = Specials.parse(k);
       addIce(p.r - 1, p.c); addIce(p.r + 1, p.c);
       addIce(p.r, p.c - 1); addIce(p.r, p.c + 1);
+      addBox(p.r - 1, p.c); addBox(p.r + 1, p.c);
+      addBox(p.r, p.c - 1); addBox(p.r, p.c + 1);
     });
     iceHitList.forEach((p) => crackIceAt(p.r, p.c));
+    boxHitList.forEach((p) => chipBox(p.r, p.c));
     if (chainBroken) AudioManager.playSFX('line');
 
     // 机关被波及：割藤蔓 / 拆炸弹 / 挖流沙 / 拨开迷雾（都在方块真正消掉之前记一笔）
