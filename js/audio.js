@@ -439,6 +439,8 @@
 
     _noiseNow(dur, vol, freq, q, delay, type) {
       if (!this.ctx || this.ctx.state !== 'running') return;
+      // 挖沙走专门的颗粒合成，不在这里当普通带通噪声播
+      if (type === 'sand') { this._sandNow(dur, vol, delay); return; }
       try {
         const t0 = this.ctx.currentTime + (delay || 0);
         const src = this.ctx.createBufferSource();
@@ -457,6 +459,65 @@
         src.connect(bp);
         bp.connect(g);
         g.connect(this.ctx.destination);
+        src.start(t0);
+        src.stop(t0 + dur + 0.02);
+      } catch (e) {}
+    },
+
+    // ---------- 流沙：颗粒合成 ----------
+    // 带通噪声听起来像风 / 电流，不像沙子。这里把上百颗随机高频沙粒叠成一条
+    // 「沙沙沙——」的颗粒流：每 3~9ms 换一次颗粒幅度，白噪声做一阶差分去掉低频，
+    // 整体慢慢起、一路渐弱，像一捧细沙从指缝漏下去。
+    _sand(dur, vol, delay) {
+      this.ensureCtx();
+      if (!this.ctx) return;
+      if (this.ctx.state !== 'running') {
+        const now = Date.now();
+        this._pendingNoise.push({ args: [dur || 0.52, vol || 0.26, 0, 1, delay || 0, 'sand'], at: now });
+        if (this._pendingNoise.length > 8) this._pendingNoise.shift();
+        if (this._flushTimer) clearTimeout(this._flushTimer);
+        this._flushTimer = setTimeout(() => this._flushTones(), 140);
+        this.resumeCtx();
+        return;
+      }
+      this._sandNow(dur, vol, delay);
+    },
+
+    _sandNow(dur, vol, delay) {
+      if (!this.ctx || this.ctx.state !== 'running') return;
+      try {
+        dur = dur || 0.52;
+        delay = delay || 0;
+        const sr = this.ctx.sampleRate;
+        const len = Math.max(1, Math.floor(sr * dur));
+        const buf = this.ctx.createBuffer(1, len, sr);
+        const d = buf.getChannelData(0);
+        let grain = 0, grainLeft = 0, last = 0;
+        for (let i = 0; i < len; i++) {
+          if (grainLeft <= 0) {
+            grain = 0.18 + Math.random() * 0.82;
+            grainLeft = Math.floor(sr * (0.003 + Math.random() * 0.006));
+          }
+          grainLeft--;
+          const w = Math.random() * 2 - 1;
+          const hp = w - last * 0.82;
+          last = w;
+          const t = i / len;
+          const env = Math.min(1, t / 0.05) * Math.pow(1 - t, 1.5);
+          d[i] = hp * grain * env;
+        }
+        const src = this.ctx.createBufferSource();
+        src.buffer = buf;
+        const hpf = this.ctx.createBiquadFilter();
+        hpf.type = 'highpass';
+        hpf.frequency.value = 2200;
+        hpf.Q.value = 0.7;
+        const g = this.ctx.createGain();
+        g.gain.value = Math.max(0.0001, (vol || 0.26) * this.sfxVol * this.SFX_PEAK_SCALE);
+        src.connect(hpf);
+        hpf.connect(g);
+        g.connect(this.ctx.destination);
+        const t0 = this.ctx.currentTime + delay;
         src.start(t0);
         src.stop(t0 + dur + 0.02);
       } catch (e) {}
@@ -486,14 +547,10 @@
           break;
         }
         case 'sand': {
-          // 挖走流沙：一捧细沙「沙——」地滑落，带通噪声渐弱 + 几粒细碎沙粒
-          this._noise(0.34, 0.16, 1100, 0.8, 0, 'bandpass');
-          this._noise(0.22, 0.09, 2300, 0.9, 0.07, 'bandpass');
-          for (let i = 0; i < 3; i++) {
-            this._noise(0.04 + Math.random() * 0.03, 0.05 + Math.random() * 0.04,
-              1700 + Math.random() * 2000, 0.7, 0.10 + Math.random() * 0.18, 'bandpass');
-          }
-          this.vibrate(10);
+          // 挖走流沙：细沙「沙沙沙——」地滑落（颗粒合成，不是风声似的带通噪声）
+          this._sand(0.52, 0.26);
+          this._sand(0.30, 0.11, 0.05);   // 更细更轻的一层尾巴
+          this.vibrate(8);
           break;
         }
         case 'invalid':
