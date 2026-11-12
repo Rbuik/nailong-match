@@ -406,7 +406,7 @@ canvas { background: var(--board-bg, #fff); transition: background 0.4s ease; }
 
 .rules-box {
   width: 92%;
-  max-height: 58vh;
+  max-height: 452px;   /* 说明内容页滚动区固定 452px */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   text-align: left;

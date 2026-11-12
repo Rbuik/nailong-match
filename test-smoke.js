@@ -759,6 +759,8 @@ function check(name, ok) {
     /@media \(max-width: 520px\)[\s\S]*?width: -webkit-fit-content/.test(cssSrc7) &&
     /width: 112px/.test(cssSrc7) &&
     /-webkit-fit-content/.test(fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8')));
+  check('说明内容页滚动区固定 452px',
+    /\.rules-box \{[\s\S]*?max-height: 452px/.test(fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8')));
 
   packRows2 = $('backpack-list').children;
   packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置，弹确认）
