@@ -3821,6 +3821,8 @@ function check(name, ok) {
 
 
   check('流沙：冰/雾/沙格洗牌不动，沙里方块钉死，货与道具被封住，挖沙只挖沙',
+    /AudioManager\.playSFX\('sand'\)/.test(jsSrc) &&
+    /case 'sand'/.test(fs.readFileSync(path.join(__dirname, 'js', 'audio.js'), 'utf8')) &&
     /function isSanded\(r, c\)/.test(jsSrc) &&
     /isFogged\(r, c\) \|\| isSanded\(r, c\)/.test(jsSrc) &&
     /!isSanded\(r, c\) && !isSanded\(r, c - 1\)/.test(jsSrc) &&

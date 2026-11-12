@@ -485,6 +485,17 @@
           this.vibrate(22);
           break;
         }
+        case 'sand': {
+          // 挖走流沙：一捧细沙「沙——」地滑落，带通噪声渐弱 + 几粒细碎沙粒
+          this._noise(0.34, 0.16, 1100, 0.8, 0, 'bandpass');
+          this._noise(0.22, 0.09, 2300, 0.9, 0.07, 'bandpass');
+          for (let i = 0; i < 3; i++) {
+            this._noise(0.04 + Math.random() * 0.03, 0.05 + Math.random() * 0.04,
+              1700 + Math.random() * 2000, 0.7, 0.10 + Math.random() * 0.18, 'bandpass');
+          }
+          this.vibrate(10);
+          break;
+        }
         case 'invalid':
           this._tone(200, 'sawtooth', 0.15, 0.1);
           this.vibrate([20, 50, 20]);

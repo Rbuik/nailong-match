@@ -2107,6 +2107,7 @@
     const iceHitList = [];
     const seenIce = {};
     let chainBroken = 0;
+    let sandDug = false;   // 一轮消除里不管挖掉几格沙，只播一次沙子音效
 
     const addIce = (r, c) => {
       if (!inB(r, c) || !isIced(r, c)) return;
@@ -2133,6 +2134,7 @@
       // 🟫 流沙：只挖沙，方块 / 货物 / 道具原封不动留着，道具也不生效
       if (isSanded(p.r, p.c)) {
         S.sand[p.r][p.c] = 0;
+        sandDug = true;
         FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '挖走流沙 🟫', '#b98b4e', 13);
         return;
       }
@@ -2168,10 +2170,12 @@
         if (S.fog[rr] && S.fog[rr][cc]) S.fog[rr][cc] = 0;
         if (S.sand[rr] && S.sand[rr][cc]) {
           S.sand[rr][cc] = 0;
+          sandDug = true;
           FX.text(cc * CELL + CELL / 2, rr * CELL + CELL / 2, '挖走流沙 🟫', '#b98b4e', 13);
         }
       });
     });
+    if (sandDug) AudioManager.playSFX('sand');
 
     if (!clearSet.size) {
       // 全是障碍（比如整片冰 + 锁链）：没有可消的方块，直接返回
