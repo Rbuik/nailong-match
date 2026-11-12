@@ -751,6 +751,12 @@ function check(name, ok) {
     htmlSrc0.includes('id="tool-confirm"') &&
     /#tool-confirm > div/.test(cssSrc7) && /#tool-confirm \.btn-primary/.test(cssSrc7) &&
     htmlSrc0.includes('点提示、洗牌或撤回都会先弹确认窗口'));
+  check('说明精简：只讲是什么、留关键数值，不再堆长解释',
+    !htmlSrc0.includes('每笔后面小字写清来由（比如通关奖励') &&
+    !htmlSrc0.includes('别用固定思路') && !htmlSrc0.includes('（尽量每天不重样）') &&
+    !htmlSrc0.includes('手指滑到哪个圆点就显示哪件道具') &&
+    htmlSrc0.includes('📅 每日挑战') && htmlSrc0.includes('⭐ 星级评价怎么算') &&
+    htmlSrc0.includes('300 金币') && htmlSrc0.includes('狂热 6 秒'));
   check('方块恢复原始矢量绘制，贴图缓存已撤销（画面不糊）',
     !/function tileSprite\(/.test(jsSrc) && !/const TILE_CACHE\b/.test(jsSrc) &&
     !/clearTileCache\(\)/.test(jsSrc) && !/ctx\.drawImage\(sprite,/.test(jsSrc) &&
@@ -824,13 +830,13 @@ function check(name, ok) {
     featsHtml.includes('📮 邮箱') && !featsHtml.includes('基本玩法') &&
     !featsHtml.includes('所有人同一局') &&
     /🎯 每日任务[\s\S]*?<\/p>\s*<p><b>📅 每日挑战/.test(featsHtml));
-  check('说明页文案按最新要求更新（金币 / 退出面板 / 称号分类 / 忘记密码 / 删「场上还剩」）',
-    featsHtml.includes('点<b>「金币」</b>可查看<b>金币明细</b>') && !featsHtml.includes('点右边的数字不跳转') &&
-    featsHtml.includes('<b>👆 退出面板</b>：点面板外的空白回上一层。</p>') && !featsHtml.includes('按游客玩') &&
-    featsHtml.includes('称号分为：学徒→新星→达人→高手→大师→宗师') &&
-    featsHtml.includes('需填写「名字 + 身份号码」') && !featsHtml.includes('同一台手机上直接设新密码') &&
-    !featsHtml.includes('场上还剩 N 件') && featsHtml.includes('同一天所有人的') &&
-    featsHtml.includes('棋盘与榜单都在<b>每日00:00重置</b>'));
+  check('说明页精简后仍写清金币 / 返回 / 称号 / 忘记密码 / 每日挑战',
+    featsHtml.includes('点金币看明细') && !featsHtml.includes('点右边的数字不跳转') &&
+    featsHtml.includes('点面板外空白返回上一层') && !featsHtml.includes('按游客玩') &&
+    featsHtml.includes('称号：学徒→新星→达人→高手→大师→宗师') &&
+    featsHtml.includes('需名字 + 身份号码') && !featsHtml.includes('同一台手机上直接设新密码') &&
+    !featsHtml.includes('场上还剩 N 件') && featsHtml.includes('当天所有人棋盘一样') &&
+    featsHtml.includes('每日 00:00 重置'));
   $('features-menu').dispatch('click');
   check('功能介绍「返回」回到规则首页', $('features-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
   $('btn-goto-play-rules').dispatch('click');
@@ -3455,13 +3461,11 @@ function check(name, ok) {
       plan3 && plan3.type === Sp.TYPE.PROPELLER;
   })());
 
-  check('说明页组合技每一条的「A + B」都加粗，格式统一', (() => {
+  check('说明页组合技精简成三段，9 种组合仍列全', (() => {
     const sec = htmlSrc.slice(htmlSrc.indexOf('💥 组合技'), htmlSrc.indexOf('🔥 连击与倍率'));
-    const lines = sec.split('\n').filter((l) => l.includes('<p>·'));
-    return lines.length >= 9 && lines.every((l) => {
-      const t = l.trim();
-      return t.includes('→') ? /<p>· <b>.+<\/b> →/.test(t) : /<p>· <b>.+<\/b>/.test(t);
-    });
+    return !sec.includes('<p>·') && ['线消+线消', '线消+炸弹', '炸弹+炸弹',
+      '彩虹+线消 / 炸弹', '彩虹+彩虹', '彩虹+磁铁', '炸弹+磁铁', '磁铁+磁铁',
+      '霜块 / 颜料 / 螺旋桨'].every((s) => sec.includes(s));
   })());
 
   check('README 目录是树形结构（├──/└── + 行内说明），仓库根列表顺序不变', (() => {
@@ -3660,10 +3664,10 @@ function check(name, ok) {
   check('霜块只在机关关卡：普通关 hazardLevel=false，机关关 hazardLevel=true',
     flagPlain === false && flagHazard === true);
 
-  check('规则页：线消带 ↔️/↕️ 图示，霜块写明「只在机关关卡时每 6 步长一个」', (() => {
+  check('规则页：线消带 ↔️/↕️ 图示，霜块写明机关关每 6 步长一个', (() => {
     return htmlSrc0.indexOf('<b>线消↔️/↕️</b>') > 0 &&
       htmlSrc0.indexOf('线消</b>：4 连生成') < 0 &&
-      htmlSrc0.indexOf('<b>霜块❄️</b>：在机关关卡时，每6步自动长一个；消掉它，3 步内所有机关暂停。') > 0;
+      htmlSrc0.includes('霜块❄️</b>：机关关每 6 步长一个；消掉后机关暂停 3 步。');
   })());
 
   check('机关提示条：页面有 hazard-bar，样式有 hazard-chip，开局 / 每步都会刷新',
