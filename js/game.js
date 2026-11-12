@@ -28,7 +28,7 @@
   // ==================== 机关节拍 ====================
   const IVY_EVERY = 3;      // 常春藤：每 3 步长一格
   const IVY_FAIL = 26;      // 常春藤长到 26 格 = 铺满一半，直接判负
-  const SAND_EVERY = 3;     // 流沙：每 3 步吞掉沙上的一件货
+  // 流沙不再定时埋货：货物 / 道具一落进沙里就被沙封住，挖掉沙才恢复
   const TRACK_EVERY = 4;    // 移动轨道：每 4 步整行滑一格
   const FROST_TURNS = 3;    // ❄️ 霜块：解除后定格 3 步
   const FROST_EVERY = 6;    // ❄️ 霜块：机关关卡里每 6 步自动长一个
@@ -118,7 +118,7 @@
     // —— 机关（第二轮新增，全部是逐格数组，整份跟着存档 / 撤回快照走）——
     ivy: [],            // 常春藤（0/1）：每 3 步往外长一格，铺满 26 格直接失败
     box: [],            // 保险箱（0~2）：相邻消除敲一次，敲开掉一件货
-    sand: [],           // 流沙（0/1）：底行有沙的列送不了货，每 3 步埋掉沙上的货
+    sand: [],           // 流沙（0/1）：沙里的方块钉死，落进沙的货 / 道具被封住，挖沙才恢复
     tbomb: [],          // 步数炸弹（剩余步数）：归零直接失败，消除该格可拆
     fog: [],            // 迷雾（0/1）：看不见下面的方块，消掉旁边才显形
     portalAt: [],       // 传送门（"r,c" -> {r,c}）：货物落到一端直接跳到另一端
@@ -287,8 +287,19 @@
   function isFogged(r, c) {
     return !!(S.fog[r] && S.fog[r][c]);
   }
+  function isSanded(r, c) {
+    return !!(S.sand[r] && S.sand[r][c]);
+  }
   function isLocked(r, c) {
-    return isIced(r, c) || isChained(r, c) || isBoxed(r, c) || isFogged(r, c);
+    return isIced(r, c) || isChained(r, c) || isBoxed(r, c) || isFogged(r, c) || isSanded(r, c);
+  }
+  // 沙格里的道具被闷住：炸弹 / 线消波及到沙格时也不许连锁引爆，挖沙只挖沙
+  function sandKeys() {
+    const out = new Set();
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) if (isSanded(r, c)) out.add(kOf(r, c));
+    }
+    return out;
   }
 
   // ---------- 货物（钥匙 / 奶龙）允许重叠 ----------
@@ -520,28 +531,8 @@
     return grew;
   }
 
-  // 🟫 每 3 步吞掉沙上的货（吞掉的不算送达，目标数会跟着场上实际数量重算）
-  function burySand() {
-    let n = 0;
-    for (let r = 0; r < ROWS; r++) {
-      for (let c = 0; c < COLS; c++) {
-        if (!S.sand[r] || !S.sand[r][c]) continue;
-        const b = S.board[r][c];
-        if (!b || !b.cargo) continue;
-        const list = cargoList(b);
-        n += list.length;
-        b.cargo = null;
-        FX.text(c * CELL + CELL / 2, r * CELL + CELL / 2, '被流沙埋住 🟫', '#a9793f', 14);
-      }
-    }
-    if (n) {
-      S.cargoLeft = Math.max(0, S.cargoLeft - n);
-      syncGoalFromBoard();
-      updateTargetBar();
-      toast('🟫 流沙埋掉了 ' + n + ' 件货，先把沙挖掉');
-    }
-    return n;
-  }
+  // 🟫 流沙里的东西一律「封住」：货物不显示、不算送达，道具不生效；
+  // 挖掉沙之后原封不动露出来，若已在底行，下一次 collectCargo 才把货算送达。
 
   // 🚄 每 4 步整行滑一格（只挪方块，果冻 / 机关留在原地）：
   // 每局每次都随机挑一排滑（避开首尾两行）；滑动有「慢慢推过去」的动画 + 石头摩擦声
@@ -718,7 +709,7 @@
         }
       }
       if (S.turnCount % IVY_EVERY === 0) growIvy();
-      if (S.turnCount % SAND_EVERY === 0) burySand();
+      // 流沙不再定时埋货：落进沙里即时被封住
       if (S.turnCount % TRACK_EVERY === 0) await shiftTrack();
       if (S.turnCount % FROST_EVERY === 0 && S.hazardLevel) spawnFrost();
     }
@@ -829,7 +820,8 @@
         const same = c < COLS && S.board[r][c] && S.board[r][c - 1]
           && S.board[r][c].type === S.board[r][c - 1].type
           && !isIced(r, c) && !isIced(r, c - 1)
-          && !isFogged(r, c) && !isFogged(r, c - 1);
+          && !isFogged(r, c) && !isFogged(r, c - 1)
+          && !isSanded(r, c) && !isSanded(r, c - 1);
         if (same) run++;
         else {
           if (run >= 3) for (let k = c - run; k < c; k++) set.add(kOf(r, k));
@@ -843,7 +835,8 @@
         const same = r < ROWS && S.board[r][c] && S.board[r - 1][c]
           && S.board[r][c].type === S.board[r - 1][c].type
           && !isIced(r, c) && !isIced(r - 1, c)
-          && !isFogged(r, c) && !isFogged(r - 1, c);
+          && !isFogged(r, c) && !isFogged(r - 1, c)
+          && !isSanded(r, c) && !isSanded(r - 1, c);
         if (same) run++;
         else {
           if (run >= 3) for (let k = r - run; k < r; k++) set.add(kOf(k, c));
@@ -907,7 +900,8 @@
     const slots = [];   // 这些方块可以落的位置（棋盘上所有有方块的格子）
     for (let r = 0; r < ROWS; r++) {
       for (let c = 0; c < COLS; c++) {
-        if (S.board[r][c]) { cells.push(S.board[r][c]); slots.push([r, c]); }
+        // 冰块 / 迷雾 / 流沙 / 锁链 / 保险箱里的方块钉死不动，不参与洗牌
+        if (S.board[r][c] && !isLocked(r, c)) { cells.push(S.board[r][c]); slots.push([r, c]); }
       }
     }
     const putBack = () => {
@@ -1404,7 +1398,8 @@
         const k = kOf(r, c);
 
         // 货物：贴在方块上的钥匙 / 奶龙（一格可能压着多件，允许重合）
-        if (b && !(skip && skip[k])) {
+        // 🟫 落进沙里的货物 / 道具被沙吞住：挖掉沙之前不显示，也不算送达
+        if (b && !(skip && skip[k]) && !isSanded(r, c)) {
           const list = cargoList(b);
           if (list.length) {
             const cy = (cargoAt && cargoAt[k] != null) ? cargoAt[k] : y;
@@ -2072,7 +2067,7 @@
       if (matched.size === 0) break;
 
       // 展开特殊块连锁
-      const expanded = Specials.expandClears(S.board, ROWS, COLS, matched, {});
+      const expanded = Specials.expandClears(S.board, ROWS, COLS, matched, { lockedCells: sandKeys() });
       const cells = expanded.cells;
 
       await resolveClear(cells, expanded.boomPoints);
@@ -2116,6 +2111,12 @@
         FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '解锁 🔗', '#8a93a3', 14);
         return;
       }
+      // 🟫 流沙：只挖沙，方块 / 货物 / 道具原封不动留着，道具也不生效
+      if (isSanded(p.r, p.c)) {
+        S.sand[p.r][p.c] = 0;
+        FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '挖走流沙 🟫', '#b98b4e', 13);
+        return;
+      }
       clearSet.add(k);
     });
     // 相邻消除顺带砸冰
@@ -2140,15 +2141,16 @@
         FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '拆掉炸弹 ⚠️ +120', '#ff9a3c', 14);
         AudioManager.playSFX('coin');
       }
-      if (S.sand[p.r] && S.sand[p.r][p.c]) {
-        S.sand[p.r][p.c] = 0;
-        FX.text(p.c * CELL + CELL / 2, p.r * CELL + CELL / 2, '挖走流沙 🟫', '#b98b4e', 13);
-      }
       if (S.fog[p.r] && S.fog[p.r][p.c]) S.fog[p.r][p.c] = 0;
-      // 迷雾：消掉旁边也显形（本格 + 上下左右）
+      // 迷雾 / 流沙：消掉旁边也散开、挖走（本格 + 上下左右）；只清这一层，格子里的东西原封不动
       [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]].forEach((d) => {
         const rr = p.r + d[0], cc = p.c + d[1];
-        if (inB(rr, cc) && S.fog[rr] && S.fog[rr][cc]) S.fog[rr][cc] = 0;
+        if (!inB(rr, cc)) return;
+        if (S.fog[rr] && S.fog[rr][cc]) S.fog[rr][cc] = 0;
+        if (S.sand[rr] && S.sand[rr][cc]) {
+          S.sand[rr][cc] = 0;
+          FX.text(cc * CELL + CELL / 2, rr * CELL + CELL / 2, '挖走流沙 🟫', '#b98b4e', 13);
+        }
       });
     });
 
@@ -2313,7 +2315,16 @@
         deliveredNow[d.c].push(d.cargo);
       }
     });
-    Object.keys(deliveredNow).forEach((c) => deliverCargo(deliveredNow[c], Number(c)));
+    Object.keys(deliveredNow).forEach((c) => {
+      const col = Number(c);
+      // 🟫 这一列还有沙 = 货被沙吞住，不许走「整列清空直送」，留到挖沙后按底行规则算
+      let blocked = false;
+      for (let r = 0; r < ROWS; r++) if (isSanded(r, col)) { blocked = true; break; }
+      if (!blocked) { deliverCargo(deliveredNow[c], col); return; }
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (S.board[r][col]) { deliveredNow[c].forEach((cg) => addCargo(S.board[r][col], cg)); break; }
+      }
+    });
     const fallFrom = dropAndFill();
     await animateDrop(fallFrom);
     S.landAnims = [];
@@ -2418,7 +2429,7 @@
 
   // 立即引爆某一格上的特殊块（供道具自动消耗使用）
   async function detonateAt(r, c) {
-    const expanded = Specials.expandClears(S.board, ROWS, COLS, new Set([kOf(r, c)]), {});
+    const expanded = Specials.expandClears(S.board, ROWS, COLS, new Set([kOf(r, c)]), { lockedCells: sandKeys() });
     await resolveClear(expanded.cells, expanded.boomPoints);
   }
 
@@ -2444,10 +2455,10 @@
   function dropAndFill() {
     const fallFrom = {};
     for (let c = 0; c < COLS; c++) {
-      // 迷雾里的方块钉死不动：以雾格为界，把这一列分成几段各自下落 / 补充
+      // 迷雾里的方块钉死不动（流沙里的也一样）：以这些格子为界，把这一列分成几段各自下落 / 补充
       let bottom = ROWS - 1;
       for (let r = ROWS - 1; r >= -1; r--) {
-        const anchor = r >= 0 && isFogged(r, c);
+        const anchor = r >= 0 && (isFogged(r, c) || isSanded(r, c));
         if (r < 0 || anchor) {
           if (anchor && !S.board[r][c]) S.board[r][c] = { type: nextType(), special: T.NORMAL };
           const top = r + 1;
@@ -2519,7 +2530,8 @@
       drawStatic();
       AudioManager.playSFX('invalid');
       toast(isFogged(a.r, a.c) || isFogged(b.r, b.c) ? '迷雾里的方块动不了'
-        : (isIced(a.r, a.c) || isIced(b.r, b.c) ? '冰块里的方块动不了' : '锁住的方块动不了'));
+        : (isSanded(a.r, a.c) || isSanded(b.r, b.c) ? '沙子里的方块动不了'
+        : (isIced(a.r, a.c) || isIced(b.r, b.c) ? '冰块里的方块动不了' : '锁住的方块动不了')));
       return;
     }
 

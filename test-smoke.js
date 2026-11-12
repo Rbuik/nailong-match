@@ -3562,7 +3562,7 @@ function check(name, ok) {
 
   check('棋盘接入机关：状态数组 / 开局摆放 / 每步结算 / 失败原因 / 传送门与流沙 / 存档与快照', (() => {
     return /S\.ivy = \[\]/.test(jsSrc) && /S\.tbomb = \[\]/.test(jsSrc) && /S\.portalAt = \[\]/.test(jsSrc) &&
-      /function growIvy/.test(jsSrc) && /function burySand/.test(jsSrc) &&
+      /function growIvy/.test(jsSrc) && /function isSanded/.test(jsSrc) &&
       /function shiftTrack/.test(jsSrc) && /function spawnFrost/.test(jsSrc) &&
       /function tickHazards/.test(jsSrc) && /tickHazards\(\);/.test(jsSrc) &&
       /function failByHazard/.test(jsSrc) && /S\.failReason/.test(jsSrc) &&
@@ -3746,7 +3746,7 @@ function check(name, ok) {
     /!isFogged\(r, c\) && !isFogged\(r - 1, c\)/.test(jsSrc) &&
     /迷雾里的方块动不了/.test(jsSrc) &&
     /迷雾里的方块钉死不动/.test(jsSrc) &&
-    /const anchor = r >= 0 && isFogged\(r, c\)/.test(jsSrc) &&
+    /const anchor = r >= 0 && \(isFogged\(r, c\) \|\| isSanded\(r, c\)\)/.test(jsSrc) &&
     htmlSrc0.includes('雾散开之前里面的方块不能动') &&
     (() => {
       const S = sandbox.__nl_test.state();
@@ -3790,6 +3790,40 @@ function check(name, ok) {
       start(steps);
       const s = flags();
       return t.extraMoves === true && t.extraTime === false && s.extraTime === true && s.extraMoves === false;
+    })());
+
+
+  check('流沙：冰/雾/沙格洗牌不动，沙里方块钉死，货与道具被封住，挖沙只挖沙',
+    /function isSanded\(r, c\)/.test(jsSrc) &&
+    /isFogged\(r, c\) \|\| isSanded\(r, c\)/.test(jsSrc) &&
+    /!isSanded\(r, c\) && !isSanded\(r, c - 1\)/.test(jsSrc) &&
+    /!isSanded\(r, c\) && !isSanded\(r - 1, c\)/.test(jsSrc) &&
+    /!isLocked\(r, c\)\) \{ cells\.push/.test(jsSrc) &&
+    /\(isFogged\(r, c\) \|\| isSanded\(r, c\)\)/.test(jsSrc) &&
+    /沙子里的方块动不了/.test(jsSrc) &&
+    /if \(isSanded\(p\.r, p\.c\)\)/.test(jsSrc) &&
+    /!isSanded\(r, c\)\)/.test(jsSrc) &&
+    /这一列还有沙/.test(jsSrc) &&
+    /lockedCells: sandKeys\(\)/.test(jsSrc) &&
+    /lockedCells && lockedCells\.has\(k\)/.test(fs.readFileSync(path.join(__dirname, 'js', 'specials.js'), 'utf8')) &&
+    !/burySand\(\)/.test(jsSrc) &&
+    htmlSrc0.includes('落进沙里就被沙吞住') &&
+    (() => {
+      const t = sandbox.__nl_test;
+      t.start(1, { def: { id: 65, theme: 'desert', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
+      const S = t.state();
+      const rows = S.board.length, cols = S.board[0].length;
+      S.sand = Array.from({ length: rows }, () => Array(cols).fill(0));
+      S.sand[3][2] = 1;
+      for (let r = 0; r < rows; r++) S.board[r][2] = { type: 'a', special: 0 };
+      const inMatch = t.findMatches().has('3,2');
+      const cell = S.board[3][2];
+      S.board[5][2] = null;
+      t.dropAndFill();
+      const fixed = S.board[3][2] === cell;
+      const before = S.board[3][2];
+      t.reshuffle();
+      return !inMatch && fixed && S.board[3][2] === before;
     })());
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');

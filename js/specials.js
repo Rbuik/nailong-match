@@ -248,6 +248,7 @@
   // 迭代扩展：把被消除的特殊块一起引爆（链式）
   function expandClears(board, R, C, seed, opts) {
     opts = opts || {};
+    const lockedCells = opts.lockedCells || null;
     const cells = new Set(seed);
     const boomPoints = [];
     const queue = Array.from(cells).map((k) => ({ k, cause: 'match' }));
@@ -256,6 +257,8 @@
 
     while (queue.length) {
       const { k } = queue.shift();
+      // 被流沙封住的格子：方块还在，但上面的道具不参与连锁引爆
+      if (lockedCells && lockedCells.has(k)) continue;
       const p = parse(k);
       const block = board[p.r] && board[p.r][p.c];
       if (!block) continue;
