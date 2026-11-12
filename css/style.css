@@ -36,6 +36,29 @@ button:active, select:active {
 }
 
 canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: block; max-width: 100%; height: auto; }
+
+/* 棋盘与下方提示分层：两排机关胶囊 / 节拍条只向下展开，
+   不占垂直居中的高度，既不挤压棋盘，也不推动棋盘以上的位置 */
+.board-stage {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 51px;      /* 顶替原来下方区域占的主轴高度，居中位置不变 */
+}
+.below-board {
+  position: absolute;
+  top: 100%;
+  left: 0; right: 0;
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  pointer-events: none;
+}
+.hud, .target-bar, .tools, .board-wrap { flex: 0 0 auto; }
 @media (min-width: 600px) { .board-wrap { padding: 22px; } }
 
 /* HUD 优化 */

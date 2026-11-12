@@ -750,11 +750,15 @@ function check(name, ok) {
   check('新确认窗已纳入统一按钮尺寸规则',
     htmlSrc0.includes('id="tool-confirm"') &&
     /#tool-confirm > div/.test(cssSrc7) && /#tool-confirm \.btn-primary/.test(cssSrc7) &&
-    htmlSrc0.includes('点提示、洗牌或撤回都会先弹确认窗口'));
-  check('说明精简：只讲是什么、留关键数值，不再堆长解释',
+    !htmlSrc0.includes('点提示、洗牌或撤回都会先弹确认窗口'));
+  check('说明精简且每条独立一行，不合并',
     !htmlSrc0.includes('每笔后面小字写清来由（比如通关奖励') &&
     !htmlSrc0.includes('别用固定思路') && !htmlSrc0.includes('（尽量每天不重样）') &&
     !htmlSrc0.includes('手指滑到哪个圆点就显示哪件道具') &&
+    !htmlSrc0.includes('；<b>收集方块</b>') && !htmlSrc0.includes('。<b>步数炸弹') &&
+    !htmlSrc0.includes('：2 连 ×1.5、3 连') &&
+    !htmlSrc0.includes('挖沙只挖沙') && !htmlSrc0.includes('沙沙声') &&
+    !htmlSrc0.includes('手动交换') && !htmlSrc0.includes('撤回不会抹掉买的 3 步') &&
     htmlSrc0.includes('📅 每日挑战') && htmlSrc0.includes('⭐ 星级评价怎么算') &&
     htmlSrc0.includes('300 金币') && htmlSrc0.includes('狂热 6 秒'));
   check('方块恢复原始矢量绘制，贴图缓存已撤销（画面不糊）',
@@ -2735,6 +2739,24 @@ function check(name, ok) {
     cssSrc.includes('min-height: calc(100vh - 12px);') &&
     cssSrc.includes('min-height: calc(100dvh - 12px);'));
   check('游戏页内容在多出的高度里垂直居中', /\.game-container\s*{[^}]*justify-content: center;/.test(cssSrc));
+  check('棋盘下方两排不挤压棋盘、不推动上方：下方层不占垂直流',
+    /\.board-stage\s*\{[^}]*position:\s*relative[^}]*margin-bottom:\s*51px/.test(cssSrc) &&
+    /\.below-board\s*\{[^}]*position:\s*absolute/.test(cssSrc) &&
+    /\.hud, \.target-bar, \.tools, \.board-wrap \{ flex: 0 0 auto; \}/.test(cssSrc) &&
+    htmlSrc0.includes('class="board-stage"') && htmlSrc0.includes('class="below-board"'));
+  check('背包道具只落在没有任何东西的干净方块上',
+    /function cleanForItem\(r, c\)/.test(jsSrc) &&
+    /if \(!cleanForItem\(r, c\)\) continue;/.test(jsSrc) &&
+    /cleanForItem\(r, c\)\) free\.push/.test(jsSrc) &&
+    /isFogged\(r, c\) \|\| isSanded\(r, c\)/.test(jsSrc) &&
+    /S\.ivy\[r\] && S\.ivy\[r\]\[c\]/.test(jsSrc) &&
+    /S\.tbomb\[r\] && S\.tbomb\[r\]\[c\]/.test(jsSrc) &&
+    /if \(!canPlaceNew\(r, c\)\) return false/.test(jsSrc));
+  check('提示更醒目：金色发光粗框 + 交换箭头 + 显示更久',
+    /rgba\(255, 196, 0/.test(jsSrc) && /#ff7a00/.test(jsSrc) &&
+    /a\.r === b\.r \? '↔' : '↕'/.test(jsSrc) &&
+    /performance\.now\(\) \+ 4000/.test(jsSrc) &&
+    !/rgba\(124,92,255/.test(jsSrc));
 
   // 41. 本轮改动（2026-11-06 晚）
   // 41a. 名字区分大小写：Yone / yone 是两个不同的号；登录有大小写唯一兜底
@@ -3461,11 +3483,13 @@ function check(name, ok) {
       plan3 && plan3.type === Sp.TYPE.PROPELLER;
   })());
 
-  check('说明页组合技精简成三段，9 种组合仍列全', (() => {
+  check('说明页组合技每条独立一行，「A + B」加粗格式统一', (() => {
     const sec = htmlSrc.slice(htmlSrc.indexOf('💥 组合技'), htmlSrc.indexOf('🔥 连击与倍率'));
-    return !sec.includes('<p>·') && ['线消+线消', '线消+炸弹', '炸弹+炸弹',
-      '彩虹+线消 / 炸弹', '彩虹+彩虹', '彩虹+磁铁', '炸弹+磁铁', '磁铁+磁铁',
-      '霜块 / 颜料 / 螺旋桨'].every((s) => sec.includes(s));
+    const lines = sec.split('\n').filter((l) => l.includes('<p>·'));
+    return lines.length >= 9 && lines.every((l) => {
+      const t = l.trim();
+      return t.includes('→') ? /<p>· <b>.+<\/b> →/.test(t) : /<p>· <b>.+<\/b>/.test(t);
+    });
   })());
 
   check('README 目录是树形结构（├──/└── + 行内说明），仓库根列表顺序不变', (() => {
@@ -3591,7 +3615,7 @@ function check(name, ok) {
       /raw < 0 \|\| raw >= n/.test(jsSrc) &&
       /\.shop-stage\.shop-dragging \{ scroll-snap-type: none; \}/.test(cssSrc) &&
       /\.shop-dots[^}]*touch-action: none/.test(cssSrc) &&
-      htmlSrc.includes('小圆点上左右滑动') && /## 玩法补充/.test(fs.readFileSync(path.join(__dirname, 'README.md'), 'utf8'));
+      !htmlSrc.includes('小圆点上左右滑动') && /## 玩法补充/.test(fs.readFileSync(path.join(__dirname, 'README.md'), 'utf8'));
   })());
 
   check('商店做成横滑卡片（一次一张 + 圆点指示），背包仍是竖排列表',
@@ -3798,7 +3822,7 @@ function check(name, ok) {
     /迷雾里的方块动不了/.test(jsSrc) &&
     /迷雾里的方块钉死不动/.test(jsSrc) &&
     /const anchor = r >= 0 && \(isFogged\(r, c\) \|\| isSanded\(r, c\)\)/.test(jsSrc) &&
-    htmlSrc0.includes('雾散开之前里面的方块不能动') &&
+    !htmlSrc0.includes('雾散开之前里面的方块不能动') &&
     (() => {
       const S = sandbox.__nl_test.state();
       sandbox.__nl_test.start(1, { def: { id: 65, theme: 'desert', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
@@ -3845,7 +3869,7 @@ function check(name, ok) {
     /useBtn\.disabled = !canUseItems\(\) \|\| itemDisabledHere\(item\.key\)/.test(jsSrc) &&
     /if \(itemDisabledHere\(key\)\)/.test(jsSrc) &&
     !/id="item-blocked"/.test(htmlSrc0) && !/本局不可使用该道具/.test(htmlSrc0) &&
-    htmlSrc0.includes('不适合本局时「使用」键会变灰') &&
+    !htmlSrc0.includes('不适合本局时「使用」键会变灰') &&
     (() => {
       const start = (def) => sandbox.__nl_test.start(1, { def: def });
       const timed = { id: 88, theme: 'ocean', moves: 20, goal: { type: 'timed', target: 100, time: 60 }, stars: [1, 2, 3] };
@@ -3888,7 +3912,7 @@ function check(name, ok) {
     /lockedCells: sandKeys\(\)/.test(jsSrc) &&
     /lockedCells && lockedCells\.has\(k\)/.test(fs.readFileSync(path.join(__dirname, 'js', 'specials.js'), 'utf8')) &&
     !/burySand\(\)/.test(jsSrc) &&
-    htmlSrc0.includes('落进沙里就被沙吞住') &&
+    !htmlSrc0.includes('落进沙里就被沙吞住') &&
     (() => {
       const t = sandbox.__nl_test;
       t.start(1, { def: { id: 65, theme: 'desert', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });

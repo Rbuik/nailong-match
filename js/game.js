@@ -340,6 +340,16 @@
     return true;
   }
 
+  // 背包道具落点：只挑「干干净净、什么都没贴」的普通方块，
+  // 已有道具 / 货物 / 冰 / 锁链 / 木箱 / 传送门由 canPlaceNew 挡掉，
+  // 这里再挡住迷雾、流沙、常春藤、步数炸弹等机关格，避免道具叠在东西上或被封住
+  function cleanForItem(r, c) {
+    if (!canPlaceNew(r, c)) return false;
+    if (isFogged(r, c) || isSanded(r, c)) return false;
+    if ((S.ivy[r] && S.ivy[r][c]) || (S.tbomb[r] && S.tbomb[r][c])) return false;
+    return true;
+  }
+
   // 从一组将被消除的格子（"r,c" 集合）里随机挑一个还能放东西的
   function pickSpotIn(cells) {
     const list = [];
@@ -1587,21 +1597,47 @@
           ctx.restore();
         }
 
-        // 提示：脉动虚线框
+        // 提示：金色脉动底 + 发光橙红粗框，一眼就能看见是哪两格
         if (S.hintCells && now < S.hintUntil) {
           const on = S.hintCells.some((p) => p.r === r && p.c === c);
           if (on) {
-            const k = 0.5 + 0.5 * Math.sin(now / 180);
+            const pulse = 0.5 + 0.5 * Math.sin(now / 150);
             ctx.save();
-            ctx.setLineDash([6, 4]);
-            ctx.lineWidth = 3;
-            ctx.strokeStyle = 'rgba(124,92,255,' + (0.45 + 0.45 * k) + ')';
+            ctx.fillStyle = 'rgba(255, 196, 0,' + (0.20 + 0.20 * pulse) + ')';
             roundRect(x + 2, y + 2, CELL - 4, CELL - 4, 10);
+            ctx.fill();
+            ctx.shadowColor = 'rgba(255, 120, 0, 0.95)';
+            ctx.shadowBlur = 12 + 8 * pulse;
+            ctx.lineWidth = 4 + pulse;
+            ctx.strokeStyle = '#ff7a00';
+            roundRect(x + 3, y + 3, CELL - 6, CELL - 6, 10);
             ctx.stroke();
             ctx.restore();
           }
         }
       }
+    }
+
+    // 提示：两格中间再放一个醒目的交换箭头，指明把这两格换一下
+    if (S.hintCells && S.hintCells.length === 2 && now < S.hintUntil) {
+      const a = S.hintCells[0], b = S.hintCells[1];
+      const mx = (a.c + b.c + 1) * CELL / 2;
+      const my = (a.r + b.r + 1) * CELL / 2;
+      const pulse = 0.5 + 0.5 * Math.sin(now / 150);
+      ctx.save();
+      ctx.shadowColor = 'rgba(255, 120, 0, 0.9)';
+      ctx.shadowBlur = 14;
+      ctx.fillStyle = '#ff7a00';
+      ctx.beginPath();
+      ctx.arc(mx, my, 15 + 1.5 * pulse, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(a.r === b.r ? '↔' : '↕', mx, my);
+      ctx.restore();
     }
   }
 
@@ -2945,11 +2981,11 @@
     // 数字永远和棋盘上能数出来的东西一致（冰块按块算，不按层算）
     syncGoalFromBoard();
 
-    // 道具：开局炸弹（§7）——随机挑一个「还空着」的格子，不和货物 / 冰 / 锁链叠在一起
+    // 道具：开局炸弹（§7）——同样只落在「上面什么都没有」的干净格
     if (opts.startBomb) {
       const free = [];
       for (let r = 0; r < ROWS; r++) {
-        for (let c = 0; c < COLS; c++) if (canPlaceNew(r, c)) free.push([r, c]);
+        for (let c = 0; c < COLS; c++) if (cleanForItem(r, c)) free.push([r, c]);
       }
       if (free.length) {
         const p = free[randInt(free.length)];
@@ -4014,11 +4050,11 @@
       toast('撤回 +1 次');
     } else if (key === 'startBomb' || key === 'startLine' || key === 'rainbow' ||
       key === 'startMagnet' || key === 'startPropeller' || key === 'startPaint' || key === 'startFrost') {
-      // 随机挑一个「还空着」的普通格变成对应特殊块（货物、冰、锁链上的格子不动）
+      // 随机挑一个「上面什么都没有」的普通格变成对应特殊块
       const spots = [];
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          if (!canPlaceNew(r, c)) continue;
+          if (!cleanForItem(r, c)) continue;
           spots.push([r, c]);
         }
       }
@@ -7697,7 +7733,7 @@
     }
     S.hintLeft--;
     S.hintCells = h;
-    S.hintUntil = performance.now() + 2600;
+    S.hintUntil = performance.now() + 4000;
     updateHUD();
     AudioManager.playSFX('select');
     drawStatic();
