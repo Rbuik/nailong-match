@@ -802,7 +802,8 @@ function check(name, ok) {
   check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
   check('规则说明线消横清行竖清列', htmlSrc.includes('横连清整行、竖连清整列'));
   check('规则含 8 种目标', ['普通得分', '收集方块', '清除果冻', '限时得分', '极限步数', '敲碎冰块', '运送钥匙', '护送奶龙'].every((s) => htmlSrc.includes(s)));
-  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') && htmlSrc.includes('下面离它最近的那个方块'));
+  check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') &&
+    !htmlSrc.includes('货物只往下走') && !htmlSrc.includes('下面离它最近的那个方块'));
   check('规则含狂热与节奏说明', htmlSrc.includes('狂热 6 秒') && htmlSrc.includes('节奏关卡'));
   check('规则含提示与续命说明', htmlSrc.includes('每局免费') && htmlSrc.includes('300 金币') && htmlSrc.includes('+7s'));
   check('规则含更多玩法与福利说明', htmlSrc.includes('无尽模式') && htmlSrc.includes('转盘'));  check('规则含成就配色排行榜说明', htmlSrc.includes('棋盘配色') && htmlSrc.includes('🏅 成就') && htmlSrc.includes('总榜 → 省榜 → 局榜'));
