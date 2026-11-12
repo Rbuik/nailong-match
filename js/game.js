@@ -3921,6 +3921,19 @@
     return !!S.playing && !S.busy && !S.paused;
   }
 
+  // 限步关用不上「+7s」、限时关用不上「+3 步」：点「使用」只弹提示，不扣道具
+  function itemBlockedInThisLevel(key) {
+    return (key === 'extraTime' && !S.timerOn) || (key === 'extraMoves' && S.timerOn);
+  }
+  function openItemBlocked() {
+    const box = $('item-blocked');
+    if (box) box.style.display = 'flex';
+  }
+  function closeItemBlocked() {
+    const box = $('item-blocked');
+    if (box) box.style.display = 'none';
+  }
+
   function useBackpackItem(key) {
     if (!canUseItems()) {
       toast('先开始一局游戏，道具在局内使用');
@@ -3933,20 +3946,15 @@
       toast('道具数量不足');
       return false;
     }
-    // +7s 只对限时关有意义：步数关先拦下，别白扣一个
-    if (key === 'extraTime' && !S.timerOn) {
-      toast('这一关按步数算，用不上时间道具');
+    // 本局用不上的道具：只弹提示，不扣道具、不占用次数
+    if (itemBlockedInThisLevel(key)) {
+      openItemBlocked();
       return false;
     }
 
     // 先扣道具再刷新数值，避免徽章把刚用掉的那 1 个也算进总数
     Store.useItem(key);
 
-    // +3 步只在步数关用（限时关有专门的「+7s」，别互相顶替）
-    if (key === 'extraMoves' && S.timerOn) {
-      toast('这一关按时间算，用不上步数道具');
-      return false;
-    }
     if (key === 'extraMoves') {
       S.moves += 3;
       toast('步数 +3');
@@ -4241,6 +4249,7 @@
   // 使用道具确认：点「使用」先弹确认，确认后才真正扣道具生效
   let pendingUse = null;  function openUseConfirm(item) {
     if (!canUseItems()) { useBackpackItem(item.key); return; }   // 未开局：按钮本应禁用，兜底走提示
+    if (itemBlockedInThisLevel(item.key)) { openItemBlocked(); return; }
     pendingUse = item;
     const box = $('use-confirm');
     if (!box) { useBackpackItem(item.key); return; }
@@ -5994,6 +6003,10 @@
     });
     const useNo = $('btn-use-no');
     if (useNo) useNo.addEventListener('click', closeUseConfirm);
+
+    // 本局不可使用该道具：点红色确认键关掉提示
+    const blockedOk = $('btn-item-blocked-ok');
+    if (blockedOk) blockedOk.addEventListener('click', closeItemBlocked);
 
     // ==================== 隐藏后台：同时按住奶龙图案 + 注销键 3 秒 ====================
     const adminMascot = (typeof document.querySelector === 'function')
@@ -9340,6 +9353,7 @@
     reshuffle: reshuffle,
     undoMove: undo,
     useItem: useBackpackItem,
+    openUseConfirm: openUseConfirm,
     findMatches: findMatches,
     autoPause: autoPauseIfPlaying,
     pause: pauseGame,

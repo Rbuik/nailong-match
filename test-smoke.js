@@ -110,7 +110,7 @@ function getEl(id) { if (!els[id]) els[id] = makeEl(id); return els[id]; }
   'daily-menu', 'daily-lb',
   'achievements-menu', 'ach-detail', 'collection-menu', 'welfare-menu', 'leaderboard-menu',
   'lb-view', 'nick-menu', 'revive-menu', 'auth-menu', 'auth-form', 'auth-forgot', 'fix-menu', 'cloud-menu',
-  'buy-confirm', 'use-confirm', 'reset-bgm-confirm', 'mail-delall-confirm', 'makeup-menu', 'coin-menu'
+  'buy-confirm', 'use-confirm', 'item-blocked', 'reset-bgm-confirm', 'mail-delall-confirm', 'makeup-menu', 'coin-menu'
 ].forEach((id) => getEl(id));
 
 const documentStub = {
@@ -3023,6 +3023,29 @@ function check(name, ok) {
     return ok === true && Math.round(after) === 49 && bad === false && still === have;
   })());
 
+  check('限时关用 +3 步 / 步数关用 +7s：弹「本局不可使用该道具」提示且不扣道具', (() => {
+    const blockedOpen = () => $('item-blocked').style.display === 'flex';
+    const start = (def) => sandbox.__nl_test.start(1, { def: def });
+    const timed = { id: 88, theme: 'ocean', moves: 20, goal: { type: 'timed', target: 100, time: 60 }, stars: [1, 2, 3] };
+    const steps = { id: 87, theme: 'candy', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] };
+    start(timed);
+    sandbox.Store.addItem('extraMoves', 1);
+    const have1 = sandbox.Store.getWallet().items.extraMoves;
+    sandbox.__nl_test.openUseConfirm({ key: 'extraMoves', name: '+3 步' });
+    const a = blockedOpen() && $('use-confirm').style.display !== 'flex' &&
+      (sandbox.Store.getWallet().items.extraMoves || 0) === have1;
+    $('btn-item-blocked-ok').dispatch('click');
+    const a2 = !blockedOpen();
+    start(steps);
+    sandbox.Store.addItem('extraTime', 1);
+    const have2 = sandbox.Store.getWallet().items.extraTime;
+    sandbox.__nl_test.openUseConfirm({ key: 'extraTime', name: '+7s' });
+    const b = blockedOpen() && $('use-confirm').style.display !== 'flex' &&
+      (sandbox.Store.getWallet().items.extraTime || 0) === have2;
+    $('btn-item-blocked-ok').dispatch('click');
+    return a && a2 && b && !blockedOpen();
+  })());
+
   // 41m. 续命：300 金币；限时关的按钮写「再来 7s」（和 HUD 的 Ns 格式一致）
   check('续命 300 金币，限时关按钮写「再来 7s」',
     /const REVIVE_COST = 300;/.test(jsSrc) && /再来 7s/.test(jsSrc) &&
@@ -3737,6 +3760,19 @@ function check(name, ok) {
     /Store\.addCoins\(coins, '邮件附件', m\.title\)/.test(mailJs) &&
     /pushLedger\(n, memo, detail\)/.test(stgJs) &&
     /<small class="ledger-detail">' \+ escHtml\(x\.x\)/.test(jsSrc));
+
+  check('本局不可用道具弹窗：单个红色确认键，规格与其他确认窗口一致',
+    htmlSrc0.includes('id="item-blocked"') && htmlSrc0.includes('本局不可使用该道具') &&
+    htmlSrc0.includes('id="btn-item-blocked-ok"') &&
+    /id="item-blocked"[\s\S]{0,260}btn-danger[\s\S]{0,80}btn-item-blocked-ok/.test(htmlSrc0) &&
+    !/id="item-blocked"[\s\S]{0,260}btn-success/.test(htmlSrc0) &&
+    /#item-blocked > div/.test(cssSrc) && /#item-blocked \.btn-primary/.test(cssSrc) &&
+    /width: 112px;/.test(cssSrc) && /padding: 9px 0;/.test(cssSrc) &&
+    /font-size: 14px;/.test(cssSrc) && /border-radius: 22px;/.test(cssSrc) &&
+    /function itemBlockedInThisLevel/.test(jsSrc) && /function openItemBlocked/.test(jsSrc) &&
+    /function closeItemBlocked/.test(jsSrc) &&
+    /if \(itemBlockedInThisLevel\(key\)\) \{[\s\S]{0,80}openItemBlocked\(\)/.test(jsSrc) &&
+    /btn-item-blocked-ok/.test(jsSrc));
 
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
