@@ -172,15 +172,15 @@
     return `目标：得分 ${state.current} / ${state.target}（${remainText(state)}）`;
   }
 
-  // 星级：1 星过关，2/3 星看分数阈值或剩余步数比例
+  // 星级：1 星过关，2/3 星只比分数（规则简单好懂，不用记剩余步数，也不用写进说明）
   function stars(def, score, remainRatio) {
     const th = (def && def.stars) || [];
     const s1 = th[0] || (def && def.goal && def.goal.target) || 1;
-    const s2 = th[1] || s1 * 1.4;
-    const s3 = th[2] || s1 * 1.9;
+    const s2 = th[1] || s1 * 1.5;
+    const s3 = th[2] || s1 * 2;
 
-    if (score >= s3 || remainRatio >= 0.6) return 3;
-    if (score >= s2 || remainRatio >= 0.3) return 2;
+    if (score >= s3) return 3;
+    if (score >= s2) return 2;
     return 1;
   }
 

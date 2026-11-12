@@ -759,7 +759,7 @@ function check(name, ok) {
     !htmlSrc0.includes('：2 连 ×1.5、3 连') &&
     !htmlSrc0.includes('挖沙只挖沙') && !htmlSrc0.includes('沙沙声') &&
     !htmlSrc0.includes('手动交换') && !htmlSrc0.includes('撤回不会抹掉买的 3 步') &&
-    htmlSrc0.includes('📅 每日挑战') && htmlSrc0.includes('⭐ 星级评价怎么算') &&
+    htmlSrc0.includes('📅 每日挑战') && htmlSrc0.includes('⭐ 星级') &&
     htmlSrc0.includes('300 金币') && htmlSrc0.includes('狂热 6 秒'));
   check('方块恢复原始矢量绘制，贴图缓存已撤销（画面不糊）',
     !/function tileSprite\(/.test(jsSrc) && !/const TILE_CACHE\b/.test(jsSrc) &&
@@ -799,7 +799,7 @@ function check(name, ok) {
   $('btn-rules').dispatch('click');
   check('规则面板打开', $('rules-menu').style.display === 'flex');
   const htmlSrc = fs.readFileSync(path.join(__dirname, 'index.html'), 'utf8');
-  check('规则含星级评价说明', htmlSrc.includes('星级评价') && htmlSrc.includes('分数线'));
+  check('规则只列星级阶段、不写分数线标准', htmlSrc.includes('星级') && !htmlSrc.includes('分数线') && htmlSrc.includes('1★ / 2★ / 3★'));
   check('规则说明线消横清行竖清列', htmlSrc.includes('横连清整行、竖连清整列'));
   check('规则含 8 种目标', ['普通得分', '收集方块', '清除果冻', '限时得分', '极限步数', '敲碎冰块', '运送钥匙', '护送奶龙'].every((s) => htmlSrc.includes(s)));
   check('规则含障碍与货物说明', htmlSrc.includes('障碍与货物') && htmlSrc.includes('送到最底行') &&
@@ -849,7 +849,7 @@ function check(name, ok) {
   const playHtml = htmlSrc.slice(htmlSrc.indexOf('id="play-rules-box"'), htmlSrc.indexOf('id="mail-menu"'));
   check('玩法规则里放的是单局玩法（基本玩法 / 特殊块 / 星级）',
     playHtml.includes('基本玩法') && playHtml.includes('✨ 特殊块') &&
-    playHtml.includes('星级评价怎么算') && !playHtml.includes('福利中心'));
+    playHtml.includes('⭐ 星级') && !playHtml.includes('福利中心'));
   $('play-rules-menu').dispatch('click');
   check('玩法规则「返回」回到规则首页', $('play-rules-menu').style.display === 'none' && $('rules-menu').style.display === 'flex');
   $('rules-menu').dispatch('click');
@@ -3667,6 +3667,13 @@ function check(name, ok) {
     return /const addBox = \(r, c\) =>/.test(rc) && /if \(seenBox\[key\]\) return;/.test(rc) &&
       /addBox\(p\.r - 1, p\.c\)/.test(rc) && /boxHitList\.forEach\(\(p\) => chipBox/.test(rc) &&
       /const hp = S\.box\[r\]\[c\]/.test(jsSrc) && /for \(let i = 0; i < hp; i\+\+\)/.test(jsSrc);
+  })());
+
+  check('部署入口 _worker.js 与后端源码一致（漏了它 /api/rpc 会全部 405，云存档同步不上）', (() => {
+    const a = path.join(__dirname, '_worker.js'), b = path.join(__dirname, '_backend', '_worker.js');
+    return fs.existsSync(a) && fs.existsSync(b) &&
+      fs.readFileSync(a, 'utf8') === fs.readFileSync(b, 'utf8') &&
+      /export default \{/.test(fs.readFileSync(a, 'utf8'));
   })());
 
   check('颜料刷成的颜色取「颜料块底下」那格自己的颜色；生成特殊块时黑底提示条也报一声', (() => {
