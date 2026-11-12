@@ -12,6 +12,11 @@
   // ==================== 常量 ====================
   const COLS = 8, ROWS = 8, MAX_W = 480;
   const FALLBACK_COLORS = ['#ff5c5c', '#5cff8f', '#5c8fff', '#ffd75c', '#c85cff', '#5cffee'];
+  // 方块静态外观预渲染成小图：每帧绘制 64 格只要 64 次 drawImage，
+  // 不用再为每格算阴影模糊 / 渐变 / 裁剪，这是棋盘重绘最费 CPU 的一块
+  const TILE_PAD = 10;
+  const TILE_CACHE = {};
+  function clearTileCache() { for (const k in TILE_CACHE) delete TILE_CACHE[k]; }
   // 冰块：普通冰一出现就是 2 层（要砸两下），厚冰 3 层
   const ICE_BASE = 2;
   const ICE_HARD = 3;
@@ -163,6 +168,7 @@
 
   function resizeCanvas() {
     CELL = computeCell();
+    clearTileCache();   // 格子尺寸变了，贴图要按新 CELL 重做
     VIEW_W = COLS * CELL;
     VIEW_H = ROWS * CELL;
     DPR = Math.min(3, Math.max(1, window.devicePixelRatio || 1));
@@ -193,6 +199,7 @@
       img.fetchPriority = 'high';
       const done = () => {
         loaded++;
+        clearTileCache();   // 图片到了：方块贴图要重做，别一直用颜色占位的缓存
         // 每张图到位就重绘一次：即使其它图还没到，先到的也能显示
         drawStatic();
         if (loaded >= 6) settle();
@@ -1042,6 +1049,64 @@
       Math.round(Number(m[2]) * 0.72) + ',' + Math.round(Number(m[3]) * 0.72) + ',0.55)';
   }
 
+  function roundRectOn(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+
+  // 预渲染一张方块贴图（底板阴影 + 图案 + 高光 + 描边），尺寸留 TILE_PAD 给阴影外溢
+  function tileSprite(type) {
+    if (TILE_CACHE[type]) return TILE_CACHE[type];
+    const cv = document.createElement('canvas');
+    const size = CELL + TILE_PAD * 2;
+    cv.width = size; cv.height = size;
+    const g = cv.getContext('2d');
+    if (!g) return null;
+    const base = CELL - 6;
+    const cx = TILE_PAD + CELL / 2, cy = TILE_PAD + CELL / 2;
+    const x = cx - base / 2, y = cy - base / 2;
+    const radius = Math.max(4, base * 0.18);
+
+    g.save();
+    g.shadowColor = 'rgba(0,0,0,0.30)';
+    g.shadowBlur = base * 0.12;
+    g.shadowOffsetY = base * 0.06;
+    roundRectOn(g, x, y, base, base, radius);
+    g.fillStyle = tileBaseColor(type);
+    g.fill();
+    g.restore();
+
+    g.save();
+    roundRectOn(g, x, y, base, base, radius);
+    g.clip();
+    const img = IMAGES[type];
+    if (img && img.complete && img.naturalWidth > 0) g.drawImage(img, x, y, base, base);
+    else { g.fillStyle = FALLBACK_COLORS[type]; g.fillRect(x, y, base, base); }
+    const hl = g.createLinearGradient(x, y, x, y + base);
+    hl.addColorStop(0, 'rgba(255,255,255,0.45)');
+    hl.addColorStop(0.35, 'rgba(255,255,255,0.12)');
+    hl.addColorStop(0.5, 'rgba(255,255,255,0)');
+    hl.addColorStop(1, 'rgba(0,0,0,0.18)');
+    g.fillStyle = hl;
+    g.fillRect(x, y, base, base);
+    g.restore();
+
+    g.save();
+    roundRectOn(g, x, y, base, base, radius);
+    g.strokeStyle = tileEdgeColor(type);
+    g.lineWidth = 1;
+    g.stroke();
+    g.restore();
+
+    TILE_CACHE[type] = cv;
+    return cv;
+  }
+
   // opts: { alpha, scale, sx, sy }
   function drawBlock(px, py, block, opts) {
     if (!block) return;
@@ -1057,6 +1122,20 @@
     const cx = px + CELL / 2, cy = py + CELL / 2;
     const x = cx - w / 2, y = cy - h / 2;
     const radius = Math.max(4, Math.min(w, h) * 0.18);
+
+    // 常规缩放走贴图缓存：一次 drawImage 代替每格的阴影 / 渐变 / 裁剪
+    if (sx === 1 && sy === 1) {
+      const sprite = tileSprite(block.type);
+      if (sprite) {
+        const d = (CELL + TILE_PAD * 2) * scale;
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(sprite, cx - d / 2, cy - d / 2, d, d);
+        if (block.special) drawSpecialOverlay(block.special, x, y, Math.min(w, h), cx, cy, performance.now());
+        ctx.restore();
+        return;
+      }
+    }
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -7366,7 +7445,8 @@
     const dt = Math.min(0.05, (now - (S.lastFrame || now)) / 1000);
     S.lastFrame = now;
 
-    if (!FX.isEmpty() || FX.getShakeOffset().x || FX.getShakeOffset().y) {
+    const shakeOff = FX.getShakeOffset();
+    if (!FX.isEmpty() || shakeOff.x || shakeOff.y) {
       FX.update(dt);
       if (!S.busy) drawStatic();
     }

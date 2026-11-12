@@ -1707,6 +1707,7 @@ body.m-dragging .m-item { cursor: grabbing; }
   bottom: 16px;
   margin: 0;
   width: auto;
+  min-width: 0;        /* 右下角小键保持「刚好包住文字」 */
   padding: 7px 20px;
   font-size: 14px;
   border-radius: 999px;
@@ -1718,9 +1719,12 @@ body.m-dragging .m-item { cursor: grabbing; }
 /* 结算画面（关卡完成）里的「还有剩余步数/秒数点击继续游戏」：
    实心绿底白字，宽度刚好包住文字，不再固定 180px */
 #level-clear #btn-clear-continue {
+  width: -webkit-fit-content;   /* 安卓 WebView 要这个前缀才认 */
   width: -moz-fit-content;
   width: fit-content;
+  min-width: 0;                 /* 这颗键本来就按字数包住文字，别被通用 180px 拉宽 */
   max-width: 92%;
+  white-space: nowrap;
   padding: 11px 24px;
   font-size: 15px;
   background: #43c56d;

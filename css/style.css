@@ -132,7 +132,11 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
   100% { transform: scale(1); opacity: 1; }
 }
 
-.btn-primary, .btn-secondary { width: 180px; padding: 14px 0; border: none; border-radius: 30px; font-size: 17px; font-weight: bold; cursor: pointer; margin-bottom: 12px; transition: transform 0.1s ease; }
+/* 按键宽度按文字字数伸缩：短字仍不小于原来的 180px，长字自动加宽，桌面 / 安卓一致 */
+.btn-primary, .btn-secondary { width: -webkit-fit-content; width: fit-content; min-width: 180px; max-width: 100%; padding: 14px 18px; border: none; border-radius: 30px; font-size: 17px; font-weight: bold; cursor: pointer; margin-bottom: 12px; transition: transform 0.1s ease; white-space: nowrap; box-sizing: border-box; }
+/* 这些小键本来就按内容宽 / 固定 112px，别被通用 180px 下限拉宽 */
+.prov-card .btn-primary, .btn-primary.slim, .btn-secondary.slim,
+#level-clear #btn-clear-continue, #history-menu #btn-replay-ending { min-width: 0; }
 /* 蓝键统一用「注销账号」那种描边效果，只是换成蓝色：淡蓝底 + 蓝描边 + 蓝字 */
 .btn-primary {
   background: rgba(92, 143, 255, 0.08);
@@ -186,6 +190,7 @@ canvas { border-radius: 12px; background: #ffffff; touch-action: none; display: 
 #buy-confirm .btn-primary, #use-confirm .btn-primary, #reset-bgm-confirm .btn-primary, #mail-delall-confirm .btn-primary,
 #makeup-confirm .btn-primary, #logout-confirm .btn-primary, #logout-confirm2 .btn-primary, #tool-confirm .btn-primary {
   width: 112px;
+  min-width: 0;          /* 确认窗口恒为 112px，不跟着字数伸缩 */
   padding: 9px 0;
   font-size: 14px;
   border-radius: 22px;
@@ -360,6 +365,8 @@ input[type=range]::-webkit-slider-thumb:active { transform: scale(1.2); }
   .tool-btn .badge { font-size: 10px; padding: 1px 5px; }
   .music-btn { width: 34px; height: 34px; }
   .music-btn .icon { font-size: 17px; }
+  /* 安卓窄屏同样按字数伸缩：老 WebView 只认 -webkit-fit-content */
+  .btn-primary, .btn-secondary { width: -webkit-fit-content; width: fit-content; min-width: 180px; max-width: 100%; white-space: nowrap; }
 }
 @media (max-width: 340px) {
   .tool-btn .text { display: none; }

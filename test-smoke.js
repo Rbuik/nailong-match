@@ -751,6 +751,14 @@ function check(name, ok) {
     htmlSrc0.includes('id="tool-confirm"') &&
     /#tool-confirm > div/.test(cssSrc7) && /#tool-confirm \.btn-primary/.test(cssSrc7) &&
     htmlSrc0.includes('点提示、洗牌或撤回都会先弹确认窗口'));
+  check('方块贴图缓存：棋盘每格只画一次 drawImage',
+    /function tileSprite\(/.test(jsSrc) && /const TILE_CACHE = \{\}/.test(jsSrc) &&
+    /clearTileCache\(\)/.test(jsSrc) && /ctx\.drawImage\(sprite,/.test(jsSrc));
+  check('按键按字数伸缩，安卓窄屏也生效，确认窗口仍恒为 112px',
+    /width: -webkit-fit-content/.test(cssSrc7) && /width: fit-content/.test(cssSrc7) &&
+    /@media \(max-width: 520px\)[\s\S]*?width: -webkit-fit-content/.test(cssSrc7) &&
+    /width: 112px/.test(cssSrc7) &&
+    /-webkit-fit-content/.test(fs.readFileSync(path.join(__dirname, 'css', 'themes.css'), 'utf8')));
 
   packRows2 = $('backpack-list').children;
   packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置，弹确认）
