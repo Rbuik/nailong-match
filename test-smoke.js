@@ -3762,6 +3762,33 @@ function check(name, ok) {
       return !fogInMatch && S.board[3][2] === fogCell && S.board[3][2].type === 'a';
     })());
 
+  check('冰/雾/沙里的方块不能手动交换，拖动预览也不会把图案搬出来',
+    /function lockedPair\(a, b\)/.test(jsSrc) &&
+    /if \(!adjacent \|\| lockedPair\(from, to\)\)/.test(jsSrc) &&
+    /if \(!b \|\| isLocked\(p2\.r, p2\.c\)\) return;/.test(jsSrc) &&
+    /if \(isLocked\(cell\.r, cell\.c\)\)/.test(jsSrc) &&
+    /if \(lockedPair\(from, to\)\)/.test(jsSrc) &&
+    (() => {
+      const t = sandbox.__nl_test, S = t.state();
+      t.start(1, { def: { id: 65, theme: 'desert', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
+      const a = { r: 2, c: 2 }, b = { r: 2, c: 3 };
+      const kinds = ['fog', 'ice', 'sand'];
+      const hints = ['迷雾里的方块动不了', '冰块里的方块动不了', '沙子里的方块动不了'];
+      return kinds.every((kind, i) => {
+        ['fog', 'ice', 'sand', 'chain', 'box'].forEach((k) => {
+          S[k] = Array.from({ length: S.board.length }, () => Array(S.board[0].length).fill(0));
+        });
+        S[kind][a.r][a.c] = kind === 'ice' ? 2 : 1;
+        const before = S.board[a.r][a.c], beside = S.board[b.r][b.c];
+        S.selected = a; S.dragTo = b;
+        t.drawStatic();
+        const noPreview = S.dragTo === null;
+        t.swap(a, b);
+        return noPreview && S.board[a.r][a.c] === before && S.board[b.r][b.c] === beside &&
+          String($('toast').textContent).includes(hints[i]);
+      });
+    })());
+
   check('限时关「+3 步」/ 步数关「+7s」使用键置灰，弹窗方案已撤销',
     /function itemDisabledHere/.test(jsSrc) &&
     /useBtn\.disabled = !canUseItems\(\) \|\| itemDisabledHere\(item\.key\)/.test(jsSrc) &&

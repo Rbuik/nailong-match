@@ -293,6 +293,18 @@
   function isLocked(r, c) {
     return isIced(r, c) || isChained(r, c) || isBoxed(r, c) || isFogged(r, c) || isSanded(r, c);
   }
+  // 冰 / 雾 / 沙 / 锁链 / 木箱里的方块一律不能手动交换，也不能借拖动预览露出来
+  function lockedPair(a, b) {
+    return isLocked(a.r, a.c) || (b && isLocked(b.r, b.c));
+  }
+  function lockedToast(a, b) {
+    const cells = b ? [a, b] : [a];
+    const fog = cells.some((p) => isFogged(p.r, p.c));
+    const sand = cells.some((p) => isSanded(p.r, p.c));
+    const ice = cells.some((p) => isIced(p.r, p.c));
+    toast(fog ? '迷雾里的方块动不了' : sand ? '沙子里的方块动不了'
+      : ice ? '冰块里的方块动不了' : '锁住的方块动不了');
+  }
   // 沙格里的道具被闷住：炸弹 / 线消波及到沙格时也不许连锁引爆，挖沙只挖沙
   function sandKeys() {
     const out = new Set();
@@ -1632,24 +1644,31 @@
     }
 
     // 幽灵预览（§13）
+    // 只要有一格被冰 / 雾 / 沙 / 锁链 / 木箱钉住，就不画交换预览：
+    // 预览会把格子里（尤其是迷雾里）的方块图案搬到另一个格子，等于偷看
     if (S.dragTo && inB(S.dragTo.r, S.dragTo.c) && S.selected) {
       const from = S.selected, to = S.dragTo;
-      ctx.save();
-      ctx.globalAlpha = 0.45;
-      ctx.setLineDash([6, 4]);
-      ctx.strokeStyle = '#7c5cff';
-      ctx.lineWidth = 3;
-      roundRect(to.c * CELL + 2, to.r * CELL + 2, CELL - 4, CELL - 4, 10);
-      ctx.stroke();
-      ctx.restore();
-
-      const a = S.board[from.r][from.c], b = S.board[to.r][to.c];
-      if (a && b) {
+      const adjacent = Math.abs(from.r - to.r) + Math.abs(from.c - to.c) === 1;
+      if (!adjacent || lockedPair(from, to)) {
+        S.dragTo = null;
+      } else {
         ctx.save();
-        ctx.globalAlpha = 0.35;
-        drawBlock(to.c * CELL, to.r * CELL, a, { alpha: 0.5 });
-        drawBlock(from.c * CELL, from.r * CELL, b, { alpha: 0.5 });
+        ctx.globalAlpha = 0.45;
+        ctx.setLineDash([6, 4]);
+        ctx.strokeStyle = '#7c5cff';
+        ctx.lineWidth = 3;
+        roundRect(to.c * CELL + 2, to.r * CELL + 2, CELL - 4, CELL - 4, 10);
+        ctx.stroke();
         ctx.restore();
+
+        const a = S.board[from.r][from.c], b = S.board[to.r][to.c];
+        if (a && b) {
+          ctx.save();
+          ctx.globalAlpha = 0.35;
+          drawBlock(to.c * CELL, to.r * CELL, a, { alpha: 0.5 });
+          drawBlock(from.c * CELL, from.r * CELL, b, { alpha: 0.5 });
+          ctx.restore();
+        }
       }
     }
 
@@ -1661,7 +1680,7 @@
         const ang = Math.sin(p * Math.PI * 3) * 0.14;
         [from, to].forEach((p2) => {
           const b = S.board[p2.r][p2.c];
-          if (!b) return;
+          if (!b || isLocked(p2.r, p2.c)) return;
           ctx.save();
           ctx.translate(p2.c * CELL + CELL / 2, p2.r * CELL + CELL / 2);
           ctx.rotate(ang);
@@ -2529,9 +2548,7 @@
       S.shakeCell = { from: a, to: b, t0: performance.now() };
       drawStatic();
       AudioManager.playSFX('invalid');
-      toast(isFogged(a.r, a.c) || isFogged(b.r, b.c) ? '迷雾里的方块动不了'
-        : (isSanded(a.r, a.c) || isSanded(b.r, b.c) ? '沙子里的方块动不了'
-        : (isIced(a.r, a.c) || isIced(b.r, b.c) ? '冰块里的方块动不了' : '锁住的方块动不了')));
+      lockedToast(a, b);
       return;
     }
 
@@ -5757,12 +5774,19 @@
       },
       onDragStart: (cell) => {
         if (!S.playing || S.busy) return;
+        // 钉住的格子不能当拖拽起点：不选中、不预览，松手时统一提示
+        if (isLocked(cell.r, cell.c)) {
+          S.selected = null; S.dragTo = null; drawStatic(); return;
+        }
         S.selected = cell;
         drawStatic();
       },
       onDragMove: (from, to) => {
         if (!S.playing || S.busy) return;
         if (!inB(to.r, to.c)) return;
+        if (lockedPair(from, to)) {
+          S.selected = null; S.dragTo = null; drawStatic(); return;
+        }
         S.selected = from;
         S.dragTo = to;
         drawStatic();
@@ -5771,6 +5795,12 @@
         if (!S.playing || S.busy) return;
         S.dragTo = null;
         S.selected = null;
+        if (lockedPair(from, to)) {
+          lockedToast(from, to);
+          AudioManager.playSFX('invalid');
+          drawStatic();
+          return;
+        }
         trySwap(from, to);
       },
       onCancelDrag: () => {
@@ -5780,6 +5810,15 @@
       },
       onTap: (cell) => {
         if (!S.playing || S.busy) return;
+        // 点冰 / 雾 / 沙 / 锁链 / 木箱直接提示，不进入选中态，杜绝任何预览
+        if (isLocked(cell.r, cell.c)) {
+          S.selected = null; S.dragTo = null;
+          lockedToast(cell, null);
+          AudioManager.playSFX('invalid');
+          drawStatic();
+          return;
+        }
+        if (S.selected && isLocked(S.selected.r, S.selected.c)) S.selected = null;
         if (!S.selected) {
           S.selected = cell;
           AudioManager.playSFX('select');
