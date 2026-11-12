@@ -284,8 +284,11 @@
   function isBoxed(r, c) {
     return !!(S.box[r] && S.box[r][c] > 0);
   }
+  function isFogged(r, c) {
+    return !!(S.fog[r] && S.fog[r][c]);
+  }
   function isLocked(r, c) {
-    return isIced(r, c) || isChained(r, c) || isBoxed(r, c);
+    return isIced(r, c) || isChained(r, c) || isBoxed(r, c) || isFogged(r, c);
   }
 
   // ---------- 货物（钥匙 / 奶龙）允许重叠 ----------
@@ -825,7 +828,8 @@
         // 只有冰块挡三连；锁链可以参与连消（第一次被消只解链）
         const same = c < COLS && S.board[r][c] && S.board[r][c - 1]
           && S.board[r][c].type === S.board[r][c - 1].type
-          && !isIced(r, c) && !isIced(r, c - 1);
+          && !isIced(r, c) && !isIced(r, c - 1)
+          && !isFogged(r, c) && !isFogged(r, c - 1);
         if (same) run++;
         else {
           if (run >= 3) for (let k = c - run; k < c; k++) set.add(kOf(r, k));
@@ -838,7 +842,8 @@
       for (let r = 1; r <= ROWS; r++) {
         const same = r < ROWS && S.board[r][c] && S.board[r - 1][c]
           && S.board[r][c].type === S.board[r - 1][c].type
-          && !isIced(r, c) && !isIced(r - 1, c);
+          && !isIced(r, c) && !isIced(r - 1, c)
+          && !isFogged(r, c) && !isFogged(r - 1, c);
         if (same) run++;
         else {
           if (run >= 3) for (let k = r - run; k < r; k++) set.add(kOf(k, c));
@@ -1519,7 +1524,7 @@
         if (S.fog[r] && S.fog[r][c]) {
           ctx.save();
           roundRect(x + 1, y + 1, CELL - 2, CELL - 2, 9);
-          ctx.fillStyle = 'rgba(196,199,212,0.94)';
+          ctx.fillStyle = '#c4c7d4';   // 不透明：下面的方块 / 货物一点都看不见
           ctx.fill();
           ctx.globalAlpha = 0.55;
           ctx.fillStyle = '#eceef6';
@@ -2439,22 +2444,32 @@
   function dropAndFill() {
     const fallFrom = {};
     for (let c = 0; c < COLS; c++) {
-      let write = ROWS - 1;
-      for (let r = ROWS - 1; r >= 0; r--) {
-        if (S.board[r][c]) {
-          if (write !== r) {
-            S.board[write][c] = S.board[r][c];
-            fallFrom[kOf(write, c)] = r;
-            S.board[r][c] = null;
+      // 迷雾里的方块钉死不动：以雾格为界，把这一列分成几段各自下落 / 补充
+      let bottom = ROWS - 1;
+      for (let r = ROWS - 1; r >= -1; r--) {
+        const anchor = r >= 0 && isFogged(r, c);
+        if (r < 0 || anchor) {
+          if (anchor && !S.board[r][c]) S.board[r][c] = { type: nextType(), special: T.NORMAL };
+          const top = r + 1;
+          let write = bottom;
+          for (let rr = bottom; rr >= top; rr--) {
+            if (S.board[rr][c]) {
+              if (write !== rr) {
+                S.board[write][c] = S.board[rr][c];
+                fallFrom[kOf(write, c)] = rr;
+                S.board[rr][c] = null;
+              }
+              write--;
+            }
           }
-          write--;
+          let n = 0;
+          for (let rr = write; rr >= top; rr--) {
+            S.board[rr][c] = { type: nextType(), special: T.NORMAL };
+            fallFrom[kOf(rr, c)] = -1 - n;
+            n++;
+          }
+          bottom = r - 1;
         }
-      }
-      let n = 0;
-      for (let r = write; r >= 0; r--) {
-        S.board[r][c] = { type: nextType(), special: T.NORMAL };
-        fallFrom[kOf(r, c)] = -1 - n;
-        n++;
       }
     }
     updatePreview();
@@ -2503,7 +2518,8 @@
       S.shakeCell = { from: a, to: b, t0: performance.now() };
       drawStatic();
       AudioManager.playSFX('invalid');
-      toast(isIced(a.r, a.c) || isIced(b.r, b.c) ? '冰块里的方块动不了' : '锁住的方块动不了');
+      toast(isFogged(a.r, a.c) || isFogged(b.r, b.c) ? '迷雾里的方块动不了'
+        : (isIced(a.r, a.c) || isIced(b.r, b.c) ? '冰块里的方块动不了' : '锁住的方块动不了'));
       return;
     }
 
@@ -3921,17 +3937,9 @@
     return !!S.playing && !S.busy && !S.paused;
   }
 
-  // 限步关用不上「+7s」、限时关用不上「+3 步」：点「使用」只弹提示，不扣道具
-  function itemBlockedInThisLevel(key) {
+  // 限步关用不上「+7s」、限时关用不上「+3 步」：背包里的「使用」键直接置灰
+  function itemDisabledHere(key) {
     return (key === 'extraTime' && !S.timerOn) || (key === 'extraMoves' && S.timerOn);
-  }
-  function openItemBlocked() {
-    const box = $('item-blocked');
-    if (box) box.style.display = 'flex';
-  }
-  function closeItemBlocked() {
-    const box = $('item-blocked');
-    if (box) box.style.display = 'none';
   }
 
   function useBackpackItem(key) {
@@ -3946,15 +3954,14 @@
       toast('道具数量不足');
       return false;
     }
-    // 本局用不上的道具：只弹提示，不扣道具、不占用次数
-    if (itemBlockedInThisLevel(key)) {
-      openItemBlocked();
+    // 本局用不上的道具：使用键已置灰，这里再兜一层，绝不白扣
+    if (itemDisabledHere(key)) {
+      toast(S.timerOn ? '这一关按时间算，用不上步数道具' : '这一关按步数算，用不上时间道具');
       return false;
     }
 
     // 先扣道具再刷新数值，避免徽章把刚用掉的那 1 个也算进总数
     Store.useItem(key);
-
     if (key === 'extraMoves') {
       S.moves += 3;
       toast('步数 +3');
@@ -4028,7 +4035,8 @@
       const useBtn = document.createElement('button');
       useBtn.className = 'shop-buy';
       useBtn.textContent = ITEM_ACTION[item.key] || '使用';
-      useBtn.disabled = !canUseItems();
+      useBtn.disabled = !canUseItems() || itemDisabledHere(item.key);
+      if (useBtn.setAttribute) useBtn.setAttribute('data-key', item.key);
       useBtn.addEventListener('click', () => openUseConfirm(item));
       row.appendChild(useBtn);
       list.appendChild(row);
@@ -4249,7 +4257,6 @@
   // 使用道具确认：点「使用」先弹确认，确认后才真正扣道具生效
   let pendingUse = null;  function openUseConfirm(item) {
     if (!canUseItems()) { useBackpackItem(item.key); return; }   // 未开局：按钮本应禁用，兜底走提示
-    if (itemBlockedInThisLevel(item.key)) { openItemBlocked(); return; }
     pendingUse = item;
     const box = $('use-confirm');
     if (!box) { useBackpackItem(item.key); return; }
@@ -6003,10 +6010,6 @@
     });
     const useNo = $('btn-use-no');
     if (useNo) useNo.addEventListener('click', closeUseConfirm);
-
-    // 本局不可使用该道具：点红色确认键关掉提示
-    const blockedOk = $('btn-item-blocked-ok');
-    if (blockedOk) blockedOk.addEventListener('click', closeItemBlocked);
 
     // ==================== 隐藏后台：同时按住奶龙图案 + 注销键 3 秒 ====================
     const adminMascot = (typeof document.querySelector === 'function')
@@ -9353,7 +9356,8 @@
     reshuffle: reshuffle,
     undoMove: undo,
     useItem: useBackpackItem,
-    openUseConfirm: openUseConfirm,
+    renderBackpack: renderBackpack,
+    dropAndFill: dropAndFill,
     findMatches: findMatches,
     autoPause: autoPauseIfPlaying,
     pause: pauseGame,

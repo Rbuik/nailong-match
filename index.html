@@ -12,8 +12,8 @@
 <link rel="preload" as="image" type="image/webp" href="./assets/4.webp">
 <link rel="preload" as="image" type="image/webp" href="./assets/5.webp">
 <link rel="preload" as="image" type="image/png" href="./assets/nailong.png">
-<link rel="stylesheet" href="./css/style.css?v=20261111q">
-<link rel="stylesheet" href="./css/themes.css?v=20261111q">
+<link rel="stylesheet" href="./css/style.css?v=20261111r">
+<link rel="stylesheet" href="./css/themes.css?v=20261111r">
 </head>
 <body data-theme="grass" data-view="menu">
 <div class="game-container">
@@ -100,14 +100,6 @@
     <div>
       <button class="btn-primary btn-danger" id="btn-use-yes">确认</button>
       <button class="btn-primary btn-success" id="btn-use-no">取消</button>
-    </div>
-  </div>
-
-  <!-- 道具本局不可用：限时关用 +3 步 / 步数关用 +7s，只有一个红色确认键 -->
-  <div class="overlay confirm-overlay" id="item-blocked" style="display:none;">
-    <p class="confirm-text">本局不可使用该道具</p>
-    <div>
-      <button class="btn-primary btn-danger" id="btn-item-blocked-ok">确认</button>
     </div>
   </div>
 
@@ -317,7 +309,7 @@
         <p><b>📅 每日挑战</b>：同一天所有人的<b>棋盘布局</b>一样；拿到 <b>3 星</b>才发金币，<b>使用步数越少金币越多</b>，没通关或没到 3 星都不发，拿到 3 星当天封盘。主页点进去可「开始挑战」或「查看榜单」（榜单按<b>星星多 → 用步少 → 通关早</b>排名），棋盘与榜单都在<b>每日00:00重置</b>。</p>
         <p><b>🎮 更多玩法</b>：无尽模式、60s冲刺、节奏关卡，成绩单独记，<b>不提供续命</b>。</p>
         <p><b>🎁 签到入口</b>：每天 <b>50 金币</b>；连续签到每满 7 天额外送 <b>100 金币</b>到邮箱；漏签可 <b>50 金币</b> 补签（<b>不发奖励</b>）；旁边每日<b>转盘</b>免费 1 次。</p>
-        <p><b>🛒 购物商店</b>：+3 步、+7s、洗牌、撤回，以及线消 / 炸弹 / 霜块 / 磁铁 / 螺旋桨 / 颜料 / 彩虹道具，买前弹确认；商店里左右滑动看道具，也可以用手指在商品下面的小圆点上左右滑动，手指滑到哪个圆点就显示哪件道具，方向完全一致；第一件和最后一件首尾相接，可以一直转圈。<b>+3 步</b>只限步数关、<b>+7s</b>只限限时关，用错会弹「本局不可使用该道具」提示，不扣道具。</p>
+        <p><b>🛒 购物商店</b>：+3 步、+7s、洗牌、撤回，以及线消 / 炸弹 / 霜块 / 磁铁 / 螺旋桨 / 颜料 / 彩虹道具，买前弹确认；商店里左右滑动看道具，也可以用手指在商品下面的小圆点上左右滑动，手指滑到哪个圆点就显示哪件道具，方向完全一致；第一件和最后一件首尾相接，可以一直转圈。<b>+3 步</b>只限步数关、<b>+7s</b>只限限时关，不适合本局时「使用」键会变灰，点不了也不会扣道具。</p>
         <p><b>🎨 棋盘配色</b>：按总星星解锁，只换光晕和目标栏底色。</p>
         <p><b>🏅 成就</b>：每枚 5 阶（灰 → 铜 → 银 → 金 → 彩），升一阶奖 <b>50 / 100 / 150 / 200</b> 金币；点进某一枚直接停在<b>已解锁的最高阶</b>，左右滑看各阶奖杯、领奖，没领的会亮<b>小红点</b>。</p>
         <p><b>📊 排行榜</b>：<b>总榜 → 省榜 → 局榜</b>，分数左边带星星，最多显示 20 名；局榜只认「这一关有没有通关」，没通关的灰显垫底、不占名次。</p>
@@ -427,7 +419,7 @@
         <p><b>流沙 🟫</b>：底行有沙的列送不了货；每 3 步埋掉沙上的货，消掉沙上的方块把沙挖走。</p>
         <p><b>移动轨道 🚄</b>：每 4 步整行方块滑一格，别用固定思路。</p>
         <p><b>步数炸弹 ⚠️</b>：红色倒计时，归零<b>直接失败</b>；消掉那一格就拆掉（+120 分）。</p>
-        <p><b>迷雾 🌫️</b>：盖住的方块看不见，消掉旁边的格子雾就散开。</p>
+        <p><b>迷雾 🌫️</b>：盖住的方块完全看不见，雾散开之前里面的方块不能动（不能交换、不能被消，也不会跟着下落）；消掉旁边的格子雾就散开。</p>
         <p><b>传送门 🌀</b>：成对出现，货 / 奶龙 / 道具落到一扇门上直接跳到另一扇，用来跨列送货。</p>
         <p>以上机关在 ❄️ 霜块定格期间<b>全部暂停</b>。</p>
       </section>
@@ -1051,22 +1043,22 @@
   </div>
 </div>
 
-<script src="./js/rng.js?v=20261111q"></script>
-<script src="./js/storage.js?v=20261111q"></script>
-<script src="./js/audio.js?v=20261111q"></script>
-<script src="./js/effects.js?v=20261111q"></script>
-<script src="./js/specials.js?v=20261111q"></script>
-<script src="./js/goals.js?v=20261111q"></script>
-<script src="./js/tasks.js?v=20261111q"></script>
-<script src="./js/mail.js?v=20261111q"></script>
-<script src="./js/input.js?v=20261111q"></script>
-<script src="./js/builtin-music.js?v=20261111q"></script>
-<script src="./js/music.js?v=20261111q"></script>
-<script src="./js/meta.js?v=20261111q"></script>
-<script src="./js/cloud-config.js?v=20261111q"></script>
-<script src="./js/cloud.js?v=20261111q"></script>
-<script src="./js/account.js?v=20261111q"></script>
-<script src="./js/board.js?v=20261111q"></script>
-<script src="./js/game.js?v=20261111q"></script>
+<script src="./js/rng.js?v=20261111r"></script>
+<script src="./js/storage.js?v=20261111r"></script>
+<script src="./js/audio.js?v=20261111r"></script>
+<script src="./js/effects.js?v=20261111r"></script>
+<script src="./js/specials.js?v=20261111r"></script>
+<script src="./js/goals.js?v=20261111r"></script>
+<script src="./js/tasks.js?v=20261111r"></script>
+<script src="./js/mail.js?v=20261111r"></script>
+<script src="./js/input.js?v=20261111r"></script>
+<script src="./js/builtin-music.js?v=20261111r"></script>
+<script src="./js/music.js?v=20261111r"></script>
+<script src="./js/meta.js?v=20261111r"></script>
+<script src="./js/cloud-config.js?v=20261111r"></script>
+<script src="./js/cloud.js?v=20261111r"></script>
+<script src="./js/account.js?v=20261111r"></script>
+<script src="./js/board.js?v=20261111r"></script>
+<script src="./js/game.js?v=20261111r"></script>
 </body>
 </html>
