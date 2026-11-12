@@ -4310,17 +4310,20 @@
   // 洗牌 / 撤回确认：点工具键先弹确认窗，按「确认」才消耗次数并执行
   let pendingTool = null;
   function openToolConfirm(kind) {
-    const act = kind === 'undo' ? undo : shuffleBoard;
+    const act = kind === 'undo' ? undo : (kind === 'hint' ? useHint : shuffleBoard);
     if (S.busy || !S.playing || S.paused) return;
-    const left = kind === 'undo' ? S.undoLeft : S.shuffleLeft;
-    // 次数用完 / 没有可撤回的局面：直接走原来的提示，不弹一个没用的空窗
-    if (left <= 0 || (kind === 'undo' && !S.history.length)) { act(); return; }
+    const left = kind === 'undo' ? S.undoLeft : (kind === 'hint' ? S.hintLeft : S.shuffleLeft);
+    const unavailable = left <= 0 || (kind === 'undo' && !S.history.length) ||
+      (kind === 'hint' && !findHint());
+    // 次数用完 / 没有可撤回的局面 / 没有可走的步：直接走原来的提示，不弹一个没用的空窗
+    if (unavailable) { act(); return; }
     const box = $('tool-confirm');
     if (!box) { act(); return; }
     pendingTool = kind;
     const title = $('tool-confirm-title'), txt = $('tool-confirm-text');
-    if (title) title.textContent = kind === 'undo' ? '撤回' : '洗牌';
-    if (txt) txt.innerHTML = (kind === 'undo' ? '要撤回上一步吗？' : '要重新洗牌吗？') +
+    if (title) title.textContent = kind === 'undo' ? '撤回' : (kind === 'hint' ? '提示' : '洗牌');
+    if (txt) txt.innerHTML = (kind === 'undo' ? '要撤回上一步吗？'
+      : kind === 'hint' ? '要查看一步提示吗？' : '要重新洗牌吗？') +
       '<br><small>本局还剩 ' + left + ' 次，确认后消耗 1 次</small>';
     box.style.display = 'flex';
   }
@@ -6095,6 +6098,7 @@
       const kind = pendingTool;
       closeToolConfirm();
       if (kind === 'undo') undo();
+      else if (kind === 'hint') useHint();
       else if (kind === 'shuffle') shuffleBoard();
     });
     const toolNo = $('btn-tool-no');
@@ -6285,7 +6289,7 @@
     // ==================== 新玩法：章节 / 模式 / 成就 / 图鉴 / 福利 / 排行榜 ====================
     const on = (id, fn) => { const el = $(id); if (el) el.addEventListener('click', fn); };
 
-    on('btn-hint', useHint);
+    on('btn-hint', () => openToolConfirm('hint'));
 
     // 游戏界面第一排：🎵 音乐开关 → 🎒 背包 → 📖 规则 → ⚙️ 设置
     on('btn-rules-game', () => {

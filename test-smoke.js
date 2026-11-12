@@ -750,7 +750,7 @@ function check(name, ok) {
   check('新确认窗已纳入统一按钮尺寸规则',
     htmlSrc0.includes('id="tool-confirm"') &&
     /#tool-confirm > div/.test(cssSrc7) && /#tool-confirm \.btn-primary/.test(cssSrc7) &&
-    htmlSrc0.includes('点洗牌或撤回会先弹确认窗口'));
+    htmlSrc0.includes('点提示、洗牌或撤回都会先弹确认窗口'));
 
   packRows2 = $('backpack-list').children;
   packRows2[0].children[packRows2[0].children.length - 1].dispatch('click'); // 开局炸弹（局内放置，弹确认）
@@ -1789,10 +1789,16 @@ function check(name, ok) {
     /if \(s\.daily\) \{[\s\S]{0,400}s\.seed !== d\.seed\) return false;/.test(jsSrc) &&
     /run\.daily && d && run\.seed === d\.seed && loadRun\(\) return;|if \(run && run\.daily && d && run\.seed === d\.seed && loadRun\(\)\) return;/.test(jsSrc));
 
-  // 18. 提示按钮：消耗次数并高亮（先开一局正常的，上面两局已经结算掉了）
+  // 18. 提示按钮：先弹确认窗，确认后消耗次数并高亮
   sandbox.__nl_test.start(1, { def: { id: 90, theme: 'candy', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
   const hintBefore = sandbox.__nl_test.state().hintLeft;
+  const hintOpen = () => $('tool-confirm').style.display === 'flex';
   $('btn-hint').dispatch('click');
+  check('点「提示」先弹确认窗口', hintOpen() && $('tool-confirm-title').textContent === '提示');
+  $('btn-tool-no').dispatch('click');
+  check('取消提示不消耗次数', !hintOpen() && sandbox.__nl_test.state().hintLeft === hintBefore);
+  $('btn-hint').dispatch('click');
+  $('btn-tool-yes').dispatch('click');
   st = sandbox.__nl_test.state();
   check('点提示后次数 -1', st.hintLeft === hintBefore - 1);
   check('点提示后有高亮格子', Array.isArray(st.hintCells) && st.hintCells.length === 2);
