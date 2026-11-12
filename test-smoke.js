@@ -3826,6 +3826,32 @@ function check(name, ok) {
       return !inMatch && fixed && S.board[3][2] === before;
     })());
 
+
+  check('步数用完花 300 金币续命后，撤回不会把买的 3 步抹掉',
+    /S\.history\.forEach\(\(h\) => \{ if \(h && typeof h\.moves === 'number'\) h\.moves \+= 3; \}\)/.test(jsSrc) &&
+    /revive: doRevive/.test(jsSrc) &&
+    (() => {
+      const t = sandbox.__nl_test;
+      const w = sandbox.Store.getWallet();
+      if ((w.coins || 0) < 300) sandbox.Store.addCoins(400, '测试');
+      t.start(1, { def: { id: 65, theme: 'desert', moves: 20, goal: { type: 'score', target: 100 }, stars: [1, 2, 3] } });
+      const S = t.state();
+      S.moves = 0;
+      S.history = [{
+        board: JSON.parse(JSON.stringify(S.board)),
+        jelly: JSON.parse(JSON.stringify(S.jelly)),
+        ice: [], chain: [], ivy: [], box: [], sand: [], tbomb: [], fog: [],
+        frostTurns: 0, turnCount: 0, score: S.score, moves: 1,
+        jellyLeft: S.jellyLeft, cargoLeft: S.cargoLeft, rescueLeft: S.rescueLeft,
+        clearedCount: S.clearedCount, goal: null
+      }];
+      S.undoLeft = 1;
+      t.revive();
+      const afterBuy = S.moves === 3 && S.history[0].moves === 4;
+      t.undoMove();
+      return afterBuy && S.moves === 4;
+    })());
+
   console.log(failed ? ('\n' + failed + ' 项失败') : '\n全部通过');
   process.exit(failed ? 1 : 0);
 })().catch((e) => { console.error('TEST ERROR', e); process.exit(1); });

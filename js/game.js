@@ -7662,7 +7662,12 @@
     if (!Store.spendCoins(REVIVE_COST, '续命', S.daily ? '每日挑战' : ('第 ' + S.level + ' 关'))) { toast('金币不够'); return; }
     S.reviveUsed = true;
     if (S.timerOn) S.timeLeft = Math.max(0, S.timeLeft) + 7;
-    else S.moves += 3;
+    else {
+      S.moves += 3;
+      // 撤回不能把刚买的 3 步抹掉：快照拍在走步之前，历史里「续命前」的每张快照都补上这 3 步，
+      // 撤回时回到的是「续命前的步数 + 买的 3 步」，而不是续命前的步数。
+      S.history.forEach((h) => { if (h && typeof h.moves === 'number') h.moves += 3; });
+    }
     S.playing = true;
     S.paused = false;
     S.busy = false;
@@ -9360,6 +9365,7 @@
     win: levelWin,
     end: endGame,
     outOfResource: handleOutOfResource,
+    revive: doRevive,
     swap: trySwap,
     hint: useHint,
     clearHint: clearHint,
