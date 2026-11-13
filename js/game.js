@@ -8167,7 +8167,7 @@
     // 签到键上面：连续签到天数（黑色）
     const st2 = Meta.signStats();
     const stEl = $('welfare-streak');
-    if (stEl) stEl.textContent = '累签 ' + st2.streak + ' 天';
+    if (stEl) stEl.textContent = '连续签到 ' + st2.streak + ' 天';
   }
 
   // 今天那一格永远居中：每次进签到入口、补签弹窗关掉后都重新定位
@@ -8224,14 +8224,14 @@
               id: id,
               at: stampNow(),
               icon: '🎉',
-              title: '恭喜累签 ' + r.streak + ' 天',
+              title: '恭喜连续签到 ' + r.streak + ' 天',
               from: '系统',
-              body: '🎉恭喜累签 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n点下面的「领取」直接进钱包，明天继续加油～',
+              body: '🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n点下面的「领取」直接进钱包，明天继续加油～',
               coins: r.milestone
             });
           }
         } catch (e) {}
-        setTimeout(() => toast('🎉恭喜累签 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！'), 400);
+        setTimeout(() => toast('🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！'), 400);
       }
       AudioManager.playSFX('coin');
       renderWelfare();
@@ -8248,7 +8248,7 @@
       else toast('没有可以补签的日子');
       return;
     }
-    toast('补签成功：累签 ' + r.day + ' 天');
+    toast('补签成功：连续签到 ' + r.day + ' 天');
     AudioManager.playSFX('coin');
     renderWelfare();
     updateHUD();
