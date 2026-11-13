@@ -8111,7 +8111,7 @@
       let start = null;
       try { start = Store.signStart ? Store.signStart() : Store.signCycleStart(); } catch (e) {}
       if (!start) start = new Date(today);
-      const fmt = (d) => (d.getMonth() + 1) + '/' + d.getDate();
+      const fmt = (d) => String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
       const week = ['日', '一', '二', '三', '四', '五', '六'];
       // 已签判断用「跨轮保留的全部签约记录」，避免 7 天一轮翻新后旧签到被当成漏签
       const dates = (info.all && info.all.length) ? info.all : (info.dates || []);
@@ -8167,7 +8167,7 @@
     // 签到键上面：连续签到天数（黑色）
     const st2 = Meta.signStats();
     const stEl = $('welfare-streak');
-    if (stEl) stEl.textContent = '连续签到 ' + st2.streak + ' 天';
+    if (stEl) stEl.textContent = '累签 ' + st2.streak + ' 天';
   }
 
   // 今天那一格永远居中：每次进签到入口、补签弹窗关掉后都重新定位
@@ -8215,7 +8215,7 @@
     const r = Meta.signIn();
     if (r.ok) {
       toast('签到成功：+' + r.reward.coins + ' 金币' + (r.reward.item ? ' +彩虹道具' : ''));
-      // 连续签到每满 7 天（7/14/21/28…）：额外 100 金币发到邮箱
+      // 累签每满 7 天（7/14/21/28…）：额外 100 金币发到邮箱
       if (r.milestone && typeof Mail !== 'undefined' && Mail.sendMail) {
         try {
           const id = 'signin-milestone-' + r.streak;
@@ -8224,14 +8224,14 @@
               id: id,
               at: stampNow(),
               icon: '🎉',
-              title: '恭喜连续签到 ' + r.streak + ' 天',
+              title: '恭喜累签 ' + r.streak + ' 天',
               from: '系统',
-              body: '🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n点下面的「领取」直接进钱包，明天继续加油～',
+              body: '🎉恭喜累签 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！\n点下面的「领取」直接进钱包，明天继续加油～',
               coins: r.milestone
             });
           }
         } catch (e) {}
-        setTimeout(() => toast('🎉恭喜连续签到 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！'), 400);
+        setTimeout(() => toast('🎉恭喜累签 ' + r.streak + ' 天，赠送 ' + r.milestone + ' 金币！'), 400);
       }
       AudioManager.playSFX('coin');
       renderWelfare();
@@ -8245,11 +8245,10 @@
     const r = Meta.makeup(dateKey);
     if (!r.ok) {
       if (r.reason === 'poor') toast('金币不够：补签 1 天需要 ' + (Store.MAKEUP_COST || 300) + ' 金币');
-      else if (r.reason === 'full') toast('本轮 7 天已经签满啦');
       else toast('没有可以补签的日子');
       return;
     }
-    toast('补签成功：连续签到 ' + r.day + ' 天');
+    toast('补签成功：累签 ' + r.day + ' 天');
     AudioManager.playSFX('coin');
     renderWelfare();
     updateHUD();

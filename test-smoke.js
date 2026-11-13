@@ -1521,7 +1521,7 @@ function check(name, ok) {
     if (savedTasks !== undefined) lsMap.set('nl2:tasks', savedTasks);
     if (savedWallet !== undefined) lsMap.set('nl2:wallet', savedWallet);
     if (savedAccs !== undefined) lsMap.set('nl2:accounts', savedAccs); else lsMap.delete('nl2:accounts');
-    return streakTxt.indexOf('连续签到 1 天') >= 0 && beforeRegOk && missedOk && panelShown &&
+    return streakTxt.indexOf('累签 1 天') >= 0 && beforeRegOk && missedOk && panelShown &&
       panelTxt.indexOf('50') >= 0 && panelTxt.indexOf('不发') >= 0 && dialogShown && dialogClosed &&
       coins === 950 && st.streak === 2 && st.day === 2;
   })());

@@ -318,14 +318,13 @@
 
   // ==================== 签到（复用 Store.signIn） ====================
   function signInfo() {
-    const s = global.Store ? Store.getTaskState() : { signDay: 0, signDate: '', dates: [] };
+    const s = global.Store ? Store.getTaskState() : { total: 0, signDate: '', all: [] };
     return {
-      day: s.signDay || 0,
+      day: s.total || 0,
       signedToday: global.Store ? !Store.canSignIn() : true,
-      rewards: (global.Store && Store.SIGN_REWARDS) || [],
-      dates: Array.isArray(s.dates) ? s.dates : [],
-      // 所有签过的日期（跨轮保留）：日期条判断「签到了变绿」用它
-      all: Array.isArray(s.all) ? s.all : (Array.isArray(s.dates) ? s.dates : [])
+      rewards: (global.Store && Store.SIGN_REWARDS) || [{ coins: 50 }],
+      // 所有签过的日期（累积保留）：日期条判断「签到了变绿」用它
+      all: Array.isArray(s.all) ? s.all : []
     };
   }
 

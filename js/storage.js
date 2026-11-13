@@ -324,7 +324,7 @@
   }
 
   function getTaskState() {
-    return read(K.tasks, { date: '', list: [], signDay: 0, signDate: '', lastLogin: '', dates: [], cycleStart: '' });
+    return read(K.tasks, { date: '', list: [], signDay: 0, signDate: '', lastLogin: '', all: [], total: 0 });
   }
 
   function setTaskState(s) {
@@ -347,23 +347,13 @@
     return new Date(p[0] || 1970, (p[1] || 1) - 1, p[2] || 1);
   }
 
-  // 兼容旧存档：只有 signDay/signDate 时，按它们推导出本周期已签的日期表
+  // 兼容旧存档：把老字段归一化成「累计签到天数 total + 全部已签日期 all」
   function normSign(s) {
+    if (!Array.isArray(s.all)) s.all = [];
     if (!Array.isArray(s.dates)) s.dates = [];
-    // all：所有签过的日期（跨轮保留，日期条判断「签到了变绿」要用它，不能只看本轮 dates）
-    if (!Array.isArray(s.all)) s.all = s.dates.slice();
-    if (!s.cycleStart) s.cycleStart = '';
-    // 老存档没有连续天数：用本轮已签天数近似（旧版一轮最多 7 天，误差最多几天）
-    if (typeof s.streak !== 'number') s.streak = s.dates.length;
-    if (!s.dates.length && s.signDate) {
-      const n = Math.max(1, Math.min(s.signDay || 1, SIGN_REWARDS.length));
-      const end = dparse(s.signDate);
-      const start = new Date(end.getFullYear(), end.getMonth(), end.getDate() - (n - 1));
-      s.cycleStart = todayKey(start);
-      s.dates = [];
-      for (let i = 0; i < n; i++) {
-        s.dates.push(todayKey(new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)));
-      }
+    // 累计天数：优先用已存的 total；没有就从已签日期数 / 老 streak / signDay 近似
+    if (typeof s.total !== 'number' || s.total < 0) {
+      s.total = s.all.length || s.dates.length || s.streak || s.signDay || 0;
     }
     return s;
   }
@@ -371,41 +361,22 @@
   function signIn() {
     const s = normSign(getTaskState());
     const today = todayKey();
-    if (s.signDate === today) return { ok: false, reason: 'already', day: s.signDay };
+    if (s.signDate === today) return { ok: false, reason: 'already', day: s.total };
 
-    const yesterday = todayKey(new Date(Date.now() - 86400000));
-    // 连续天数不受「7 天一轮」限制：只要昨天签过就一直 +1（7/14/21/28… 里程碑看这个数）
-    const broken = s.dates.indexOf(yesterday) < 0;
-    let streak, day;
-    if (broken) {
-      streak = 1;                       // 断签 → 重新数
-      day = 1;
-      s.dates = [];
-      s.cycleStart = today;
-    } else {
-      streak = (s.streak || 0) + 1;     // 连续 +1
-      if (s.dates.length >= SIGN_REWARDS.length) {
-        day = 1;                        // 本轮 7 格签满 → 日期条翻新的一轮，连续天数照常累计
-        s.dates = [];
-        s.cycleStart = today;
-      } else {
-        day = s.dates.length + 1;
-      }
-    }
-
-    const reward = SIGN_REWARDS[day - 1];
+    // 累计天数：永远 +1，不按 7 天一轮清零（累签天数是累积的）
+    s.total = (s.total || 0) + 1;
+    const reward = SIGN_REWARDS[(s.total - 1) % SIGN_REWARDS.length];
     addCoins(reward.coins, '签到奖励');
     if (reward.item) addItem(reward.item, reward.itemN);
 
-    s.streak = streak;
-    s.dates.push(today);
+    s.signDate = today;
     if (s.all.indexOf(today) < 0) s.all.push(today);
     if (s.all.length > 400) s.all = s.all.slice(-400);
-    s.signDay = s.dates.length;
-    s.signDate = today;
     setTaskState(s);
-    const milestone = (streak > 0 && streak % SIGN_MILESTONE.every === 0) ? SIGN_MILESTONE.coins : 0;
-    return { ok: true, day, reward, streak: streak, milestone: milestone };
+
+    // 累签天数每满 7（7/14/21/28…）额外 100 金币（连签奖励）
+    const milestone = (s.total > 0 && s.total % SIGN_MILESTONE.every === 0) ? SIGN_MILESTONE.coins : 0;
+    return { ok: true, day: s.total, reward, streak: s.total, milestone: milestone };
   }
 
   // 签到起始日 = 用户注册（建号）那一天；取不到就退回最早签到的日子，再退回今天
@@ -454,34 +425,30 @@
     if ((w.coins || 0) < MAKEUP_COST) return { ok: false, reason: 'poor', need: MAKEUP_COST - (w.coins || 0) };
     if (!spendCoins(MAKEUP_COST, '补签')) return { ok: false, reason: 'poor', need: MAKEUP_COST };
 
-    s.dates.push(miss);
-    s.dates.sort();
-    if (s.all.indexOf(miss) < 0) s.all.push(miss);
+    s.all.push(miss);
     s.all.sort();
     if (s.all.length > 400) s.all = s.all.slice(-400);
-    s.signDay = s.dates.length;
-    s.streak = (s.streak || 0) + 1;   // 补上漏签的那天，连续天数照常 +1
+    s.total = (s.total || 0) + 1;   // 补签也计入累签天数（不发当日奖励）
     setTaskState(s);
-    return { ok: true, day: s.signDay, date: miss };
+    return { ok: true, day: s.total, date: miss };
   }
 
-  // 福利中心展示用：连续天数 + 可补签天数
+  // 福利中心展示用：累签天数 + 可补签天数
   function signStats() {
     const s = normSign(getTaskState());
     const today = todayKey();
-    const yesterday = todayKey(new Date(Date.now() - 86400000));
     const signedToday = s.signDate === today;
-    let streak = 0;
-    if (signedToday || s.all.indexOf(yesterday) >= 0) streak = s.streak || s.signDay || s.dates.length;
+    const total = s.total || 0;
     // 可补签天数：从注册那天到昨天，还没签的天数
     let missed = 0;
     const start = signStart();
+    const yesterday = todayKey(new Date(Date.now() - 86400000));
     const yd = dparse(yesterday);
     for (let d = new Date(start); d <= yd; d.setDate(d.getDate() + 1)) {
       if (s.all.indexOf(todayKey(d)) < 0) missed++;
       if (missed > 400) break;
     }
-    return { streak: streak, signedToday: signedToday, missed: missed, canMakeup: missed > 0, day: s.signDay || 0 };
+    return { streak: total, signedToday: signedToday, missed: missed, canMakeup: missed > 0, day: total };
   }
 
   function canSignIn() {
@@ -491,8 +458,8 @@
   // 本轮签到的起点（Date）；还没签过任何一天时返回 null
   function signCycleStart() {
     const s = normSign(getTaskState());
-    if (!s.cycleStart && !s.dates.length) return null;
-    return dparse(s.cycleStart || s.dates[0]);
+    if (!s.all || !s.all.length) return null;
+    return dparse(s.all[0]);
   }
 
   // ---------- 设置 ----------
